@@ -95,10 +95,7 @@ record IncidentInfo {
    * The time at which the incident actually started (may be before the date it was raised).
    */
   @Searchable = {
-    "/time": {
-        "fieldName": "startedAt",
-        "fieldType": "COUNT"
-      }
+    "fieldType": "COUNT"
   }
   startedAt: optional Time
 

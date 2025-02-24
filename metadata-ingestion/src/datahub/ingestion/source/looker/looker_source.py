@@ -383,7 +383,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         self.reachable_explores[(model, explore)].append(via)
 
-    def _get_looker_dashboard_element(
+    def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
         # Dashboard elements can use raw usage_queries against explores

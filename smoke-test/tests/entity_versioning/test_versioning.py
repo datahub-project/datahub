@@ -36,7 +36,6 @@ def ingest_cleanup_data(graph_client: DataHubGraph):
         wait_for_writes_to_sync()
 
 
-@pytest.mark.skip("Flaky: remove after unlink fixed")
 def test_link_unlink_version(graph_client: DataHubGraph):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
     version_set_urn = graph_client.link_asset_to_version_set(
@@ -50,7 +49,6 @@ def test_link_unlink_version(graph_client: DataHubGraph):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
 
 
-@pytest.mark.skip("Flaky: remove after unlink fixed")
 def test_link_unlink_three_versions(graph_client):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
     for i, entity_urn in enumerate(ENTITY_URNS):
@@ -76,7 +74,6 @@ def test_link_unlink_three_versions(graph_client):
     assert graph_client.get_aspect(ENTITY_URNS[1], VersionPropertiesClass).isLatest
 
 
-@pytest.mark.skip("Flaky: remove after unlink fixed")
 def test_link_unlink_three_versions_unlink_all(graph_client):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
     for i, entity_urn in enumerate(ENTITY_URNS):
@@ -123,7 +120,6 @@ def test_link_unlink_three_versions_unlink_all(graph_client):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
 
 
-@pytest.mark.skip("Flaky: remove after unlink fixed")
 def test_link_unlink_three_versions_unlink_middle_and_latest(graph_client):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
     for i, entity_urn in enumerate(ENTITY_URNS):
@@ -161,7 +157,6 @@ def test_link_unlink_three_versions_unlink_middle_and_latest(graph_client):
     assert graph_client.get_aspect(ENTITY_URNS[0], VersionPropertiesClass).isLatest
 
 
-@pytest.mark.skip("Flaky: remove after unlink fixed")
 def test_link_unlink_three_versions_unlink_and_relink(graph_client):
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
     for i, entity_urn in enumerate(ENTITY_URNS):

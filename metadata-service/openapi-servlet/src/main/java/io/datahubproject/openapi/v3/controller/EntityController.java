@@ -59,8 +59,6 @@ import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -162,12 +160,8 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
-      @Parameter(
-              schema = @Schema(nullable = true),
-              description =
-                  "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-          @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepALive,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -224,7 +218,7 @@ public class EntityController
             null,
             sortCriteria,
             scrollId,
-            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
+            pitKeepALive,
             count,
             null);
 

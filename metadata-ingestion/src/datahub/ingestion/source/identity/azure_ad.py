@@ -13,7 +13,6 @@ from requests.adapters import HTTPAdapter, Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -52,7 +51,6 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
-from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +132,11 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
+    # If enabled, report will contain names of filtered users and groups.
+    filtered_tracking: bool = Field(
+        default=True,
+        description="If enabled, report will contain names of filtered users and groups.",
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(
@@ -154,10 +156,14 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
 @dataclass
 class AzureADSourceReport(StaleEntityRemovalSourceReport):
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered: List[str] = field(default_factory=list)
+    filtered_tracking: bool = field(default=True, repr=False)
+    filtered_count: int = field(default=0)
 
     def report_filtered(self, name: str) -> None:
-        self.filtered.append(name)
+        self.filtered_count += 1
+        if self.filtered_tracking:
+            self.filtered.append(name)
 
 
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
@@ -260,7 +266,9 @@ class AzureADSource(StatefulIngestionSourceBase):
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
-        self.report = AzureADSourceReport()
+        self.report = AzureADSourceReport(
+            filtered_tracking=self.config.filtered_tracking
+        )
         session = requests.Session()
         retries = Retry(
             total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]

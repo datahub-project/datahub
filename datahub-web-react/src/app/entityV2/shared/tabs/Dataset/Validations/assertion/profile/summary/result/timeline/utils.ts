@@ -80,9 +80,9 @@ export function calculateInitialLookbackWindowFromRunEvents(
     // Take the latest two events.
     // A more fancy way would be to recency-weighted averages across the board...
     // ...but the most recent are almost always indicative of currently relevant time window, so we keep it simple for now.
-    const ts1 = allRunEvents[0]?.timestampMillis;
+    const ts1 = allRunEvents[0].timestampMillis;
     const ts2 = allRunEvents[1]
-        ? allRunEvents[1]?.timestampMillis
+        ? allRunEvents[1].timestampMillis
         : // if we don't have a second run event yet, guess the next event based on the current monitor
           tryGetNextTSFromCron(tryGetScheduleFromMonitor(monitor));
 

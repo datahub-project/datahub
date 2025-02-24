@@ -62,6 +62,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
     )
@@ -85,7 +86,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
 
 
 @freeze_time(FROZEN_TIME)
-def test_overlapping_inserts() -> None:
+def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -113,13 +114,14 @@ def test_overlapping_inserts() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_temp_table() -> None:
+def test_temp_table(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -171,13 +173,14 @@ def test_temp_table() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_temp_table.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_multistep_temp_table() -> None:
+def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -232,13 +235,14 @@ def test_multistep_temp_table() -> None:
         == 4
     )
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_overlapping_inserts_from_temp_tables() -> None:
+def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -307,13 +311,14 @@ def test_overlapping_inserts_from_temp_tables() -> None:
 
     mcps = list(aggregator.gen_metadata())
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts_from_temp_tables.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_aggregate_operations() -> None:
+def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=False,
@@ -355,13 +360,14 @@ def test_aggregate_operations() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_aggregate_operations.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_view_lineage() -> None:
+def test_view_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -392,13 +398,14 @@ def test_view_lineage() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_view_lineage.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_known_lineage_mapping() -> None:
+def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -422,13 +429,14 @@ def test_known_lineage_mapping() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_column_lineage_deduplication() -> None:
+def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -459,13 +467,14 @@ def test_column_lineage_deduplication() -> None:
     # which came later and hence has higher precedence.
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_add_known_query_lineage() -> None:
+def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -503,13 +512,14 @@ def test_add_known_query_lineage() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_table_rename() -> None:
+def test_table_rename(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -560,13 +570,14 @@ def test_table_rename() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_table_rename_with_temp() -> None:
+def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -619,13 +630,14 @@ def test_table_rename_with_temp() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename_with_temp.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_table_swap() -> None:
+def test_table_swap(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
         generate_lineage=True,
@@ -705,13 +717,14 @@ def test_table_swap() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_swap.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_table_swap_with_temp() -> None:
+def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
         generate_lineage=True,
@@ -874,13 +887,14 @@ def test_table_swap_with_temp() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_swap_with_temp.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_table_query_mcps() -> None:
+def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="bigquery",
         generate_lineage=True,
@@ -900,13 +914,16 @@ def test_create_table_query_mcps() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_create_table_query_mcps.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
-def test_table_lineage_via_temp_table_disordered_add() -> None:
+def test_table_lineage_via_temp_table_disordered_add(
+    pytestconfig: pytest.Config,
+) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -932,6 +949,7 @@ def test_table_lineage_via_temp_table_disordered_add() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR
         / "test_table_lineage_via_temp_table_disordered_add.json",
@@ -939,7 +957,7 @@ def test_table_lineage_via_temp_table_disordered_add() -> None:
 
 
 @freeze_time(FROZEN_TIME)
-def test_basic_usage() -> None:
+def test_basic_usage(pytestconfig: pytest.Config) -> None:
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -980,6 +998,7 @@ def test_basic_usage() -> None:
     mcps = list(aggregator.gen_metadata())
 
     check_goldens_stream(
+        pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )

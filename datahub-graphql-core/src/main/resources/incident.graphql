@@ -433,10 +433,10 @@ input IncidentStatusInput {
   """
   The state of the incident
   """
-  state: IncidentState!
+  state: IncidentState
 
   """
-  The lifecycle stage ofthe incident
+  The lifecycle stage of the incident
   """
   stage: IncidentStage
 
@@ -462,99 +462,6 @@ input UpdateIncidentStatusInput {
   An optional message associated with the new state
   """
   message: String
-}
-
-extend type Dataset {
-  """
-  Incidents associated with the Dataset
-  """
-  incidents(
-    """
-    Optional incident state to filter by, defaults to any state.
-    """
-    state: IncidentState,
-    """
-    Optional incident stage to filter by, defaults to any state.
-    """
-    stage: IncidentStage,
-    """
-    Optional incident priority to filter by, defaults to any state.
-    """
-    priority: IncidentPriority,
-    """
-    Optional assignee urns for an incident.
-    """
-    assigneeUrns: [String!],
-    """
-    Optional start offset, defaults to 0.
-    """
-    start: Int,
-    """
-    Optional start offset, defaults to 20.
-    """
-    count: Int): EntityIncidentsResult
-}
-
-extend type DataJob {
-  """
-  Incidents associated with the DataJob
-  """
-  incidents(
-    """
-    Optional incident state to filter by, defaults to any state.
-    """
-    state: IncidentState,
-    """
-    Optional incident stage to filter by, defaults to any state.
-    """
-    stage: IncidentStage,
-    """
-    Optional incident priority to filter by, defaults to any state.
-    """
-    priority: IncidentPriority,
-    """
-    Optional assignee urns for an incident.
-    """
-    assigneeUrns: [String!],
-    """
-    Optional start offset, defaults to 0.
-    """
-    start: Int,
-    """
-    Optional start offset, defaults to 20.
-    """
-    count: Int): EntityIncidentsResult
-}
-
-extend type DataFlow {
-  """
-  Incidents associated with the DataFlow
-  """
-  incidents(
-    """
-    Optional incident state to filter by, defaults to any state.
-    """
-    state: IncidentState,
-    """
-    Optional incident stage to filter by, defaults to any state.
-    """
-    stage: IncidentStage,
-    """
-    Optional incident priority to filter by, defaults to any state.
-    """
-    priority: IncidentPriority,
-    """
-    Optional assignee urns for an incident.
-    """
-    assigneeUrns: [String!],
-    """
-    Optional start offset, defaults to 0.
-    """
-    start: Int,
-    """
-    Optional start offset, defaults to 20.
-    """
-    count: Int): EntityIncidentsResult
 }
 
 extend type Dashboard {

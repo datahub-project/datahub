@@ -10,6 +10,7 @@ from tenacity import retry, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -19,19 +20,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
-    SourceReport,
-)
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
-)
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
     CorpUserSettingsClass,
@@ -195,9 +185,7 @@ class CorpUser:
     is_team_enterprise: Optional[bool] = None
 
 
-class SlackSourceConfig(
-    StatefulIngestionConfigBase,
-):
+class SlackSourceConfig(ConfigModel):
     bot_token: SecretStr = Field(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email`, `users.profile:read`, and `team:read` scopes.",
     )
@@ -216,22 +204,22 @@ class SlackSourceConfig(
         default=10,
         description="Number of API requests per minute. Low-level config. Do not tweak unless you are facing any issues.",
     )
-    ingest_public_channels: bool = Field(
+    ingest_public_channels = Field(
         type=bool,
         default=False,
         description="Whether to ingest public channels. If set to true needs `channels:read` scope.",
     )
-    channels_iteration_limit: int = Field(
+    channels_iteration_limit = Field(
         type=int,
         default=200,
         description="Limit the number of channels to be ingested in a iteration. Low-level config. Do not tweak unless you are facing any issues.",
     )
-    channel_min_members: int = Field(
+    channel_min_members = Field(
         type=int,
         default=2,
         description="Ingest channels with at least this many members.",
     )
-    should_ingest_archived_channels: bool = Field(
+    should_ingest_archived_channels = Field(
         type=bool,
         default=False,
         description="Whether to ingest archived channels.",
@@ -239,7 +227,7 @@ class SlackSourceConfig(
 
 
 @dataclass
-class SlackSourceReport(StaleEntityRemovalSourceReport):
+class SlackSourceReport(SourceReport):
     channels_reported: int = 0
     archived_channels_reported: int = 0
     users_reported: int = 0
@@ -252,12 +240,11 @@ DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.TESTING)
-class SlackSource(StatefulIngestionSourceBase):
+class SlackSource(Source):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
-        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report: SlackSourceReport = SlackSourceReport()
+        self.report = SlackSourceReport()
         self.workspace_base_url: Optional[str] = None
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_requests_per_min, period=60
@@ -303,14 +290,6 @@ class SlackSource(StatefulIngestionSourceBase):
             lastUpdatedSeconds=user.get("updated"),
         )
         return SlackUserDetails(slack_user_info=user_info)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(
         self,

@@ -77,6 +77,7 @@ public class GmsGraphQLEngineArgs {
   GitVersion gitVersion;
   TimelineService timelineService;
   boolean supportsImpactAnalysis;
+  Integer defaultLineageLastDaysFilter;
   VisualConfiguration visualConfiguration;
   TelemetryConfiguration telemetryConfiguration;
   TestsConfiguration testsConfiguration;
@@ -96,20 +97,19 @@ public class GmsGraphQLEngineArgs {
   DataProductService dataProductService;
   ERModelRelationshipService erModelRelationshipService;
   FormService formService;
+  ActionRequestService actionRequestService;
   RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
   boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
   ChromeExtensionConfiguration chromeExtensionConfiguration;
-  ConnectionService connectionService;
+  ClassificationConfiguration classificationConfiguration;
   AssertionService assertionService;
   EntityVersioningService entityVersioningService;
+  ConnectionService connectionService;
 
   // any fork specific args should go below this line
-  Integer defaultLineageLastDaysFilter;
-  ActionRequestService actionRequestService;
-  ClassificationConfiguration classificationConfiguration;
   EntitySearchService entitySearchService;
   TestEngine testEngine;
   MonitorService monitorService;

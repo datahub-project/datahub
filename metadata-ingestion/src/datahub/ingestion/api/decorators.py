@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import (
+from datahub.ingestion.api.source import (  # noqa: I250
     Source,
     SourceCapability as SourceCapability,
 )

@@ -5,12 +5,11 @@ function readyToTypeEditor() {
 describe("run managed ingestion", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.ignoreResizeObserverLoop();
   });
   it("create run managed ingestion source", () => {
     const number = Math.floor(Math.random() * 100000);
     const testName = `cypress test source ${number}`;
-    const cli_version = "0.15.0.5";
+    const cli_version = "0.12.0";
     cy.login();
     cy.goToIngestionPage();
     cy.contains("Loading ingestion sources...").should("not.exist");

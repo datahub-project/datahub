@@ -1,5 +1,4 @@
-import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { CodeSandboxOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '../../../types.generated';
@@ -84,8 +83,6 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
         return {
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            name: mlModel && this.displayName(mlModel),
             externalUrl: mlModel?.properties?.externalUrl,
         };
     };
@@ -108,11 +105,6 @@ export class MLModelEntity implements Entity<MlModel> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
-                },
-                {
-                    name: 'Lineage',
-                    component: LineageTab,
-                    icon: PartitionOutlined,
                 },
                 {
                     name: 'Properties',
@@ -216,7 +208,7 @@ export class MLModelEntity implements Entity<MlModel> {
     getLineageVizConfig = (entity: MlModel) => {
         return {
             urn: entity.urn,
-            name: entity && this.displayName(entity),
+            name: entity.name,
             type: EntityType.Mlmodel,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
@@ -225,8 +217,7 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     displayName = (data: MlModel) => {
-        // eslint-disable-next-line @typescript-eslint/dot-notation
-        return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
+        return data.name || data.urn;
     };
 
     createdTime = (data: MlModel) => {
@@ -234,11 +225,7 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     getGenericEntityProperties = (mlModel: MlModel) => {
-        return getDataForEntityType({
-            data: mlModel,
-            entityType: this.type,
-            getOverrideProperties: this.getOverridePropertiesFromEntity,
-        });
+        return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
     };
 
     supportedCapabilities = () => {

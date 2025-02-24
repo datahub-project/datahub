@@ -2,7 +2,6 @@ import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/i
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { Skeleton, Spin } from 'antd';
 import { Tooltip } from '@components';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -69,7 +68,6 @@ const NodeWrapper = styled.div<{
 `;
 
 const IconWrapper = styled.div<{ isGhost: boolean }>`
-    display: flex;
     opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
 `;
 
@@ -94,9 +92,7 @@ const CustomIcon = styled.img`
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, fetchStatus } = data;
-    const entityRegistry = useEntityRegistryV2();
     const isQuery = type === EntityType.Query;
-    const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
@@ -135,11 +131,8 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             <IconWrapper isGhost={isGhost}>
                 {icon && <CustomIcon src={icon} />}
-                {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
                 {!icon && isQuery && <ConsoleSqlOutlined />}
-                {!icon && !isQuery && !isDataProcessInstance && (
-                    <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
-                )}
+                {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
             </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>

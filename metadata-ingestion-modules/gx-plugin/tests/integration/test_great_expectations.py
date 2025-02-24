@@ -1,3 +1,4 @@
+import os
 import shutil
 from typing import List
 from unittest import mock
@@ -20,6 +21,10 @@ try:
     )
 except Exception:
     use_gx_folder = False
+
+
+def should_update_golden_file() -> bool:
+    return bool(os.getenv("DATAHUB_GOLDEN_FILE_UPDATE", False))
 
 
 FROZEN_TIME = "2021-12-28 12:00:00"
@@ -79,5 +84,7 @@ def test_ge_ingest(
         assert_metadata_files_equal(
             output_path=tmp_path / "ge_mcps.json",
             golden_path=test_resources_dir / golden_json,
+            copy_output=False,
+            update_golden=should_update_golden_file(),
             ignore_paths=[],
         )

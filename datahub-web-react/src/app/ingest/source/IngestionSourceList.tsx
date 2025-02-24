@@ -232,7 +232,7 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
     };
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 3000);
+        setTimeout(() => refetch(), 2000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
     };

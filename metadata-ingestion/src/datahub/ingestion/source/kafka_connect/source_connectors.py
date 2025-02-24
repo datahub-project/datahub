@@ -107,9 +107,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         assert database_name
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
-        topic_prefix = self.connector_manifest.config.get("topic.prefix") or ""
+        topic_prefix = self.connector_manifest.config.get("topic.prefix", None)
 
-        query = self.connector_manifest.config.get("query") or ""
+        query = self.connector_manifest.config.get("query", None)
 
         transform_names = (
             self.connector_manifest.config.get("transforms", "").split(",")

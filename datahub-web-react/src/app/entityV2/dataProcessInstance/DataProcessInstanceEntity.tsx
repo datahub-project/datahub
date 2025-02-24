@@ -1,5 +1,3 @@
-import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity as GraphQLEntity } from '@types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -10,7 +8,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct } from '@app/entityV2/shared/utils';
-import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
+import { useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
 import { DataProcessInstance, EntityType, SearchResult } from '../../../types.generated';
@@ -84,10 +82,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             }
             tabs={[
                 {
-                    name: 'Summary',
-                    component: DataProcessInstanceSummary,
-                },
-                {
                     name: 'Lineage',
                     component: LineageTab,
                 },
@@ -103,20 +97,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     getSidebarSections = () => [{ component: SidebarEntityHeader }];
 
     getOverridePropertiesFromEntity = (processInstance?: DataProcessInstance | null): GenericEntityProperties => {
-        const parent =
-            processInstance?.parentTemplate &&
-            globalEntityRegistryV2.getGenericEntityProperties(
-                processInstance.parentTemplate.type,
-                processInstance.parentTemplate,
-            );
         return {
             name: processInstance && this.displayName(processInstance),
-            platform:
-                (processInstance as GetDataProcessInstanceQuery['dataProcessInstance'])?.optionalPlatform ||
-                parent?.platform,
-            parent,
-            // Not currently rendered in V2
-            lastRunEvent: processInstance?.state?.[0],
         };
     };
 

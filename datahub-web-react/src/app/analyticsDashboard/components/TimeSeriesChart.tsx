@@ -84,38 +84,6 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
     return returnLines;
 }
 
-const formatAxisDate = (value: number, chartData: TimeSeriesChartType) => {
-    const date = new Date(value);
-
-    switch (chartData.interval) {
-        case 'MONTH':
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric',
-                timeZone: 'UTC',
-            });
-        case 'WEEK':
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                timeZone: 'UTC',
-            });
-        case 'DAY':
-            return date.toLocaleDateString('en-US', {
-                weekday: 'short',
-                day: 'numeric',
-                timeZone: 'UTC',
-            });
-        default:
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                timeZone: 'UTC',
-            });
-    }
-};
-
 export const TimeSeriesChart = ({
     chartData,
     width,
@@ -149,7 +117,6 @@ export const TimeSeriesChart = ({
                     strokeWidth={style?.axisWidth}
                     tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
                     numTicks={3}
-                    tickFormat={(value) => formatAxisDate(value, chartData)}
                 />
                 <Axis
                     orientation="right"
@@ -184,7 +151,9 @@ export const TimeSeriesChart = ({
                         tooltipData?.nearestDatum && (
                             <div>
                                 <div>
-                                    {formatAxisDate(accessors.xAccessor(tooltipData.nearestDatum.datum), chartData)}
+                                    {new Date(
+                                        Number(accessors.xAccessor(tooltipData.nearestDatum.datum)),
+                                    ).toDateString()}
                                 </div>
                                 <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
                             </div>

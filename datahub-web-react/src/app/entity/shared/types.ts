@@ -50,7 +50,6 @@ import {
     ScrollResults,
     Documentation,
     VersionProperties,
-    DataProcessRunEvent,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -138,18 +137,15 @@ export type GenericEntityProperties = {
     inputOutput?: Maybe<DataJobInputOutput>;
     forms?: Maybe<Forms>;
     parent?: Maybe<GenericEntityProperties>;
-    displayProperties?: Maybe<DisplayProperties>;
-    notes?: Maybe<EntityRelationshipsResult>;
-    versionProperties?: Maybe<VersionProperties>;
-
-    // Data process instance
-    lastRunEvent?: Maybe<DataProcessRunEvent>;
 
     // Saas only below
     tagProposals?: Maybe<ActionRequest[]>;
     termProposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
+    displayProperties?: Maybe<DisplayProperties>;
     share?: Maybe<Share>;
+    notes?: Maybe<EntityRelationshipsResult>;
+    versionProperties?: Maybe<VersionProperties>;
 };
 
 export type GenericEntityUpdate = {

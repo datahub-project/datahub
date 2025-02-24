@@ -10,7 +10,7 @@ import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { useEntityQueryParams } from '../../../containers/profile/utils';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '../../../../../search/utils/constants';
+import { UnionType } from '../../../../../search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
@@ -146,7 +146,6 @@ export const EmbeddedListSearchSection = ({
 
     return (
         <EmbeddedListSearch
-            entityTypes={EMBEDDED_LIST_SEARCH_ENTITY_TYPES}
             query={query || ''}
             page={page}
             unionType={unionType}

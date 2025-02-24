@@ -16,9 +16,7 @@ record GlossaryTermAssociation {
     "fieldType": "URN",
     "hasValuesFieldName": "hasGlossaryTerms",
     "addToFilters": true,
-    "filterNameOverride": "Glossary Term Applied",
-    "includeSystemModifiedAt": true,
-    "systemModifiedAtFieldName": "termsModifiedAt"
+    "filterNameOverride": "Glossary Term Applied"
   }
   urn: GlossaryTermUrn
 

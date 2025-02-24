@@ -135,8 +135,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     getLineageVizConfig = (entity: MlModelGroup) => {
         return {
             urn: entity.urn,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            name: entity.properties?.['propertiesName'] || entity.name,
+            name: entity.name,
             type: EntityType.MlmodelGroup,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,

@@ -285,7 +285,7 @@ export const HomePageHeader = () => {
                             <SuggestionsHeader>
                                 <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
                                 <ExploreAllButton type="link" onClick={onClickExploreAll}>
-                                    View all <StyledRightOutlined />
+                                    Explore all <StyledRightOutlined />
                                 </ExploreAllButton>
                             </SuggestionsHeader>
                             <SuggestionTagContainer>

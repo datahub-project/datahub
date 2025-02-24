@@ -294,6 +294,7 @@ def test_dataset_usage(
     run_and_get_pipeline(pipeline_config_dict)
 
     check_golden_file(
+        pytestconfig=pytestconfig,
         output_path=pathlib.Path(f"{tmp_path}/{test_name}_mcps.json"),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
@@ -370,6 +371,7 @@ def test_dataset_usage_with_ranking_factors(
     run_and_get_pipeline(pipeline_config_dict)
 
     check_golden_file(
+        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
@@ -377,13 +379,18 @@ def test_dataset_usage_with_ranking_factors(
 
 
 def check_golden_file(
+    pytestconfig: PytestConfig,
     output_path: pathlib.Path,
     golden_path: pathlib.Path,
     ignore_paths: Sequence[str] = (),
 ) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
     assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
+        update_golden=update_golden,
+        copy_output=False,
         ignore_paths=ignore_paths,
         ignore_order=True,
     )
@@ -463,6 +470,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
     pipeline.raise_from_status()
 
     check_golden_file(
+        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
@@ -544,6 +552,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
     pipeline.raise_from_status()
 
     check_golden_file(
+        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],

@@ -181,38 +181,6 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((QueryEntity) partialEntity).setUrn(input.toString());
       ((QueryEntity) partialEntity).setType(EntityType.QUERY);
     }
-    if (input.getEntityType().equals(RESTRICTED_ENTITY_NAME)) {
-      partialEntity = new Restricted();
-      ((Restricted) partialEntity).setUrn(input.toString());
-      ((Restricted) partialEntity).setType(EntityType.RESTRICTED);
-    }
-    if (input.getEntityType().equals(BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
-      partialEntity = new BusinessAttribute();
-      ((BusinessAttribute) partialEntity).setUrn(input.toString());
-      ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
-    }
-    if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
-      partialEntity = new Form();
-      ((Form) partialEntity).setUrn(input.toString());
-      ((Form) partialEntity).setType(EntityType.FORM);
-    }
-    if (input.getEntityType().equals(POST_ENTITY_NAME)) {
-      partialEntity = new Post();
-      ((Post) partialEntity).setUrn(input.toString());
-      ((Post) partialEntity).setType(EntityType.POST);
-    }
-    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
-      partialEntity = new DataProcessInstance();
-      ((DataProcessInstance) partialEntity).setUrn(input.toString());
-      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
-    }
-    if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
-      partialEntity = new VersionSet();
-      ((VersionSet) partialEntity).setUrn(input.toString());
-      ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
-    }
-
-    /* SaaS Only */
     if (input.getEntityType().equals(DATAHUB_CONNECTION_ENTITY_NAME)) {
       partialEntity = new DataHubConnection();
       ((DataHubConnection) partialEntity).setUrn(input.toString());
@@ -238,10 +206,50 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((DataContract) partialEntity).setUrn(input.toString());
       ((DataContract) partialEntity).setType(EntityType.DATA_CONTRACT);
     }
+    if (input.getEntityType().equals(QUERY_ENTITY_NAME)) {
+      partialEntity = new QueryEntity();
+      ((QueryEntity) partialEntity).setUrn(input.toString());
+      ((QueryEntity) partialEntity).setType(EntityType.QUERY);
+    }
+    if (input.getEntityType().equals(RESTRICTED_ENTITY_NAME)) {
+      partialEntity = new Restricted();
+      ((Restricted) partialEntity).setUrn(input.toString());
+      ((Restricted) partialEntity).setType(EntityType.RESTRICTED);
+    }
+    if (input.getEntityType().equals(BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+      partialEntity = new BusinessAttribute();
+      ((BusinessAttribute) partialEntity).setUrn(input.toString());
+      ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
+    }
+    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
+      partialEntity = new DataProcessInstance();
+      ((DataProcessInstance) partialEntity).setUrn(input.toString());
+      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
+    }
+    if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
+      partialEntity = new VersionSet();
+      ((VersionSet) partialEntity).setUrn(input.toString());
+      ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
+    }
+    if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
+      partialEntity = new Form();
+      ((Form) partialEntity).setUrn(input.toString());
+      ((Form) partialEntity).setType(EntityType.FORM);
+    }
+    if (input.getEntityType().equals(POST_ENTITY_NAME)) {
+      partialEntity = new Post();
+      ((Post) partialEntity).setUrn(input.toString());
+      ((Post) partialEntity).setType(EntityType.POST);
+    }
     if (input.getEntityType().equals(ACTIONS_PIPELINE_ENTITY_NAME)) {
       partialEntity = new ActionPipeline();
       ((ActionPipeline) partialEntity).setUrn(input.toString());
       ((ActionPipeline) partialEntity).setType(EntityType.ACTIONS_PIPELINE);
+    }
+    if (input.getEntityType().equals(OWNERSHIP_TYPE_ENTITY_NAME)) {
+      partialEntity = new OwnershipTypeEntity();
+      ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
+      ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
     }
     if (input.getEntityType().equals(AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)) {
       partialEntity = new RemoteExecutor();

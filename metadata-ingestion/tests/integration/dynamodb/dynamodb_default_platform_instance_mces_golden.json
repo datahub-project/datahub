@@ -36,8 +36,7 @@
                 },
                 {
                     "fieldPath": "city",
-                    "nullable": false,
-                    "description": "Sort Key",
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -176,7 +175,6 @@
                 "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
                 "table.totalItems": "1"
             },
-            "name": "Location",
             "tags": []
         }
     },

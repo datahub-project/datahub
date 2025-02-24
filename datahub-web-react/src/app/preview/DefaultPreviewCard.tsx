@@ -229,11 +229,9 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     parentDataset?: Dataset;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    startTime?: number | null;
+    duration?: number | null;
+    status?: string | null;
 }
 
 export default function DefaultPreviewCard({
@@ -277,7 +275,9 @@ export default function DefaultPreviewCard({
     paths,
     health,
     parentDataset,
-    dataProcessInstanceProps,
+    startTime,
+    duration,
+    status,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -307,11 +307,7 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn =
-        (topUsers && topUsers.length > 0) ||
-        (owners && owners.length > 0) ||
-        dataProcessInstanceProps?.startTime ||
-        dataProcessInstanceProps?.duration ||
-        dataProcessInstanceProps?.status;
+        (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
 
     const previewEnum = previewType && PreviewType[previewType];
@@ -430,7 +426,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                    <DataProcessInstanceRightColumn {...dataProcessInstanceProps} />
+                    <DataProcessInstanceRightColumn startTime={startTime} duration={duration} status={status} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

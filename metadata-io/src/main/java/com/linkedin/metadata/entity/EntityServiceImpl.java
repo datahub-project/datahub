@@ -74,7 +74,6 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -164,7 +163,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
-
   private final Map<String, Boolean> applySyncMclForSources;
 
   @Getter
@@ -1055,8 +1053,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         MetricUtils.counter(
                                 EntityServiceImpl.class, "batch_request_validation_exception")
                             .inc();
-                        collectMetrics(exceptions);
-                        throw new ValidationException(exceptions);
+                        throw new ValidationException(collectMetrics(exceptions).toString());
                       }
 
                       MetricUtils.counter(
@@ -1630,20 +1627,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
     // for all other types of events should use system metadata rather than the boolean param.
-    boolean isUISource =
-        preProcessHooks.isUiEnabled()
-            && metadataChangeLog.getSystemMetadata() != null
-            && metadataChangeLog.getSystemMetadata().getProperties() != null
-            && UI_SOURCE.equals(
-                metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE));
-    boolean syncIndexUpdate =
-        metadataChangeLog.getHeaders() != null
-            && metadataChangeLog
-                .getHeaders()
-                .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
-                .equalsIgnoreCase(Boolean.toString(true));
-
-    if (updateIndicesService != null && (isUISource || syncIndexUpdate || forcePreProcessIndices)) {
+    if (updateIndicesService != null
+        && (preProcessHooks.isUiEnabled()
+                && metadataChangeLog.getSystemMetadata() != null
+                && metadataChangeLog.getSystemMetadata().getProperties() != null
+                && UI_SOURCE.equals(
+                    metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))
+            || forcePreProcessIndices)) {
       updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
       return true;
     }
@@ -2567,7 +2557,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 1. Fetch the latest existing version of the aspect.
                   final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      aspectDao.getLatestAspect(opContext, urn, aspectName, true);
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {

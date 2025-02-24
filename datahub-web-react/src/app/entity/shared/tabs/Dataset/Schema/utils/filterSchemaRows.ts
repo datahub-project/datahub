@@ -12,7 +12,7 @@ function matchesTagsOrTermsOrDescription(field: SchemaField, filterText: string,
                 .toLocaleLowerCase()
                 .includes(filterText),
         ) ||
-        field.description?.toLocaleLowerCase().includes(filterText)
+        field.description?.toLocaleLowerCase()?.includes(filterText)
     );
 }
 

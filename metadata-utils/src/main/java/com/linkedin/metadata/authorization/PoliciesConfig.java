@@ -276,7 +276,7 @@ public class PoliciesConfig {
   static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
-  // SaaS Only
+  // Saas Only
   static final Privilege VIEW_ENTITY_PRIVILEGE =
       Privilege.of(
           "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
@@ -618,34 +618,6 @@ public class PoliciesConfig {
           "The ability to manage a proposal for a Data Contract");
   // End acryl-main
 
-  public static final Privilege DATA_READ_ONLY_PRIVILEGE =
-      Privilege.of(
-          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
-
-  public static final Privilege DATA_READ_WRITE_PRIVILEGE =
-      Privilege.of(
-          "DATA_READ_WRITE",
-          "Read-write data-access",
-          "The ability to read & write the data in a dataset.");
-
-  public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage tables", "The ability to create and drop tables.");
-
-  public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage views", "The ability to create and drop views.");
-
-  public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
-      Privilege.of(
-          "DATA_MANAGE_NAMESPACES",
-          "Manage namespaces",
-          "The ability to create and drop namespaces.");
-
-  public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
-      Privilege.of(
-          "DATA_LIST_ENTITIES",
-          "List tables, views & namespaces",
-          "The ability to list tables, views and namespaces.");
-
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
       Privilege.of("EDIT_TAG_COLOR", "Edit Tag Color", "The ability to change the color of a Tag.");
@@ -726,7 +698,6 @@ public class PoliciesConfig {
           "GET_COUNTS_PRIVILEGE",
           "Get Aspect/Entity Count APIs",
           "The ability to use the GET Aspect/Entity Count APIs.");
-
   public static final Privilege RESTORE_INDICES_PRIVILEGE =
       Privilege.of(
           "RESTORE_INDICES_PRIVILEGE",
@@ -780,12 +751,6 @@ public class PoliciesConfig {
           "Produce Platform Event API",
           "The ability to produce Platform Events using the API.");
 
-  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE =
-      Privilege.of(
-          "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
-          "Edit Dataset Column Business Attribute",
-          "The ability to edit the column (field) Business Attribute associated with a dataset schema.");
-
   public static final ResourcePrivileges DATASET_PRIVILEGES =
       ResourcePrivileges.of(
           "dataset",
@@ -795,21 +760,12 @@ public class PoliciesConfig {
                   COMMON_ENTITY_PRIVILEGES,
                   ImmutableList.of(
                       VIEW_DATASET_USAGE_PRIVILEGE,
+                      VIEW_ENTITY_PRIVILEGE,
                       VIEW_DATASET_PROFILE_PRIVILEGE,
                       VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
-                      EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
-                      EDIT_LINEAGE_PRIVILEGE,
-                      EDIT_ENTITY_EMBED_PRIVILEGE,
-                      EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
-                      DATA_READ_ONLY_PRIVILEGE,
-                      DATA_READ_WRITE_PRIVILEGE,
-                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE,
-                      // SaaS Only (Intended?)
-                      VIEW_ENTITY_PRIVILEGE,
                       EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
                       PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       PROPOSE_DATASET_COL_TAGS_PRIVILEGE,
@@ -818,6 +774,11 @@ public class PoliciesConfig {
                       PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE,
                       MANAGE_DATASET_COL_TAGS_PRIVILEGE,
                       MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE,
+                      EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
+                      EDIT_LINEAGE_PRIVILEGE,
+                      EDIT_ENTITY_EMBED_PRIVILEGE,
+                      EDIT_QUERIES_PRIVILEGE,
+                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
                       EDIT_ENTITY_MONITORS, // Acryl main only
                       EDIT_ENTITY_SQL_ASSERTION_MONITORS, // Acryl main only
                       EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE, // Acryl main only
@@ -880,6 +841,7 @@ public class PoliciesConfig {
           "Tags indexed by DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_TAG_COLOR_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -887,8 +849,6 @@ public class PoliciesConfig {
               DELETE_ENTITY_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              VIEW_ENTITY_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // Container Privileges
@@ -911,6 +871,7 @@ public class PoliciesConfig {
           "Domains created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -920,8 +881,6 @@ public class PoliciesConfig {
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              VIEW_ENTITY_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // Data Product Privileges
@@ -932,6 +891,7 @@ public class PoliciesConfig {
           "Data Products created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -943,8 +903,6 @@ public class PoliciesConfig {
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              VIEW_ENTITY_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Term Privileges
@@ -955,6 +913,7 @@ public class PoliciesConfig {
           "Glossary Terms created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -963,8 +922,6 @@ public class PoliciesConfig {
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              VIEW_ENTITY_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Node Privileges
@@ -975,6 +932,7 @@ public class PoliciesConfig {
           "Glossary Term Groups created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -985,8 +943,6 @@ public class PoliciesConfig {
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              VIEW_ENTITY_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // Group Privileges
@@ -999,15 +955,14 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_GROUP_MEMBERS_PRIVILEGE,
+              MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE,
+              MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
-              MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE,
-              MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
               SHARE_ENTITY_PRIVILEGE));
 
   // User Privileges
@@ -1024,7 +979,6 @@ public class PoliciesConfig {
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
-              // SaaS Only
               SHARE_ENTITY_PRIVILEGE));
 
   // Properties Privileges
@@ -1084,17 +1038,6 @@ public class PoliciesConfig {
           "A logical collection of versioned entities.",
           COMMON_ENTITY_PRIVILEGES);
 
-  public static final ResourcePrivileges PLATFORM_INSTANCE_PRIVILEGES =
-      ResourcePrivileges.of(
-          "dataPlatformInstance",
-          "Data Platform Instance",
-          "Data Platform Instances on Datahub",
-          ImmutableList.of(
-              DATA_MANAGE_VIEWS_PRIVILEGE,
-              DATA_MANAGE_TABLES_PRIVILEGE,
-              DATA_MANAGE_NAMESPACES_PRIVILEGE,
-              DATA_LIST_ENTITIES_PRIVILEGE));
-
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1115,8 +1058,6 @@ public class PoliciesConfig {
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
-          PLATFORM_INSTANCE_PRIVILEGES,
-          // SaaS Only
           FORMS_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
           ML_MODEL_PRIVILEGES);

@@ -17,7 +17,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -67,7 +66,7 @@ public class UpdateIndicesServiceTest {
     event.setAspectName(CONTAINER_ASPECT_NAME);
     event.setEntityType(urn.getEntityType());
     event.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
-    event.setCreated(AuditStampUtils.createDefaultAuditStamp());
+
     // Execute Delete
     updateIndicesService.handleChangeEvent(operationContext, event);
 
@@ -79,8 +78,7 @@ public class UpdateIndicesServiceTest {
             eq(urn),
             nullable(RecordTemplate.class),
             eq(aspectSpec),
-            eq(true),
-            eq(event.getCreated()));
+            eq(true));
     verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
   }
 }

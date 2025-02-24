@@ -191,14 +191,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 4 aggregations: textFieldOverride, missing␝textFieldOverride, and _entityType,
-    // _entityType␝typeNames
+    // Expect 4 aggregations: textFieldOverride, missing␝textFieldOverride,
+    // _entityType, _entityType␞typeNames
     assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
-      if (aggBuilder.getName().startsWith("textFieldOverride")) {
+      if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().startsWith("_entityType")
+      } else if (!aggBuilder.getName().equals("_entityType")
           && !aggBuilder
               .getName()
               .equals(
@@ -239,14 +239,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 4 aggregations: textFieldOverride, missing:textFieldOverride, _entityType and
-    // _entityType:typeNames
+    // Expect 4 aggregations: textFieldOverride, missing␝textFieldOverride,
+    // _entityType, _entityType␞typeNames
     assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
-      if (aggBuilder.getName().startsWith("textFieldOverride")) {
+      if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().startsWith("_entityType")
+      } else if (!aggBuilder.getName().equals("_entityType")
           && !aggBuilder
               .getName()
               .equals(

@@ -31,11 +31,11 @@ export const PATHS = [
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'policies', content: <ManagePolicies /> },
     { path: 'preferences', content: <Preferences /> },
+    /* acryl-main only */
+    ...ACRYL_PATHS,
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
-    /* acryl-main only */
-    ...ACRYL_PATHS,
     { path: 'helpLink', content: <ManageHelpLink /> },
 ];
 

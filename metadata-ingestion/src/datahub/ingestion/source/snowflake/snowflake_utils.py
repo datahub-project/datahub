@@ -124,20 +124,19 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
-            SnowflakeObjectDomain.STREAM,
         ):
             return False
         if _is_sys_table(dataset_name):
             return False
 
-        dataset_params = split_qualified_name(dataset_name)
+        dataset_params = _split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
                 message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
                 context=dataset_name,
             )
-            # We fall-through here so table/view/stream filtering still works.
+            # We fall-through here so table/view filtering still works.
 
         if (
             len(dataset_params) >= 1
@@ -170,14 +169,6 @@ class SnowflakeFilter:
         ):
             return False
 
-        if (
-            dataset_type.lower() == SnowflakeObjectDomain.STREAM
-            and not self.filter_config.stream_pattern.allowed(
-                _cleanup_qualified_name(dataset_name, self.structured_reporter)
-            )
-        ):
-            return False
-
         return True
 
 
@@ -192,17 +183,17 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
-def split_qualified_name(qualified_name: str) -> List[str]:
+def _split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
 
-    >>> split_qualified_name("db.my_schema.my_table")
+    >>> _split_qualified_name("db.my_schema.my_table")
     ['db', 'my_schema', 'my_table']
-    >>> split_qualified_name('"db"."my_schema"."my_table"')
+    >>> _split_qualified_name('"db"."my_schema"."my_table"')
     ['db', 'my_schema', 'my_table']
-    >>> split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
     ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
-    >>> split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
     ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
     """
 
@@ -240,7 +231,7 @@ def split_qualified_name(qualified_name: str) -> List[str]:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = split_qualified_name(qualified_name)
+    name_parts = _split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(

@@ -26,7 +26,7 @@ export function getFieldDescriptionDetails({
     // get most recent documentation
     const sortedDocumentations = schemaFieldEntity?.documentation?.documentations
         ?.filter((documentation) => enableInferredDescriptions || !checkIsInferredDocumentation(documentation))
-        ?.sort((doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0));
+        .sort((doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0));
     const documentation = sortedDocumentations?.[0];
     const isUsingDocumentationAspect = !editableFieldInfo?.description && !defaultDescription && !!documentation;
     const isPropagated =

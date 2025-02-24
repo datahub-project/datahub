@@ -66,7 +66,7 @@ public class EntityIncidentsResolverTest {
 
     IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.FIELD)
+            .setType(IncidentType.DATASET_COLUMN)
             .setCustomType("Custom Type")
             .setDescription("Description")
             .setPriority(5)
@@ -87,10 +87,9 @@ public class EntityIncidentsResolverTest {
         Constants.INCIDENT_INFO_ASPECT_NAME,
         new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedInfo.data())));
 
-    final Map<String, List<String>> criterionMap = new HashMap<>();
-    criterionMap.put(
-        INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, ImmutableList.of(datasetUrn.toString()));
-    Filter expectedFilter = QueryUtils.newListsFilter(criterionMap);
+    final Map<String, String> criterionMap = new HashMap<>();
+    criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, datasetUrn.toString());
+    Filter expectedFilter = QueryUtils.newFilter(criterionMap);
 
     SortCriterion expectedSort = new SortCriterion();
     expectedSort.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
@@ -115,7 +114,7 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(incidentUrn)),
                 Mockito.eq(null)))
@@ -193,7 +192,7 @@ public class EntityIncidentsResolverTest {
 
     IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.FIELD)
+            .setType(IncidentType.DATASET_COLUMN)
             .setCustomType("Custom Type")
             .setDescription("Description")
             .setPriority(5)

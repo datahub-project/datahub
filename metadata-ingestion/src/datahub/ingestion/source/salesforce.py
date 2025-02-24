@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -17,9 +16,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -31,17 +28,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
-)
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
@@ -71,7 +60,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +83,7 @@ class SalesforceProfilingConfig(ConfigModel):
     # TODO - support field level profiling
 
 
-class SalesforceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-):
+class SalesforceConfig(DatasetSourceConfigMixin):
     platform: str = "salesforce"
 
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
@@ -161,9 +146,8 @@ class SalesforceConfig(
         return config_clean.remove_trailing_slashes(v)
 
 
-@dataclass
-class SalesforceSourceReport(StaleEntityRemovalSourceReport):
-    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
+class SalesforceSourceReport(SourceReport):
+    filtered: List[str] = []
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -227,7 +211,7 @@ FIELD_TYPE_MAPPING = {
     capability_name=SourceCapability.TAGS,
     description="Enabled by default",
 )
-class SalesforceSource(StatefulIngestionSourceBase):
+class SalesforceSource(Source):
     base_url: str
     config: SalesforceConfig
     report: SalesforceSourceReport
@@ -236,8 +220,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
     fieldCounts: Dict[str, int]
 
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx)
-        self.ctx = ctx
+        super().__init__(ctx)
         self.config = config
         self.report = SalesforceSourceReport()
         self.session = requests.Session()
@@ -341,14 +324,6 @@ class SalesforceSource(StatefulIngestionSourceBase):
                 version=self.sf.sf_version
             )
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:

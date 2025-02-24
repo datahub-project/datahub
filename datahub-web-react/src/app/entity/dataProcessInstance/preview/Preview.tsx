@@ -39,7 +39,9 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-    dataProcessInstanceProps,
+    duration,
+    status,
+    startTime,
 }: {
     urn: string;
     name: string;
@@ -62,11 +64,9 @@ export const Preview = ({
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    duration?: number | null;
+    status?: string | null;
+    startTime?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -95,7 +95,9 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            dataProcessInstanceProps={dataProcessInstanceProps}
+            duration={duration}
+            status={status}
+            startTime={startTime}
         />
     );
 };

@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
@@ -13,9 +12,9 @@ class PulsarSourceReport(StaleEntityRemovalSourceReport):
     tenants_scanned: Optional[int] = None
     namespaces_scanned: Optional[int] = None
     topics_scanned: Optional[int] = None
-    tenants_filtered: LossyList[str] = field(default_factory=LossyList)
-    namespaces_filtered: LossyList[str] = field(default_factory=LossyList)
-    topics_filtered: LossyList[str] = field(default_factory=LossyList)
+    tenants_filtered: List[str] = field(default_factory=list)
+    namespaces_filtered: List[str] = field(default_factory=list)
+    topics_filtered: List[str] = field(default_factory=list)
 
     def report_pulsar_version(self, version: str) -> None:
         self.pulsar_version = version

@@ -1,4 +1,3 @@
-import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
 import { useAppConfig } from '@app/useAppConfig';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
@@ -19,7 +18,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
-import { addQueryNodes, setEntityNodeDefault } from './useSearchAcrossLineage';
+import { addQueryNodes, pruneDuplicateEdges, setEntityNodeDefault } from './useSearchAcrossLineage';
 
 const BATCH_SIZE = 10;
 
@@ -101,7 +100,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     const entityRegistry = useEntityRegistryV2();
 
     useEffect(() => {
-        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
+        const smallContext = { nodes, edges, adjacencyList };
         let changed = false;
         data?.entities?.forEach((rawEntity) => {
             if (!rawEntity) return;
@@ -123,7 +122,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                     entity.upstreamRelationships?.forEach((relationship) => {
                         processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                     });
-                    pruneAllDuplicateEdges(node.urn, null, smallContext, entityRegistry);
+                    pruneDuplicateEdges(node.urn, null, smallContext, entityRegistry);
                 }
             }
         });

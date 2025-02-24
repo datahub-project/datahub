@@ -77,11 +77,7 @@ const clearAndDelete = () => {
   cy.clickOptionWithTestId("description-editor-save-button");
   cy.waitTextVisible("No documentation");
   cy.mouseover(".ant-list-item-meta-content");
-  cy.get('[aria-label="delete"]').click().wait(1000);
-  cy.get("button")
-    .contains("span", "Yes")
-    .should("be.visible")
-    .click({ force: true });
+  cy.get('[aria-label="delete"]').click();
   cy.waitTextVisible("Link Removed");
 };
 

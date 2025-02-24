@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Container, DataPlatform, EntityType, Post } from '../../../../../../types.generated';
 import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { Container, DataPlatform, EntityType, Post, Entity } from '../../../../../../types.generated';
 import ContextPath from '../../../../../previewV2/ContextPath';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
@@ -56,14 +56,6 @@ const SidebarEntityHeader = () => {
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
 
-    const containerPath =
-        entityData?.parentContainers?.containers ||
-        entityData?.parentDomains?.domains ||
-        entityData?.parentNodes?.nodes ||
-        [];
-    const parentPath: Entity[] = entityData?.parent ? [entityData.parent as Entity] : [];
-    const parentEntities = containerPath.length ? containerPath : parentPath;
-
     if (loading) {
         return <EntityTitleLoadingSection />;
     }
@@ -98,7 +90,11 @@ const SidebarEntityHeader = () => {
                     type={displayedEntityType}
                     entityType={entityType}
                     browsePaths={entityData?.browsePathV2}
-                    parentEntities={parentEntities}
+                    parentEntities={
+                        entityData?.parentContainers?.containers ||
+                        entityData?.parentDomains?.domains ||
+                        entityData?.parentNodes?.nodes
+                    }
                     contentRef={contentRef}
                     isContentTruncated={isContentTruncated}
                 />

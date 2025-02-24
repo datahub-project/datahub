@@ -549,7 +549,8 @@ public class AuthUtil {
     return buildDisjunctivePrivilegeGroup(lookupAPIPrivilege(apiGroup, apiOperation, entityType));
   }
 
-  public static DisjunctivePrivilegeGroup buildDisjunctivePrivilegeGroup(
+  @VisibleForTesting
+  static DisjunctivePrivilegeGroup buildDisjunctivePrivilegeGroup(
       final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges) {
     return new DisjunctivePrivilegeGroup(
         privileges.stream()

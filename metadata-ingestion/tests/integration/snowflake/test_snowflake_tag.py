@@ -115,7 +115,6 @@ def test_snowflake_structured_property_pattern_deny():
             match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             extract_tags_as_structured_properties=True,
-            structured_properties_template_cache_invalidation_interval=0,
             tag_pattern=AllowDenyPattern(
                 deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"]
             ),
@@ -143,7 +142,7 @@ def test_snowflake_structured_property_pattern_deny():
         source_report = pipeline.source.get_report()
         assert isinstance(source_report, SnowflakeV2Report)
         assert source_report.tags_scanned == 5
-        assert sorted(list(source_report._processed_tags)) == [
+        assert source_report._processed_tags == {
             "snowflake.other_db.other_schema.my_other_tag",
             "snowflake.test_db.test_schema.security",
-        ]
+        }

@@ -7,7 +7,7 @@ export default function useExtractFieldTagsInfo(editableSchemaMetadata: Editable
     const baseEntity = useBaseEntity();
 
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
-        const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
+        const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         )?.globalTags;
 

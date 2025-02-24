@@ -32,17 +32,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
-)
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
@@ -70,7 +62,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -196,9 +187,9 @@ class ElasticToSchemaFieldConverter:
 
 
 @dataclass
-class ElasticsearchSourceReport(StaleEntityRemovalSourceReport):
+class ElasticsearchSourceReport(SourceReport):
     index_scanned: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered: List[str] = field(default_factory=list)
 
     def report_index_scanned(self, index: str) -> None:
         self.index_scanned += 1
@@ -248,11 +239,7 @@ def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
     )
 
 
-class ElasticsearchSourceConfig(
-    StatefulIngestionConfigBase,
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
-):
+class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
     )
@@ -349,7 +336,7 @@ class ElasticsearchSourceConfig(
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-class ElasticsearchSource(StatefulIngestionSourceBase):
+class ElasticsearchSource(Source):
     """
     This plugin extracts the following:
 
@@ -358,7 +345,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     """
 
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
+        super().__init__(ctx)
         self.source_config = config
         self.client = Elasticsearch(
             self.source_config.host,
@@ -373,7 +360,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
             url_prefix=self.source_config.url_prefix,
         )
-        self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
+        self.report = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
         self.cat_response: Optional[List[Dict[str, Any]]] = None
@@ -384,14 +371,6 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     ) -> "ElasticsearchSource":
         config = ElasticsearchSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()

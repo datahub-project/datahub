@@ -5,6 +5,7 @@ import {
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
 import { Pill, Popover } from '@components';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { capitalize } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
@@ -42,9 +43,9 @@ const popoverStyles = {
 };
 
 interface Props {
-    startTime?: number;
-    duration?: number;
-    status?: string;
+    startTime: Maybe<number>;
+    duration: Maybe<number>;
+    status: Maybe<string>;
 }
 
 export default function DataProcessInstanceRightColumn({ startTime, duration, status }: Props) {

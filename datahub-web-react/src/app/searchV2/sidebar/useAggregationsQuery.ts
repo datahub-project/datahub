@@ -68,11 +68,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
         ?.aggregations.filter((aggregation) => {
             const type = aggregation.value as EntityType;
-            return (
-                registry.getEntity(type).isBrowseEnabled() &&
-                !GLOSSARY_ENTITY_TYPES.includes(type) &&
-                EntityType.BusinessAttribute !== type
-            );
+            return registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
         })
         .sort((a, b) => {
             const nameA = registry.getCollectionName(a.value as EntityType);

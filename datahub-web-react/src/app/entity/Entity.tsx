@@ -91,6 +91,10 @@ export enum EntityCapabilityType {
      */
     DATA_PRODUCTS,
     /**
+     * Assigning Business Attribute to a entity
+     */
+    BUSINESS_ATTRIBUTES,
+    /**
      * Health status of an entity
      */
     HEALTH,
@@ -98,10 +102,6 @@ export enum EntityCapabilityType {
      * Lineage information of an entity
      */
     LINEAGE,
-    /**
-     * Assigning Business Attribute to a entity
-     */
-    BUSINESS_ATTRIBUTES,
 }
 
 /**

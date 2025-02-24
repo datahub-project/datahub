@@ -22,10 +22,6 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
-from datahub.testing.pytest_hooks import (  # noqa: F401,E402
-    load_golden_flags,
-    pytest_addoption,
-)
 from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,
     docker_compose_runner,
@@ -41,7 +37,7 @@ try:
 except ImportError:
     pass
 
-import freezegun  # noqa: E402
+import freezegun  # noqa: F401,E402
 
 # The freezegun library has incomplete type annotations.
 # See https://github.com/spulec/freezegun/issues/469
@@ -56,6 +52,15 @@ def mock_time(monkeypatch):
     monkeypatch.setattr(time, "time", fake_time)
 
     yield
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--update-golden-files",
+        action="store_true",
+        default=False,
+    )
+    parser.addoption("--copy-output-files", action="store_true", default=False)
 
 
 def pytest_collection_modifyitems(

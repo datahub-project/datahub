@@ -175,7 +175,7 @@ class BigQuerySinkConnector(BaseConnector):
     class BQParser:
         project: str
         target_platform: str
-        sanitizeTopics: bool
+        sanitizeTopics: str
         transforms: list
         topicsToTables: Optional[str] = None
         datasets: Optional[str] = None
@@ -187,7 +187,7 @@ class BigQuerySinkConnector(BaseConnector):
         connector_manifest: ConnectorManifest,
     ) -> BQParser:
         project = connector_manifest.config["project"]
-        sanitizeTopics = connector_manifest.config.get("sanitizeTopics") or "false"
+        sanitizeTopics = connector_manifest.config.get("sanitizeTopics", "false")
         transform_names = (
             self.connector_manifest.config.get("transforms", "").split(",")
             if self.connector_manifest.config.get("transforms")

@@ -42,7 +42,6 @@ public class DataProcessInstanceType
           ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           CONTAINER_ASPECT_NAME,
-          STATUS_ASPECT_NAME,
           LINEAGE_FEATURES_ASPECT_NAME);
 
   private final EntityClient _entityClient;

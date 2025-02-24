@@ -20,7 +20,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -176,8 +175,7 @@ public class IngestPoliciesStep implements BootstrapStep {
                   entityResponse.getUrn(),
                   new DataHubPolicyInfo(aspect.getValue().data()),
                   aspectSpec,
-                  false,
-                  AuditStampUtils.createDefaultAuditStamp())
+                  false)
               .map(Objects::toString);
     } catch (Exception e) {
       log.error(

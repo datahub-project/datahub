@@ -21,14 +21,24 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - proposals
+      - schemaProposals
       - schemaMetadata
       - status
       - container
       - deprecation
+      - usageFeatures
+      - storageFeatures
+      - lineageFeatures
       - testResults
       - siblings
       - embed
       - incidentsSummary
+      - inferredNeighbors
+      - inferredMetadata
+      - schemaFieldsInferredMetadata
+      - schemaFieldsInferredNeighbors
+      - assertionsSummary
       - datasetProperties
       - editableDatasetProperties
       - datasetDeprecation
@@ -42,25 +52,12 @@ entities:
       - browsePaths
       - dataPlatformInstance
       - browsePathsV2
+      - anomaliesSummary
       - access
       - structuredProperties
       - forms
       - partitionsSummary
       - versionProperties
-      - icebergCatalogInfo
-
-      # SaaS Only
-      - inferredNeighbors
-      - inferredMetadata
-      - schemaFieldsInferredMetadata
-      - schemaFieldsInferredNeighbors
-      - assertionsSummary
-      - usageFeatures
-      - storageFeatures
-      - lineageFeatures
-      - proposals
-      - schemaProposals
-      - anomaliesSummary
       - share
       - origin
       - documentation
@@ -79,6 +76,7 @@ entities:
       - domains
       - deprecation
       - versionInfo
+      - proposals
       - dataJobInfo
       - dataJobInputOutput
       - editableDataJobProperties
@@ -93,13 +91,11 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - anomaliesSummary
       - subTypes
       - incidentsSummary
       - testResults
       - dataTransformLogic
-      # SaaS Only
-      - proposals
-      - anomaliesSummary
       - share
       - origin
       - lineageFeatures
@@ -111,6 +107,7 @@ entities:
       - domains
       - deprecation
       - versionInfo
+      - proposals
       - dataFlowInfo
       - editableDataFlowProperties
       - ownership
@@ -127,8 +124,6 @@ entities:
       - forms
       - subTypes
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -155,7 +150,6 @@ entities:
       - subTypes
       - container
       - mlTrainingRunProperties
-      # SaaS Only
       - lineageFeatures
   - name: chart
     category: core
@@ -165,8 +159,11 @@ entities:
       - editableChartProperties
       - chartQuery
       - inputFields
+      - usageFeatures
+      - lineageFeatures
       - chartUsageStatistics
       - embed
+      - proposals
       - browsePaths
       - domains
       - container
@@ -183,10 +180,6 @@ entities:
       - incidentsSummary
       - forms
       - testResults
-      # SaaS Only
-      - usageFeatures
-      - lineageFeatures
-      - proposals
       - share
       - origin
       - documentation
@@ -198,8 +191,11 @@ entities:
       - deprecation
       - dashboardUsageStatistics
       - inputFields
+      - usageFeatures
+      - lineageFeatures
       - subTypes
       - embed
+      - proposals
       - dashboardInfo
       - editableDashboardProperties
       - ownership
@@ -214,10 +210,6 @@ entities:
       - incidentsSummary
       - forms
       - testResults
-      # SaaS Only
-      - usageFeatures
-      - lineageFeatures
-      - proposals
       - share
       - origin
       - documentation
@@ -237,10 +229,9 @@ entities:
       - domains
       - subTypes
       - dataPlatformInstance
+      - proposals
       - browsePathsV2
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - documentation
@@ -262,7 +253,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - share
       - slackUserInfo
   - name: corpGroup
@@ -275,12 +265,11 @@ entities:
       - ownership
       - status
       - origin
+      - corpGroupSettings
       - roleMembership
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
-      - corpGroupSettings
       - share
   - name: domain
     doc: A data domain within an organization.
@@ -293,7 +282,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - displayProperties
       - share
       - origin
@@ -315,13 +303,12 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - proposals
       - browsePathsV2
       - structuredProperties
       - forms
       - testResults
       - access
-      # SaaS Only
-      - proposals
       - share
       - origin
       - documentation
@@ -334,7 +321,6 @@ entities:
       - deprecation
       - status
       - testResults
-      # SaaS Only
       - share
       - origin
   - name: glossaryTerm
@@ -353,7 +339,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - share
       - origin
   - name: glossaryNode
@@ -367,7 +352,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - displayProperties
       - share
       - origin
@@ -388,6 +372,21 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+  - name: dataHubRemoteExecutor
+    category: internal
+    keyAspect: dataHubRemoteExecutorKey
+    aspects:
+      - dataHubRemoteExecutorStatus
+  - name: dataHubRemoteExecutorPool
+    category: internal
+    keyAspect: dataHubRemoteExecutorPoolKey
+    aspects:
+      - dataHubRemoteExecutorPoolInfo
+  - name: dataHubRemoteExecutorGlobalConfig
+    category: internal
+    keyAspect: dataHubRemoteExecutorGlobalConfigKey
+    aspects:
+      - dataHubRemoteExecutorPoolGlobalConfig
   - name: assertion
     doc: Assertion represents a data quality rule applied on one or more dataset.
     category: core
@@ -399,12 +398,11 @@ entities:
       - assertionActions
       - status
       - globalTags
-      # SaaS Only
       - lineageFeatures
-      - assertionSummary
-      - assertionAnalyticsRunEvent
-      - assertionDryRunEvent
-      - assertionInferenceDetails
+      - assertionSummary # Acryl-Only (Observe)
+      - assertionAnalyticsRunEvent # Acryl-Only (Observe)
+      - assertionDryRunEvent # Acryl-Only (Observe)
+      - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -420,7 +418,6 @@ entities:
       - institutionalMemory
       - deprecation
       - status
-      - icebergWarehouseInfo
   - name: mlModel
     category: core
     keyAspect: mlModelKey
@@ -428,6 +425,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - proposals
       - ownership
       - mlModelProperties
       - intendedUse
@@ -451,8 +449,6 @@ entities:
       - forms
       - testResults
       - versionProperties
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -465,6 +461,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - proposals
       - mlModelGroupProperties
       - ownership
       - status
@@ -476,8 +473,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -500,6 +495,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - proposals
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -512,8 +508,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -525,6 +519,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - proposals
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -537,8 +532,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -551,6 +544,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - proposals
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -561,8 +555,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
-      - proposals
       - share
       - origin
       - lineageFeatures
@@ -582,7 +574,6 @@ entities:
     keyAspect: testKey
     aspects:
       - testInfo
-      # SaaS Only
       - status
       - batchTestRunEvent
   - name: dataHubUpgrade
@@ -608,10 +599,9 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
-      - deprecation
-      # SaaS Only
       - schemaFieldProfile
       - lineageFeatures
+      - deprecation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -623,6 +613,15 @@ entities:
     keyAspect: versionSetKey
     aspects:
       - versionSetProperties
+  ## Not in OSS
+  - name: constraint
+    keyAspect: constraintKey
+    aspects:
+      - constraintInfo
+  - name: recommendationModule
+    keyAspect: recommendationModuleKey
+    aspects:
+      - recommendationModule
   - name: incident
     doc: An incident for an asset.
     category: core
@@ -630,9 +629,14 @@ entities:
     aspects:
       - incidentInfo
       - globalTags
-      # SaaS Only
       - incidentNotificationDetails
       - incidentActivityEvent
+  - name: anomaly
+    doc: Anomalies represent issues that were detected based on inferred or auto-generated assertions.
+    category: core
+    keyAspect: anomalyKey
+    aspects:
+      - anomalyInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -643,7 +647,6 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
-      # SaaS Only
       - status
   - name: dataHubStepState
     category: internal
@@ -666,7 +669,6 @@ entities:
       - status
       - globalTags
       - glossaryTerms
-      # SaaS Only
       - lineageFeatures
   - name: query
     category: core
@@ -678,7 +680,6 @@ entities:
       - status
       - dataPlatformInstance
       - subTypes
-      # SaaS Only
       - queryUsageFeatures
       - lineageFeatures
   - name: dataProduct
@@ -695,7 +696,6 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - share
       - origin
   - name: ownershipType
@@ -713,6 +713,19 @@ entities:
       - status
       - ownership
       - institutionalMemory
+  - name: actionRequest
+    category: internal
+    keyAspect: actionRequestKey
+    aspects:
+      - actionRequestStatus
+      - actionRequestInfo
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
+      - status
   - name: dataContract
     category: core
     keyAspect: dataContractKey
@@ -729,6 +742,29 @@ entities:
     category: internal
     keyAspect: dataHubActionKey
     aspects: []
+  - name: monitor
+    category: core
+    keyAspect: monitorKey
+    aspects:
+      - monitorInfo
+      - monitorTimeseriesState
+  - name: linkPreview
+    category: internal
+    keyAspect: linkPreviewKey
+    aspects:
+      - linkPreviewInfo
+  #TODO: Move this out to acryl-entity-registry.yml
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects:
+      - dataHubActionInfo
+      - dataHubActionStatus
+  - name: subscription
+    category: core
+    keyAspect: subscriptionKey
+    aspects:
+      - subscriptionInfo
   - name: entityType
     doc: A type of entity in the DataHub Metadata Model.
     category: core
@@ -754,7 +790,6 @@ entities:
       - structuredPropertySettings
       - institutionalMemory
       - status
-      # SaaS Only
       - share
       - origin
   - name: form
@@ -764,6 +799,11 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
@@ -781,79 +821,7 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
-  # SaaS Only Entities
-  # TODO: Move this out to acryl-entity-registry.yml
-  - name: dataHubRemoteExecutor
-    category: internal
-    keyAspect: dataHubRemoteExecutorKey
-    aspects:
-      - dataHubRemoteExecutorStatus
-  - name: dataHubRemoteExecutorPool
-    category: internal
-    keyAspect: dataHubRemoteExecutorPoolKey
-    aspects:
-      - dataHubRemoteExecutorPoolInfo
-  - name: dataHubRemoteExecutorGlobalConfig
-    category: internal
-    keyAspect: dataHubRemoteExecutorGlobalConfigKey
-    aspects:
-      - dataHubRemoteExecutorPoolGlobalConfig
-  - name: constraint
-    keyAspect: constraintKey
-    aspects:
-      - constraintInfo
-  - name: recommendationModule
-    keyAspect: recommendationModuleKey
-    aspects:
-      - recommendationModule
-  - name: anomaly
-    doc: Anomalies represent issues that were detected based on inferred or auto-generated assertions.
-    category: core
-    keyAspect: anomalyKey
-    aspects:
-      - anomalyInfo
-  - name: actionRequest
-    category: internal
-    keyAspect: actionRequestKey
-    aspects:
-      - actionRequestStatus
-      - actionRequestInfo
-  - name: dataHubConnection
-    category: internal
-    keyAspect: dataHubConnectionKey
-    aspects:
-      - dataHubConnectionDetails
-      - dataPlatformInstance
-      - status
-  - name: monitor
-    category: core
-    keyAspect: monitorKey
-    aspects:
-      - monitorInfo
-      - monitorTimeseriesState
-  - name: linkPreview
-    category: internal
-    keyAspect: linkPreviewKey
-    aspects:
-      - linkPreviewInfo
-  - name: dataHubAction
-    category: internal
-    keyAspect: dataHubActionKey
-    aspects:
-      - dataHubActionInfo
-      - dataHubActionStatus
-  - name: subscription
-    category: core
-    keyAspect: subscriptionKey
-    aspects:
-      - subscriptionInfo
-  - name: dataHubPersona
-    category: internal
-    keyAspect: dataHubPersonaKey
-    aspects:
-      - dataHubPersonaInfo
 events:
-  # SaaS Only Events
   - name: notificationRequest
 plugins:
   aspectPayloadValidators:
@@ -933,6 +901,15 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: ownership
     - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
       enabled: true
       supportedOperations:
@@ -952,16 +929,7 @@ plugins:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
-    # SaaS Only Mutation Hooks
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
-      enabled: true
-      supportedOperations:
-        - UPSERT
-        - CREATE
-        - RESTATE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: ownership
+    # Acryl Only
     # Calculates md5 hash on test definitions on read/write
     - className: 'com.linkedin.metadata.test.hooks.MetadataTestHash'
       enabled: true

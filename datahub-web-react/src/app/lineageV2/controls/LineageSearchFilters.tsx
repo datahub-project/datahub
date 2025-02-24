@@ -41,8 +41,6 @@ export default function LineageSearchFilters() {
         nodeVersion,
         hideTransformations,
         setHideTransformations,
-        showDataProcessInstances,
-        setShowDataProcessInstances,
         showGhostEntities,
         setShowGhostEntities,
     } = useContext(LineageNodesContext);
@@ -76,17 +74,6 @@ export default function LineageSearchFilters() {
                         onChange={setHideTransformations}
                     />
                 </Tooltip>
-            </ToggleWrapper>
-            <ToggleWrapper>
-                <span>
-                    <ToggleLabel>
-                        Show Process Instances
-                        <StyledInfoPopover
-                            content={<PopoverWrapper>Show task runs. Will not hide home node.</PopoverWrapper>}
-                        />
-                    </ToggleLabel>
-                </span>
-                <StyledSwitch size="small" checked={showDataProcessInstances} onChange={setShowDataProcessInstances} />
             </ToggleWrapper>
             <ToggleWrapper>
                 <span>

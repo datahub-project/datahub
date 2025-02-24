@@ -1,5 +1,4 @@
 import logging
-import multiprocessing
 import os
 import platform
 import sys
@@ -187,18 +186,6 @@ datahub.add_command(assertions)
 datahub.add_command(container)
 
 try:
-    from datahub.cli.iceberg_cli import iceberg
-
-    datahub.add_command(iceberg)
-except ImportError as e:
-    logger.debug(f"Failed to load datahub iceberg command: {e}")
-    datahub.add_command(
-        make_shim_command(
-            "iceberg", "run `pip install 'acryl-datahub[iceberg-catalog]'`"
-        )
-    )
-
-try:
     from datahub.cli.lite_cli import lite
 
     datahub.add_command(lite)
@@ -220,14 +207,6 @@ except ImportError as e:
 
 
 def main(**kwargs):
-    # We use threads in a variety of places within our CLI. The multiprocessing
-    # "fork" start method is not safe to use with threads.
-    # MacOS and Windows already default to "spawn", and Linux will as well starting in Python 3.14.
-    # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
-    # Eventually it may make sense to use "forkserver" as the default where available,
-    # but we can revisit that in the future.
-    multiprocessing.set_start_method("spawn", force=True)
-
     # This wrapper prevents click from suppressing errors.
     try:
         sys.exit(datahub(standalone_mode=False, **kwargs))

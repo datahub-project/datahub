@@ -27,7 +27,6 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
         dataVersion,
         displayVersion,
         hideTransformations,
-        showDataProcessInstances,
         showGhostEntities,
     } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistryV2();
@@ -57,7 +56,6 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
 
             const config: HideNodesConfig = {
                 hideTransformations,
-                hideDataProcessInstances: !showDataProcessInstances,
                 hideGhostEntities: !showGhostEntities,
                 ignoreSchemaFieldStatus,
             };
@@ -90,7 +88,6 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
             displayVersionNumber,
             hideTransformations,
             prevHideTransformations,
-            showDataProcessInstances,
             showGhostEntities,
             ignoreSchemaFieldStatus,
             dataVersion,

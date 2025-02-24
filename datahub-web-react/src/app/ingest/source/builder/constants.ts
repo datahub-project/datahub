@@ -29,7 +29,7 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
-import mlflowLogo2 from '../../../../images/mlflowlogo2.png';
+import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
@@ -162,7 +162,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [METABASE_URN]: metabaseLogo,
-    [MLFLOW_URN]: mlflowLogo2,
+    [MLFLOW_URN]: mlflowLogo,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,

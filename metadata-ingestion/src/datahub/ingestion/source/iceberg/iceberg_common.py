@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from humanfriendly import format_timespan
 from pydantic import Field, validator
@@ -20,7 +20,6 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
@@ -199,7 +198,7 @@ class TimingClass:
 class IcebergSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     entities_profiled: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered: List[str] = field(default_factory=list)
     load_table_timings: TimingClass = field(default_factory=TimingClass)
     processing_table_timings: TimingClass = field(default_factory=TimingClass)
     profiling_table_timings: TimingClass = field(default_factory=TimingClass)

@@ -85,7 +85,7 @@ describe('HomePage', () => {
         expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('renders an view all link on empty search', async () => {
+    it('renders an explore all link on empty search', async () => {
         const { getByTestId, queryByText } = render(
             <MockedProvider
                 mocks={mocks}
@@ -103,6 +103,6 @@ describe('HomePage', () => {
         const searchInput = getByTestId('search-input');
         await waitFor(() => expect(searchInput).toBeInTheDocument());
         fireEvent.mouseDown(searchInput);
-        await waitFor(() => expect(queryByText('View all →')).toBeInTheDocument());
+        await waitFor(() => expect(queryByText('Explore all →')).toBeInTheDocument());
     });
 });

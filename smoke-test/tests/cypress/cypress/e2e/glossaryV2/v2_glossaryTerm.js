@@ -57,7 +57,6 @@ describe("glossaryTerm", () => {
     cy.loginWithCredentials();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
-    cy.wait(1000); // adding waits because UI flickers with new UI and causes cypress to miss things
   });
 
   it("can search related entities by query", () => {

@@ -258,7 +258,7 @@ export const SearchBar = ({
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            recommendationData?.listRecommendations?.modules?.map((module) => ({
+            recommendationData?.listRecommendations?.modules.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
@@ -334,7 +334,7 @@ export const SearchBar = ({
                 type: '',
                 label: (
                     <Button type="link" onClick={onClickExploreAll}>
-                        View all →
+                        Explore all →
                     </Button>
                 ),
                 style: { marginLeft: 'auto', cursor: 'auto' },

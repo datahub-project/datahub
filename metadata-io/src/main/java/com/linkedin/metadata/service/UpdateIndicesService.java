@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -294,8 +293,7 @@ public class UpdateIndicesService implements SearchIndicesService {
           specPair.getFirst().getName(),
           specPair.getSecond(),
           event.getRecordTemplate(),
-          isDeletingKey,
-          event.getAuditStamp());
+          isDeletingKey);
     }
   }
 
@@ -327,7 +325,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       searchDocument =
           searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, false, event.getAuditStamp())
+              .transformAspect(opContext, urn, aspect, aspectSpec, false)
               .map(
                   objectNode ->
                       withSystemCreated(
@@ -358,7 +356,7 @@ public class UpdateIndicesService implements SearchIndicesService {
         try {
           previousSearchDocument =
               searchDocumentTransformer.transformAspect(
-                  opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+                  opContext, urn, previousAspect, aspectSpec, false);
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state for urn: {} for aspect {}, continuing without diffing.",
@@ -447,8 +445,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       String entityName,
       AspectSpec aspectSpec,
       @Nullable RecordTemplate aspect,
-      Boolean isKeyAspect,
-      AuditStamp auditStamp) {
+      Boolean isKeyAspect) {
     String docId;
     try {
       docId = URLEncoder.encode(urn.toString(), "UTF-8");
@@ -466,7 +463,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       searchDocument =
           searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
+              .transformAspect(opContext, urn, aspect, aspectSpec, true)
               .map(Objects::toString); // TODO
     } catch (Exception e) {
       log.error(

@@ -68,7 +68,6 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +143,7 @@ class MongoDBConfig(
 
 @dataclass
 class MongoDBSourceReport(StaleEntityRemovalSourceReport):
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered: List[str] = field(default_factory=list)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -219,27 +218,26 @@ def construct_schema_pymongo(
     """
 
     aggregations: List[Dict] = []
-
-    # The order of the aggregations impacts execution time. By setting the sample/limit aggregation first,
-    # the subsequent aggregations process a much smaller dataset, improving performance.
-    if sample_size:
-        if use_random_sampling:
-            aggregations.append({"$sample": {"size": sample_size}})
-        else:
-            aggregations.append({"$limit": sample_size})
-
     if should_add_document_size_filter:
         doc_size_field = "temporary_doc_size_field"
         # create a temporary field to store the size of the document. filter on it and then remove it.
-        aggregations.extend(
-            [
-                {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
-                {"$match": {doc_size_field: {"$lt": max_document_size}}},
-                {"$project": {doc_size_field: 0}},
-            ]
+        aggregations = [
+            {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+            {"$match": {doc_size_field: {"$lt": max_document_size}}},
+            {"$project": {doc_size_field: 0}},
+        ]
+    if use_random_sampling:
+        # get sample documents in collection
+        if sample_size:
+            aggregations.append({"$sample": {"size": sample_size}})
+        documents = collection.aggregate(
+            aggregations,
+            allowDiskUse=True,
         )
-
-    documents = collection.aggregate(aggregations, allowDiskUse=True)
+    else:
+        if sample_size:
+            aggregations.append({"$limit": sample_size})
+        documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 

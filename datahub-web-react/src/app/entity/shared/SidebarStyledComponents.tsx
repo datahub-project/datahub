@@ -64,14 +64,6 @@ export const Name = styled.div`
     margin: 13px 0 7px 0;
 `;
 
-export const UserDetails = styled.div`
-    font-size: 14px;
-    line-height: 35px;
-    font-weight: 400;
-    line-height: 28px;
-    text-align: center;
-`;
-
 export const TitleRole = styled.div`
     font-size: 14px;
     line-height: 22px;
@@ -82,8 +74,6 @@ export const TitleRole = styled.div`
 export const Team = styled.div`
     font-size: 12px;
     line-height: 20px;
-    font-weight: 400;
-    padding-bottom: 10px;
     color: #8c8c8c;
 `;
 
@@ -118,23 +108,6 @@ export const AboutSection = styled.div`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
-`;
-
-export const LocationSection = styled.div`
-    text-align: left;
-    font-weight: bold;
-    font-size: 14px;
-    line-height: 26px;
-    color: #262626;
-`;
-
-export const LocationSectionText = styled.div`
-    text-align: left;
-    font-weight: normal;
-    font-size: 14px;
-    line-height: 26px;
-    margin-bottom: -10px;
     color: #262626;
 `;
 

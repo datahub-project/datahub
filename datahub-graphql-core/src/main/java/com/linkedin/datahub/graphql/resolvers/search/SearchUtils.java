@@ -1,20 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -91,9 +77,7 @@ public class SearchUtils {
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
           EntityType.NOTEBOOK,
-          EntityType.BUSINESS_ATTRIBUTE,
-          EntityType.SCHEMA_FIELD,
-          EntityType.DATA_PLATFORM_INSTANCE);
+          EntityType.BUSINESS_ATTRIBUTE);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =

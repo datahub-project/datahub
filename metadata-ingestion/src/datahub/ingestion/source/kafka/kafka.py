@@ -73,7 +73,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     SubTypesClass,
 )
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -191,7 +190,7 @@ def get_kafka_admin_client(
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1

@@ -20,6 +20,7 @@ from feast.data_source import DataSource
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -30,16 +31,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -93,9 +86,7 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
 }
 
 
-class FeastRepositorySourceConfig(
-    StatefulIngestionConfigBase,
-):
+class FeastRepositorySourceConfig(ConfigModel):
     path: str = Field(description="Path to Feast repository")
     fs_yaml_file: Optional[str] = Field(
         default=None,
@@ -131,7 +122,7 @@ class FeastRepositorySourceConfig(
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
-class FeastRepositorySource(StatefulIngestionSourceBase):
+class FeastRepositorySource(Source):
     """
     This plugin extracts:
 
@@ -144,14 +135,13 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
     platform = "feast"
     source_config: FeastRepositorySourceConfig
-    report: StaleEntityRemovalSourceReport
+    report: SourceReport
     feature_store: FeatureStore
 
     def __init__(self, config: FeastRepositorySourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
+        super().__init__(ctx)
         self.source_config = config
-        self.ctx = ctx
-        self.report = StaleEntityRemovalSourceReport()
+        self.report = SourceReport()
         self.feature_store = FeatureStore(
             repo_path=self.source_config.path,
             fs_yaml_file=self.source_config.fs_yaml_file,
@@ -168,8 +158,7 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
         if ml_feature_data_type is None:
             self.report.report_warning(
-                "unable to map type",
-                f"unable to map type {field_type} to metadata schema to parent: {parent_name}",
+                parent_name, f"unable to map type {field_type} to metadata schema"
             )
 
             ml_feature_data_type = MLFeatureDataType.UNKNOWN
@@ -466,14 +455,6 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
     def create(cls, config_dict, ctx):
         config = FeastRepositorySourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for feature_view in self.feature_store.list_feature_views():

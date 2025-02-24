@@ -39,8 +39,10 @@ function createPolicy(decription, policyName) {
   updateAndSave("groups", "All", "All Groups");
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
-  searchForPolicy(policyName);
-  cy.waitTextVisible(policyName);
+  cy.get('[data-testid="search-input"]').should("be.visible");
+  cy.get('[data-testid="search-input"]').eq(1).type(policyName);
+  cy.get(".ant-table-tbody").should("be.visible");
+  cy.contains(policyName).should("have.length", 1);
 }
 
 function editPolicy(
@@ -85,7 +87,8 @@ function deletePolicy(policyEdited, deletePolicy) {
 
 describe("create and manage platform and metadata policies", () => {
   beforeEach(() => {
-    cy.visitWithLogin("/settings/permissions/policies");
+    cy.loginWithCredentials();
+    cy.visit("/settings/permissions/policies");
   });
 
   it("create platform policy", () => {

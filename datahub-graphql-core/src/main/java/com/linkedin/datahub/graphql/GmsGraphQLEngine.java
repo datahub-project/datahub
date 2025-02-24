@@ -223,7 +223,6 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.health.AcrylEntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
-import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
@@ -257,34 +256,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDisplayPropertiesResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.*;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
@@ -578,9 +550,9 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
-  private final PostType postType;
   private final DataProcessInstanceType dataProcessInstanceType;
   private final VersionSetType versionSetType;
+  private final PostType postType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -700,9 +672,9 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
-    this.postType = new PostType(entityClient);
     this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
     this.versionSetType = new VersionSetType(entityClient);
+    this.postType = new PostType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -752,8 +724,8 @@ public class GmsGraphQLEngine {
                 entityTypeType,
                 formType,
                 incidentType,
-                postType,
                 versionSetType,
+                postType,
                 restrictedType,
                 businessAttributeType,
                 dataProcessInstanceType));
@@ -924,8 +896,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(OPERATIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TIMESERIES_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1455,9 +1426,6 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateIncidentStatus",
                   new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "updateIncident",
-                  new UpdateIncidentResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
@@ -2042,13 +2010,15 @@ public class GmsGraphQLEngine {
                     "platforms",
                     new LoadableTypeBatchResolver<>(
                         dataPlatformType,
-                        (env) ->
-                            ((CorpUserEditableProperties) env.getSource()).getPlatforms() != null
-                                ? ((CorpUserEditableProperties) env.getSource())
-                                    .getPlatforms().stream()
-                                        .map(DataPlatform::getUrn)
-                                        .collect(Collectors.toList())
-                                : ImmutableList.of())))
+                        (env) -> {
+                          CorpUserEditableProperties properties = env.getSource();
+                          if (properties.getPlatforms() == null) {
+                            return Collections.emptyList();
+                          }
+                          return properties.getPlatforms().stream()
+                              .map(DataPlatform::getUrn)
+                              .collect(Collectors.toList());
+                        })))
         .type(
             "ListUsersResult",
             typeWiring ->
@@ -3366,26 +3336,13 @@ public class GmsGraphQLEngine {
         "DataProcessInstance",
         typeWiring ->
             typeWiring
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher(
-                    "platform",
-                    new LoadableTypeResolver<>(
-                        dataPlatformType,
-                        (env) -> {
-                          final DataProcessInstance dataProcessInstance = env.getSource();
-                          return dataProcessInstance != null
-                                  && dataProcessInstance.getPlatform() != null
-                              ? dataProcessInstance.getPlatform().getUrn()
-                              : null;
-                        }))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
                         (env) -> {
                           final DataProcessInstance dataProcessInstance = env.getSource();
-                          return dataProcessInstance != null
-                                  && dataProcessInstance.getDataPlatformInstance() != null
+                          return dataProcessInstance.getDataPlatformInstance() != null
                               ? dataProcessInstance.getDataPlatformInstance().getUrn()
                               : null;
                         }))
@@ -3398,11 +3355,6 @@ public class GmsGraphQLEngine {
                           final DataProcessInstance dpi = env.getSource();
                           return dpi.getContainer() != null ? dpi.getContainer().getUrn() : null;
                         }))
-                .dataFetcher(
-                    "parentTemplate",
-                    new EntityTypeResolver(
-                        entityTypes,
-                        (env) -> ((DataProcessInstance) env.getSource()).getParentTemplate()))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",

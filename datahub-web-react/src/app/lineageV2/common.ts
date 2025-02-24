@@ -75,7 +75,7 @@ export interface LineageFilter extends NodeBase {
 
 export type LineageNode = LineageEntity | LineageFilter;
 
-const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob, EntityType.DataProcessInstance];
+const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
 export function useIgnoreSchemaFieldStatus(): boolean {
     return useAppConfig().config.featureFlags.schemaFieldLineageIgnoreStatus;
@@ -126,11 +126,6 @@ export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
 export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.Query;
-}
-
-export function isUrnDataProcessInstance(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return type === EntityType.DataProcessInstance;
 }
 
 export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
@@ -216,8 +211,6 @@ export interface NodeContext {
     setColumnEdgeVersion: Dispatch<SetStateAction<number>>;
     hideTransformations: boolean;
     setHideTransformations: (hide: boolean) => void;
-    showDataProcessInstances: boolean;
-    setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
 }
@@ -241,8 +234,6 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setColumnEdgeVersion: () => {},
     hideTransformations: false,
     setHideTransformations: () => {},
-    showDataProcessInstances: false,
-    setShowDataProcessInstances: () => {},
     showGhostEntities: false,
     setShowGhostEntities: () => {},
 });
@@ -351,7 +342,6 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
 
 const DATA_STORE_COLOR = '#ffd279';
 const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
 const DEFAULT_COLOR = '#ff7979';
 
 export function getNodeColor(type?: EntityType): [string, string] {
@@ -361,14 +351,5 @@ export function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Dataset) {
         return [DATA_STORE_COLOR, 'Column'];
     }
-    if (
-        type === EntityType.Mlmodel ||
-        type === EntityType.MlmodelGroup ||
-        type === EntityType.Mlfeature ||
-        type === EntityType.MlfeatureTable ||
-        type === EntityType.MlprimaryKey
-    ) {
-        return [ML_COLOR, ''];
-    }
-    return [DEFAULT_COLOR, ''];
+    return [DEFAULT_COLOR, 'Column'];
 }

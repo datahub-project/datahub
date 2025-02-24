@@ -35,7 +35,7 @@ describe("dataset health test V2", () => {
     cy.get(`[data-testid="${urn}-health-icon"]`).first().trigger("mouseover", {
       force: true,
     });
-    cy.waitTextVisible("1 active incident");
+    cy.waitTextVisible("No active incidents");
     cy.waitTextVisible("assertions are failing");
   });
 });

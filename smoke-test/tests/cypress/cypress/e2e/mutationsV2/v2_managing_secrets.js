@@ -9,7 +9,6 @@ const ingestion_source_name = `ingestion source ${number}`;
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.ignoreResizeObserverLoop();
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     // Navigate to the manage ingestion page → secrets
@@ -41,10 +40,7 @@ describe("managing secrets for ingestion creation", () => {
     });
     cy.get("#ingestion-create-source").click();
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
-    cy.get(".ant-btn")
-      .contains("Snowflake")
-      .should("be.visible")
-      .click({ force: true });
+    cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
@@ -91,10 +87,7 @@ describe("managing secrets for ingestion creation", () => {
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
-    cy.get(".ant-btn")
-      .contains("Snowflake")
-      .should("be.visible")
-      .click({ force: true });
+    cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);

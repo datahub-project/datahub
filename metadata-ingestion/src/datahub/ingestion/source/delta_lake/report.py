@@ -1,16 +1,14 @@
 import dataclasses
 from dataclasses import field as dataclass_field
+from typing import List
 
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
-from datahub.utilities.lossy_collections import LossyList
+from datahub.ingestion.api.source import SourceReport
 
 
 @dataclasses.dataclass
-class DeltaLakeSourceReport(StaleEntityRemovalSourceReport):
+class DeltaLakeSourceReport(SourceReport):
     files_scanned = 0
-    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered: List[str] = dataclass_field(default_factory=list)
 
     def report_file_scanned(self) -> None:
         self.files_scanned += 1

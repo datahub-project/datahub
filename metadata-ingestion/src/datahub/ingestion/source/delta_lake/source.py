@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
@@ -21,7 +21,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
@@ -36,12 +36,6 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionSourceBase,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -85,7 +79,7 @@ OPERATION_STATEMENT_TYPES = {
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
-class DeltaLakeSource(StatefulIngestionSourceBase):
+class DeltaLakeSource(Source):
     """
     This plugin extracts:
     - Column types and schema associated with each delta table
@@ -106,10 +100,9 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
     storage_options: Dict[str, str]
 
     def __init__(self, config: DeltaLakeSourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
-        self.ctx = ctx
+        super().__init__(ctx)
         self.source_config = config
-        self.report: DeltaLakeSourceReport = DeltaLakeSourceReport()
+        self.report = DeltaLakeSourceReport()
         if self.source_config.is_s3:
             if (
                 self.source_config.s3 is None
@@ -337,14 +330,6 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             )
         for folder in os.listdir(path):
             yield os.path.join(path, folder)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(

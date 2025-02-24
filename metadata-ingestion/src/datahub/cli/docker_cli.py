@@ -430,7 +430,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()
+@docker.command()  # noqa: C901
 @click.option(
     "--version",
     type=str,
@@ -592,7 +592,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(
+def quickstart(  # noqa: C901
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,

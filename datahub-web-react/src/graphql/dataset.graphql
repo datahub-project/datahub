@@ -220,8 +220,8 @@ fragment nonSiblingDatasetFields on Dataset {
     forms {
         ...formsFields
     }
-    ...notes
     ...entityProfileVersionProperties
+    ...notes
 }
 
 query getRecentQueries($urn: String!) {
@@ -338,7 +338,15 @@ fragment assertionsQuery on Dataset {
         count
         total
         assertions {
-            ...assertionDetailsWithRunEvents
+            ...assertionDetails
+            runEvents(status: COMPLETE, limit: 1) {
+                total
+                failed
+                succeeded
+                runEvents {
+                    ...assertionRunEventDetails
+                }
+            }
         }
     }
 }

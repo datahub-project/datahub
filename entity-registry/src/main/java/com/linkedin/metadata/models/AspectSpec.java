@@ -24,7 +24,6 @@ public class AspectSpec {
   private final Map<String, TimeseriesFieldSpec> _timeseriesFieldSpecs;
   private final Map<String, TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs;
   private final Map<String, SearchableRefFieldSpec> _searchableRefFieldSpecs;
-  private final Map<String, UrnValidationFieldSpec> _urnValidationFieldSpecs;
 
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
@@ -40,7 +39,6 @@ public class AspectSpec {
       @Nonnull final List<TimeseriesFieldSpec> timeseriesFieldSpecs,
       @Nonnull final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
       @Nonnull final List<SearchableRefFieldSpec> searchableRefFieldSpecs,
-      @Nonnull final List<UrnValidationFieldSpec> urnValidationFieldSpecs,
       final RecordDataSchema schema,
       final Class<RecordTemplate> aspectClass) {
     _aspectAnnotation = aspectAnnotation;
@@ -78,11 +76,6 @@ public class AspectSpec {
                     spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(),
                     spec -> spec,
                     (val1, val2) -> val1));
-    _urnValidationFieldSpecs =
-        urnValidationFieldSpecs.stream()
-            .collect(
-                Collectors.toMap(
-                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _schema = schema;
     _aspectClass = aspectClass;
   }
@@ -117,10 +110,6 @@ public class AspectSpec {
 
   public Map<String, TimeseriesFieldSpec> getTimeseriesFieldSpecMap() {
     return _timeseriesFieldSpecs;
-  }
-
-  public Map<String, UrnValidationFieldSpec> getUrnValidationFieldSpecMap() {
-    return _urnValidationFieldSpecs;
   }
 
   public Map<String, TimeseriesFieldCollectionSpec> getTimeseriesFieldCollectionSpecMap() {

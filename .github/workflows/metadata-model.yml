@@ -67,7 +67,6 @@ jobs:
         env:
           DATAHUB_SERVER: ${{ secrets.ACRYL_ACRYL_IO_GMS }}
           DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
-          DATAHUB_TELEMETRY_ENABLED: false
         run: ./gradlew :metadata-ingestion:modelDocUpload
       - name: Upload analytics events to DataHub
         if: ${{ needs.setup.outputs.publish == 'true' }}

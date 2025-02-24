@@ -9,7 +9,7 @@ export default function useExtractFieldGlossaryTermsInfo(
     const baseEntity = useBaseEntity();
 
     return (record: SchemaField, defaultUneditableTerms: GlossaryTerms | null = null) => {
-        const editableTerms = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
+        const editableTerms = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         )?.glossaryTerms;
 

@@ -60,10 +60,6 @@ public class SearchableAnnotation {
   // only adds to query time not mapping
   boolean includeQueryEmptyAggregation;
 
-  boolean includeSystemModifiedAt;
-
-  Optional<String> systemModifiedAtFieldName;
-
   public enum FieldType {
     KEYWORD,
     TEXT,
@@ -129,10 +125,6 @@ public class SearchableAnnotation {
     final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
-    final Optional<Boolean> includeSystemModifiedAt =
-        AnnotationUtils.getField(map, "includeSystemModifiedAt", Boolean.class);
-    final Optional<String> systemModifiedAtFieldName =
-        AnnotationUtils.getField(map, "systemModifiedAtFieldName", String.class);
     return new SearchableAnnotation(
         fieldName.orElse(schemaFieldName),
         resolvedFieldType,
@@ -147,9 +139,7 @@ public class SearchableAnnotation {
         numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()),
         fieldNameAliases,
-        includeQueryEmptyAggregation.orElse(false),
-        includeSystemModifiedAt.orElse(false),
-        systemModifiedAtFieldName);
+        includeQueryEmptyAggregation.orElse(false));
   }
 
   private static FieldType getFieldType(

@@ -24,11 +24,6 @@ record StructuredPropertyDefinition {
     * The value type of the property. Must be a dataType.
     * e.g. To indicate that the property is of type DATE, use urn:li:dataType:datahub.date
     */
-    @UrnValidation = {
-      "exist": true,
-      "strict": true,
-      "entityTypes": [ "dataType" ],
-    }
     valueType: Urn
 
     /**
@@ -63,11 +58,6 @@ record StructuredPropertyDefinition {
       "/*": {
         "fieldName": "entityTypes"
       }
-    }
-    @UrnValidation = {
-      "exist": true,
-      "strict": true,
-      "entityTypes": [ "entityType" ],
     }
     entityTypes: array[Urn]
 
@@ -139,3 +129,4 @@ record StructuredPropertyDefinition {
     DISABLED
   } = "DISABLED"
 }
+

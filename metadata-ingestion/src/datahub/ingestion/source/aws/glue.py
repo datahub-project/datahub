@@ -113,7 +113,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +220,7 @@ class GlueSourceConfig(
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
     tables_scanned = 0
-    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered: List[str] = dataclass_field(default_factory=list)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
 
     num_job_script_location_missing: int = 0
@@ -747,7 +746,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 for tables in self.get_tables_from_database(database):
                     all_tables.append(tables)
             except Exception as e:
-                self.report.warning(
+                self.report.failure(
                     message="Failed to get tables from database",
                     context=database["Name"],
                     exc=e,

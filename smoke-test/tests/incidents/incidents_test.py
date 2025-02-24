@@ -1,6 +1,6 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.utils import delete_urn, delete_urns_from_file, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -130,104 +130,104 @@ def test_raise_resolve_incident(auth_session, graph_client):
     response.raise_for_status()
     res_data = response.json()
 
-    assert res_data
-    assert "errors" not in res_data
-    assert res_data["data"]
-    assert res_data["data"]["raiseIncident"] is not None
+    new_incident_urn = None
 
-    new_incident_urn = res_data["data"]["raiseIncident"]
+    try:
+        assert res_data
 
-    # Resolve the incident.
-    update_incident_status = {
-        "query": """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {\n
-            updateIncidentStatus(urn: $urn, input: $input)
-        }""",
-        "variables": {
-            "urn": new_incident_urn,
-            "input": {
-                "state": "RESOLVED",
-                "message": "test message 2",
+        assert "errors" not in res_data
+        assert res_data["data"]
+        assert res_data["data"]["raiseIncident"] is not None
+
+        new_incident_urn = res_data["data"]["raiseIncident"]
+
+        # Resolve the incident.
+        update_incident_status = {
+            "query": """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {\n
+                updateIncidentStatus(urn: $urn, input: $input)
+            }""",
+            "variables": {
+                "urn": new_incident_urn,
+                "input": {
+                    "state": "RESOLVED",
+                    "message": "test message 2",
+                },
             },
-        },
-    }
+        }
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql", json=update_incident_status
+        )
+        response.raise_for_status()
+        res_data = response.json()
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_incident_status
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        assert res_data
+        assert "errors" not in res_data
+        assert res_data["data"]
+        assert res_data["data"]["updateIncidentStatus"] is True
 
-    assert res_data
-    assert "errors" not in res_data
-    assert res_data["data"]
-    assert res_data["data"]["updateIncidentStatus"] is True
-
-    # Fetch the dataset's incidents to confirm there's a resolved incident.new_incident_urn
-    list_dataset_incidents_json = {
-        "query": """query dataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-              incidents(state: RESOLVED, start: 0, count: 10) {\n
-                start\n
-                count\n
-                total\n
-                incidents {\n
-                  urn\n
-                  type\n
-                  incidentType\n
-                  title\n
-                  description\n
-                  priority\n
-                  status {\n
-                    state\n
-                    message\n
-                    lastUpdated {\n
-                      time\n
-                      actor\n
+        # Fetch the dataset's incidents to confirm there's a resolved incident.new_incident_urn
+        list_dataset_incidents_json = {
+            "query": """query dataset($urn: String!) {\n
+                dataset(urn: $urn) {\n
+                  incidents(state: RESOLVED, start: 0, count: 10) {\n
+                    start\n
+                    count\n
+                    total\n
+                    incidents {\n
+                      urn\n
+                      type\n
+                      incidentType\n
+                      title\n
+                      description\n
+                      priority\n
+                      status {\n
+                        state\n
+                        message\n
+                        lastUpdated {\n
+                          time\n
+                          actor\n
+                        }\n
+                      }\n
+                      entity {\n
+                        urn\n
+                      }\n
+                      created {\n
+                        time\n
+                        actor\n
+                      }\n
                     }\n
                   }\n
-                  entity {\n
-                    urn\n
-                  }\n
-                  created {\n
-                    time\n
-                    actor\n
-                  }\n
                 }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": TEST_DATASET_URN},
-    }
+            }""",
+            "variables": {"urn": TEST_DATASET_URN},
+        }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json=list_dataset_incidents_json,
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql",
+            json=list_dataset_incidents_json,
+        )
+        response.raise_for_status()
+        res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]["incidents"]["total"] is not None
-    assert "errors" not in res_data
+        assert res_data
+        assert res_data["data"]
+        assert res_data["data"]["dataset"]["incidents"]["total"] is not None
+        assert "errors" not in res_data
 
-    # Find the new incident and do the comparison.
-    active_incidents = res_data["data"]["dataset"]["incidents"]["incidents"]
-    filtered_incidents = list(
-        filter(lambda incident: incident["urn"] == new_incident_urn, active_incidents)
-    )
-    assert len(filtered_incidents) == 1
-    new_incident = filtered_incidents[0]
-    assert new_incident["title"] == "test title 2"
-    assert new_incident["description"] == "test description 2"
-    assert new_incident["status"]["state"] == "RESOLVED"
-    assert new_incident["priority"] == "CRITICAL"
+        # Find the new incident and do the comparison.
+        active_incidents = res_data["data"]["dataset"]["incidents"]["incidents"]
+        filtered_incidents = list(
+            filter(
+                lambda incident: incident["urn"] == new_incident_urn, active_incidents
+            )
+        )
+        assert len(filtered_incidents) == 1
+        new_incident = filtered_incidents[0]
+        assert new_incident["title"] == "test title 2"
+        assert new_incident["description"] == "test description 2"
+        assert new_incident["status"]["state"] == "RESOLVED"
+        assert new_incident["priority"] == "CRITICAL"
 
-    delete_json = {"urn": new_incident_urn}
-
-    # Cleanup: Delete the incident
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
-    )
-
-    response.raise_for_status()
+    finally:
+        if new_incident_urn:
+            delete_urn(graph_client, new_incident_urn)

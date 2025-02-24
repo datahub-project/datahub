@@ -47,7 +47,8 @@ export default function FormByEntity({ formUrn }: Props) {
     } = useEntityFormContext();
     const { entityType, loading, refetch } = useEntityContext();
     const entityRegistry = useEntityRegistry();
-    const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
+    const type = selectedEntity?.type || entityType;
+    const sidebarSections = type ? entityRegistry.getSidebarSections(type) : [];
     const isV2 = useIsThemeV2();
 
     // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
@@ -76,12 +77,6 @@ export default function FormByEntity({ formUrn }: Props) {
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
-                    <ProfileSidebar
-                        sidebarSections={loading ? [] : sections}
-                        topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
-                        backgroundColor="white"
-                        alignLeft
-                    />
                     <Form formUrn={formUrn} />
                     {selectedEntityData && (
                         <ProfileSidebar

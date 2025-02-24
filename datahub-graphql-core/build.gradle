@@ -34,7 +34,6 @@ dependencies {
 
     testImplementation externalDependency.mockitoInline
     testImplementation externalDependency.testng
-    testImplementation externalDependency.mockitoInline
 }
 
 graphqlCodegen {

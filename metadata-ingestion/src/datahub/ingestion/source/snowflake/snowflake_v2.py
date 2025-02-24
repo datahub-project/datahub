@@ -539,27 +539,15 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
-        discovered_streams: List[str] = [
-            self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
-            for db in databases
-            for schema in db.schemas
-            for stream_name in schema.streams
-        ]
 
-        if (
-            len(discovered_tables) == 0
-            and len(discovered_views) == 0
-            and len(discovered_streams) == 0
-        ):
+        if len(discovered_tables) == 0 and len(discovered_views) == 0:
             self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
+                "No tables/views found. Please check permissions.",
             )
             return
 
-        self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
-        )
+        self.discovered_datasets = discovered_tables + discovered_views
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
@@ -579,7 +567,6 @@ class SnowflakeV2Source(
                         include_queries=self.config.include_queries,
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
-                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
