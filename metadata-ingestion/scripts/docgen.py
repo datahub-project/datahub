@@ -487,9 +487,148 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         sys.exit(1)
 
     # Create Lineage doc
-    generate_lineage_doc(platforms)
+    # generate_lineage_doc(platforms)
 
+    # Create integrations doc
+    generate_integrations_list(platforms)
 
+def generate_integrations_list(platforms: Dict[str, Platform],
+                               origin_path: str = "../docs-website/filterTagIndexes.json",
+                               output_path: str = "../docs-website/filterTagIndexesGenerated.json") -> None:
+    """
+    Generate and write a JSON file containing integration source information.
+    Reads from original file and writes to new file, preserving the original.
+
+    Args:
+        platforms (Dict[str, Platform]): Dictionary of platform objects containing integration metadata
+        origin_path (str): Path to read the original reference file from
+        output_path (str): Path to write the generated output file to
+    """
+    import json
+    import os
+
+    # First read existing file if it exists
+    existing_sources = {}
+    if os.path.exists(origin_path):
+        with open(origin_path, 'r') as f:
+            try:
+                data = json.load(f)
+                # Create a lookup dictionary from existing sources
+                existing_sources = {
+                    source["Title"].lower(): source
+                    for source in data.get("ingestionSources", [])
+                }
+            except json.JSONDecodeError:
+                print(f"Warning: Could not parse existing file {origin_path}")
+
+    def get_platform_image_path(platform_id: str) -> str:
+        """Get platform image path trying different extensions and falling back to default."""
+        base_path = "../docs-website/static/img/logos/platforms"
+        # Try SVG first
+        if os.path.exists(f"{base_path}/{platform_id}.svg"):
+            return f"img/logos/platforms/{platform_id}.svg"
+        # Try PNG next
+        elif os.path.exists(f"{base_path}/{platform_id}.png"):
+            return f"img/logos/platforms/{platform_id}.png"
+        # Fall back to datahub logo
+        return "img/datahub-logo-color-mark.svg"
+    def get_features_from_capabilities(plugin) -> List[str]:
+        """Extract features from plugin capabilities."""
+        features = []
+        if not plugin.capabilities:
+            return features
+
+        capability_feature_map = {
+            'deletion_detection': 'Stateful Ingestion',
+            'schema_metadata': 'Column Level Lineage',
+            'containers': 'UI Ingestion',
+            'lineage_coarse': 'Status Aspect',
+            'platform_instance': 'Lower Casing'
+        }
+
+        for cap_setting in plugin.capabilities:
+            if cap_setting.supported:
+                cap_name = cap_setting.capability.value.lower()
+                for key, feature in capability_feature_map.items():
+                    if key in cap_name and feature not in features:
+                        features.append(feature)
+
+        return sorted(features)
+
+    def determine_platform_type(platform_name: str) -> str:
+        """Determine platform type based on platform name."""
+        platform_name_lower = platform_name.lower()
+
+        type_indicators = {
+            'Datastore': ['warehouse', 'sql', 'db', 'database'],
+            'BI Tool': ['tableau', 'looker', 'powerbi', 'dashboard'],
+            'Orchestrator': ['airflow', 'dagster', 'prefect', 'workflow'],
+            'AI+ML': ['ml', 'ai', 'model', 'prediction'],
+            'Identity Provider': ['auth', 'identity', 'sso'],
+            'Messaging': ['kafka', 'queue', 'stream']
+        }
+
+        for platform_type, indicators in type_indicators.items():
+            if any(indicator in platform_name_lower for indicator in indicators):
+                return platform_type
+
+        return "Datastore"  # Default to Datastore if no match found
+
+    integration_sources = []
+    for platform_id, platform in platforms.items():
+        if not platform.plugins:
+            continue
+
+        for plugin in sorted(
+                platform.plugins.values(),
+                key=lambda x: str(x.doc_order) if x.doc_order else x.name
+        ):
+            # Check if we already have this source
+            existing_source = existing_sources.get(platform.name.lower())
+
+            if existing_source:
+                # Use existing source but update some fields
+                source = existing_source.copy()
+
+                # Update features if they've changed
+                features = get_features_from_capabilities(plugin)
+                if features:  # Only update if we found features
+                    source["tags"]["Features"] = ", ".join(features)
+
+                # Update connection type if needed
+                if plugin.capabilities:
+                    for cap_setting in plugin.capabilities:
+                        if "push" in cap_setting.capability.value.lower():
+                            source["tags"]["Connection Type"] = "Push"
+                            break
+
+            else:
+                # Create new source object
+                tags = {
+                    "Platform Type": determine_platform_type(platform.name),
+                    "Connection Type": "Pull",  # Default to Pull
+                    "Features": ", ".join(get_features_from_capabilities(plugin))
+                }
+
+                # For new entries, use basic info and mark for review
+                source = {
+                    "Path": f"docs/generated/ingestion/sources/{platform_id}",
+                    "imgPath": get_platform_image_path(platform_id),
+                    "Title": platform.name,
+                    "Description": f"DataHub supports {platform.name} Integration.",
+                    "tags": tags
+                }
+
+                print(f"Added new platform: {platform.name} - please review description")
+
+            integration_sources.append(source)
+
+    # Sort and write to JSON file
+    integration_sources.sort(key=lambda x: x["Title"])
+    output_data = {"ingestionSources": integration_sources}
+
+    with open(output_path, 'w') as f:
+        json.dump(output_data, f, indent=2)
 def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
