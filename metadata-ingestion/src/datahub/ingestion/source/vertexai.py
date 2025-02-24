@@ -275,7 +275,7 @@ class VertexAISource(Source):
                 yield from self._get_ml_model_endpoint_workunit(model, model_version, job_urn)
 
 
-    def _search_dataset(self, dataset_id: str) -> Optional[DatasetProperties]:
+    def _search_dataset(self, dataset_id: str) -> Optional[_Dataset]:
         """
         Search for a dataset by its ID in Vertex AI.
         This method iterates through different types of datasets (Text, Tabular, Image,
@@ -349,11 +349,6 @@ class VertexAISource(Source):
 
         dataset = self._search_dataset(dataset_id)
         if dataset:
-            if isinstance(dataset, TabularDataset):
-                aspect = DatasetPropertiesClass(
-                name=dataset_name,
-                description=f"Input dataset for training job: {job.display_name}",
-            )
             aspect = self._make_dataset_aspect(dataset)
             if aspect:
                 yield self._create_workunit(urn=dataset_urn, aspect=aspect)
@@ -364,7 +359,7 @@ class VertexAISource(Source):
         dp_aspect = DataProcessInstanceInputClass(
             inputs=[dataset_urn]
         )
-        logger.info(f"generating input dataset {dataset_urn}")
+        logger.info(f"generating input dataset {dataset_name}")
         yield self._create_workunit(urn=entityUrn, aspect=dp_aspect)
 
     def _get_ml_model_endpoint_workunit(self, model: Model, model_version: VersionInfo,
