@@ -12,9 +12,11 @@ import {
     mapCustomPropertiesToPropertyRows,
 } from '../../../../entity/shared/tabs/Properties/utils';
 import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
+import { TabRenderType } from '../../types';
 import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
 import NameColumn from './NameColumn';
 import ValuesColumn from './ValuesColumn';
+import { useHydratedEntityMap } from './useHydratedEntityMap';
 import useStructuredProperties from './useStructuredProperties';
 
 const StyledTable = styled(Table)`
@@ -40,9 +42,10 @@ interface Props {
         fieldProperties?: Maybe<StructuredProperties>;
         refetch?: () => void;
     };
+    renderType?: TabRenderType;
 }
 
-export const PropertiesTab = ({ properties }: Props) => {
+export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }: Props) => {
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
@@ -50,6 +53,30 @@ export const PropertiesTab = ({ properties }: Props) => {
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
+
+    const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
+        entityRegistry,
+        fieldPath || null,
+        filterText,
+    );
+
+    // only show entity custom properties on entity level, not on field level
+    const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
+    const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
+    const dataSource: PropertyRow[] = structuredPropertyRows
+        .concat(customPropertyRows)
+        .filter((row) => !row.structuredProperty?.settings?.isHidden);
+
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
+
+    const entityUrnsToHydrate = structuredPropertyRowsRaw
+        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
+        .filter(Boolean);
+
+    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
+
     const propertyTableColumns = [
         {
             width: 210,
@@ -59,7 +86,14 @@ export const PropertiesTab = ({ properties }: Props) => {
         {
             title: 'Value',
             ellipsis: true,
-            render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
+            render: (propertyRow: PropertyRow) => (
+                <ValuesColumn
+                    propertyRow={propertyRow}
+                    filterText={filterText}
+                    hydratedEntityMap={hydratedEntityMap}
+                    renderType={renderType}
+                />
+            ),
         },
     ];
 
@@ -80,23 +114,6 @@ export const PropertiesTab = ({ properties }: Props) => {
             ),
         } as any);
     }
-
-    const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(
-        entityRegistry,
-        fieldPath || null,
-        filterText,
-    );
-
-    // only show entity custom properties on entity level, not on field level
-    const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
-    const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows
-        .concat(customPropertyRows)
-        .filter((row) => !row.structuredProperty?.settings?.isHidden);
-
-    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-
-    useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
     return (
         <>

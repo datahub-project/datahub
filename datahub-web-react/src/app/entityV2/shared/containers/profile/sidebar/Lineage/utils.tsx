@@ -113,9 +113,7 @@ export const getRelatedEntitySummary = (
                         {type.count}{' '}
                         {pluralize(
                             type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) as any)
-                                : type.type,
+                            type.isEntityType ? entityRegistry.getEntityName(type.type as EntityType) ?? '' : type.type,
                         ).toLocaleLowerCase()}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>

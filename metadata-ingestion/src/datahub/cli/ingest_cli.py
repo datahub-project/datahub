@@ -349,7 +349,9 @@ def parse_restli_response(response):
 
 
 @ingest.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument(
+    "path", type=click.Path(exists=False)
+)  # exists=False since it only supports local filesystems
 def mcps(path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.

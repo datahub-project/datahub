@@ -266,7 +266,7 @@ public class SpringStandardPluginConfiguration {
     return new UserDeleteValidator()
         .setConfig(
             AspectPluginConfig.builder()
-                .className(UrnAnnotationValidator.class.getName())
+                .className(UserDeleteValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
                     // Special note: RESTATE is not included to allow out of order restoration of

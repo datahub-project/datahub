@@ -3,7 +3,7 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { LineChart } from './LineChart';
 import { getMockedProps } from '../BarChart/utils';
-import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/usePrepareScales';
 
 const meta = {
     title: 'Charts / LineChart',
@@ -22,12 +22,6 @@ const meta = {
     argTypes: {
         data: {
             description: 'Array of datum to show',
-        },
-        xAccessor: {
-            description: 'A function to convert datum to value of X',
-        },
-        yAccessor: {
-            description: 'A function to convert datum to value of Y',
         },
         maxYDomainForZeroData: {
             description:
@@ -57,8 +51,14 @@ const meta = {
         leftAxisProps: {
             description: 'The props for the left axis',
         },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
+        },
         bottomAxisProps: {
             description: 'The props for the bottom axis',
+        },
+        showBottomAxisLine: {
+            description: 'Enable to show bottom horizontal line',
         },
         gridProps: {
             description: 'The props for the grid',
@@ -72,12 +72,22 @@ const meta = {
         renderTooltipGlyph: {
             description: 'A function to render a glyph',
         },
+        showGlyphOnSingleDataPoint: {
+            description: 'Whether to show the glyph when there is only one data point',
+            control: {
+                type: 'boolean',
+            },
+        },
+        renderGlyphOnSingleDataPoint: {
+            description: 'A function to render a glyph for a single data point',
+        },
     },
 
     // Define defaults
     args: {
         ...getMockedProps(),
         popoverRenderer: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
+        yScale: { type: 'linear', round: true, clamp: true },
     },
 } satisfies Meta<typeof LineChart>;
 
