@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import requests
 
@@ -119,30 +119,117 @@ class AzureFabricSource(Source):
     def _get_workspaces(
         self, continuation_token: Optional[str] = None
     ) -> List[Workspace]:
+        """Get workspaces based on configuration"""
+        workspaces: List[Workspace] = []
+
+        # If specific workspaces are configured, fetch them directly
+        if self.config.workspace_config.workspaces:
+            for workspace_id in self.config.workspace_config.workspaces:
+                try:
+                    url = (
+                        f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}"
+                    )
+                    response = self.session.get(url, headers=self.session.headers)
+                    response.raise_for_status()
+                    workspace_data = response.json()
+                    workspaces.append(Workspace.parse_obj(workspace_data))
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch workspace {workspace_id}: {str(e)}"
+                    )
+
+            # If we have workspace_names, we'll need to fetch those too
+            if self.config.workspace_config.workspace_names:
+                workspaces.extend(self._get_workspaces_by_name())
+
+            return workspaces
+
+        # If only workspace names are configured
+        if self.config.workspace_config.workspace_names:
+            return self._get_workspaces_by_name()
+
+        # If no specific workspaces configured, fetch all workspaces
+        return self._get_all_workspaces(continuation_token)
+
+    def _get_workspaces_by_name(self) -> List[Workspace]:
+        """Get workspaces by name"""
+        workspaces: List[Workspace] = []
+        workspace_names = set(self.config.workspace_config.workspace_names or [])
+
+        if not workspace_names:
+            return workspaces
+
+        def fetch_page(
+            continuation_token: Optional[str] = None,
+        ) -> Tuple[List[Workspace], Optional[str]]:
+            url = "https://api.fabric.microsoft.com/v1/workspaces"
+            params = {}
+            if continuation_token:
+                params["continuation_token"] = continuation_token
+
+            response = self.session.get(
+                url, headers=self.session.headers, params=params
+            )
+            response.raise_for_status()
+            response_data = response.json()
+
+            page_workspaces = []
+            for workspace in response_data.get("value", []):
+                if workspace.get("displayName") in workspace_names:
+                    page_workspaces.append(Workspace.parse_obj(workspace))
+
+            return page_workspaces, response_data.get("continuationToken")
+
+        try:
+            continuation_token = None
+            found_names = set()
+
+            while True:
+                page_workspaces, continuation_token = fetch_page(continuation_token)
+                workspaces.extend(page_workspaces)
+
+                # Track which workspace names we've found
+                found_names.update(w.display_name for w in page_workspaces)
+
+                # Stop if we've found all workspace names or no more pages
+                if found_names.issuperset(workspace_names) or not continuation_token:
+                    break
+
+        except Exception as e:
+            logger.error(f"Failed to fetch workspaces by name: {str(e)}")
+
+        return workspaces
+
+    def _get_all_workspaces(
+        self, continuation_token: Optional[str] = None
+    ) -> List[Workspace]:
+        """Get all workspaces using pagination"""
         workspaces: List[Workspace] = []
         url = "https://api.fabric.microsoft.com/v1/workspaces"
-        params: Dict[str, str] = {}
+        params = {}
 
         if continuation_token:
             params["continuation_token"] = continuation_token
 
-        response = self.session.get(url, headers=self.session.headers, params=params)
-        response.raise_for_status()
+        try:
+            response = self.session.get(
+                url, headers=self.session.headers, params=params
+            )
+            response.raise_for_status()
 
-        response_data = response.json()
-        if response_data:
-            workspaces_data = response_data.get("value")
-            continuation_token = response_data.get("continuationToken")
-            if continuation_token:
-                workspaces.extend(self._get_workspaces(continuation_token))
+            response_data = response.json()
+            workspaces_data = response_data.get("value", [])
+            next_token = response_data.get("continuationToken")
 
-            if workspaces_data:
-                workspaces.extend(
-                    [Workspace.parse_obj(workspace) for workspace in workspaces_data]
-                )
+            workspaces.extend([Workspace.parse_obj(w) for w in workspaces_data])
+
+            if next_token:
+                workspaces.extend(self._get_all_workspaces(next_token))
+
+        except Exception as e:
+            logger.error(f"Failed to fetch workspaces: {str(e)}")
 
         return workspaces
 
     def get_report(self):
-        """Get ingestion report"""
         return self.report
