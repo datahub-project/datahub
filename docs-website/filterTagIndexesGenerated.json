@@ -6,9 +6,9 @@
       "Title": "ABS Data Lake",
       "Description": "DataHub supports ABS Data Lake Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -19,7 +19,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Column Level Lineage, Status Aspect"
       }
     },
     {
@@ -41,7 +41,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Patch Lineage, UI Ingestion, Lower Casing, Status Aspect"
       }
     },
     {
@@ -61,9 +61,9 @@
       "Title": "CSV Enricher",
       "Description": "DataHub supports CSV Enricher Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -72,7 +72,7 @@
       "Title": "Cassandra",
       "Description": "DataHub supports Cassandra Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -85,7 +85,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -96,7 +96,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -105,7 +105,7 @@
       "Title": "CockroachDB",
       "Description": "DataHub supports CockroachDB Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -127,9 +127,9 @@
       "Title": "DataHubApply",
       "Description": "DataHub supports DataHubApply Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -138,9 +138,9 @@
       "Title": "DataHubGc",
       "Description": "DataHub supports DataHubGc Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -151,7 +151,7 @@
       "tags": {
         "Platform Type": "ETL and Processing",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Status Aspect"
       }
     },
     {
@@ -182,7 +182,7 @@
       "Title": "Dremio",
       "Description": "DataHub supports Dremio Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -195,7 +195,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -204,9 +204,9 @@
       "Title": "DynamoDB",
       "Description": "DataHub supports DynamoDB Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -248,9 +248,9 @@
       "Title": "Fivetran",
       "Description": "DataHub supports Fivetran Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -270,7 +270,7 @@
       "Title": "Google Cloud Storage",
       "Description": "DataHub supports Google Cloud Storage Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -281,9 +281,9 @@
       "Title": "Grafana",
       "Description": "DataHub supports Grafana Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -294,7 +294,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
       }
     },
     {
@@ -305,7 +305,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -316,7 +316,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -402,9 +402,9 @@
       "Title": "MLflow",
       "Description": "DataHub supports MLflow Integration.",
       "tags": {
-        "Platform Type": "AI+ML",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -415,7 +415,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -435,9 +435,9 @@
       "Title": "Metadata File",
       "Description": "DataHub supports Metadata File Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -448,7 +448,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -459,7 +459,7 @@
       "tags": {
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": ""
       }
     },
     {
@@ -481,7 +481,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -490,9 +490,9 @@
       "Title": "Neo4j",
       "Description": "DataHub supports Neo4j Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -536,7 +536,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -547,7 +547,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -558,7 +558,7 @@
       "tags": {
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Lower Casing, Status Aspect"
       }
     },
     {
@@ -567,9 +567,9 @@
       "Title": "PowerBI Report Server",
       "Description": "DataHub supports PowerBI Report Server Integration.",
       "tags": {
-        "Platform Type": "BI Tool",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -578,9 +578,9 @@
       "Title": "Preset",
       "Description": "DataHub supports Preset Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -591,7 +591,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -611,7 +611,7 @@
       "Title": "Qlik Sense",
       "Description": "DataHub supports Qlik Sense Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -635,7 +635,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -644,7 +644,7 @@
       "Title": "S3 / Local Files",
       "Description": "DataHub supports S3 / Local Files Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -655,9 +655,9 @@
       "Title": "SAP Analytics Cloud",
       "Description": "DataHub supports SAP Analytics Cloud Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -668,7 +668,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -677,9 +677,9 @@
       "Title": "SQL Queries",
       "Description": "DataHub supports SQL Queries Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
-        "Features": ""
+        "Features": "UI Ingestion"
       }
     },
     {
@@ -690,7 +690,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
@@ -721,7 +721,7 @@
       "Title": "Sigma",
       "Description": "DataHub supports Sigma Integration.",
       "tags": {
-        "Platform Type": "Datastore",
+        "Platform Type": "",
         "Connection Type": "Pull",
         "Features": "UI Ingestion"
       }
@@ -745,7 +745,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Column Level Lineage, Patch Lineage,  UI Ingestion, Lower Casing, Status Aspect"
       }
     },
     {
@@ -778,7 +778,7 @@
       "tags": {
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Lower Casing, Status Aspect"
       }
     },
     {
@@ -789,7 +789,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -800,7 +800,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
       }
     },
     {
@@ -811,7 +811,7 @@
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
-        "Features": "UI Ingestion"
+        "Features": "Stateful Ingestion, Status Aspect"
       }
     },
     {
