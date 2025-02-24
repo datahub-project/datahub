@@ -41,8 +41,6 @@ asn1crypto==1.5.1
     # via snowflake-connector-python
 asttokens==2.4.1
     # via stack-data
-async-timeout==4.0.3 ; python_full_version < '3.11'
-    # via aiohttp
 asyncer==0.0.8
     # via acryl-datahub-integrations
 attrs==23.2.0
@@ -169,10 +167,6 @@ entrypoints==0.4
     #   acryl-datahub-actions
     #   altair
     #   jupyter-client
-exceptiongroup==1.2.1 ; python_full_version < '3.11'
-    # via
-    #   anyio
-    #   ipython
 executing==2.0.1
     # via stack-data
 expandvars==0.12.0
@@ -737,9 +731,9 @@ sqlalchemy==1.4.52
     #   sqlalchemy-bigquery
 sqlalchemy-bigquery==1.11.0
     # via acryl-datahub
-sqlglot==25.32.1
+sqlglot==26.6.0
     # via acryl-datahub
-sqlglotrs==0.3.0
+sqlglotrs==0.3.14
     # via sqlglot
 sqlparse==0.5.0
     # via acryl-datahub
@@ -773,8 +767,6 @@ toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-tomli==2.0.1 ; python_full_version < '3.11'
-    # via build
 tomlkit==0.12.4
     # via snowflake-connector-python
 toolz==0.12.1
@@ -816,7 +808,6 @@ typer==0.7.0
 typing-extensions==4.11.0
     # via
     #   acryl-datahub
-    #   asgiref
     #   fastapi
     #   great-expectations
     #   inflect
@@ -828,7 +819,6 @@ typing-extensions==4.11.0
     #   snowflake-connector-python
     #   typeguard
     #   typing-inspect
-    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   acryl-datahub

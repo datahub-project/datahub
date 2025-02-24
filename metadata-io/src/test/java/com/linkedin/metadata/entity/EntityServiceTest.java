@@ -1360,6 +1360,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    SystemMetadataUtils.setNoOp(expectedMetadata2, false);
     assertTrue(
         DataTemplateUtil.areEqual(
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
@@ -1401,7 +1402,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata2 =
         AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", null, "2");
     SystemMetadata expectedMetadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2");
+        SystemMetadataUtils.setNoOp(
+            AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2"),
+            false);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1602,6 +1605,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
             metadata1));
 
+    SystemMetadataUtils.setNoOp(expectedMetadata2, true);
     assertTrue(
         DataTemplateUtil.areEqual(
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
