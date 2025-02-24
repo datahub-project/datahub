@@ -678,6 +678,7 @@ base_dev_requirements = {
             "sac",
             "cassandra",
             "neo4j",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
