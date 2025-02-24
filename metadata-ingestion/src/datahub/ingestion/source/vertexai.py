@@ -9,7 +9,8 @@ from google.cloud.aiplatform import (
     AutoMLTabularTrainingJob,
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
-    Endpoint, TabularDataset, TextDataset,
+    Endpoint,
+    TabularDataset,
 )
 from google.cloud.aiplatform.datasets import _Dataset
 from google.cloud.aiplatform.models import Model, VersionInfo
@@ -33,7 +34,8 @@ from datahub.metadata._schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
-    TimeStampClass, DatasetPropertiesClass,
+    DatasetPropertiesClass,
+    TimeStampClass,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
