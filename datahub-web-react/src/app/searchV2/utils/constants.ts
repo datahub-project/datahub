@@ -35,6 +35,7 @@ export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
@@ -114,6 +115,7 @@ export const FIELD_TO_LABEL = {
     platformInstance: 'Platform Instance',
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
+    hasSiblings: 'Has Siblings',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
     [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
     [STRUCTURED_PROPERTIES_FILTER_NAME]: 'Structured Property',

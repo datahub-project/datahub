@@ -22,6 +22,8 @@ record Siblings {
       "fieldName": "siblings",
       "fieldType": "URN",
       "queryByDefault": false,
+      "hasValuesFieldName": "hasSiblings",
+      "addHasValuesToFilters": true,
     }
   }
   siblings: array[Urn]
