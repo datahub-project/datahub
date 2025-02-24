@@ -108,3 +108,30 @@ def test_create_session_from_config_username_password(mock_post, mock_get, mock_
     assert kwargs_get[0][0] == "localhost:3000/api/user/current"
 
     mock_delete.assert_called_once()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_fail_session_delete(mock_post, mock_get, mock_delete):
+    metabase_config = MetabaseConfig(
+        connect_uri="localhost:3000", username="un", password=pydantic.SecretStr("pwd")
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+
+    mock_response_delete = MagicMock()
+    mock_response_delete.status_code = 400
+    mock_delete.return_value = mock_response_delete
+
+    mock_report = MagicMock()
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    metabase_source.report = mock_report
+    metabase_source.close()
+
+    mock_report.report_failure.assert_called_once()
