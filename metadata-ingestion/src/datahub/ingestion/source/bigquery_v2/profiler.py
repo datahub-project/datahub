@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
-from google.cloud.bigquery import SchemaField
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -18,122 +17,8 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
-from datahub.metadata.schema_classes import SchemaFieldClass, SchemaFieldDataTypeClass
 
 logger = logging.getLogger(__name__)
-
-
-class BigQueryComplexTypeHandler:
-    """Handles profiling logic for complex BigQuery types"""
-
-    def __init__(self):
-        self.simple_types = {
-            "STRING",
-            "BYTES",
-            "INTEGER",
-            "INT64",
-            "FLOAT",
-            "FLOAT64",
-            "NUMERIC",
-            "BIGNUMERIC",
-            "BOOLEAN",
-            "BOOL",
-            "DATE",
-            "DATETIME",
-            "TIME",
-            "TIMESTAMP",
-        }
-
-    def generate_profiling_sql(
-        self,
-        field_path: str,
-        field_type: str,
-        table_name: str,
-        is_repeated: bool = False,
-    ) -> Optional[str]:
-        """Generates profiling SQL based on field type with support for repeated fields"""
-        if field_type not in self.simple_types:
-            logger.debug(
-                f"Skipping unsupported type {field_type} for field {field_path}"
-            )
-            return None
-
-        if is_repeated:
-            # For repeated fields, unnest and analyze the array elements
-            return self._generate_array_profiling_sql(
-                field_path, field_type, table_name
-            )
-        else:
-            # For regular fields use direct profiling
-            return self._generate_scalar_profiling_sql(
-                field_path, field_type, table_name
-            )
-
-    def _generate_scalar_profiling_sql(
-        self, field_path: str, field_type: str, table_name: str
-    ) -> str:
-        """Generate SQL for scalar field types"""
-        qualified_field = f"`{field_path}`"
-
-        # Common metrics for all types
-        metrics = f"""COUNT(*) as total_count,
-COUNTIF({qualified_field} IS NOT NULL) as non_null_count"""
-
-        # Add type-specific metrics
-        type_metrics = self._get_type_specific_metrics(qualified_field, field_type)
-        if type_metrics:
-            metrics = f"{metrics}, {type_metrics}"
-
-        return f"SELECT {metrics} FROM {table_name}"
-
-    def _generate_array_profiling_sql(
-        self, field_path: str, field_type: str, table_name: str
-    ) -> str:
-        """Generate SQL for array/repeated fields"""
-        qualified_field = f"`{field_path}`"
-        array_element = "element"
-
-        metrics = f"""COUNT(*) as total_count,
-COUNTIF({qualified_field} IS NOT NULL) as non_null_count,
-AVG(ARRAY_LENGTH({qualified_field})) as avg_array_length,
-MIN(ARRAY_LENGTH({qualified_field})) as min_array_length,
-MAX(ARRAY_LENGTH({qualified_field})) as max_array_length"""
-
-        # Add element-level metrics if supported for the type
-        type_metrics = self._get_type_specific_metrics(array_element, field_type)
-        if type_metrics:
-            metrics = f"""{metrics},
-(SELECT AS STRUCT 
-    {type_metrics}
- FROM UNNEST({qualified_field}) as {array_element}
-) as element_stats"""
-
-        return f"SELECT {metrics} FROM {table_name}"
-
-    def _get_type_specific_metrics(self, field: str, field_type: str) -> Optional[str]:
-        """Gets type-specific metrics SQL"""
-        if field_type in {
-            "INTEGER",
-            "INT64",
-            "FLOAT",
-            "FLOAT64",
-            "NUMERIC",
-            "BIGNUMERIC",
-        }:
-            return f"""MIN({field}) as min_value,
-MAX({field}) as max_value,
-AVG({field}) as avg_value,
-APPROX_QUANTILES({field}, 2)[OFFSET(1)] as median,
-STDDEV({field}) as stddev"""
-        elif field_type in {"STRING", "BYTES"}:
-            return f"""COUNT(DISTINCT {field}) as distinct_count,
-AVG(LENGTH({field})) as avg_length,
-MIN(LENGTH({field})) as min_length,
-MAX(LENGTH({field})) as max_length"""
-        elif field_type in {"DATE", "DATETIME", "TIMESTAMP"}:
-            return f"""MIN({field}) as min_value,
-MAX({field}) as max_value"""
-        return None
 
 
 class BigqueryProfiler(GenericProfiler):
@@ -149,7 +34,6 @@ class BigqueryProfiler(GenericProfiler):
         super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
-        self.complex_type_handler = BigQueryComplexTypeHandler()
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -162,72 +46,22 @@ class BigqueryProfiler(GenericProfiler):
             10: (relativedelta(hours=1), "%Y%m%d%H"),
         }
 
-        if len(partition_id) not in partition_range_map:
-            raise ValueError(
-                f"Invalid partition_id {partition_id}. Must be yearly/monthly/daily/hourly."
-            )
-
-        duration, fmt = partition_range_map[len(partition_id)]
-
-        if not partition_datetime:
-            partition_datetime = datetime.strptime(partition_id, fmt)
+        duration: relativedelta
+        if partition_range_map.get(len(partition_id)):
+            (delta, format) = partition_range_map[len(partition_id)]
+            duration = delta
+            if not partition_datetime:
+                partition_datetime = datetime.strptime(partition_id, format)
+            else:
+                partition_datetime = datetime.strptime(
+                    partition_datetime.strftime(format), format
+                )
         else:
-            partition_datetime = datetime.strptime(
-                partition_datetime.strftime(fmt), fmt
+            raise ValueError(
+                f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
             )
-
-        upper_bound = partition_datetime + duration
-        return partition_datetime, upper_bound
-
-    def convert_bigquery_schema(self, bq_field: "SchemaField") -> SchemaFieldClass:
-        """Convert BigQuery SchemaField to DataHub SchemaFieldClass"""
-        return SchemaFieldClass(
-            fieldPath=bq_field.name,
-            type=self._convert_field_type(bq_field.field_type),
-            nativeDataType=bq_field.field_type,
-            description=bq_field.description if bq_field.description else None,
-            nullable=(bq_field.mode != "REQUIRED"),
-        )
-
-    def _convert_field_type(self, bq_type: str) -> SchemaFieldDataTypeClass:
-        """Convert BigQuery type to DataHub SchemaFieldDataTypeClass"""
-        from datahub.metadata.schema_classes import (
-            ArrayTypeClass,
-            BooleanTypeClass,
-            BytesTypeClass,
-            DateTypeClass,
-            NullTypeClass,
-            NumberTypeClass,
-            RecordTypeClass,
-            StringTypeClass,
-            TimeTypeClass,
-        )
-
-        type_mapping = {
-            "BOOL": BooleanTypeClass,
-            "BOOLEAN": BooleanTypeClass,
-            "BYTES": BytesTypeClass,
-            "DATE": DateTypeClass,
-            "DATETIME": TimeTypeClass,
-            "TIME": TimeTypeClass,
-            "TIMESTAMP": TimeTypeClass,
-            "FLOAT": NumberTypeClass,
-            "FLOAT64": NumberTypeClass,
-            "INTEGER": NumberTypeClass,
-            "INT64": NumberTypeClass,
-            "NUMERIC": NumberTypeClass,
-            "BIGNUMERIC": NumberTypeClass,
-            "STRING": StringTypeClass,
-            "STRUCT": RecordTypeClass,
-            "RECORD": RecordTypeClass,
-        }
-
-        if bq_type.startswith("ARRAY<"):
-            # Handle array type
-            return SchemaFieldDataTypeClass(type=ArrayTypeClass())
-
-        type_class = type_mapping.get(bq_type, NullTypeClass)
-        return SchemaFieldDataTypeClass(type=type_class())
+        upper_bound_partition_datetime = partition_datetime + duration
+        return partition_datetime, upper_bound_partition_datetime
 
     def _get_required_partition_filters(
         self,
@@ -236,124 +70,123 @@ class BigqueryProfiler(GenericProfiler):
         schema: str,
     ) -> Optional[List[str]]:
         """Get partition filters for all required partition columns."""
-        try:
-            current_time = datetime.now(timezone.utc)
-            partition_filters = []
+        current_time = datetime.now(timezone.utc)
+        partition_filters = []
 
-            # Get required partition columns
-            required_partition_columns = set()
+        # Get required partition columns from table info
+        required_partition_columns = set()
 
-            if table.partition_info:
-                if isinstance(table.partition_info.fields, list):
-                    required_partition_columns.update(table.partition_info.fields)
+        # Get from explicit partition_info if available
+        if table.partition_info:
+            if isinstance(table.partition_info.fields, list):
+                required_partition_columns.update(table.partition_info.fields)
 
-                if table.partition_info.columns:
-                    required_partition_columns.update(
-                        col.name for col in table.partition_info.columns if col
-                    )
+            if table.partition_info.columns:
+                required_partition_columns.update(
+                    col.name for col in table.partition_info.columns if col
+                )
 
-            if not required_partition_columns:
-                if not table.external:
-                    return None
-
-                # Check external table partitioning
-                query = f"""SELECT column_name, data_type
+        # If no partition columns found, check for external table partitioning
+        if not required_partition_columns:
+            logger.debug(f"No partition columns found for table {table.name}")
+            if table.external:
+                try:
+                    query = f"""SELECT column_name, data_type
 FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}' 
-AND is_partitioning_column = 'YES'"""
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+                    query_job = self.config.get_bigquery_client().query(query)
+                    results = list(query_job)
 
-                client = self.config.get_bigquery_client()
-                results = list(client.query(query))
+                    if results:
+                        required_partition_columns.update(
+                            row.column_name for row in results
+                        )
+                        logger.debug(
+                            f"Found external partition columns: {required_partition_columns}"
+                        )
+                    else:
+                        return []  # No partitions found (valid for external tables)
+                except Exception as e:
+                    logger.error(f"Error checking external table partitioning: {e}")
+                    return None
+            else:
+                return None  # Internal table without partitions (unexpected)
 
-                if not results:
-                    return []
+        logger.debug(f"Required partition columns: {required_partition_columns}")
 
-                required_partition_columns.update(row.column_name for row in results)
-
-            # Get column types
+        # Get column data types to handle casting correctly
+        column_data_types = {}
+        try:
             query = f"""SELECT column_name, data_type
 FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
 WHERE table_name = '{table.name}'"""
-
-            results = list(self.config.get_bigquery_client().query(query))
-            column_types = {row.column_name: row.data_type for row in results}
-
-            # Handle time-based vs other columns
-            time_columns = {
-                col
-                for col in required_partition_columns
-                if col.lower() in {"year", "month", "day", "hour"}
-            }
-            other_columns = required_partition_columns - time_columns
-
-            # Time-based filters - always treat as integers unless column type suggests otherwise
-            for col in time_columns:
-                col_lower = col.lower()
-                col_type = column_types.get(col, "INT64")
-
-                try:
-                    # First try to get value from query
-                    query = f"""SELECT DISTINCT {col} as val
-FROM `{project}.{schema}.{table.name}`
-WHERE {col} IS NOT NULL
-ORDER BY {col} DESC
-LIMIT 1"""
-
-                    results = list(self.config.get_bigquery_client().query(query))
-                    if results and results[0].val is not None:
-                        val = results[0].val
-                    else:
-                        # Fall back to current time if no value found
-                        val = {
-                            "year": current_time.year,
-                            "month": current_time.month,
-                            "day": current_time.day,
-                            "hour": current_time.hour,
-                        }[col_lower]
-
-                    needs_quotes = col_type.upper() in {
-                        "STRING",
-                        "BYTES",
-                        "TIMESTAMP",
-                        "DATE",
-                        "DATETIME",
-                        "TIME",
-                    }
-                    filter_val = f"'{val}'" if needs_quotes else str(val)
-                    partition_filters.append(f"`{col}` = {filter_val}")
-
-                except Exception as e:
-                    logger.error(
-                        f"Error getting partition value for time column {col}: {e}"
-                    )
-
-            # Non-time filters
-            for col in other_columns:
-                try:
-                    query = f"""SELECT DISTINCT {col} as val
-FROM `{project}.{schema}.{table.name}`
-WHERE {col} IS NOT NULL
-ORDER BY {col} DESC
-LIMIT 1"""
-
-                    results = list(self.config.get_bigquery_client().query(query))
-
-                    if not results or results[0].val is None:
-                        logger.warning(f"No values found for partition column {col}")
-                        continue
-
-                    val = results[0].val
-                    filter_val = val if isinstance(val, (int, float)) else f"'{val}'"
-                    partition_filters.append(f"`{col}` = {filter_val}")
-
-                except Exception as e:
-                    logger.error(f"Error getting partition value for {col}: {e}")
-
-            return partition_filters if partition_filters else None
-
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job)
+            column_data_types = {row.column_name: row.data_type for row in results}
         except Exception as e:
-            logger.error(f"Error determining partition filters: {e}")
-            return None
+            logger.error(f"Error fetching column data types: {e}")
+
+        # Handle standard time-based columns without querying
+        standard_time_columns = {"year", "month", "day", "hour"}
+        time_based_columns = {
+            col
+            for col in required_partition_columns
+            if col.lower() in standard_time_columns
+        }
+        other_columns = required_partition_columns - time_based_columns
+
+        for col_name in time_based_columns:
+            col_name_lower = col_name.lower()
+            col_data_type = column_data_types.get(col_name, "STRING")
+
+            if col_name_lower == "year":
+                value = current_time.year
+            elif col_name_lower == "month":
+                value = current_time.month
+            elif col_name_lower == "day":
+                value = current_time.day
+            elif col_name_lower == "hour":
+                value = current_time.hour
+            else:
+                continue
+
+            # Handle casting based on column type
+            if col_data_type.upper() in {"STRING"}:
+                partition_filters.append(f"`{col_name}` = '{value}'")
+            else:
+                partition_filters.append(f"`{col_name}` = {value}")
+
+        # Fetch latest value for non-time-based partitions
+        for col_name in other_columns:
+            try:
+                query = f"""SELECT DISTINCT {col_name} as val
+FROM `{project}.{schema}.{table.name}`
+WHERE {col_name} IS NOT NULL
+ORDER BY {col_name} DESC
+LIMIT 1"""
+                logger.debug(f"Executing query for partition value: {query}")
+
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=30))
+
+                if not results or results[0].val is None:
+                    logger.warning(
+                        f"No values found for required partition column {col_name}"
+                    )
+                    continue
+
+                val = results[0].val
+
+                if isinstance(val, (int, float)):
+                    partition_filters.append(f"`{col_name}` = {val}")
+                else:
+                    partition_filters.append(f"`{col_name}` = '{val}'")
+
+            except Exception as e:
+                logger.error(f"Error getting partition value for {col_name}: {e}")
+
+        logger.debug(f"Final partition filters: {partition_filters}")
+        return partition_filters if partition_filters else None
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -403,14 +236,15 @@ WHERE {partition_where}"""
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
-        """Get profile request with complex type handling"""
+        """Get profile request with appropriate partition handling."""
         profile_request = super().get_profile_request(table, schema_name, db_name)
+
         if not profile_request:
             return None
 
         bq_table = cast(BigqueryTable, table)
 
-        # Skip external tables if configured
+        # Skip external tables if configured to do so
         if bq_table.external and not self.config.profiling.profile_external_tables:
             self.report.report_warning(
                 title="Profiling skipped for external table",
@@ -419,11 +253,12 @@ WHERE {partition_where}"""
             )
             return None
 
-        # Handle partitioning
+        # Get partition filters
         partition_filters = self._get_required_partition_filters(
             bq_table, db_name, schema_name
         )
 
+        # If we got None back, that means there was an error getting partition filters
         if partition_filters is None:
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
@@ -434,95 +269,68 @@ WHERE {partition_where}"""
 
         if not self.config.profiling.partition_profiling_enabled:
             logger.debug(
-                f"Skipping {profile_request.pretty_name} - partition_profiling_enabled is False"
+                f"{profile_request.pretty_name} is skipped because profiling.partition_profiling_enabled property is disabled"
             )
             self.report.profiling_skipped_partition_profiling_disabled.append(
                 profile_request.pretty_name
             )
             return None
 
-        # Enhance with complex type handling
-        try:
-            # Get table schema
-            table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
-            bq_table_obj = self.config.get_bigquery_client().get_table(table_ref)
+        # Only add partition handling if we actually have partition filters
+        if partition_filters:
+            partition_where = " AND ".join(partition_filters)
+            custom_sql = f"""SELECT * 
+    FROM `{db_name}.{schema_name}.{bq_table.name}`
+    WHERE {partition_where}"""
 
-            # Process each field
-            query_dict = {}
-
-            # Check nested fields by recursively building paths
-            def process_field(field: SchemaField, parent_path: str = "") -> None:
-                field_path = (
-                    f"{parent_path}.{field.name}" if parent_path else field.name
-                )
-
-                # Generate profiling SQL for this field
-                profile_sql = self.complex_type_handler.generate_profiling_sql(
-                    field_path=field_path,
-                    field_type=field.field_type,
-                    table_name=table_ref,
-                    is_repeated=(field.mode == "REPEATED"),
-                )
-
-                if profile_sql:
-                    if partition_filters:
-                        where_clause = " AND ".join(partition_filters)
-                        profile_sql = f"{profile_sql} WHERE {where_clause}"
-
-                    # Add to query_dict instead of profiling_queries
-                    query_dict[field_path] = profile_sql
-
-                # Recursively process nested fields if field is a STRUCT/RECORD
-                if field.field_type in ("RECORD", "STRUCT") and hasattr(
-                    field, "fields"
-                ):
-                    for nested_field in field.fields:
-                        process_field(nested_field, field_path)
-
-            # Process each field in the schema
-            for bq_field in bq_table_obj.schema:
-                process_field(bq_field)
-
-            if not query_dict:
-                logger.debug(
-                    f"No profiling queries generated for {profile_request.pretty_name}"
-                )
-                return None
-
-            # Set the query dictionary in the profile request
-            profile_request.query_dict = query_dict
-            return profile_request
-
-        except Exception as e:
-            self.report.report_warning(
-                message="Failed to enhance profile request",
-                context=profile_request.pretty_name,
-                exc=e,
+            logger.debug(f"Using partition filters: {partition_where}")
+            profile_request.batch_kwargs.update(
+                dict(custom_sql=custom_sql, partition_handling="true")
             )
-            return None
+
+        return profile_request
 
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
-        """Get profile workunits with complex type handling"""
+        """Get profile workunits handling both internal and external tables."""
+        profile_requests: List[TableProfilerRequest] = []
+
         for dataset in tables:
             for table in tables[dataset]:
-                table_id = BigqueryTableIdentifier(
+                normalized_table_name = BigqueryTableIdentifier(
                     project_id=project_id, dataset=dataset, table=table.name
-                )
+                ).get_table_name()
 
-                profile_request = self.get_profile_request(table, dataset, project_id)
-
-                if profile_request:
-                    self.report.report_entity_profiled(profile_request.pretty_name)
-                    yield from self.generate_profile_workunits(
-                        [profile_request],
-                        max_workers=self.config.profiling.max_workers,
-                        platform=self.platform,
-                        profiler_args=self.get_profile_args(),
+                if table.external and not self.config.profiling.profile_external_tables:
+                    self.report.profiling_skipped_other[f"{project_id}.{dataset}"] += 1
+                    logger.info(
+                        f"Skipping profiling of external table {project_id}.{dataset}.{table.name}"
                     )
+                    continue
+
+                # Emit profile work unit
+                logger.debug(
+                    f"Creating profile request for table {normalized_table_name}"
+                )
+                profile_request = self.get_profile_request(table, dataset, project_id)
+                if profile_request is not None:
+                    self.report.report_entity_profiled(profile_request.pretty_name)
+                    profile_requests.append(profile_request)
                 else:
-                    logger.debug(f"Skipping profiling for {table_id}")
+                    logger.debug(
+                        f"Table {normalized_table_name} was not eligible for profiling."
+                    )
+
+        if len(profile_requests) == 0:
+            return
+
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         """Get dataset name in BigQuery format."""
