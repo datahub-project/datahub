@@ -64,7 +64,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.get('[aria-label="delete"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
-    cy.get("button").contains("Yes").click();
+    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click();
     cy.ensureTextNotPresent(ingestion_source_name);
 
     // Verify secret is not present during ingestion source creation for password dropdown
