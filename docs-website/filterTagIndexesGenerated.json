@@ -89,17 +89,6 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/clickhouse",
-      "imgPath": "img/logos/platforms/clickhouse.svg",
-      "Title": "ClickHouse",
-      "Description": "ClickHouse is an open-source column-oriented database management system designed for high-performance data processing and analytics.",
-      "tags": {
-        "Platform Type": "Datastore",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, Status Aspect"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/cockroachdb",
       "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "CockroachDB",
@@ -309,17 +298,6 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/hive-metastore",
-      "imgPath": "img/logos/platforms/presto.svg",
-      "Title": "Hive Metastore",
-      "Description": "Hive Metastore (HMS) is a service that stores metadata that is related to Hive, Presto, Trino and other services in a backend Relational Database Management System (RDBMS) ",
-      "tags": {
-        "Platform Type": "Datastore",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, Status Aspect"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/iceberg",
       "imgPath": "img/logos/platforms/iceberg.png",
       "Title": "Iceberg",
@@ -372,17 +350,6 @@
         "Platform Type": "Identity Provider",
         "Connection Type": "Pull",
         "Features": ""
-      }
-    },
-    {
-      "Path": "docs/generated/ingestion/sources/looker",
-      "imgPath": "img/logos/platforms/looker.svg",
-      "Title": "Looker",
-      "Description": "Looker is a business intelligence and data analytics platform that allows users to explore, analyze, and share data insights in real-time.",
-      "tags": {
-        "Platform Type": "BI Tool",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, Column Level Lineage,  UI Ingestion, Lower Casing, Status Aspect"
       }
     },
     {
@@ -793,17 +760,6 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/trino",
-      "imgPath": "img/logos/platforms/trino.png",
-      "Title": "Trino",
-      "Description": "Trino is an open-source distributed SQL query engine designed to query large-scale data processing systems, including Hadoop, Cassandra, and relational databases.",
-      "tags": {
-        "Platform Type": "Datastore",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/vertica",
       "imgPath": "img/logos/platforms/vertica.svg",
       "Title": "Vertica",
@@ -812,17 +768,6 @@
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
-    },
-    {
-      "Path": "docs/generated/ingestion/sources/dbt",
-      "imgPath": "img/logos/platforms/dbt.svg",
-      "Title": "dbt",
-      "Description": "dbt is a data transformation tool that enables analysts and engineers to transform data in their warehouses through a modular, SQL-based approach.",
-      "tags": {
-        "Platform Type": "ETL and Processing",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, Patch Lineage,  UI Ingestion, Status Aspect"
       }
     },
     {

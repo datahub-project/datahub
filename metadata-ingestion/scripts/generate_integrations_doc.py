@@ -1,7 +1,9 @@
-import os
-import json
 from typing import Dict
 from docgen_types import Platform
+import json
+import os
+
+
 def generate(platforms: Dict[str, Platform],
                                origin_path: str = "../docs-website/filterTagIndexes.json",
                                output_path: str = "../docs-website/filterTagIndexesGenerated.json") -> None:
@@ -10,7 +12,7 @@ def generate(platforms: Dict[str, Platform],
     Reads from original file and writes to new file, preserving the original.
     """
 
-    # Read existing file if it exists
+    # First read existing file if it exists
     existing_sources = {}
     if os.path.exists(origin_path):
         try:
@@ -32,16 +34,21 @@ def generate(platforms: Dict[str, Platform],
             return f"img/logos/platforms/{platform_id}.png"
         return "img/datahub-logo-color-mark.svg"
 
-    integration_sources = []
+    # Use dictionary to prevent duplicates
+    processed_sources = {}
+
     for platform_id, platform in platforms.items():
         if not platform.plugins:
             continue
 
-        for plugin in sorted(
-                platform.plugins.values(),
-                key=lambda x: str(x.doc_order) if x.doc_order else x.name
-        ):
-            source = existing_sources.get(platform.name.lower(), {
+        # Check if we already have this source
+        existing_source = existing_sources.get(platform.name.lower())
+
+        if existing_source:
+            source = existing_source.copy()
+        else:
+            # Create new source object with minimal default values
+            source = {
                 "Path": f"docs/generated/ingestion/sources/{platform_id}",
                 "imgPath": get_platform_image_path(platform_id),
                 "Title": platform.name,
@@ -51,11 +58,15 @@ def generate(platforms: Dict[str, Platform],
                     "Connection Type": "Pull",
                     "Features": "UI Ingestion"
                 }
-            }).copy()
+            }
+            print(platform.name)
 
-            integration_sources.append(source)
-            # print(f"Adding {platform.name} to integration sources doc -- needs review")
+        # Store in processed_sources using lowercase title as key to prevent duplicates
+        processed_sources[platform.name.lower()] = source
 
+    # Convert back to list and sort
+    integration_sources = sorted(processed_sources.values(), key=lambda x: x["Title"])
+
+    # Write to output file
     with open(output_path, 'w') as f:
-        json.dump({"ingestionSources": sorted(integration_sources, key=lambda x: x["Title"])}, f, indent=2)
-
+        json.dump({"ingestionSources": integration_sources}, f, indent=2)
