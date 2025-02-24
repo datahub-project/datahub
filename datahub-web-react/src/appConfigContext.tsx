@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppConfig } from './types.generated';
 
-export const DEFAULT_APP_CONFIG = {
+export const DEFAULT_APP_CONFIG: AppConfig = {
     analyticsConfig: {
         enabled: false,
     },
@@ -27,8 +27,10 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
-        entityProfile: {
-            domainDefaultTab: null,
+        entityProfiles: {
+            domain: {
+                defaultTab: null,
+            },
         },
         searchResult: {
             enableNameHighlight: false,
@@ -101,6 +103,7 @@ export const DEFAULT_APP_CONFIG = {
         requestMinimalSlackPermissions: false,
         entityVersioningEnabled: false,
         showTaskCenterRedesign: false,
+        usePropagationsFramework: false,
     },
     chromeExtensionConfig: {
         enabled: false,
