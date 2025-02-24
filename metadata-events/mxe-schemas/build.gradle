@@ -31,7 +31,7 @@ task renameNamespace(type: Exec, dependsOn: copyOriginalAvsc) {
 build.dependsOn renameNamespace
 
 clean {
-  project.delete('src/main/pegasus')
-  project.delete('src/mainGeneratedAvroSchema/avro')
-  project.delete('src/renamed/avro')
+  delete 'src/main/pegasus'
+  delete 'src/mainGeneratedAvroSchema/avro'
+  delete 'src/renamed/avro'
 }
