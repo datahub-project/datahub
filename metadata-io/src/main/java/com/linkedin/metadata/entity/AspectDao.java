@@ -1,15 +1,23 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import java.sql.Timestamp;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -59,9 +67,12 @@ public interface AspectDao {
    * @return
    */
   @Nullable
-  default EntityAspect getLatestAspect(
-      @Nonnull final String urn, @Nonnull final String aspectName, boolean forUpdate) {
-    return getLatestAspects(Map.of(urn, Set.of(aspectName)), forUpdate)
+  default SystemAspect getLatestAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      boolean forUpdate) {
+    return getLatestAspects(opContext, Map.of(urn, Set.of(aspectName)), forUpdate)
         .getOrDefault(urn, Map.of())
         .getOrDefault(aspectName, null);
   }
@@ -73,43 +84,119 @@ public interface AspectDao {
    * @return the data
    */
   @Nonnull
-  Map<String, Map<String, EntityAspect>> getLatestAspects(
-      Map<String, Set<String>> urnAspects, boolean forUpdate);
+  Map<String, Map<String, SystemAspect>> getLatestAspects(
+      @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
-  void saveAspect(
+  /**
+   * Updates the system aspect
+   *
+   * @param txContext transaction context
+   * @param aspect the orm model to update
+   */
+  @Nonnull
+  Optional<EntityAspect> updateAspect(
+      @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect);
+
+  /**
+   * Insert system aspect, returning the inserted aspect which may be different from the input
+   * aspect, having been replaced with an ORM variation.
+   *
+   * @param txContext transaction context
+   * @param aspect the aspect to insert
+   */
+  @Nonnull
+  Optional<EntityAspect> insertAspect(
+      @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect, long version);
+
+  /**
+   * Update the latest aspect version 0 and insert the previous version. Returns the updated version
+   * 0 aspect which may be different from the input aspect, having been replaced with an ORM
+   * variation.
+   *
+   * @param txContext transaction context
+   * @param latestAspect the aspect currently at version 0
+   * @param newAspect the new aspect to be inserted or updated at version 0
+   */
+  default Pair<Optional<EntityAspect>, Optional<EntityAspect>> saveLatestAspect(
+      @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert);
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect) {
 
-  void saveAspect(
-      @Nullable TransactionContext txContext,
-      @Nonnull final EntityAspect aspect,
-      final boolean insert);
+    if (newAspect.getSystemMetadataVersion().isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Expected a version in systemMetadata.%s", newAspect.getSystemMetadata()));
+    }
 
-  long saveLatestAspect(
-      @Nullable TransactionContext txContext,
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata,
-      final Long nextVersion);
+    if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
 
-  void deleteAspect(@Nullable TransactionContext txContext, @Nonnull final EntityAspect aspect);
+      SystemAspect currentVersion0 = latestAspect.getDatabaseAspect().get();
+
+      // update version 0 with optional write to version N
+      long targetVersion =
+          nextVersionResolution(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata());
+
+      // write version N (from previous database state if the version is modified)
+      Optional<EntityAspect> inserted = Optional.empty();
+      if (!newAspect
+          .getSystemMetadataVersion()
+          .equals(currentVersion0.getSystemMetadataVersion())) {
+
+        inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
+      }
+
+      // update version 0
+      Optional<EntityAspect> updated = Optional.empty();
+      boolean isNoOp =
+          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
+      if (!Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
+          || !isNoOp) {
+        // update no-op used for tracing
+        SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
+        // add trace - overwrite if version incremented
+        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+        updated = updateAspect(txContext, newAspect);
+      }
+
+      return Pair.of(inserted, updated);
+    } else {
+      // initial insert
+      Optional<EntityAspect> inserted = insertAspect(txContext, newAspect, ASPECT_LATEST_VERSION);
+      return Pair.of(Optional.empty(), inserted);
+    }
+  }
+
+  private long nextVersionResolution(
+      @Nullable SystemMetadata currentSystemMetadata, @Nullable SystemMetadata newSystemMetadata) {
+    // existing row 0 should have at least version 1
+    long currentVersion =
+        Optional.ofNullable(currentSystemMetadata)
+            .map(SystemMetadata::getVersion)
+            .map(Long::valueOf)
+            .orElse(1L);
+    // new row should have at least version 2 with the expected current version one behind
+    long expectedCurrentVersion =
+        Optional.ofNullable(newSystemMetadata)
+                .map(SystemMetadata::getVersion)
+                .map(Long::valueOf)
+                .orElse(2L)
+            - 1;
+
+    // reconcile the target version based on the max of the two values in case of previous
+    // corruption
+    long targetVersion = Math.max(1, Math.max(currentVersion, expectedCurrentVersion));
+
+    // if mismatch, fix row 0 metadata
+    if (currentVersion != targetVersion) {
+      currentSystemMetadata.setVersion(String.valueOf(targetVersion), SetMode.DISALLOW_NULL);
+    }
+
+    return targetVersion;
+  }
+
+  void deleteAspect(
+      @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version);
 
   @Nonnull
   ListResult<String> listUrns(

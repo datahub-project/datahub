@@ -135,10 +135,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 

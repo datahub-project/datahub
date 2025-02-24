@@ -113,9 +113,6 @@ public class OpenAPIV3Generator {
             .nullable(true));
 
     // --> Aspect components
-    components.addSchemas(
-        ASPECTS + ASPECT_RESPONSE_SUFFIX,
-        buildAspectsRefResponseSchema(entityRegistry, definitionNames));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -717,51 +714,6 @@ public class OpenAPIV3Generator {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Generate schema for cross-entity scroll/list response
-   *
-   * @param entityRegistry entity registry
-   * @return schema
-   */
-  private static Schema buildAspectsRefResponseSchema(
-      final EntityRegistry entityRegistry, final Set<String> definitionNames) {
-    final Schema result =
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .description(ASPECT_DESCRIPTION)
-            .required(List.of(PROPERTY_VALUE));
-
-    // Create a list of reference schemas for each aspect
-    List<Schema> aspectRefs =
-        entityRegistry.getAspectSpecs().values().stream()
-            .filter(a -> definitionNames.contains(a.getName()))
-            .map(
-                aspect ->
-                    new Schema<>()
-                        .$ref(PATH_DEFINITIONS + toUpperFirst(aspect.getPegasusSchema().getName())))
-            .distinct()
-            .collect(Collectors.toList());
-
-    // Add the value property with oneOf constraint
-    result.addProperty(PROPERTY_VALUE, new Schema<>().oneOf(aspectRefs));
-
-    result.addProperty(
-        NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
-    result.addProperty(
-        NAME_AUDIT_STAMP,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
-            .description("Audit stamp for the aspect.")
-            .nullable(true));
-    return result;
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {

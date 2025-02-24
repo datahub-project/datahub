@@ -38,7 +38,7 @@ const TabToolbar = styled.div`
 `;
 
 const TabContentWrapper = styled.div`
-    @media screen and (min-height: 800px) {
+    @media screen and (max-height: 800px) {
         display: contents;
         overflow: auto;
     }

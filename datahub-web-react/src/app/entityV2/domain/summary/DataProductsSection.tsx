@@ -56,7 +56,7 @@ export const DataProductsSection = () => {
         },
     });
 
-    const dataProducts = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    const dataProducts = data?.searchAcrossEntities?.searchResults?.map((r) => r.entity) || [];
     const numDataProducts = data?.searchAcrossEntities?.total || 0;
 
     if (!numDataProducts) {

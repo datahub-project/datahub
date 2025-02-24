@@ -31,7 +31,7 @@ export default function DataProductSection({ readOnly }: Props) {
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
     const dataProductRelationships = entityData?.dataProduct?.relationships;
     const siblingUrns: string[] =
-        entityData?.siblingsSearch?.searchResults.map((sibling) => sibling.entity.urn || '') || [];
+        entityData?.siblingsSearch?.searchResults?.map((sibling) => sibling.entity.urn || '') || [];
 
     const canEditDataProducts = !!entityData?.privileges?.canEditDataProducts;
 
