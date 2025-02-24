@@ -21,6 +21,7 @@ from datahub_executor.config import (
     DATAHUB_GMS_URL,
 )
 
+from .process_collector import DatahubProcessCollector
 from .registry import REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -192,7 +193,7 @@ class DatahubExecutorMetrics:
             self.httpdt = None
 
 
-collectors = None
+collectors: List[Callable] = [DatahubProcessCollector]
 common_labels = {
     "executor_internal": str(DATAHUB_EXECUTOR_INTERNAL_WORKER),
     "executor_mode": DATAHUB_EXECUTOR_MODE,

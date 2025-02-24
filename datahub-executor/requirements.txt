@@ -594,9 +594,10 @@ protobuf==4.25.5
     #   grpc-google-iam-v1
     #   grpcio-status
     #   proto-plus
-psutil==6.1.0
+psutil==7.0.0
     # via
     #   acryl-datahub
+    #   acryl-datahub-executor
     #   ipykernel
 ptyprocess==0.7.0 ; os_name != 'nt' or sys_platform != 'win32'
     # via
