@@ -491,7 +491,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_ICEBERG": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/",
             "name": "TABLE_1",
@@ -792,7 +793,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_DYNAMIC": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/",
             "name": "TABLE_2",
@@ -1093,7 +1095,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_HYBRID": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/",
             "name": "TABLE_3",

@@ -72,7 +72,7 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.9.2",
+    "ruff==0.9.7",
     "mypy==1.10.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
