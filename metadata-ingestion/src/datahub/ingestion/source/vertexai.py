@@ -117,9 +117,10 @@ class VertexAISource(Source):
         try:
             # when model has ref to training job, but field is not accessible, it is not valid
             name = job.name
+            logger.debug((f"can fetch training job name: {name} for model: (name:{model.display_name} id:{model.name})"))
             return True
         except RuntimeError:
-            logger.info(f"cannot fetch training job name, not valid for model (name:{model.display_name} id:{model.name})")
+            logger.debug(f"cannot fetch training job name, not valid for model (name:{model.display_name} id:{model.name})")
 
         return False
 
@@ -254,7 +255,6 @@ class VertexAISource(Source):
         job_conf = job.to_dict()
         if ("modelToUpload" in job_conf and "name" in job_conf["modelToUpload"] and job_conf["modelToUpload"]["name"]):
 
-            model_id = job_conf["modelToUpload"]["name"].split("/")[-1]
             model_version_str = job_conf["modelToUpload"]["versionId"]
             job_urn = self._make_job_urn(job)
 
@@ -314,12 +314,6 @@ class VertexAISource(Source):
         """
          Generate an MLModel and Endopint workunit for an VertexAI Model Version.
          """
-        logging.info(f"starting model work unit for model {model.name}")
-
-        ml_model_group_urn = self._make_ml_model_group_urn(model)
-        model_name = self._make_vertexai_name(entity_type="model", entity_id=model.name)
-        ml_model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
-        model_version_name = f"{model_name}{self.config.model_name_separator}{model_version.version_id}"
 
         endpoint: Optional[Endpoint] = self._search_endpoint(model)
         endpoint_urn = None
