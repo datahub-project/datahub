@@ -3,7 +3,7 @@ import { Select } from 'antd';
 import {
     useGetDefaultRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
-} from '@src/graphql/remote_executor.generated';
+} from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
 
 type Props = {

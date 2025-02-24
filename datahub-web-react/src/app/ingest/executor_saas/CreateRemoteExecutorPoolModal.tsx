@@ -1,5 +1,5 @@
 import { colors } from '@src/alchemy-components';
-import { useCreateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.generated';
+import { useCreateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
 import { Button, Form, Input, Modal, Switch, Typography } from 'antd';
 import { CheckCircle } from 'phosphor-react';
 import React, { useState } from 'react';

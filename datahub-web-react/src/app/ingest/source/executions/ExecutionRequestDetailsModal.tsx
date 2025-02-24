@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.generated';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';

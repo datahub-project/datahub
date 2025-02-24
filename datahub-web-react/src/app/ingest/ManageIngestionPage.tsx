@@ -13,7 +13,7 @@ import {
 } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
-import { TabType } from './source/types';
+import { TabType } from './types';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -72,8 +72,6 @@ export const ManageIngestionPage = () => {
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const history = useHistory();
-
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
@@ -81,6 +79,7 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
+    const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
         setSelectedTab(matchingTab || selectedTab);

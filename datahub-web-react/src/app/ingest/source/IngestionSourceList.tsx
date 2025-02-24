@@ -35,7 +35,7 @@ import {
 } from '../../onboarding/config/IngestionOnboardingConfig';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
 import { useCommandS } from './hooks';
-import { INGESTION_TAB_QUERY_PARAMS } from './constants';
+import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
 import { usePoolActionsForIngestionSourceList } from './hooks.saas';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
@@ -110,6 +110,7 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
     const [query, setQuery] = useState<undefined | string>(undefined);
 
     const searchInputRef = useRef<HTMLInputElement | null>(null);
+    // highlight search input if user arrives with a query preset for salience
     useEffect(() => {
         if (paramsQuery?.length) {
             setQuery(paramsQuery);
