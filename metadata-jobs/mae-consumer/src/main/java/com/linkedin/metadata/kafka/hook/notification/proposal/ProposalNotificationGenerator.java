@@ -405,7 +405,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
     }
-    addContextToTemplateParams(opCtemplateParams, info);
+    addContextToTemplateParams(templateParams, info);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
