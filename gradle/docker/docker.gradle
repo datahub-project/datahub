@@ -11,7 +11,7 @@ def _getDockerImages(String fullImageTag) {
   return stdOut.toString().trim().split("\\R").findAll { !it.empty }.unique() as List
 }
 
-def _getDockerContainers(String fullImageTag){
+def _getDockerContainers(String fullImageTag) {
   def stdOut = new ByteArrayOutputStream()
   exec {
     commandLine "docker", "container", "ls", "-q", "--filter",
@@ -21,7 +21,7 @@ def _getDockerContainers(String fullImageTag){
   return stdOut.toString().trim().split("\\R").findAll { !it.empty }.unique() as List
 }
 
-def _cleanLocalDockerImages(String fullImageTag){
+def _cleanLocalDockerImages(String fullImageTag) {
   println("Docker image string: ${fullImageTag}")
   def containers = _getDockerContainers(fullImageTag)
   if (!containers.isEmpty()) {
@@ -51,7 +51,7 @@ class DockerPluginExtension {
   MapProperty<String, String> buildArgs
   MapProperty<String, String> tags
   ListProperty<String> platforms
-  ListProperty<Task> dependencies
+  ListProperty<Object> dependencies // May contain tasks or task  names
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -60,7 +60,7 @@ class DockerPluginExtension {
     copySpec = project.copySpec()
     tags = project.objects.mapProperty(String, String)
     platforms = project.objects.listProperty(String)
-    dependencies = project.objects.listProperty(Task)
+    dependencies = project.objects.listProperty(Object)
   }
 
   def files(Object... files) {
@@ -103,78 +103,86 @@ project.afterEvaluate {
     dependsOn extension.dependencies.get()
   }
 
+  project.tasks.register("docker", Exec) {
+    group "docker"
+    description "Builds the docker image and applies all tags defined"
+    dependsOn dockerPrepare
 
+    def buildContext = "${buildDir}/docker"
 
+    def marker = "${buildDir}/imageCreated-${name}.json"
+
+    inputs.file(extension.dockerfile)
+    inputs.dir(buildContext)
+    inputs.property("tags", extension.tags)
+    inputs.property("buildArgs", extension.buildArgs)
+    outputs.file(marker)
+
+    def dockerCmd = []
+
+    dockerCmd += ["docker", "buildx", "build", "--load"]
+    if (extension.platforms.get()) {
+      dockerCmd << "--platform=${extension.platforms.get().join(',')}"
+    }
+
+    // Generate image metadata (we really just want the sha256 hash of the image)
+    dockerCmd += ["--metadata-file", marker]
+
+    extension.buildArgs.get().each { k, v -> dockerCmd += ["--build-arg", "${k}=${v}"]
+    }
+
+    extension.tags.get().each { taskName, tag ->
+      dockerCmd += ["-t", tag]
+    }
+
+    dockerCmd << "${buildDir}/docker"
+
+    // Some projects use a Dockerfile with the non-default name.
+    dockerCmd += ["--file", extension.dockerfile.get().toPath()]
+
+    println(dockerCmd.join(" "))
+    commandLine dockerCmd
+
+    outputs.upToDateWhen {
+      try {
+        /* The docker task is up-to-date if
+         * 1. the last build generated a marker file
+         * 2. An image with the same tag exists in local docker images
+         * 3. that existing image sha256 matches what is written in the generated marker file
+         */
+        def jsonContent = new File(marker).text
+        def jsonData = new JsonSlurper().parseText(jsonContent)
+        def imageIdFromMarker = jsonData['containerimage.digest']
+        if (imageIdFromMarker != null && imageIdFromMarker.startsWith("sha256:")) {
+          imageIdFromMarker = imageIdFromMarker.substring(7); // "sha256:".length() == 7
+        }
+        for(String tag : extension.tags.get().values()) {
+          def actualImage = _getDockerImages(tag)
+          if (actualImage == null || actualImage.size() == 0 && imageIdFromMarker == null ||
+              !imageIdFromMarker.startsWith(actualImage.get(0))) {
+            return false
+          }
+        }
+        return true
+      } catch (Exception e) {
+        // any exceptions also implicitly mean not-up-to-date
+        return false
+      }
+    }
+  }
   extension.tags.get().each { taskName, tag ->
+    // For backward compatibility, can be removed if we dont really have a need post migration
     // TODO: Choice of task names is to retain current names so that downstream dependencies in quickstart still work
     //  without changes. Can be changed post full migration.
-    project.tasks.register("dockerTag${taskName}", Exec) {
-      group "docker"
-      description "Docker task taht builds an image with tag ${tag}"
-      dependsOn dockerPrepare
-
-      def buildContext = "${buildDir}/docker"
-
-      def marker = "${buildDir}/imageCreated-${name}.json"
-
-      inputs.file(extension.dockerfile)
-      inputs.dir(buildContext)
-      inputs.property("tag", tag)
-      inputs.property("buildArgs", extension.buildArgs)
-      outputs.file(marker)
-
-      def dockerCmd = []
-
-      dockerCmd += ["docker", "buildx", "build", "--load"]
-      if (extension.platforms.get()) {
-        dockerCmd << "--platform=${extension.platforms.get().join(',')}"
-      }
-
-      // Generate image metadata (we really just want the sha256 hash of the image)
-      dockerCmd += ["--metadata-file", marker]
-
-      extension.buildArgs.get().each { k, v -> dockerCmd += ["--build-arg", "${k}=${v}"]
-      }
-
-      dockerCmd += ["-t", tag]
-
-      dockerCmd << "${buildDir}/docker"
-
-      commandLine dockerCmd
-
-      outputs.upToDateWhen {
-        try {
-          /* The docker task is up-to-date if
-           * 1. the last build generated a marker file
-           * 2. An image with the same tag exists in local docker images
-           * 3. that existing image sha256 matches what is written in the generated marker file
-           */
-          def jsonContent = new File(marker).text
-          def jsonData = new JsonSlurper().parseText(jsonContent)
-          def imageIdFromMarker = jsonData['containerimage.digest']
-          if (imageIdFromMarker != null && imageIdFromMarker.startsWith("sha256:")) {
-            imageIdFromMarker = imageIdFromMarker.substring(7); // "sha256:".length() == 7
-          }
-          def actualImage = _getDockerImages(tag)
-          if (actualImage != null && actualImage.size() > 0 && imageIdFromMarker != null &&
-              imageIdFromMarker.startsWith(actualImage.get(0))) {
-            return true
-          }
-          return false
-        }
-        catch(Exception e) {
-          // any exceptions also implicitly mean not-up-to-date
-          return false
-        }
-      }
+    project.tasks.register("dockerTag${taskName}") {
+      dependsOn project.tasks.named("docker")
     }
   }
 
   task dockerClean {
     group "docker"
     doLast {
-      extension.tags.get().each{ _, tag->
-        _cleanLocalDockerImages(tag)
+      extension.tags.get().each { _, tag -> _cleanLocalDockerImages(tag)
       }
     }
   }
