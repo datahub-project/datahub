@@ -117,4 +117,61 @@ public class SystemMetadataUtilsTest {
     assertEquals(result.getProperties().get("otherKey"), "value");
     assertEquals(result.getProperties().get("isNoOp"), "true");
   }
+
+  @Test
+  public void testGenerateSystemMetadataIfEmpty_NullInput() {
+    SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(null);
+
+    assertNotNull(result);
+    assertEquals(DEFAULT_RUN_ID, result.getRunId());
+    assertNotNull(result.getLastObserved());
+    assertTrue(result.getLastObserved() > 0);
+  }
+
+  @Test
+  public void testGenerateSystemMetadataIfEmpty_NoRunId() {
+    SystemMetadata input = new SystemMetadata().setLastObserved(1234567890L);
+
+    SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
+
+    assertNotNull(result);
+    assertEquals(DEFAULT_RUN_ID, result.getRunId());
+    assertEquals(1234567890L, result.getLastObserved().longValue());
+  }
+
+  @Test
+  public void testGenerateSystemMetadataIfEmpty_NoLastObserved() {
+    SystemMetadata input = new SystemMetadata().setRunId("custom-run-id");
+
+    SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
+
+    assertNotNull(result);
+    assertEquals("custom-run-id", result.getRunId());
+    assertNotNull(result.getLastObserved());
+    assertTrue(result.getLastObserved() > 0);
+  }
+
+  @Test
+  public void testGenerateSystemMetadataIfEmpty_ZeroLastObserved() {
+    SystemMetadata input = new SystemMetadata().setRunId("custom-run-id").setLastObserved(0L);
+
+    SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
+
+    assertNotNull(result);
+    assertEquals("custom-run-id", result.getRunId());
+    assertNotNull(result.getLastObserved());
+    assertTrue(result.getLastObserved() > 0);
+  }
+
+  @Test
+  public void testGenerateSystemMetadataIfEmpty_AllFieldsPopulated() {
+    SystemMetadata input =
+        new SystemMetadata().setRunId("custom-run-id").setLastObserved(1234567890L);
+
+    SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
+
+    assertNotNull(result);
+    assertEquals("custom-run-id", result.getRunId());
+    assertEquals(1234567890L, result.getLastObserved().longValue());
+  }
 }

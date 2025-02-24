@@ -46,9 +46,7 @@ public class SystemMetadataUtils {
   }
 
   public static boolean isNoOp(@Nullable SystemMetadata systemMetadata) {
-    if (systemMetadata != null
-        && systemMetadata.hasProperties()
-        && systemMetadata.getProperties() != null) {
+    if (systemMetadata != null && systemMetadata.hasProperties()) {
       return Boolean.parseBoolean(systemMetadata.getProperties().getOrDefault(NO_OP_KEY, "false"));
     }
 
@@ -58,7 +56,7 @@ public class SystemMetadataUtils {
   @Nullable
   public static SystemMetadata setNoOp(@Nullable SystemMetadata systemMetadata, boolean isNoOp) {
     if (systemMetadata != null) {
-      if (!systemMetadata.hasProperties() || systemMetadata.getProperties() == null) {
+      if (!systemMetadata.hasProperties()) {
         systemMetadata.setProperties(new StringMap());
       }
       systemMetadata.getProperties().put(NO_OP_KEY, String.valueOf(isNoOp));
