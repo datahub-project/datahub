@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
-import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector';
+import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector.saas';
 
 const ControlsContainer = styled.div`
     display: flex;

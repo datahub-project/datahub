@@ -11,6 +11,11 @@ extend type Mutation {
   createRemoteExecutorPool(input: CreateRemoteExecutorPoolInput!): String!
 
   """
+  Updates a remote executor pool
+  """
+  updateRemoteExecutorPool(input: UpdateRemoteExecutorPoolInput!): Boolean!
+
+  """
   Updates the global default remote executor pool
   """
   updateDefaultRemoteExecutorPool(urn: String!): Boolean!
@@ -23,11 +28,28 @@ input CreateRemoteExecutorPoolInput {
   poolName: String!
 
   """
+  A human-readable description of the pool
+  """
+  description: String
+
+  """
   Whether this is the default pool
   """
   isDefault: Boolean!
 }
 
+
+input UpdateRemoteExecutorPoolInput {
+  """
+  The unique identifier of the pool to be updated
+  """
+  urn: String!
+
+  """
+  A human-readable description of the pool
+  """
+  description: String
+}
 
 input ListRemoteExecutorPoolsInput {
     start: Int!
@@ -67,6 +89,11 @@ type RemoteExecutorPool implements Entity {
   The unique identifier of the pool, derived from the urn
   """
   poolName:  String!
+
+  """
+  A human-readable description of the pool
+  """
+  description: String
 
   """
   UTC-based timestamp of the date this pool was created

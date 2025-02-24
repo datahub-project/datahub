@@ -8,7 +8,7 @@ import { Check } from 'phosphor-react';
 import { colors } from '@src/alchemy-components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
-import { PoolStatusColumn } from './Columns';
+import { PoolDescriptionColumn, PoolStatusColumn } from './Columns';
 import { checkIsExecutionRequestRunning } from '../source/utils';
 
 const PAGE_HEADER_HEIGHT = 395;
@@ -66,6 +66,7 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
         urn: pool.urn,
         isDataHubCloud: !!pool.remoteExecutors?.remoteExecutors?.find((executor) => executor.executorInternal),
         name: pool.poolName,
+        description: pool.description,
         reportedAt: Math.max(
             0,
             ...(pool.remoteExecutors?.remoteExecutors?.map((executor) => executor.reportedAt) ?? []),
@@ -88,6 +89,14 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
                         ''
                     )}
                 </Typography.Text>
+            ),
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (description: string, record: (typeof tableData)[0]) => (
+                <PoolDescriptionColumn description={description} urn={record.urn} onUpdate={onRefresh} />
             ),
         },
         {

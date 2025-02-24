@@ -131,6 +131,7 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetRemoteExecutorRe
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorPoolsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
@@ -524,7 +525,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new UpdateDefaultRemoteExecutorPoolResolver(this.entityClient))
                 .dataFetcher(
                     "createRemoteExecutorPool",
-                    new CreateRemoteExecutorPoolResolver(this.entityClient)));
+                    new CreateRemoteExecutorPoolResolver(this.entityClient))
+                .dataFetcher(
+                    "updateRemoteExecutorPool",
+                    new UpdateRemoteExecutorPoolResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

@@ -20,6 +20,7 @@ type Props = {
 
 type FormProps = {
     name: string;
+    description: string;
     isDefault: boolean;
 };
 
@@ -32,11 +33,12 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
 
     const handleCreate = async () => {
         try {
-            const { name, isDefault } = form.getFieldsValue();
+            const { name, description, isDefault } = form.getFieldsValue();
             await createPool({
                 variables: {
                     input: {
                         poolName: name,
+                        description,
                         isDefault,
                     },
                 },
@@ -123,6 +125,31 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                         <Typography.Text type="secondary">Enter a name for your remote executor pool.</Typography.Text>
                         <div style={{ marginTop: 4 }}>
                             <Input placeholder="us-east-pool" data-testid="create-pool-name" />
+                        </div>
+                    </div>
+                </Form.Item>
+
+                <Form.Item
+                    label={<Typography.Text>Description</Typography.Text>}
+                    name="description"
+                    required={false}
+                    rules={[
+                        {
+                            required: true,
+                            message: 'Help users understand what the pool is for.',
+                        },
+                        { whitespace: true },
+                        { min: 1, max: 50 },
+                    ]}
+                >
+                    <div>
+                        <Typography.Text type="secondary">Briefly describe what this pool is used for.</Typography.Text>
+                        <div style={{ marginTop: 4 }}>
+                            <Input.TextArea
+                                placeholder="Connect to soruces in the us-east region with this pool."
+                                data-testid="create-pool-description"
+                                rows={2}
+                            />
                         </div>
                     </div>
                 </Form.Item>

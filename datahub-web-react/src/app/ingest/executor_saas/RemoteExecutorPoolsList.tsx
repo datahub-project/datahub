@@ -16,6 +16,7 @@ import { debounce } from 'lodash';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchBar } from '@src/app/search/SearchBar';
 import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { useHistory } from 'react-router';
 import { INGESTION_TAB_QUERY_PARAMS } from '../source/constants';
 import { TabType } from '../source/types';
@@ -42,6 +43,9 @@ type Props = {
 };
 
 export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
+    const me = useUserContext();
+    const canManagePools = me.platformPrivileges?.manageIngestion;
+
     const entityRegistry = useEntityRegistry();
     const defaultQuery = useQueryParamValue('pool');
 
@@ -120,10 +124,12 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                 {/* ----------- Toolbar ----------- */}
                 <TabToolbar>
                     <div>
-                        <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
-                            <PlusStyled />
-                            <span style={{ marginLeft: 4 }}>Create</span>
-                        </Button>
+                        {canManagePools && (
+                            <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
+                                <PlusStyled />
+                                <span style={{ marginLeft: 4 }}>Create</span>
+                            </Button>
+                        )}
                         <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} type="text" onClick={onRefresh}>
                             <ArrowClockwiseStyled />
                             <span style={{ marginLeft: 4 }}>Refresh</span>

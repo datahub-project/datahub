@@ -49,6 +49,9 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
             final RemoteExecutorPoolInfo poolInfo = new RemoteExecutorPoolInfo();
             poolInfo.setCreatedAt(_timeProvider.getAsLong());
             poolInfo.setCreator(UrnUtils.getUrn(context.getActorUrn()));
+            if (input.getDescription() != null) {
+              poolInfo.setDescription(input.getDescription());
+            }
             _entityClient.ingestProposal(
                 opContext,
                 AspectUtils.buildMetadataChangeProposal(

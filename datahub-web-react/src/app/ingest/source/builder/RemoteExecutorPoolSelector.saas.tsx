@@ -61,13 +61,17 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
         >
             {pools.map((pool) => (
                 <Select.Option key={pool.poolName} value={pool.poolName}>
-                    {pool.poolName}
-                    {pool.remoteExecutors?.remoteExecutors?.find((exec) => exec.executorInternal) ? (
-                        <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
-                    ) : null}
-                    {pool.isDefault ? (
-                        <span style={{ opacity: 0.5, fontStyle: 'italic', marginLeft: 4 }}> Suggested Default</span>
-                    ) : null}
+                    <div>
+                        {pool.poolName}
+                        {pool.remoteExecutors?.remoteExecutors?.find((exec) => exec.executorInternal) ? (
+                            <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
+                        ) : null}
+                        {pool.isDefault ? (
+                            <span style={{ opacity: 0.5, fontStyle: 'italic', marginLeft: 4 }}> Suggested Default</span>
+                        ) : null}
+                    </div>
+                    {/* Pool description */}
+                    <div style={{ opacity: 0.75 }}>{pool.description}</div>
                 </Select.Option>
             ))}
             {total && pools.length < total && (

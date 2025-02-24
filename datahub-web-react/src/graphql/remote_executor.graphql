@@ -6,6 +6,10 @@ mutation createRemoteExecutorPool($input: CreateRemoteExecutorPoolInput!) {
     createRemoteExecutorPool(input: $input)
 }
 
+mutation updateRemoteExecutorPool($input: UpdateRemoteExecutorPoolInput!) {
+    updateRemoteExecutorPool(input: $input)
+}
+
 query getDefaultRemoteExecutorPool {
     defaultRemoteExecutorPool {
         pool {
@@ -29,6 +33,7 @@ query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
         remoteExecutorPools {
             urn
             poolName
+            description
             createdAt
             isDefault
             # we query for 10k executors since customers usually only have 1 in a pool, rarely scale to even 10

@@ -38,5 +38,8 @@ public class RemoteExecutorPoolMapper {
   private static void mapInfo(@Nonnull RemoteExecutorPool executor, @Nonnull DataMap dataMap) {
     final RemoteExecutorPoolInfo info = new RemoteExecutorPoolInfo(dataMap);
     executor.setCreatedAt(info.getCreatedAt());
+    if (info.hasDescription()) {
+      executor.setDescription(info.getDescription());
+    }
   }
 }

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Dropdown, Popover, Typography } from 'antd';
+import { Button, Dropdown, Input, message, Popover, Typography } from 'antd';
 import { ExecutionRequest, RemoteExecutor } from '@src/types.generated';
 import { formatDuration } from '@src/app/shared/formatDuration';
-import { CheckCircle, StopCircle, WarningCircle } from 'phosphor-react';
+import { Check, CheckCircle, Pencil, Plus, StopCircle, WarningCircle } from 'phosphor-react';
 import styled from 'styled-components';
 import { colors } from '@src/alchemy-components';
 import Loading from '@src/app/shared/Loading';
 import { useGetIngestionSourceNameLazyQuery } from '@src/graphql/ingestion.generated';
+import { useUpdateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.generated';
 import { checkIsExecutionRequestRunning, getExecutionRequestStatusDisplayText } from '../source/utils';
 import { ExecutionDetailsModal } from '../source/executions/ExecutionRequestDetailsModal';
 
@@ -99,6 +100,83 @@ export function StatusColumn({
         );
     }
     return <div>{status || <Typography.Text>None</Typography.Text>}</div>;
+}
+
+const PoolDescriptionWrapper = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+`;
+
+const PoolDescriptionText = styled(Typography.Text)`
+    max-width: 140px;
+    display: inline-block;
+`;
+
+const PoolDescriptionActionButton = styled(Button)`
+    padding: 0;
+    height: auto;
+    margin-left: 4px;
+    vertical-align: middle;
+`;
+
+export function PoolDescriptionColumn({
+    description,
+    urn,
+    onUpdate,
+}: {
+    description: string;
+    urn: string;
+    onUpdate: () => void;
+}) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [inputValue, setInputValue] = useState(description);
+    const [updateRemoteExecutorPool] = useUpdateRemoteExecutorPoolMutation();
+
+    const onUpdatePool = async () => {
+        try {
+            await updateRemoteExecutorPool({
+                variables: {
+                    input: {
+                        urn,
+                        description: inputValue,
+                    },
+                },
+            });
+            setIsEditing(false);
+            message.success('Pool description updated');
+            setTimeout(onUpdate, 500);
+        } catch (e) {
+            console.error('Failed to update pool description:', e);
+            message.error('Failed to update pool description');
+        }
+    };
+
+    return isEditing ? (
+        // ---------------------- editing state ---------------------- //
+        <PoolDescriptionWrapper>
+            <Input.TextArea
+                rows={2}
+                style={{ width: 140 }}
+                autoFocus
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+            />
+            <PoolDescriptionActionButton type="text" onClick={onUpdatePool}>
+                <Check size={16} />
+            </PoolDescriptionActionButton>
+        </PoolDescriptionWrapper>
+    ) : (
+        // ---------------------- viewing state ---------------------- //
+        <PoolDescriptionWrapper>
+            <PoolDescriptionText style={{ opacity: description ? 1 : 0.5 }}>
+                {description || 'No description'}
+            </PoolDescriptionText>
+            <PoolDescriptionActionButton type="text" onClick={() => setIsEditing(true)}>
+                {description ? <Pencil size={12} /> : <Plus size={12} />}
+            </PoolDescriptionActionButton>
+        </PoolDescriptionWrapper>
+    );
 }
 
 export function PoolStatusColumn({ executors }: { executors: RemoteExecutor[] }) {
