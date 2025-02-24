@@ -325,7 +325,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
-        QUERY_SCHEMA_FILE,
         REMOTE_EXECUTOR_SCHEMA_FILE);
   }
 

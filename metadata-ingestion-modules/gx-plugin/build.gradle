@@ -59,8 +59,8 @@ task lint(type: Exec, dependsOn: installDev) {
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && " +
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
     "ruff check --fix src/ tests/ && " +
     "ruff format src/ tests/ "
 }

@@ -22,6 +22,7 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
   private static final String DATASETS_FIELD_NAME = "datasets";
   private static final String CHARTS_FIELD_NAME = "charts";
   private static final String DESTINATION_URN_FIELD_NAME = "destinationUrn";
+  private static final String DASHBOARDS_FIELD_NAME = "dashboards";
 
   @Override
   public DashboardInfo getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -75,6 +76,12 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
             Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
     transformedNode =
+        arrayFieldToMap(
+            transformedNode,
+            DASHBOARDS_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+
+    transformedNode =
         arrayFieldToMap(transformedNode, DATASETS_FIELD_NAME, Collections.emptyList());
 
     transformedNode = arrayFieldToMap(transformedNode, CHARTS_FIELD_NAME, Collections.emptyList());
@@ -95,6 +102,12 @@ public class DashboardInfoTemplate implements ArrayMergingTemplate<DashboardInfo
         transformedMapToArray(
             rebasedNode,
             CHART_EDGES_FIELD_NAME,
+            Collections.singletonList(DESTINATION_URN_FIELD_NAME));
+
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode,
+            DASHBOARDS_FIELD_NAME,
             Collections.singletonList(DESTINATION_URN_FIELD_NAME));
 
     rebasedNode = transformedMapToArray(rebasedNode, DATASETS_FIELD_NAME, Collections.emptyList());

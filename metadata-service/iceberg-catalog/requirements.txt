@@ -1,0 +1,8 @@
+pytest>=6.2
+pytest-dependency>=0.5.1
+pyspark==3.5.3
+-e ../../metadata-ingestion[iceberg-catalog]
+# libaries for linting below this
+mypy==1.5.1
+ruff==0.9.6
+

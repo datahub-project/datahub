@@ -1,3 +1,4 @@
+import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import { Divider } from 'antd';
 import React, { useState } from 'react';
@@ -149,6 +150,7 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
+    const contextPath = getContextPath(entityData);
     return (
         <>
             <Row>
@@ -227,11 +229,7 @@ export const DefaultEntityHeader = ({
                                             type={displayedEntityType}
                                             entityType={entityType}
                                             browsePaths={entityData?.browsePathV2}
-                                            parentEntities={
-                                                entityData?.parentContainers?.containers ||
-                                                entityData?.parentDomains?.domains ||
-                                                entityData?.parentNodes?.nodes
-                                            }
+                                            parentEntities={contextPath}
                                             contentRef={contentRef}
                                             isContentTruncated={isContentTruncated}
                                         />

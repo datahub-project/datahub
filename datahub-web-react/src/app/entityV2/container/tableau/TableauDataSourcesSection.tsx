@@ -35,7 +35,7 @@ export default function TableauDataSourcesSection() {
         fetchPolicy: 'cache-first',
     });
 
-    const dataSources = searchData?.searchAcrossEntities?.searchResults.map((r) => r.entity);
+    const dataSources = searchData?.searchAcrossEntities?.searchResults?.map((r) => r.entity);
 
     if (!dataSources?.length) {
         return null;

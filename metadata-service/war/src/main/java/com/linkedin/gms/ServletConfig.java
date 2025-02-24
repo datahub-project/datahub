@@ -8,14 +8,18 @@ import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
 import com.datahub.gms.servlet.HealthCheck;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.linkedin.gms.factory.scim.ScimpleSpringConfiguration;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.acryl.admin.grafana.GrafanaServlet;
+import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.directory.scim.core.json.ObjectMapperFactory;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.protocol.Constants;
+import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -162,6 +167,7 @@ public class ServletConfig implements WebMvcConfigurer {
     messageConverters.add(new StringHttpMessageConverter());
     messageConverters.add(new ByteArrayHttpMessageConverter());
     messageConverters.add(new FormHttpMessageConverter());
+    messageConverters.add(createIcebergMessageConverter());
 
     ObjectMapper objectMapper = new ObjectMapper();
     int maxSize =
@@ -173,12 +179,23 @@ public class ServletConfig implements WebMvcConfigurer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);
 
     // Saas Only
     configureMessageConvertersSaas(messageConverters);
+  }
+
+  private HttpMessageConverter<?> createIcebergMessageConverter() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    MappingJackson2HttpMessageConverter jsonConverter = new IcebergJsonConverter(objectMapper);
+
+    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.setPropertyNamingStrategy(new PropertyNamingStrategies.KebabCaseStrategy());
+    RESTSerializers.registerAll(objectMapper);
+    return jsonConverter;
   }
 
   @Override
@@ -219,7 +236,8 @@ public class ServletConfig implements WebMvcConfigurer {
             MediaType.APPLICATION_JSON,
             MediaType.APPLICATION_XML,
             MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
-            MediaType.valueOf("application/json-patch+json")));
+            MediaType.valueOf("application/json-patch+json"),
+            MediaType.valueOf("application/vnd.schemaregistry.v1+json")));
     return converter;
   }
 

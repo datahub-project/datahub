@@ -14,6 +14,9 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
@@ -361,6 +364,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
   public static final String EXECUTION_REQUEST_SOURCE_MANUAL_INGESTION_SOURCE =
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =

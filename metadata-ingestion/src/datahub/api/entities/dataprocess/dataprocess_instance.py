@@ -5,7 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatahubKey
+from datahub.emitter.mcp_builder import ContainerKey, DatahubKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
     DataProcessInstanceOutput,
@@ -15,11 +15,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
+    DataPlatformInstanceClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
+    SubTypesClass,
 )
+from datahub.metadata.urns import DataPlatformInstanceUrn, DataPlatformUrn
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -42,7 +46,7 @@ class InstanceRunResult(StrEnum):
 
 @dataclass
 class DataProcessInstance:
-    """This is a DataProcessInstance class which represent an instance of a DataFlow or DataJob.
+    """This is a DataProcessInstance class which represents an instance of a DataFlow, DataJob, or a standalone process within a Container.
 
     Args:
         id: The id of the dataprocess instance execution.
@@ -71,6 +75,10 @@ class DataProcessInstance:
     _template_object: Optional[Union[DataJob, DataFlow]] = field(
         init=False, default=None, repr=False
     )
+    data_platform_instance: Optional[str] = None
+    subtype: Optional[str] = None
+    container_urn: Optional[str] = None
+    _platform: Optional[str] = field(init=False, repr=False, default=None)
 
     def __post_init__(self):
         self.urn = DataProcessInstanceUrn(
@@ -80,6 +88,28 @@ class DataProcessInstance:
                 id=self.id,
             ).guid()
         )
+        self._platform = self.orchestrator
+
+        try:
+            # We first try to create from string assuming its an urn
+            self._platform = str(DataPlatformUrn.from_string(self._platform))
+        except Exception:
+            # If it fails, we assume its an id
+            self._platform = str(DataPlatformUrn(self._platform))
+
+        if self.data_platform_instance is not None:
+            try:
+                # We first try to create from string assuming its an urn
+                self.data_platform_instance = str(
+                    DataPlatformInstanceUrn.from_string(self.data_platform_instance)
+                )
+            except Exception:
+                # If it fails, we assume its an id
+                self.data_platform_instance = str(
+                    DataPlatformInstanceUrn(
+                        platform=self._platform, instance=self.data_platform_instance
+                    )
+                )
 
     def start_event_mcp(
         self, start_timestamp_millis: int, attempt: Optional[int] = None
@@ -269,6 +299,29 @@ class DataProcessInstance:
         )
         yield mcp
 
+        assert self._platform
+        if self.data_platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=self._platform, instance=self.data_platform_instance
+                ),
+            )
+            yield mcp
+
+        if self.subtype:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn), aspect=SubTypesClass(typeNames=[self.subtype])
+            )
+            yield mcp
+
+        if self.container_urn:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=ContainerClass(container=self.container_urn),
+            )
+            yield mcp
+
         yield from self.generate_inlet_outlet_mcp(materialize_iolets=materialize_iolets)
 
     @staticmethod
@@ -309,13 +362,20 @@ class DataProcessInstance:
         clone_outlets: bool = False,
     ) -> "DataProcessInstance":
         """
-        Generates DataProcessInstance from a DataJob
+        Generates a DataProcessInstance from a given DataJob.
 
-        :param datajob: (DataJob) the datajob from generate the DataProcessInstance
-        :param id: (str) the id for the DataProcessInstance
-        :param clone_inlets: (bool) whether to clone datajob's inlets
-        :param clone_outlets: (bool) whether to clone datajob's outlets
-        :return: DataProcessInstance
+        This method creates a DataProcessInstance object using the provided DataJob
+        and assigns it a unique identifier. Optionally, it can clone the inlets and
+        outlets from the DataJob to the DataProcessInstance.
+
+        Args:
+            datajob (DataJob): The DataJob instance from which to generate the DataProcessInstance.
+            id (str): The unique identifier for the DataProcessInstance.
+            clone_inlets (bool, optional): If True, clones the inlets from the DataJob to the DataProcessInstance. Defaults to False.
+            clone_outlets (bool, optional): If True, clones the outlets from the DataJob to the DataProcessInstance. Defaults to False.
+
+        Returns:
+            DataProcessInstance: The generated DataProcessInstance object.
         """
         dpi: DataProcessInstance = DataProcessInstance(
             orchestrator=datajob.flow_urn.orchestrator,
@@ -332,13 +392,46 @@ class DataProcessInstance:
         return dpi
 
     @staticmethod
-    def from_dataflow(dataflow: DataFlow, id: str) -> "DataProcessInstance":
+    def from_container(
+        container_key: ContainerKey,
+        id: str,
+    ) -> "DataProcessInstance":
         """
-        Generates DataProcessInstance from a DataFlow
+        Create a DataProcessInstance that is located within a Container.
+        Use this method when you need to represent a DataProcessInstance that
+        is not an instance of a DataJob or a DataFlow.
+        e.g. If recording an ad-hoc training run that is just associated with an Experiment.
 
-        :param dataflow: (DataFlow) the DataFlow from generate the DataProcessInstance
+        :param container_key: (ContainerKey) the container key to generate the DataProcessInstance
         :param id: (str) the id for the DataProcessInstance
         :return: DataProcessInstance
+        """
+        dpi: DataProcessInstance = DataProcessInstance(
+            id=id,
+            orchestrator=DataPlatformUrn.from_string(
+                container_key.platform
+            ).platform_name,
+            template_urn=None,
+            container_urn=container_key.as_urn(),
+        )
+
+        return dpi
+
+    @staticmethod
+    def from_dataflow(dataflow: DataFlow, id: str) -> "DataProcessInstance":
+        """
+        Creates a DataProcessInstance from a given DataFlow.
+
+        This method generates a DataProcessInstance object using the provided DataFlow
+        and a specified id. The DataProcessInstance will inherit properties from the
+        DataFlow such as orchestrator, environment, and template URN.
+
+        Args:
+            dataflow (DataFlow): The DataFlow object from which to generate the DataProcessInstance.
+            id (str): The unique identifier for the DataProcessInstance.
+
+        Returns:
+            DataProcessInstance: The newly created DataProcessInstance object.
         """
         dpi = DataProcessInstance(
             id=id,

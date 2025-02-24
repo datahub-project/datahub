@@ -10,13 +10,11 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from types import TracebackType
 from typing import (
     Any,
     Callable,
     Dict,
-    Final,
     Generic,
     Iterator,
     List,
@@ -31,6 +29,7 @@ from typing import (
 )
 
 from datahub.ingestion.api.closeable import Closeable
+from datahub.utilities.sentinels import Unset, unset
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -57,16 +56,6 @@ _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
-
-
-class Unset(Enum):
-    token = 0
-
-
-# It's pretty annoying to create a true sentinel that works with typing.
-# https://peps.python.org/pep-0484/#support-for-singleton-types-in-unions
-# Can't wait for https://peps.python.org/pep-0661/
-_unset: Final = Unset.token
 
 
 class ConnectionWrapper:
@@ -372,7 +361,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self,
         /,
         key: str,
-        default: Union[_VT, Unset] = _unset,
+        default: Union[_VT, Unset] = unset,
     ) -> _VT:
         # If key is in the dictionary, this is similar to __getitem__ + mark_dirty.
         # If key is not in the dictionary, this is similar to __setitem__.
@@ -383,7 +372,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self.mark_dirty(key)
             return value
         except KeyError:
-            if default is _unset:
+            if default is unset:
                 raise
 
             self[key] = default

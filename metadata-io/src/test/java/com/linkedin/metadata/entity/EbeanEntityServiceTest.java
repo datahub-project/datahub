@@ -136,11 +136,6 @@ public class EbeanEntityServiceTest
             null);
   }
 
-  /**
-   * Ideally, all tests would be in the base class, so they're reused between all implementations.
-   * When that's the case - test runner will ignore this class (and its base!) so we keep this dummy
-   * test to make sure this class will always be discovered.
-   */
   @Test
   public void testNoRowsUpdatedErrorHandling() throws Exception {
     // Setup test data

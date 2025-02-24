@@ -82,7 +82,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
             )}
             {!refineSearchText && !suggestText && (
                 <Button onClick={onClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                    <RocketOutlined /> View all
                 </Button>
             )}
         </NoDataContainer>

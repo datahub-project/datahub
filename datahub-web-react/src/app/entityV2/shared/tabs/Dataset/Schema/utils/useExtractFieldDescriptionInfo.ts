@@ -10,7 +10,7 @@ export default function useExtractFieldDescriptionInfo(
     const enableInferredDescriptions = useIsDocumentationInferenceEnabled();
 
     return (record: SchemaField, description: string | undefined | null = null) => {
-        const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+        const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { displayedDescription, isPropagated, isInferred, sourceDetail } = getFieldDescriptionDetails({

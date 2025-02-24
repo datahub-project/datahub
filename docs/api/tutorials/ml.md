@@ -1,146 +1,230 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# ML System
+# AI/ML Framework Integration with DataHub
 
-## Why Would You Integrate ML System with DataHub?
+## Why Integrate Your AI/ML System with DataHub?
 
-Machine learning systems have become a crucial feature in modern data stacks.
-However, the relationships between the different components of a machine learning system, such as features, models, and feature tables, can be complex.
-DataHub makes these relationships discoverable and facilitate utilization by other members of the organization.
+As a data practitioner, keeping track of your AI experiments, models, and their relationships can be challenging. 
+DataHub makes this easier by providing a central place to organize and track your AI assets.
 
-For technical details on ML entities, please refer to the following docs:
+This guide will show you how to integrate your AI workflows with DataHub. 
+With integrations for popular ML platforms like MLflow and Amazon SageMaker, DataHub enables you to easily find and share AI models across your organization, track how models evolve over time, and understand how training data connects to each model.
+Most importantly, it enables seamless collaboration on AI projects by making everything discoverable and connected.
 
-- [MlFeature](/docs/generated/metamodel/entities/mlFeature.md)
-- [MlPrimaryKey](/docs/generated/metamodel/entities/mlPrimaryKey.md)
-- [MlFeatureTable](/docs/generated/metamodel/entities/mlFeatureTable.md)
-- [MlModel](/docs/generated/metamodel/entities/mlModel.md)
-- [MlModelGroup](/docs/generated/metamodel/entities/mlModelGroup.md)
+## Goals Of This Guide
 
-### Goal Of This Guide
+In this guide, you'll learn how to:
+- Create your basic AI components (models, experiments, runs)
+- Connect these components to build a complete AI system
+- Track relationships between models, data, and experiments
 
-This guide will show you how to
+## Core AI Concepts
 
-- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
-- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
-- Attach MlModel to MlFeature
-- Attach MlFeatures to MlFeatureTable
-- Attached MlFeatures to upstream Datasets that power them
+Here's what you need to know about the key components in DataHub:
 
-## Prerequisites
-
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
-
-## Create ML Entities
-
-### Create MlFeature
-
-An ML Feature represents an instance of a feature that can be used across different machine learning models. Features are organized into Feature Tables to be consumed by machine learning models. For example, if we were modeling features for a Users Feature Table, the Features would be `age`, `sign_up_date`, `active_in_past_30_days` and so forth.Using Features in DataHub allows users to see the sources a feature was generated from and how a feature is used to train models.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_mlfeature.py show_path_as_comment }}
-```
-
-Note that when creating a feature, you create upstream lineage to the data warehouse using `sources`.
-
-</TabItem>
-</Tabs>
-
-### Create MlPrimaryKey
-
-An ML Primary Key represents a specific element of a Feature Table that indicates what group the other features belong to. For example, if a Feature Table contained features for Users, the ML Primary Key would likely be `user_id` or some similar unique identifier for a user. Using ML Primary Keys in DataHub allow users to indicate how ML Feature Tables are structured.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_mlprimarykey.py show_path_as_comment }}
-```
-
-Note that when creating a primary key, you create upstream lineage to the data warehouse using `sources`.
-
-</TabItem>
-</Tabs>
-
-### Create MlFeatureTable
-
-A feature table represents a group of similar Features that can all be used together to train a model. For example, if there was a Users Feature Table, it would contain documentation around how to use the Users collection of Features and references to each Feature and ML Primary Key contained within it.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_mlfeature_table.py show_path_as_comment }}
-```
-
-Note that when creating a feature table, you connect the table to its features and primary key using `mlFeatures` and `mlPrimaryKeys`.
-
-</TabItem>
-</Tabs>
-
-### Create MlModel
-
-An ML Model in Acryl represents an individual version of a trained Machine Learning Model. Another way to think about the ML Model entity is as an istance of a training run. An ML Model entity tracks the exact ML Features used in that instance of training, along with the training results. This entity does not represents all versions of a ML Model. For example, if we train a model for homepage customization on a certain day, that would be a ML Model in DataHub. If you re-train the model the next day off of new data or with different parameters, that would produce a second ML Model entity.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_mlmodel.py show_path_as_comment }}
-```
-
-Note that when creating a model, you link it to a list of features using `mlFeatures`. This indicates how the individual instance of the model was trained.
-Additionally, you can access the relationship to model groups with `groups`. An ML Model is connected to the warehouse tables it depends on via its dependency on the ML Features it reads from.
-
-</TabItem>
-</Tabs>
-
-### Create MlModelGroup
-
-An ML Model Group represents the grouping of all training runs of a single Machine Learning model category. It will store documentation about the group of ML Models, along with references to each individual ML Model instance.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_mlmodel_group.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-### Expected Outcome of creating entities
-
-You can search the entities in DataHub UI.
+- **Experiments** are collections of training runs for the same project, like all attempts to build a churn predictor
+- **Training Runs** are attempts to train a model within an experiment, capturing parameters and results
+- **Model Groups** organize related models together, like all versions of your churn predictor
+- **Models** are successful training runs registered for production use
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-table-created.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/concept-diagram-dh-term.png"/>
 </p>
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-created.png"/>
-</p>
+The hierarchy works like this:
+1. Every run belongs to an experiment
+2. Successful runs can be registered as models
+3. Models belong to a model group
+4. Not every run becomes a model
 
-## Read ML Entities
+:::note Terminology Mapping
+Different AI platforms (MLflow, Amazon SageMaker) have their own terminology. 
+To keep things consistent, we'll use DataHub's terms throughout this guide.
+Here's how DataHub's terminology maps to these platforms:
 
-### Read MLFeature
+| DataHub | Description                         | MLflow | SageMaker |
+|---------|-------------------------------------|---------|-----------|
+| ML Model Group | Collection of related models        | Model | Model Group |
+| ML Model | Versioned artifact in a model group | Model Version | Model Version |
+| ML Training Run | Single training attempt             | Run | Training Job |
+| ML Experiment | Collection of training runs         | Experiment | Experiment |
+:::
+
+For platform-specific details, see our integration guides for [MLflow](/docs/generated/ingestion/sources/mlflow.md) and [Amazon SageMaker](/docs/generated/ingestion/sources/sagemaker.md).
+
+## Basic Setup
+
+To follow this tutorial, you'll need DataHub Quickstart deployed locally.
+For detailed steps, see the [Datahub Quickstart Guide](/docs/quickstart.md).
+
+Next, set up the Python client for DataHub using `DatahubAIClient`defined in [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client.py).
+
+Create a token in DataHub UI and replace `<your_token>` with your token:
+
+```python
+from dh_ai_client import DatahubAIClient
+
+client = DatahubAIClient(token="<your_token>", server_url="http://localhost:9002")
+```
+
+:::note Verifying via GraphQL
+Throughout this guide, we'll show how to verify changes using GraphQL queries.
+You can run these queries in the DataHub UI at `https://localhost:9002/api/graphiql`.
+:::
+
+## Create Simple AI Assets
+
+Let's create the basic building blocks of your ML system. These components will help you organize your AI work and make it discoverable by your team.
+
+### Create a Model Group
+
+A model group contains different versions of a similar model. For example, all versions of your "Customer Churn Predictor" would go in one group.
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL" default>
+<TabItem value="basic" label="Basic">
+Create a basic model group with just an identifier:
+
+```python
+client.create_model_group(
+    group_id="airline_forecast_models_group",
+)
+```
+
+</TabItem>
+<TabItem value="advanced" label="Advanced">
+Add rich metadata like descriptions, creation timestamps, and team information:
+
+```python
+client.create_model_group(
+    group_id="airline_forecast_models_group",
+    properties=models.MLModelGroupPropertiesClass(
+        name="Airline Forecast Models Group",
+        description="Group of models for airline passenger forecasting",
+        created=models.TimeStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+    ),
+)
+```
+
+</TabItem>
+</Tabs>
+
+Let's verify that our model group was created:
+
+<Tabs>
+<TabItem value="UI" label="UI">
+See your new model group in the DataHub UI:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-group-empty.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query your model group to check its properties:
+
+```graphql
+query {
+  mlModelGroup(
+    urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group,PROD)"
+  ) {
+    name
+    description
+  }
+}
+```
+
+The response will show your model group's details:
 
 ```json
+{
+  "data": {
+    "mlModelGroup": {
+      "name": "airline_forecast_models_group",
+      "description": "Group of models for airline passenger forecasting"
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+### Create a Model
+
+Next, let's create a specific model version that represents a trained model ready for deployment.
+
+<Tabs>
+<TabItem value="basic" label="Basic">
+Create a model with just the required version:
+
+```python
+client.create_model(
+    model_id="arima_model",
+    version="1.0",
+)
+```
+
+</TabItem>
+<TabItem value="advanced" label="Advanced">
+Include metrics, parameters, and metadata for production use:
+
+```python
+client.create_model(
+    model_id="arima_model",
+    properties=models.MLModelPropertiesClass(
+        name="ARIMA Model",
+        description="ARIMA model for airline passenger forecasting",
+        customProperties={"team": "forecasting"},
+        trainingMetrics=[
+            models.MLMetricClass(name="accuracy", value="0.9"),
+            models.MLMetricClass(name="precision", value="0.8"),
+        ],
+        hyperParams=[
+            models.MLHyperParamClass(name="learning_rate", value="0.01"),
+            models.MLHyperParamClass(name="batch_size", value="32"),
+        ],
+        externalUrl="https:localhost:5000",
+        created=models.TimeStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+        lastModified=models.TimeStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+        tags=["forecasting", "arima"],
+    ),
+    version="1.0",
+    alias="champion",
+)
+```
+
+</TabItem>
+</Tabs>
+
+Let's verify our model:
+
+<Tabs>
+<TabItem value="UI" label="UI">
+Check your model's details in the DataHub UI:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-empty.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query your model's information:
+
+```graphql
 query {
-  mlFeature(urn: "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)"){
+  mlModel(
+    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+  ) {
     name
-    featureNamespace
     description
-    properties {
-      description
-      dataType
+    versionProperties {
       version {
         versionTag
       }
@@ -149,472 +233,535 @@ query {
 }
 ```
 
-Expected response:
+The response will show your model's details:
 
 ```json
 {
   "data": {
-    "mlFeature": {
-      "name": "test_BOOL_LIST_feature",
-      "featureNamespace": "test_feature_table_all_feature_dtypes",
-      "description": null,
-      "properties": {
-        "description": null,
-        "dataType": "SEQUENCE",
-        "version": null
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="curl" label="Curl" default>
-
-```json
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "query": "{ mlFeature(urn: \"urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)\") { name featureNamespace description properties { description dataType version { versionTag } } } }"
-}'
-```
-
-Expected response:
-
-```json
-{
-  "data": {
-    "mlFeature": {
-      "name": "test_BOOL_LIST_feature",
-      "featureNamespace": "test_feature_table_all_feature_dtypes",
-      "description": null,
-      "properties": {
-        "description": null,
-        "dataType": "SEQUENCE",
-        "version": null
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/read_mlfeature.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-### Read MlPrimaryKey
-
-<Tabs>
-<TabItem value="graphql" label="GraphQL" default>
-
-```json
-query {
-  mlPrimaryKey(urn: "urn:li:mlPrimaryKey:(user_features,user_id)"){
-    name
-    featureNamespace
-    description
-    dataType
-    properties {
-      description
-      dataType
-      version {
-        versionTag
+    "mlModel": {
+      "name": "arima_model",
+      "description": "ARIMA model for airline passenger forecasting",
+      "versionProperties": {
+        "version": {
+          "versionTag": "1.0"
+        }
       }
     }
   }
 }
 ```
 
-Expected response:
-
-```json
-{
-  "data": {
-    "mlPrimaryKey": {
-      "name": "user_id",
-      "featureNamespace": "user_features",
-      "description": "User's internal ID",
-      "dataType": "ORDINAL",
-      "properties": {
-        "description": "User's internal ID",
-        "dataType": "ORDINAL",
-        "version": null
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
 </TabItem>
-<TabItem value="curl" label="Curl" default>
+</Tabs>
 
-```json
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "query": "query {  mlPrimaryKey(urn: \"urn:li:mlPrimaryKey:(user_features,user_id)\"){    name    featureNamespace    description    dataType    properties {      description      dataType      version {        versionTag      }    }  }}"
-}'
-```
+### Create an Experiment
 
-Expected response:
+An experiment helps organize multiple training runs for a specific project.
 
-```json
-{
-  "data": {
-    "mlPrimaryKey": {
-      "name": "user_id",
-      "featureNamespace": "user_features",
-      "description": "User's internal ID",
-      "dataType": "ORDINAL",
-      "properties": {
-        "description": "User's internal ID",
-        "dataType": "ORDINAL",
-        "version": null
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
+<Tabs>
+<TabItem value="basic" label="Basic">
+Create a basic experiment:
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlprimarykey.py show_path_as_comment }}
+client.create_experiment(
+    experiment_id="airline_forecast_experiment",
+)
+```
+
+</TabItem>
+<TabItem value="advanced" label="Advanced">
+Add context and metadata:
+
+```python
+client.create_experiment(
+    experiment_id="airline_forecast_experiment",
+    properties=models.ContainerPropertiesClass(
+        name="Airline Forecast Experiment",
+        description="Experiment to forecast airline passenger numbers",
+        customProperties={"team": "forecasting"},
+        created=models.TimeStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+        lastModified=models.TimeStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+    ),
+)
 ```
 
 </TabItem>
 </Tabs>
 
-### Read MLFeatureTable
+Verify your experiment:
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL" default>
+<TabItem value="UI" label="UI">
+See your experiment's details in the UI:
 
-```json
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/experiment-empty.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query your experiment's information:
+
+```graphql
 query {
-  mlFeatureTable(urn: "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)"){
+  container(
+    urn:"urn:li:container:airline_forecast_experiment"
+  ) {
     name
     description
-    platform {
-      name
-    }
     properties {
-      description
-      mlFeatures {
-        name
+      customProperties
+    }
+  }
+}
+```
+
+Check the response:
+
+```json
+{
+  "data": {
+    "container": {
+      "name": "Airline Forecast Experiment",
+      "description": "Experiment to forecast airline passenger numbers",
+      "properties": {
+        "customProperties": {
+          "team": "forecasting"
+        }
       }
     }
   }
 }
 ```
 
-Expected Response:
-
-```json
-{
-  "data": {
-    "mlFeatureTable": {
-      "name": "test_feature_table_all_feature_dtypes",
-      "description": null,
-      "platform": {
-        "name": "feast"
-      },
-      "properties": {
-        "description": null,
-        "mlFeatures": [
-          {
-            "name": "test_BOOL_LIST_feature"
-          },
-          ...{
-            "name": "test_STRING_feature"
-          }
-        ]
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
 </TabItem>
-<TabItem value="curl" label="Curl">
+</Tabs>
 
-```json
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "query": "{ mlFeatureTable(urn: \"urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)\") { name description platform { name } properties { description mlFeatures { name } } } }"
-}'
-```
+### Create a Training Run
 
-Expected Response:
+A training run captures all details about a specific model training attempt.
 
-```json
-{
-  "data": {
-    "mlFeatureTable": {
-      "name": "test_feature_table_all_feature_dtypes",
-      "description": null,
-      "platform": {
-        "name": "feast"
-      },
-      "properties": {
-        "description": null,
-        "mlFeatures": [
-          {
-            "name": "test_BOOL_LIST_feature"
-          },
-          ...{
-            "name": "test_STRING_feature"
-          }
-        ]
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
+<Tabs>
+<TabItem value="basic" label="Basic">
+Create a basic training run:
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlfeature_table.py show_path_as_comment }}
+client.create_training_run(
+    run_id="simple_training_run_4",
+)
+```
+
+</TabItem>
+<TabItem value="advanced" label="Advanced">
+Include metrics, parameters, and other important metadata:
+
+```python
+client.create_training_run(
+    run_id="simple_training_run_4",
+    properties=models.DataProcessInstancePropertiesClass(
+        name="Simple Training Run 4",
+        created=models.AuditStampClass(
+            time=1628580000000, actor="urn:li:corpuser:datahub"
+        ),
+        customProperties={"team": "forecasting"},
+    ),
+    training_run_properties=models.MLTrainingRunPropertiesClass(
+        id="simple_training_run_4",
+        outputUrls=["s3://my-bucket/output"],
+        trainingMetrics=[models.MLMetricClass(name="accuracy", value="0.9")],
+        hyperParams=[models.MLHyperParamClass(name="learning_rate", value="0.01")],
+        externalUrl="https:localhost:5000",
+    ),
+    run_result=RunResultType.FAILURE,
+    start_timestamp=1628580000000,
+    end_timestamp=1628580001000,
+)
 ```
 
 </TabItem>
 </Tabs>
 
-### Read MLModel
+Verify your training run:
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL" default>
+<TabItem value="UI" label="UI">
+View the run details in the UI:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-empty.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query your training run:
+
+```graphql
+query {
+  dataProcessInstance(
+    urn:"urn:li:dataProcessInstance:simple_training_run_4"
+  ) {
+    name
+    created {
+      time
+    }
+    properties {
+      customProperties
+    }
+  }
+}
+```
+
+Check the response:
 
 ```json
+{
+  "data": {
+    "dataProcessInstance": {
+      "name": "Simple Training Run 4",
+      "created": {
+        "time": 1628580000000
+      },
+      "properties": {
+        "customProperties": {
+          "team": "forecasting"
+        }
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Define Entity Relationships
+
+Now let's connect these components to create a comprehensive ML system. These connections enable you to track model lineage, monitor model evolution, understand dependencies, and search effectively across your ML assets.
+
+### Add Model To Model Group
+
+Connect your model to its group:
+
+```python
+client.add_model_to_model_group(model_urn=model_urn, group_urn=model_group_urn)
+```
+
+<Tabs>
+<TabItem value="UI" label="UI">
+
+View model versions in the **Model Group** under the **Models** section:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-group-with-model.png"/>
+</p>
+
+Find group information in the **Model** page under the **Group** tab:
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-model-group.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query the model-group relationship:
+
+```graphql
 query {
-  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)"){
+  mlModel(
+    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+  ) {
     name
-    description
     properties {
-      description
-      version
-      type
-      mlFeatures
       groups {
         urn
-        name
+        properties {
+          name
+        }
       }
     }
   }
 }
 ```
 
-Expected Response:
+Check the response:
 
 ```json
 {
   "data": {
     "mlModel": {
-      "name": "scienceModel",
-      "description": "A sample model for predicting some outcome.",
+      "name": "arima_model",
       "properties": {
-        "description": "A sample model for predicting some outcome.",
-        "version": null,
-        "type": "Naive Bayes classifier",
-        "mlFeatures": null,
-        "groups": []
+        "groups": [
+          {
+            "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_model_group,PROD)",
+            "properties": {
+              "name": "Airline Forecast Model Group"
+            }
+          }
+        ]
       }
     }
-  },
-  "extensions": {}
+  }
 }
-```
-
-</TabItem>
-<TabItem value="curl" label="Curl" default>
-
-```json
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "query": "{ mlModel(urn: \"urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)\") { name description properties { description version type mlFeatures groups { urn name } } } }"
-}'
-```
-
-Expected Response:
-
-```json
-{
-  "data": {
-    "mlModel": {
-      "name": "scienceModel",
-      "description": "A sample model for predicting some outcome.",
-      "properties": {
-        "description": "A sample model for predicting some outcome.",
-        "version": null,
-        "type": "Naive Bayes classifier",
-        "mlFeatures": null,
-        "groups": []
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/read_mlmodel.py show_path_as_comment }}
 ```
 
 </TabItem>
 </Tabs>
 
-### Read MLModelGroup
+### Add Run To Experiment
+
+Connect a training run to its experiment:
+
+```python
+client.add_run_to_experiment(run_urn=run_urn, experiment_urn=experiment_urn)
+```
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL" default>
+<TabItem value="UI" label="UI">
 
-```json
+Find your runs in the **Experiment** page under the **Entities** tab:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/experiment-with-run.png"/>
+</p>
+
+See the experiment details in the **Run** page:
+<p align="center">
+  <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-with-experiment.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query the run-experiment relationship:
+
+```graphql
 query {
-  mlModelGroup(urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:science,my-model-group,PROD)"){
+  dataProcessInstance(
+    urn:"urn:li:dataProcessInstance:simple_training_run"
+  ) {
     name
-    description
-    platform {
-      name
-    }
-    properties {
-      description
+    parentContainers {
+      containers {
+        urn
+        properties {
+          name
+        }
+      }
     }
   }
 }
 ```
 
-Expected Response: (Note that this entity does not exist in the sample ingestion and you might want to create this entity first.)
+View the relationship details:
+
+```json
+{
+  "data": {
+    "dataProcessInstance": {
+      "name": "Simple Training Run",
+      "parentContainers": {
+        "containers": [
+          {
+            "urn": "urn:li:container:airline_forecast_experiment",
+            "properties": {
+              "name": "Airline Forecast Experiment"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+### Add Run To Model
+
+Connect a training run to its resulting model:
+
+```python
+client.add_run_to_model(model_urn=model_urn, run_urn=run_urn)
+```
+
+This relationship enables you to:
+- Track which runs produced each model
+- Understand model provenance
+- Debug model issues
+- Monitor model evolution
+
+<Tabs>
+<TabItem value="UI" label="UI">
+
+Find the source run in the **Model** page under the **Summary** tab:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-source-run.png"/>
+</p>
+
+See related models in the **Run** page under the **Lineage** tab:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model.png"/>
+</p>
+<p align="center">
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-graph.png"/>
+</p>
+
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query the model's training jobs:
+
+```graphql
+query {
+  mlModel(
+    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+  ) {
+    name
+    properties {
+      mlModelLineageInfo {
+        trainingJobs
+      }
+    }
+  }
+}
+```
+
+View the relationship:
+
+```json
+{
+  "data": {
+    "mlModel": {
+      "name": "arima_model",
+      "properties": {
+        "mlModelLineageInfo": {
+          "trainingJobs": [
+            "urn:li:dataProcessInstance:simple_training_run_test"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+### Add Run To Model Group
+
+Create a direct connection between a run and a model group:
+
+```python
+client.add_run_to_model_group(model_group_urn=model_group_urn, run_urn=run_urn)
+```
+
+This connection lets you:
+- View model groups in the run's lineage
+- Query training jobs at the group level
+- Track training history for model families
+
+<Tabs>
+<TabItem value="UI" label="UI">
+
+See model groups in the **Run** page under the **Lineage** tab:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-group.png"/>
+</p>
+<p align="center">
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-group-graph.png"/>
+</p>
+</TabItem>
+
+<TabItem value="graphql" label="GraphQL">
+Query the model group's training jobs:
+
+```graphql
+query {
+  mlModelGroup(
+    urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_model_group,PROD)"
+  ) {
+    name
+    properties {
+      mlModelLineageInfo {
+        trainingJobs
+      }
+    }
+  }
+}
+```
+
+Check the relationship:
 
 ```json
 {
   "data": {
     "mlModelGroup": {
-      "name": "my-model-group",
-      "description": "my model group",
-      "platform": {
-        "name": "science"
-      },
+      "name": "airline_forecast_model_group",
       "properties": {
-        "description": "my model group"
+        "mlModelLineageInfo": {
+          "trainingJobs": [
+            "urn:li:dataProcessInstance:simple_training_run_test"
+          ]
+        }
       }
     }
-  },
-  "extensions": {}
+  }
 }
 ```
 
 </TabItem>
-<TabItem value="curl" label="Curl">
-
-```json
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "query": "{ mlModelGroup(urn: \"urn:li:mlModelGroup:(urn:li:dataPlatform:science,my-model-group,PROD)\") { name description platform { name } properties { description } } }"
-}'
-```
-
-Expected Response: (Note that this entity does not exist in the sample ingestion and you might want to create this entity first.)
-
-```json
-{
-  "data": {
-    "mlModelGroup": {
-      "name": "my-model-group",
-      "description": "my model group",
-      "platform": {
-        "name": "science"
-      },
-      "properties": {
-        "description": "my model group"
-      }
-    }
-  },
-  "extensions": {}
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/read_mlmodel_group.py show_path_as_comment }}
-```
-
-</TabItem>
 </Tabs>
 
-## Add ML Entities
+### Add Dataset To Run
 
-### Add MlFeature to MlFeatureTable
-
-<Tabs>
-<TabItem value="python" label="Python">
+Track input and output datasets for your training runs:
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlfeature_table.py show_path_as_comment }}
+client.add_input_datasets_to_run(
+    run_urn=run_urn, 
+    dataset_urns=[str(input_dataset_urn)]
+)
+
+client.add_output_datasets_to_run(
+    run_urn=run_urn, 
+    dataset_urns=[str(output_dataset_urn)]
+)
 ```
 
-</TabItem>
-</Tabs>
+These connections help you:
+- Track data lineage
+- Understand data dependencies
+- Ensure reproducibility
+- Monitor data quality impacts
 
-### Add MlFeature to MLModel
-
-<Tabs>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlmodel.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-### Add MLGroup To MLModel
-
-<Tabs>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/add_mlgroup_to_mlmodel.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-### Expected Outcome of Adding ML Entities
-
-You can access to `Features` or `Group` Tab of each entity to view the added entities.
-
+Find dataset relationships in the **Lineage** tab of either the **Dataset** or **Run** page:
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-added-to-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
 </p>
 
+## Full Overview
+
+Here's your complete ML system with all components connected:
+
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-added-to-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/lineage-full.png"/>
 </p>
+
+You now have a complete lineage view of your ML assets, from training data through runs to production models!
+
+You can check out the full code for this tutorial [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client_sample.py).
+## What's Next?
+
+To see these integrations in action:
+- Watch our [Townhall demo](https://youtu.be/_WUoVqkF2Zo?feature=shared&t=1932) showcasing the MLflow integration
+- Explore our detailed documentation:
+  - [MLflow Integration Guide](/docs/generated/ingestion/sources/mlflow.md)
+  - [Amazon SageMaker Integration Guide](/docs/generated/ingestion/sources/sagemaker.md)
