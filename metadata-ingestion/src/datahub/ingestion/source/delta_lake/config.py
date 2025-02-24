@@ -15,6 +15,9 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -58,7 +61,11 @@ class Azure(ConfigModel):
     )
 
 
-class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class DeltaLakeSourceConfig(
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    StatefulIngestionConfigBase,
+):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."

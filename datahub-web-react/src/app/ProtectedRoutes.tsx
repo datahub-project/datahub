@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
 import { Layout } from 'antd';
 import styled from 'styled-components';
+import DataHubTitle from './DataHubTitle';
 import { HomePage } from './home/HomePage';
 import { HomePage as HomePageV2 } from './homeV2/HomePage';
 import { SearchRoutes } from './SearchRoutes';
@@ -43,12 +44,13 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     return (
         <OnboardingContextProvider>
+            <DataHubTitle />
             <StyledLayout className={isThemeV2 ? 'themeV2' : undefined}>
                 <Switch>
                     <Route exact path="/" render={() => <FinalHomePage />} />
                     <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
                     <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
-                    <Route path="/*" render={() => <SearchRoutes />} />
+                    <Route path="/*" component={SearchRoutes} />
                 </Switch>
             </StyledLayout>
         </OnboardingContextProvider>

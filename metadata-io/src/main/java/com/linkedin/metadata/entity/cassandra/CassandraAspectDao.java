@@ -2,13 +2,12 @@ package com.linkedin.metadata.entity.cassandra;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.cassandra.CassandraAspect.rowToEntityAspect;
 
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.DriverException;
-import com.datastax.oss.driver.api.core.cql.BatchStatement;
-import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
@@ -24,9 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.TransactionContext;
@@ -38,9 +38,8 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,16 +82,25 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return true;
   }
 
+  @Nullable
   @Override
-  public EntityAspect getLatestAspect(
-      @Nonnull String urn, @Nonnull String aspectName, boolean forUpdate) {
+  public SystemAspect getLatestAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull String aspectName,
+      boolean forUpdate) {
     validateConnection();
-    return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+    return Optional.ofNullable(getAspect(urn, aspectName, ASPECT_LATEST_VERSION))
+        .map(
+            a ->
+                EntityAspect.EntitySystemAspect.builder()
+                    .forUpdate(a, opContext.getEntityRegistry()))
+        .orElse(null);
   }
 
   @Override
-  public Map<String, Map<String, EntityAspect>> getLatestAspects(
-      Map<String, Set<String>> urnAspects, boolean forUpdate) {
+  public Map<String, Map<String, SystemAspect>> getLatestAspects(
+      @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate) {
     return urnAspects.entrySet().stream()
         .map(
             entry ->
@@ -101,8 +109,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
                     entry.getValue().stream()
                         .map(
                             aspectName -> {
-                              EntityAspect aspect =
-                                  getLatestAspect(entry.getKey(), aspectName, forUpdate);
+                              SystemAspect aspect =
+                                  getLatestAspect(opContext, entry.getKey(), aspectName, forUpdate);
                               return aspect != null ? Map.entry(aspectName, aspect) : null;
                             })
                         .filter(Objects::nonNull)
@@ -197,12 +205,26 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return aspectVersionRanges;
   }
 
+  @Nonnull
   @Override
-  public void saveAspect(
-      @Nullable TransactionContext txContext, @Nonnull EntityAspect aspect, final boolean insert) {
+  public Optional<EntityAspect> updateAspect(
+      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
     validateConnection();
-    SimpleStatement statement = generateSaveStatement(aspect, insert);
-    _cqlSession.execute(statement);
+    EntityAspect updateAspect = aspect.asLatest();
+    SimpleStatement statement = generateSaveStatement(updateAspect, false);
+    ResultSet rs = _cqlSession.execute(statement);
+    return rs.wasApplied() ? Optional.of(updateAspect) : Optional.empty();
+  }
+
+  @Nonnull
+  @Override
+  public Optional<EntityAspect> insertAspect(
+      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, long version) {
+    validateConnection();
+    EntityAspect insertAspect = aspect.withVersion(version);
+    SimpleStatement statement = generateSaveStatement(insertAspect, true);
+    ResultSet rs = _cqlSession.execute(statement);
+    return rs.wasApplied() ? Optional.of(insertAspect) : Optional.empty();
   }
 
   // TODO: can further improve by running the sub queries in parallel
@@ -379,16 +401,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void deleteAspect(
-      @Nullable TransactionContext txContext, @Nonnull final EntityAspect aspect) {
+      @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
     validateConnection();
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(aspect.getUrn()))
+            .isEqualTo(literal(urn.toString()))
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .isEqualTo(literal(aspect.getAspect()))
+            .isEqualTo(literal(aspect))
             .whereColumn(CassandraAspect.VERSION_COLUMN)
-            .isEqualTo(literal(aspect.getVersion()))
+            .isEqualTo(literal(version))
             .ifExists()
             .build();
 
@@ -441,7 +463,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
     ResultSet rs = _cqlSession.execute(ss);
     Row row = rs.one();
-    return row == null ? null : CassandraAspect.rowToEntityAspect(row);
+    return row == null ? null : rowToEntityAspect(row);
   }
 
   @Override
@@ -579,61 +601,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return result;
   }
 
-  @Override
-  public long saveLatestAspect(
-      @Nullable TransactionContext txContext,
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata,
-      final Long nextVersion) {
-
-    validateConnection();
-    if (!_canWrite) {
-      return 0;
-    }
-    // Save oldValue as the largest version + 1
-    long largestVersion = ASPECT_LATEST_VERSION;
-    BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
-    if (!ASPECT_LATEST_VERSION.equals(nextVersion) && oldTime != null) {
-      largestVersion = nextVersion;
-      final EntityAspect aspect =
-          new EntityAspect(
-              urn,
-              aspectName,
-              largestVersion,
-              oldAspectMetadata,
-              oldSystemMetadata,
-              oldTime,
-              oldActor,
-              oldImpersonator);
-      batch = batch.add(generateSaveStatement(aspect, true));
-    }
-
-    // Save newValue as the latest version (v0)
-    final EntityAspect aspect =
-        new EntityAspect(
-            urn,
-            aspectName,
-            ASPECT_LATEST_VERSION,
-            newAspectMetadata,
-            newSystemMetadata,
-            newTime,
-            newActor,
-            newImpersonator);
-    batch = batch.add(generateSaveStatement(aspect, ASPECT_LATEST_VERSION.equals(nextVersion)));
-    _cqlSession.execute(batch);
-    return largestVersion;
-  }
-
   private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert) {
     String entity;
     try {
@@ -683,37 +650,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void setWritable(boolean canWrite) {
     _canWrite = canWrite;
-  }
-
-  @Override
-  public void saveAspect(
-      @Nullable TransactionContext txContext,
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert) {
-
-    validateConnection();
-    final EntityAspect aspect =
-        new EntityAspect(
-            urn,
-            aspectName,
-            version,
-            aspectMetadata,
-            systemMetadata,
-            timestamp,
-            actor,
-            impersonator);
-
-    saveAspect(txContext, aspect, insert);
-
-    // metrics
-    incrementWriteMetrics(aspectName, 1, aspectMetadata.getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Override
