@@ -68,8 +68,13 @@ public class EntityServiceImplTest {
     // Initialize common test objects
     entityService =
         new EntityServiceImpl(
-            mock(AspectDao.class), mockEventProducer, false, mock(PreProcessHooks.class), 0, true,
-                EntityServiceConfiguration.EMPTY);
+            mock(AspectDao.class),
+            mockEventProducer,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            EntityServiceConfiguration.EMPTY);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
