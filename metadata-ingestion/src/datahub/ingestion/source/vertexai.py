@@ -227,7 +227,7 @@ class VertexAISource(Source):
                 customProperties={"displayName": job.display_name}
             )
 
-        logging.info(f"generating data process instance for training job: {entityUrn}")
+        logging.info(f"Generating data process instance for training job: {entityUrn}")
         return self._create_workunit(urn=entityUrn, aspect=aspect)
 
     def _is_automl_job(self, job: _TrainingJob) -> bool:
@@ -253,7 +253,7 @@ class VertexAISource(Source):
         """
 
         job_conf = job.to_dict()
-        if ("modelToUpload" in job_conf and "name" in job_conf["modelToUpload"] and job_conf["modelToUpload"]["name"]):
+        if "modelToUpload" in job_conf and "name" in job_conf["modelToUpload"] and job_conf["modelToUpload"]["name"]:
 
             model_version_str = job_conf["modelToUpload"]["versionId"]
             job_urn = self._make_job_urn(job)
@@ -312,7 +312,7 @@ class VertexAISource(Source):
                                           training_job_urn: Optional[str] = None) -> Iterable[MetadataWorkUnit]:
 
         """
-         Generate an MLModel and Endopint workunit for an VertexAI Model Version.
+         Generate an MLModel and Endpoint work unit for an VertexAI Model Version.
          """
 
         endpoint: Optional[Endpoint] = self._search_endpoint(model)
