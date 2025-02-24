@@ -79,6 +79,7 @@ export const SearchSelectModal = ({
                         </Button>
                         <Button
                             id="continueButton"
+                            data-testid="search-select-continue-button"
                             onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
                             disabled={selectedEntities.length === 0}
                         >

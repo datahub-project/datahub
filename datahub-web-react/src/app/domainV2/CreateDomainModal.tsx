@@ -129,6 +129,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         data-testid="create-domain-button"
                         onClick={onCreateDomain}
                         disabled={!createButtonEnabled}
+                        type="submit"
                     >
                         Create
                     </Button>

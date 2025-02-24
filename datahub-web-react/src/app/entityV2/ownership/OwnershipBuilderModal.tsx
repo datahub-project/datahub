@@ -217,6 +217,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     data-testid="ownership-builder-save"
                     disabled={!ownershipTypeBuilderState.name}
                     onClick={onUpsert}
+                    type="submit"
                 >
                     Save
                 </Button>

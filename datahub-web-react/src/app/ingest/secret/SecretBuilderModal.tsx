@@ -65,6 +65,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                     <Button
                         data-testid="secret-modal-create-button"
                         id="createSecretButton"
+                        type="submit"
                         onClick={() => {
                             if (!editSecret) {
                                 onSubmit?.(
