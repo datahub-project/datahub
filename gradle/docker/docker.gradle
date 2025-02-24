@@ -1,43 +1,181 @@
+import groovy.json.JsonSlurper
+import org.apache.commons.io.output.TeeOutputStream
 
-ext.getDockerImages = {
-    docker_registry, docker_repo, docker_tag ->
-        def stdOut = new ByteArrayOutputStream()
-        exec {
-            commandLine "docker", "images", "-q", "${docker_registry}/${docker_repo}:${docker_tag}"
-            standardOutput = stdOut
-        }
-        return stdOut.toString().trim().split("\\R").findAll {!it.empty}.unique() as List
+
+def _getDockerImages(String fullImageTag) {
+  def stdOut = new ByteArrayOutputStream()
+  exec {
+    commandLine "docker", "images", "-q", "${fullImageTag}"
+    standardOutput = stdOut
+  }
+  return stdOut.toString().trim().split("\\R").findAll { !it.empty }.unique() as List
 }
 
-ext.getDockerContainers = {
-    docker_registry, docker_repo, docker_tag ->
-        def stdOut = new ByteArrayOutputStream()
-        exec {
-            commandLine "docker", "container", "ls", "-q", "--filter", "ancestor=${docker_registry}/${docker_repo}:${docker_tag}"
-            standardOutput = stdOut
-        }
-        return stdOut.toString().trim().split("\\R").findAll {!it.empty}.unique() as List
+def _getDockerContainers(String fullImageTag){
+  def stdOut = new ByteArrayOutputStream()
+  exec {
+    commandLine "docker", "container", "ls", "-q", "--filter",
+        "ancestor=${fullImageTag}"
+    standardOutput = stdOut
+  }
+  return stdOut.toString().trim().split("\\R").findAll { !it.empty }.unique() as List
 }
 
-ext.cleanLocalDockerImages = {
-    String docker_registry, String docker_repo, String docker_tag ->
-        println("Docker image string: ${docker_registry}/${docker_repo}:${docker_tag}")
-        def containers = getDockerContainers(docker_registry, docker_repo, docker_tag)
-        if(!containers.isEmpty()) {
-            println "Stopping containers: $containers"
-            exec {
-                commandLine = ["docker", "container", "stop"] + containers
-            }
-            exec {
-                commandLine = ["docker", "container", "rm"] + containers
-            }
+def _cleanLocalDockerImages(String fullImageTag){
+  println("Docker image string: ${fullImageTag}")
+  def containers = _getDockerContainers(fullImageTag)
+  if (!containers.isEmpty()) {
+    println "Stopping containers: $containers"
+    exec {
+      commandLine = ["docker", "container", "stop"] + containers
+    }
+    exec {
+      commandLine = ["docker", "container", "rm"] + containers
+    }
+  }
+  def images = _getDockerImages(fullImageTag)
+  if (!images.isEmpty()) {
+    println "Removing images: $images"
+    exec {
+      ignoreExitValue true // may not work if used by downstream image
+      commandLine = ["docker", "rmi", "-f"] + images
+    }
+  }
+}
+
+// Create extension object
+class DockerPluginExtension {
+  Project project
+  Property<File> dockerfile
+  CopySpec copySpec
+  MapProperty<String, String> buildArgs
+  MapProperty<String, String> tags
+  ListProperty<String> platforms
+  ListProperty<Task> dependencies
+
+  DockerPluginExtension(Project project) {
+    this.project = project
+    dockerfile = project.objects.property(File)
+    buildArgs = project.objects.mapProperty(String, String)
+    copySpec = project.copySpec()
+    tags = project.objects.mapProperty(String, String)
+    platforms = project.objects.listProperty(String)
+    dependencies = project.objects.listProperty(Task)
+  }
+
+  def files(Object... files) {
+    copySpec.from(files)
+  }
+
+  def name(String value) {
+    additionalTag("", value)
+  }
+
+  def dockerfile(File value) {
+    dockerfile.set(value)
+  }
+
+  def buildArgs(Map<String, String> values) {
+    buildArgs.putAll(values)
+  }
+
+  def platform(String... platforms) {
+    this.platforms.addAll(platforms)
+  }
+
+  def additionalTag(String name, String tag) {
+    tags.put(name, tag)
+  }
+
+  def dependsOn(Object... tasks) {
+    dependencies.addAll(tasks)
+  }
+}
+
+def extension = project.extensions.create("docker", DockerPluginExtension)
+
+project.afterEvaluate {
+  tasks.register("dockerPrepare", Sync) {
+    group "docker"
+    with extension.copySpec
+    from extension.dockerfile
+    into "${buildDir}/docker"
+    dependsOn extension.dependencies.get()
+  }
+
+
+
+  extension.tags.get().each { taskName, tag ->
+    // TODO: Choice of task names is to retain current names so that downstream dependencies in quickstart still work
+    //  without changes. Can be changed post full migration.
+    project.tasks.register("dockerTag${taskName}", Exec) {
+      group "docker"
+      description "Docker task taht builds an image with tag ${tag}"
+      dependsOn dockerPrepare
+
+      def buildContext = "${buildDir}/docker"
+
+      def marker = "${buildDir}/imageCreated-${name}.json"
+
+      inputs.file(extension.dockerfile)
+      inputs.dir(buildContext)
+      inputs.property("tag", tag)
+      inputs.property("buildArgs", extension.buildArgs)
+      outputs.file(marker)
+
+      def dockerCmd = []
+
+      dockerCmd += ["docker", "buildx", "build", "--load"]
+      if (extension.platforms.get()) {
+        dockerCmd << "--platform=${extension.platforms.get().join(',')}"
+      }
+
+      // Generate image metadata (we really just want the sha256 hash of the image)
+      dockerCmd += ["--metadata-file", marker]
+
+      extension.buildArgs.get().each { k, v -> dockerCmd += ["--build-arg", "${k}=${v}"]
+      }
+
+      dockerCmd += ["-t", tag]
+
+      dockerCmd << "${buildDir}/docker"
+
+      commandLine dockerCmd
+
+      outputs.upToDateWhen {
+        try {
+          /* The docker task is up-to-date if
+           * 1. the last build generated a marker file
+           * 2. An image with the same tag exists in local docker images
+           * 3. that existing image sha256 matches what is written in the generated marker file
+           */
+          def jsonContent = new File(marker).text
+          def jsonData = new JsonSlurper().parseText(jsonContent)
+          def imageIdFromMarker = jsonData['containerimage.digest']
+          if (imageIdFromMarker != null && imageIdFromMarker.startsWith("sha256:")) {
+            imageIdFromMarker = imageIdFromMarker.substring(7); // "sha256:".length() == 7
+          }
+          def actualImage = _getDockerImages(tag)
+          if (actualImage != null && actualImage.size() > 0 && imageIdFromMarker != null &&
+              imageIdFromMarker.startsWith(actualImage.get(0))) {
+            return true
+          }
+          return false
         }
-        def images = getDockerImages(docker_registry, docker_repo, docker_tag)
-        if(!images.isEmpty()) {
-            println "Removing images: $images"
-            exec {
-                ignoreExitValue true // may not work if used by downstream image
-                commandLine = ["docker", "rmi", "-f"] + images
-            }
+        catch(Exception e) {
+          // any exceptions also implicitly mean not-up-to-date
+          return false
         }
+      }
+    }
+  }
+
+  task dockerClean {
+    group "docker"
+    doLast {
+      extension.tags.get().each{ _, tag->
+        _cleanLocalDockerImages(tag)
+      }
+    }
+  }
 }
