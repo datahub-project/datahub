@@ -87,7 +87,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SlackNotificationSink implements NotificationSink {
   private static final String DEPRECATION_MODIFIER_TYPE = "deprecation";
   private static final String GLOSSARY_TERM_MODIFIER_TYPE = "Glossary Term";
-    private static final String GLOSSARY_TERM_GROUP_MODIFIER_TYPE = "Glossary Term Group";
+  private static final String GLOSSARY_TERM_GROUP_MODIFIER_TYPE = "Glossary Term Group";
   static final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn(Constants.SLACK_CONNECTION_ID);
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -522,7 +522,8 @@ public class SlackNotificationSink implements NotificationSink {
             : null;
 
     if (creatorUrn != null) {
-      responses.addAll(sendProposerProposalStatusChangeNotification(opContext, notificationRequest, creatorUrn));
+      responses.addAll(
+          sendProposerProposalStatusChangeNotification(opContext, notificationRequest, creatorUrn));
     }
 
     final List<NotificationRecipient> recipientsWithoutCreator =
@@ -540,24 +541,24 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private List<ChatPostMessageResponse> sendProposerProposalStatusChangeNotification(
-          @Nonnull final OperationContext opContext, final NotificationRequest notificationRequest, final Urn creatorUrn
-  ) {
+      @Nonnull final OperationContext opContext,
+      final NotificationRequest notificationRequest,
+      final Urn creatorUrn) {
     final NotificationRecipient creatorRecipient =
-            notificationRequest.getRecipients().stream()
-                    .filter(recipient -> creatorUrn.equals(recipient.getActor()))
-                    .filter(
-                            recipient ->
-                                    NotificationRecipientOriginType.ACTOR_NOTIFICATION.equals(
-                                            recipient.getOrigin()))
-                    .findFirst()
-                    .orElse(null);
+        notificationRequest.getRecipients().stream()
+            .filter(recipient -> creatorUrn.equals(recipient.getActor()))
+            .filter(
+                recipient ->
+                    NotificationRecipientOriginType.ACTOR_NOTIFICATION.equals(
+                        recipient.getOrigin()))
+            .findFirst()
+            .orElse(null);
 
     if (creatorRecipient != null) {
-      final String creatorMessage =
-              buildProposerProposalStatusChangeMessage(notificationRequest);
+      final String creatorMessage = buildProposerProposalStatusChangeMessage(notificationRequest);
       ChatPostMessageResponse creatorResponse =
-              sendNotificationToRecipient(
-                      opContext, creatorRecipient, creatorMessage, RetryMode.DISABLED);
+          sendNotificationToRecipient(
+              opContext, creatorRecipient, creatorMessage, RetryMode.DISABLED);
       return Collections.singletonList(creatorResponse);
     }
     return Collections.emptyList();
@@ -593,7 +594,8 @@ public class SlackNotificationSink implements NotificationSink {
     final String maybeSubResource = params.get("subResource"); // e.g. "foo"
 
     // Special-case creation of Glossary Terms / Term Groups
-    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType) || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
       final String parentTermGroupName = params.get("parentTermGroupName");
       // e.g. " in Term Group *PII*"
       final String termGroupString =
@@ -612,26 +614,24 @@ public class SlackNotificationSink implements NotificationSink {
           detailsLink);
     }
 
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
+
     // If we *are not* creating a new glossary object, follow the usual format
     if (maybeSubResource != null && maybeSubResourceType != null) {
       // e.g. "John Joyce has proposed Tag(s) <...> for schema field foo of *SampleKafkaDataset*.
       // View details"
       return String.format(
           ":incoming_envelope: *New Proposal Raised*\n\n"
-              + "*%s* has proposed %s %s for %s %s of %s. %s",
-          actorName,
-          modifierType,
-          modifierLinks,
-          "schema field",
-          maybeSubResource,
-          entityLink,
-          detailsLink);
+              + "*%s* has proposed %s for %s %s of %s. %s",
+          actorName, modifierStr, "schema field", maybeSubResource, entityLink, detailsLink);
     } else {
       // e.g. "John Joyce has proposed to add Tag(s) <...> for *SampleKafkaDataset*. View details"
       return String.format(
-          ":incoming_envelope: *New Proposal Raised*\n\n"
-              + "*%s* has proposed to %s %s %s for %s. %s",
-          actorName, operation, modifierType, modifierLinks, entityLink, detailsLink);
+          ":incoming_envelope: *New Proposal Raised*\n\n" + "*%s* has proposed to %s %s for %s. %s",
+          actorName, operation, modifierStr, entityLink, detailsLink);
     }
   }
 
@@ -662,33 +662,38 @@ public class SlackNotificationSink implements NotificationSink {
     final String maybeSubResource = params.get("subResource");
 
     // Special-case creation of Glossary Terms / Term Groups
-    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType) || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
       final String parentTermGroupName = params.get("parentTermGroupName");
       // e.g. " in Term Group *PII*"
       final String termGroupString =
-              (parentTermGroupName != null)
-                      ? String.format(" in Term Group *%s*", parentTermGroupName)
-                      : "";
+          (parentTermGroupName != null)
+              ? String.format(" in Term Group *%s*", parentTermGroupName)
+              : "";
       return String.format(
-              ":incoming_envelope: *Proposal Status Changed*\n\n"
-                      + "*%s* has %s the proposal to create %s named %s%s. %s",
-              actorName,
-              action,
-              modifierType,
-              entityName, // used as the "new term name"
-              termGroupString,
-              detailsLink);
+          ":incoming_envelope: *Proposal Status Changed*\n\n"
+              + "*%s* has %s the proposal to create %s named %s%s. %s",
+          actorName,
+          action,
+          modifierType,
+          entityName, // used as the "new term name"
+          termGroupString,
+          detailsLink);
     }
+
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
 
     if (maybeSubResource != null && maybeSubResourceType != null) {
       return String.format(
           ":incoming_envelope: *Proposal Status Changed*\n\n"
-              + "*%s* has %s the proposal to %s %s %s for %s %s of %s. %s",
+              + "*%s* has %s the proposal to %s %s for %s %s of %s. %s",
           actorName,
           action,
           operation,
-          modifierType,
-          modifierLinks,
+          modifierStr,
           "schema field",
           maybeSubResource,
           entityLink,
@@ -696,8 +701,8 @@ public class SlackNotificationSink implements NotificationSink {
     } else {
       return String.format(
           ":incoming_envelope: *Proposal Status Changed*\n\n"
-              + "*%s* has %s the proposal to %s %s %s for %s. %s",
-          actorName, action, operation, modifierType, modifierLinks, entityLink, detailsLink);
+              + "*%s* has %s the proposal to %s %s for %s. %s",
+          actorName, action, operation, modifierStr, entityLink, detailsLink);
     }
   }
 
@@ -729,31 +734,32 @@ public class SlackNotificationSink implements NotificationSink {
     final String maybeSubResource = params.get("subResource");
 
     // Special-case creation of Glossary Terms / Term Groups
-    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType) || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
       final String parentTermGroupName = params.get("parentTermGroupName");
       // e.g. " in Term Group *PII*"
       final String termGroupString =
-              (parentTermGroupName != null)
-                      ? String.format(" in Term Group *%s*", parentTermGroupName)
-                      : "";
+          (parentTermGroupName != null)
+              ? String.format(" in Term Group *%s*", parentTermGroupName)
+              : "";
       return String.format(
-              ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
-                      + "Your proposal to create %s named %s%s has been *%s*.",
-              capitalize(action),
-              modifierType,
-              entityName,
-              termGroupString,
-              action);
+          ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
+              + "Your proposal to create %s named %s%s has been *%s*.",
+          capitalize(action), modifierType, entityName, termGroupString, action);
     }
+
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
 
     if (maybeSubResource != null && maybeSubResourceType != null) {
       return String.format(
           ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
-              + "Your proposal to %s %s %s for %s %s of %s has been *%s*.",
+              + "Your proposal to %s %s for %s %s of %s has been *%s*.",
           capitalize(action),
           operation,
-          modifierType,
-          modifierLinks,
+          modifierStr,
           "schema field",
           maybeSubResource,
           entityLink,
@@ -761,8 +767,8 @@ public class SlackNotificationSink implements NotificationSink {
     } else {
       return String.format(
           ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
-              + "Your proposal to %s %s %s for %s has been *%s*.",
-          capitalize(action), operation, modifierType, modifierLinks, entityLink, action);
+              + "Your proposal to %s %s for %s has been *%s*.",
+          capitalize(action), operation, modifierStr, entityLink, action);
     }
   }
 

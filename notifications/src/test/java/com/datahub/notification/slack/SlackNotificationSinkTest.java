@@ -1137,12 +1137,10 @@ public class SlackNotificationSinkTest {
     assertEquals(responses.size(), 2);
 
     // 2) We verify that buildProposerProposalStatusChangeMessage was used for the creator
-    verify(localSpySink, times(1))
-        .buildProposerProposalStatusChangeMessage(Mockito.eq(request));
+    verify(localSpySink, times(1)).buildProposerProposalStatusChangeMessage(Mockito.eq(request));
 
     // 3) We verify that buildProposalStatusChangeMessage was used for the others
-    verify(localSpySink, times(1))
-        .buildProposalStatusChangeMessage(Mockito.eq(request));
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
 
     // 4) We verify the calls to sendNotificationToRecipient (personal) and
     // sendBroadcastNotification (others)
@@ -1209,8 +1207,7 @@ public class SlackNotificationSinkTest {
     verify(localSpySink, never()).buildProposerProposalStatusChangeMessage(any());
 
     // 3) We confirm we did build the normal message
-    verify(localSpySink, times(1))
-        .buildProposalStatusChangeMessage(Mockito.eq(request));
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
   }
 
   @Test
@@ -1255,8 +1252,7 @@ public class SlackNotificationSinkTest {
     // Verify
     assertEquals(responses.size(), 1);
     verify(localSpySink, never()).buildProposerProposalStatusChangeMessage(any());
-    verify(localSpySink, times(1))
-        .buildProposalStatusChangeMessage(Mockito.eq(request));
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
   }
 
   // =========================================================================
@@ -1424,6 +1420,29 @@ public class SlackNotificationSinkTest {
     assertTrue(messageText.contains("View details"), "Should include the details link");
   }
 
+  @Test
+  public void testBuildNewProposalUpdateDescription() {
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Description");
+    params.put("modifierNames", "[]");
+    params.put("modifierPaths", "[]");
+    params.put("entityName", "SampleKafkaDataset");
+    params.put("operation", "update");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertEquals(
+        messageText,
+        ":incoming_envelope: *New Proposal Raised*\n"
+            + "\n"
+            + "*John Joyce* has proposed to update Description for *SampleKafkaDataset*. <http://localhost:9002/requests|View details>");
+  }
+
   // =========================================================================
   // TESTS: buildProposalStatusChangeMessage(...)
   // =========================================================================
@@ -1501,6 +1520,29 @@ public class SlackNotificationSinkTest {
     assertTrue(
         messageText.contains(
             "*Approver* has accepted the proposal to add Structured Properties 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests|View details>"));
+  }
+
+  @Test
+  public void testBuildProposalStatusChangeMessageUpdateDescription() {
+
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "Approver");
+    params.put("action", "accepted");
+    params.put("operation", "update");
+    params.put("modifierType", "Description");
+    params.put("modifierNames", "[]");
+    params.put("entityName", "TestEntity");
+    params.put("entityType", "Table");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildProposalStatusChangeMessage(request);
+
+    assertTrue(
+        messageText.contains(
+            "*Approver* has accepted the proposal to update Description for *TestEntity*. <http://localhost:9002/requests|View details>"));
   }
 
   // =========================================================================

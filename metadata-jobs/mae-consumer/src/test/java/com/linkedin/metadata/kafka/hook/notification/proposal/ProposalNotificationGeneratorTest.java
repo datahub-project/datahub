@@ -24,6 +24,7 @@ import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
+import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.OwnerProposal;
@@ -39,6 +40,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.Aspect;
@@ -1939,6 +1941,151 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(
         templateParams.get("entityPath"),
         String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
+    assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
+    assertEquals(templateParams.get("actorName"), "Test Creator Name");
+    assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
+  }
+
+  @Test
+  public void testTemplateParamsArePopulatedForNewUpdatedDescriptionProposal() {
+    Urn actionRequestUrn = UrnUtils.getUrn("urn:li:actionRequest:444");
+    ActionRequestInfo info = new ActionRequestInfo();
+    info.setType(AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL);
+    info.setParams(
+            new ActionRequestParams()
+                    .setUpdateDescriptionProposal(
+                            new DescriptionProposal()
+                                    .setDescription("Test Description")));
+    info.setResource(TEST_DATASET_URN.toString());
+
+    // We'll ensure that at least one recipient is generated
+    Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
+
+    NotificationRecipient mockRecipient = new NotificationRecipient();
+    mockRecipient.setActor(recipientUrn);
+    mockRecipient.setId("test@test.com");
+    mockRecipient.setType(NotificationRecipientType.EMAIL);
+    mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
+    doReturn(Collections.singletonList(mockRecipient))
+            .when(localSpy)
+            .buildRecipients(
+                    any(),
+                    eq(NotificationScenarioType.NEW_PROPOSAL),
+                    eq(actionRequestUrn),
+                    any(),
+                    any(),
+                    any());
+
+    // Trigger
+    localSpy.generateNewProposalNotifications(
+            actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
+
+    // Capture
+    verify(mockEventProducer, atLeast(1))
+            .producePlatformEvent(
+                    Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
+                    Mockito.eq(null),
+                    platformEventArgumentCaptor.capture());
+
+    // We can examine the captured NotificationRequest, check template, recipients, etc.
+    PlatformEvent platformEvent = platformEventArgumentCaptor.getValue();
+    assertNotNull(platformEvent, "PlatformEvent should be produced");
+
+    NotificationRequest notificationRequest =
+            GenericRecordUtils.deserializePayload(
+                    platformEvent.getPayload().getValue(), NotificationRequest.class);
+    assertEquals(
+            notificationRequest.getMessage().getTemplate().toString(),
+            NotificationTemplateType.BROADCAST_NEW_PROPOSAL.name());
+
+    // Check the templateParams
+    Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
+    // For the scenario type TAG_PROPOSAL -> operation=add, etc.
+    assertEquals(templateParams.get("operation"), "update");
+    assertEquals(templateParams.get("modifierType"), "Description");
+    assertEquals(templateParams.get("modifierNames"), "[]");
+    assertEquals(templateParams.get("modifierPaths"), "[]");
+    assertEquals(templateParams.get("entityName"), "Test Dataset Name");
+    assertEquals(templateParams.get("entityType"), "Dataset");
+    assertEquals(
+            templateParams.get("entityPath"),
+            String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
+    assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
+    assertEquals(templateParams.get("actorName"), "Test Creator Name");
+  }
+
+  @Test
+  public void testTemplateParamsArePopulatedForUpdatedDescriptionProposalStatusChange() {
+    Urn actionRequestUrn = UrnUtils.getUrn("urn:li:actionRequest:555");
+    ActionRequestInfo info = new ActionRequestInfo();
+    info.setType(AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL);
+    info.setParams(
+            new ActionRequestParams()
+                    .setUpdateDescriptionProposal(
+                            new DescriptionProposal()
+                                    .setDescription("Test Description")));
+    info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
+
+    // We'll ensure that at least one recipient is generated
+    Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
+
+    NotificationRecipient mockRecipient = new NotificationRecipient();
+    mockRecipient.setActor(recipientUrn);
+    mockRecipient.setId("test@test.com");
+    mockRecipient.setType(NotificationRecipientType.EMAIL);
+    mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
+    doReturn(Collections.singletonList(mockRecipient))
+            .when(localSpy)
+            .buildRecipients(
+                    any(),
+                    eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
+                    eq(actionRequestUrn),
+                    any(),
+                    any(),
+                    any());
+
+    localSpy.generateUpdatedProposalNotifications(
+            actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
+
+    // Capture
+    verify(mockEventProducer, atLeast(1))
+            .producePlatformEvent(
+                    Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
+                    Mockito.eq(null),
+                    platformEventArgumentCaptor.capture());
+
+    PlatformEvent platformEvent = platformEventArgumentCaptor.getValue();
+    assertNotNull(platformEvent, "PlatformEvent should be produced");
+
+    NotificationRequest notificationRequest =
+            GenericRecordUtils.deserializePayload(
+                    platformEvent.getPayload().getValue(), NotificationRequest.class);
+
+    // Check the templateParams
+    Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
+
+    // We expect "action" => "accepted"
+    assertEquals(templateParams.get("operation"), "update");
+    assertEquals(templateParams.get("modifierType"), "Description");
+    assertEquals(templateParams.get("modifierNames"), "[]");
+    assertEquals(
+            templateParams.get("modifierPaths"), "[]");
+    assertEquals(templateParams.get("entityName"), "Test Dataset Name");
+    assertEquals(templateParams.get("entityType"), "Dataset");
+    assertEquals(
+            templateParams.get("entityPath"),
+            String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");

@@ -150,7 +150,7 @@ def test_build_new_proposal_parameters_for_sub_resource_no_modifier_paths(
                 "modifierType": "Tag",
                 "modifierNames": '["Sensitive","Confidential"]',
                 "modifierPaths": "[]",
-                "subResourceType": "column",
+                "subResourceType": "DATASET_FIELD",
                 "subResource": "bar",
             },
         ),
@@ -248,6 +248,42 @@ def test_build_new_proposal_parameters_for_glossary_node(base_url_fix: str) -> N
     assert actual == expected
 
 
+def test_build_new_proposal_parameters_for_description(base_url_fix: str) -> None:
+    """
+    Tests a "new proposal" for a description
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
+            parameters={
+                "actorName": "Alice",
+                "entityName": "SampleKafkaDataset",
+                "entityType": "Table",
+                "entityPath": "/glossary/term/123",
+                "operation": "update",
+                "modifierType": "Description",
+                "modifierNames": "[]",
+                "modifierPaths": "[]",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No "entityUrl" returned for glossary scenario, per your snippet
+    expected = {
+        "subject": "Alice proposed to update Description for Table SampleKafkaDataset",
+        "message": (
+            "<b>Alice</b> has proposed to update <b>Description</b> for "
+            "<b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_new_proposal_parameters(request, base_url_fix)
+    assert actual == expected
+
+
 def test_build_new_proposal_parameters_missing_parameters(base_url_fix: str) -> None:
     """
     Validates that passing None for 'parameters' raises ValueError.
@@ -325,7 +361,7 @@ def test_build_proposal_status_change_parameters_for_sub_resource_no_paths(
                 "modifierPaths": "[]",
                 "operation": "remove",
                 "action": "denied",
-                "subResourceType": "column",
+                "subResourceType": "DATASET_FIELD",
                 "subResource": "foo",
             },
         ),
@@ -427,6 +463,45 @@ def test_build_proposal_status_change_parameters_for_glossary_node(
     assert actual == expected
 
 
+def test_build_proposal_status_change_parameters_for_description(
+    base_url_fix: str,
+) -> None:
+    """
+    Tests a "new proposal" for a description
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "actorName": "Alice",
+                "entityName": "SampleKafkaDataset",
+                "entityType": "Table",
+                "entityPath": "/glossary/term/123",
+                "operation": "update",
+                "modifierType": "Description",
+                "modifierNames": "[]",
+                "modifierPaths": "[]",
+                "action": "accepted",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No "entityUrl" returned for glossary scenario, per your snippet
+    expected = {
+        "subject": "Alice has accepted the proposal to update Description for Table SampleKafkaDataset.",
+        "message": (
+            "<b>Alice</b> has <b>accepted</b> the proposal to update <b>Description</b> "
+            "for <b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
 def test_build_proposal_status_change_parameters_missing_parameters(
     base_url_fix: str,
 ) -> None:
@@ -504,7 +579,7 @@ def test_build_proposer_proposal_status_change_parameters_for_sub_resource_no_mo
                 "modifierPaths": "[]",
                 "operation": "remove",
                 "action": "approved",
-                "subResourceType": "column",
+                "subResourceType": "DATASET_FIELD",
                 "subResource": "foo",
             },
         ),
@@ -591,6 +666,42 @@ def test_build_proposer_proposal_status_change_parameters_glossary_node(
         "message": (
             "Your proposal to create <b>Glossary Term Group</b> named <b>PII</b>"
             " in Term Group <b>Root</b> has been <b>rejected</b>."
+        ),
+        "baseUrl": base_url_fix,
+    }
+
+    actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposer_proposal_status_change_parameters_description(
+    base_url_fix: str,
+) -> None:
+    """
+    Tests the "personalized" scenario for a description proposal.
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "action": "rejected",
+                "operation": "update",
+                "modifierType": "Description",
+                "modifierNames": "[]",
+                "modifierPaths": "[]",
+                "entityName": "SampleHiveDataset",
+                "entityType": "Table",
+                "entityPath": "/glossary/term/123",
+            },
+        ),
+        recipients=[],
+    )
+
+    expected = {
+        "subject": "Your proposal has been rejected.",
+        "message": (
+            "Your proposal to update <b>Description</b>"
+            " for <b>Table SampleHiveDataset</b> has been <b>rejected</b>."
         ),
         "baseUrl": base_url_fix,
     }

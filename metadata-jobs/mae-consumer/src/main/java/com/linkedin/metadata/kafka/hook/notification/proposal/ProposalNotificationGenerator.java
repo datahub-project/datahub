@@ -316,6 +316,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   private boolean isEligibleForProcessingActionRequestInfo(final ActionRequestInfo info) {
     return AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL.equals((info.getType()))
+        || AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL.equals((info.getType()))
         || AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL.equals(info.getType())
@@ -628,6 +629,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL:
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
         return "create";
+      case AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
+        return "update";
       default:
         throw new IllegalArgumentException(
             String.format("Unsupported action request type %s provided!", info.getType()));
@@ -650,6 +653,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         return "Glossary Term Group";
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
         return "Glossary Term";
+      case AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
+        return "Description";
       default:
         throw new IllegalArgumentException(
             String.format("Unsupported action request type %s provided!", info.getType()));
@@ -695,6 +700,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             .collect(Collectors.toList());
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL:
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
+      case AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
         return Collections.emptyList();
       default:
         throw new IllegalArgumentException(

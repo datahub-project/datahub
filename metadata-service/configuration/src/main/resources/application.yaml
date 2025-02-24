@@ -453,7 +453,7 @@ notifications:
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
         maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
         proxyUrl: ${SLACK_PROXY_URL:}
-        slackSinkV2Enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:false} # Whether the new Slack sink in integrations service is enabled.
+        slackSinkV2Enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true} # Whether the new Slack sink in integrations service is enabled.
     - type: com.datahub.notification.proxy.EmailProxySink
       enabled: ${EMAIL_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
     - type: com.datahub.notification.proxy.SlackProxySink
@@ -625,7 +625,7 @@ featureFlags:
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true} # Enables the documentation forms feature and shows/hides everything for it in the UI
-  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
+  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:true} # Enables the email notifications feature.
   slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:false} # Enables the ability to configure slack bot tokens via the integrations settings UI
   slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true} # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.

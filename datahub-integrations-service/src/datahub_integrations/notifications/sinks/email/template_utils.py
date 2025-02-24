@@ -127,6 +127,9 @@ def build_new_proposal_parameters(
     )
 
     sub_resource_type = params.get("subResourceType")
+    sub_resource_type_name = (
+        "column" if sub_resource_type == "DATASET_FIELD" else sub_resource_type
+    )
     sub_resource_name = params.get("subResource")
 
     # 1) Special case for creating a Glossary Term or Term Group
@@ -159,10 +162,10 @@ def build_new_proposal_parameters(
 
     # 2) If NOT a glossary term scenario, follow your usual format
     if sub_resource_name and sub_resource_type:
-        subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {sub_resource_type} {sub_resource_name} of {entity_type} {entity_name}"
+        subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {sub_resource_type_name} {sub_resource_name} of {entity_type} {entity_name}"
         message = (
             f"<b>{actor_name}</b> has proposed to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
         )
     else:
         subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {entity_type} {entity_name}"
@@ -209,6 +212,9 @@ def build_proposer_proposal_status_change_parameters(
     )
 
     sub_resource_type = params.get("subResourceType")
+    sub_resource_type_name = (
+        "column" if sub_resource_type == "DATASET_FIELD" else sub_resource_type
+    )
     sub_resource_name = params.get("subResource")
 
     # Subject is simpler: "Your proposal has been accepted."
@@ -236,7 +242,7 @@ def build_proposer_proposal_status_change_parameters(
     if sub_resource_name and sub_resource_type:
         message = (
             f"Your proposal to {operation} <b>{all_modifiers_str}</b> "
-            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b> "
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b> "
             f"has been <b>{action}</b>."
         )
     else:
@@ -286,6 +292,9 @@ def build_proposal_status_change_parameters(
     )
 
     sub_resource_type = params.get("subResourceType")
+    sub_resource_type_name = (
+        "column" if sub_resource_type == "DATASET_FIELD" else sub_resource_type
+    )
     sub_resource_name = params.get("subResource")
 
     # 1) Special-case for Glossary Terms / Term Groups
@@ -315,11 +324,11 @@ def build_proposal_status_change_parameters(
     if sub_resource_name and sub_resource_type:
         subject = (
             f"{actor_name} has {action} the proposal to {operation} {all_modifiers_str} "
-            f"for {sub_resource_type} {sub_resource_name} of {entity_type} {entity_name}."
+            f"for {sub_resource_type_name} {sub_resource_name} of {entity_type} {entity_name}."
         )
         message = (
             f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
         )
     else:
         subject = (
