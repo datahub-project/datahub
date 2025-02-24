@@ -86,6 +86,7 @@ asttokens==3.0.0
     #   stack-data
 async-timeout==5.0.1 ; python_full_version < '3.11.3'
     # via
+    #   -r requirements.txt
     #   aiohttp
     #   redis
 attrs==24.2.0
@@ -327,6 +328,7 @@ et-xmlfile==2.0.0
     #   openpyxl
 exceptiongroup==1.2.2 ; python_full_version < '3.11'
     # via
+    #   -r requirements.txt
     #   anyio
     #   ipython
     #   pytest
@@ -1316,6 +1318,7 @@ toml==0.10.2
     #   acryl-datahub-actions
 tomli==2.2.1 ; python_full_version <= '3.11'
     # via
+    #   -r requirements.txt
     #   coverage
     #   mypy
     #   pytest

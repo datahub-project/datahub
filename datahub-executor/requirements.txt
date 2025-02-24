@@ -48,6 +48,10 @@ asn1crypto==1.5.1
     #   snowflake-connector-python
 asttokens==3.0.0
     # via stack-data
+async-timeout==5.0.1 ; python_full_version < '3.11.3'
+    # via
+    #   aiohttp
+    #   redis
 attrs==24.2.0
     # via
     #   aiohttp
@@ -210,6 +214,10 @@ entrypoints==0.4
     #   jupyter-client
 et-xmlfile==2.0.0
     # via openpyxl
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
+    # via
+    #   anyio
+    #   ipython
 executing==2.1.0
     # via stack-data
 expandvars==0.12.0
@@ -868,6 +876,8 @@ toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+tomli==2.2.1 ; python_full_version < '3.11'
+    # via mypy
 tomlkit==0.13.2
     # via snowflake-connector-python
 toolz==1.0.0
@@ -907,16 +917,22 @@ types-croniter==1.4.0.1
 typing-extensions==4.12.2
     # via
     #   acryl-datahub
+    #   acryl-executor
     #   alembic
     #   anyio
+    #   cloudpathlib
     #   great-expectations
+    #   multidict
     #   mypy
     #   pydantic
     #   python-utils
+    #   rich
+    #   schwifty
     #   snowflake-connector-python
     #   sqlalchemy-stubs
     #   typer
     #   typing-inspect
+    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   acryl-datahub

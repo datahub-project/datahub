@@ -73,7 +73,9 @@ asttokens==2.4.1
     #   -r requirements.txt
     #   stack-data
 async-timeout==4.0.3 ; python_full_version < '3.11'
-    # via aiohttp
+    # via
+    #   -r requirements.txt
+    #   aiohttp
 asyncer==0.0.8
     # via
     #   -r requirements.txt
@@ -267,6 +269,7 @@ entrypoints==0.4
     #   papermill
 exceptiongroup==1.2.2 ; python_full_version < '3.11'
     # via
+    #   -r requirements.txt
     #   anyio
     #   ipython
     #   pytest
@@ -1196,6 +1199,7 @@ toml==0.10.2
     #   acryl-datahub-actions
 tomli==2.2.1 ; python_full_version <= '3.11'
     # via
+    #   -r requirements.txt
     #   build
     #   coverage
     #   mypy
