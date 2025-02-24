@@ -18,7 +18,6 @@ from datahub.errors import (
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
     DatasetUrnOrStr,
     DomainInputType,
@@ -39,6 +38,7 @@ from datahub.sdk._shared import (
     parse_time_stamp,
 )
 from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
