@@ -13,6 +13,7 @@ from google.cloud.aiplatform import (
     Endpoint,
     TabularDataset,
 )
+from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.datasets import _Dataset
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
@@ -36,8 +37,9 @@ from datahub.metadata._schema_classes import (
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
-    TimeStampClass,
+    TimeStampClass, SubTypesClass,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
@@ -59,6 +61,11 @@ class VertexAIConfig(EnvConfigMixin):
     bucket_uri: Optional[str] = Field(
         default=None,
         description=("Bucket URI used in your project"),
+    )
+
+    vertexai_url: Optional[str] = Field(
+        default="https://console.cloud.google.com/vertex-ai",
+        description=("VertexUI URI"),
     )
 
 @platform_name("Vertex AI")
@@ -226,8 +233,10 @@ class VertexAISource(Source):
                     actor=created_actor,
                 ),
                 externalUrl=self._make_job_external_url(job),
-                customProperties={"displayName": job.display_name}
+                customProperties={"displayName": job.display_name},
+
             )
+
 
         logging.info(f"Generating data process instance for training job: {entityUrn}")
         return self._create_workunit(urn=entityUrn, aspect=aspect)
@@ -269,7 +278,7 @@ class VertexAISource(Source):
                 yield from self._get_ml_model_endpoint_workunit(model, model_version, job_urn)
 
 
-    def _search_dataset(self, dataset_id: str) -> Optional[_Dataset]:
+    def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
         """
         Search for a dataset by its ID in Vertex AI.
         This method iterates through different types of datasets (Text, Tabular, Image,
@@ -394,7 +403,7 @@ class VertexAISource(Source):
 
         ml_model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_name(entity_type="model", entity_id=model.name)
-        model_version_name = f"{model_name}{self.config.model_name_separator}{model_version.version_id}"
+        model_version_name = f"{model_name}{self.model_name_separator}{model_version.version_id}"
         ml_model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
 
@@ -402,7 +411,7 @@ class VertexAISource(Source):
             name=model_version_name,
             description=model_version.version_description,
             customProperties={"displayName": model_version.model_display_name +
-                                             self.config.model_name_separator + model_version.version_id,
+                                             self.model_name_separator + model_version.version_id,
                               "resourceName": model.resource_name},
             created=TimeStampClass(model_version.version_create_time.second),
             lastModified=TimeStampClass(model_version.version_update_time.second),
@@ -436,7 +445,7 @@ class VertexAISource(Source):
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name:str) -> str:
         urn = builder.make_ml_model_urn(
             platform=self.platform,
-            model_name=f"{model_name}{self.config.model_name_separator}{model_version.version_id}",
+            model_name=f"{model_name}{self.model_name_separator}{model_version.version_id}",
             env=self.config.env,
         )
         return urn
