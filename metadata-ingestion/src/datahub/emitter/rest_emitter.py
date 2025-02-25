@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import os
+from datetime import timedelta
 from json.decoder import JSONDecodeError
 from typing import (
     TYPE_CHECKING,
@@ -33,7 +34,9 @@ from datahub.configuration.common import (
 )
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.openapi_tracer import OpenAPITrace
 from datahub.emitter.request_helper import make_curl_command
+from datahub.emitter.response_helper import extract_trace_data_from_mcps
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -143,10 +146,11 @@ class RequestsSessionConfig(ConfigModel):
         return session
 
 
-class DataHubRestEmitter(Closeable, Emitter):
+class DataHubRestEmitter(Closeable, Emitter, OpenAPITrace):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
+    _default_trace_mode: bool
 
     def __init__(
         self,
@@ -162,6 +166,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
+        default_trace_mode: bool = False,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -174,7 +179,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
-
+        self._default_trace_mode = default_trace_mode
         self._session = requests.Session()
 
         headers = {
@@ -316,6 +321,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        trace_timeout: Optional[timedelta] = None,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
@@ -328,7 +335,15 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         payload = json.dumps(payload_dict)
 
-        self._emit_generic(url, payload)
+        response = self._emit_generic(url, payload)
+
+        if self._should_trace(async_flag, trace_flag):
+            trace_data = extract_trace_data_from_mcps(response, [mcp])
+            if trace_data:
+                self.await_status(
+                    [trace_data],
+                    trace_timeout,
+                )
 
     def emit_mcps(
         self,
@@ -392,7 +407,10 @@ class DataHubRestEmitter(Closeable, Emitter):
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 
-    def _emit_generic(self, url: str, payload: str) -> None:
+    def _emit_generic_payload(self, url: str, payload: Any) -> requests.Response:
+        return self._emit_generic(url, json.dumps(payload))
+
+    def _emit_generic(self, url: str, payload: str) -> requests.Response:
         curl_command = make_curl_command(self._session, "POST", url, payload)
         payload_size = len(payload)
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
@@ -408,6 +426,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         try:
             response = self._session.post(url, data=payload)
             response.raise_for_status()
+            return response
         except HTTPError as e:
             try:
                 info: Dict = response.json()
@@ -437,6 +456,18 @@ class DataHubRestEmitter(Closeable, Emitter):
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
+
+    def _should_trace(
+        self,
+        async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        async_default: bool = False,
+    ) -> bool:
+        resolved_trace_flag = (
+            trace_flag if trace_flag is not None else self._default_trace_mode
+        )
+        resolved_async_flag = async_flag if async_flag is not None else async_default
+        return resolved_trace_flag and resolved_async_flag
 
     def __repr__(self) -> str:
         token_str = (
