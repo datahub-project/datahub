@@ -78,7 +78,7 @@ function EntityMenuActions(props: Props) {
                     {menuItems.has(EntityMenuItems.DELETE) && (
                         <DeleteEntityMenuItem onDelete={onDelete} options={options} />
                     )}
-                    {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}{' '}
+                    {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
                     {entityVersioningEnabled && hasVersioningActions && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction

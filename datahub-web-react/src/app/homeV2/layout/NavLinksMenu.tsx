@@ -242,7 +242,7 @@ export function NavLinksMenu(props: Props) {
                 if (menuItem.isHidden) return null;
 
                 // Menu item has sub menu items
-                const hasSubMenu = menuItem.subMenu?.items && menuItem.subMenu?.items.length > 0;
+                const hasSubMenu = menuItem.subMenu?.items && menuItem.subMenu?.items?.length > 0;
 
                 // Return a menu item with a submenu
                 if (hasSubMenu) {
@@ -250,7 +250,7 @@ export function NavLinksMenu(props: Props) {
                         <SubMenu>
                             <SubMenuContent>
                                 <SubMenuTitle>{menuItem.title}</SubMenuTitle>
-                                {menuItem.subMenu?.items.map((subMenuItem) => {
+                                {menuItem.subMenu?.items?.map((subMenuItem) => {
                                     if (subMenuItem.isHidden) return null;
                                     return (
                                         <SubMenuLink>

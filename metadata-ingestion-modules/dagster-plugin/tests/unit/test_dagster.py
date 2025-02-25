@@ -144,7 +144,7 @@ def test_emit_metadata(mock_emit: Mock, mock_uuid: Mock) -> None:
     dagster_run = result.dagster_run
 
     # retrieve a success event from the completed execution
-    dagster_event = result.get_job_success_event()
+    dagster_event = result.get_run_success_event()
 
     # create the context
     run_status_sensor_context = build_run_status_sensor_context(

@@ -132,7 +132,7 @@ export class ChartEntity implements Entity<Chart> {
                         visible: (_, chart: GetChartQuery) =>
                             !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
                             !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker) ||
-                            chart?.chart?.platform.name === MODE,
+                            chart?.chart?.platform?.name === MODE,
                         enabled: () => true,
                     },
                 },
@@ -232,10 +232,10 @@ export class ChartEntity implements Entity<Chart> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
