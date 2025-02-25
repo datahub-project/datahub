@@ -42,6 +42,14 @@ public class AddTermsResolver implements DataFetcher<CompletableFuture<Boolean>>
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
+          termUrns.forEach(
+              (termUrn) -> {
+                if (!LabelUtils.isAuthorizedToAssociateEntity(environment.getContext(), termUrn)) {
+                  throw new AuthorizationException(
+                      "Only users granted permission to this entity can assign or remove it");
+                }
+              });
+
           LabelUtils.validateResourceAndLabel(
               context.getOperationContext(),
               termUrns,
