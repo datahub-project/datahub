@@ -1,4 +1,5 @@
-import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
+import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
@@ -255,9 +256,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Collapse>
             </RequiredFieldForm>
             <ControlsContainer>
-                <Button onClick={prev}>Previous</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Previous
+                </Button>
                 <div>
                     <SaveButton
+                        variant="outline"
                         data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
@@ -268,7 +272,6 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
-                            type="primary"
                         >
                             Save & Run
                         </Button>

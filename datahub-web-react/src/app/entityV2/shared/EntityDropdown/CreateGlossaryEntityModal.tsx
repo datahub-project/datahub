@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EditOutlined } from '@ant-design/icons';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import { message, Input, Modal, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
+import { Button } from '@src/alchemy-components';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -25,8 +26,11 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const StyledButton = styled(Button)`
-    padding: 0;
+const ButtonContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    gap: 16px;
 `;
 
 interface Props {
@@ -115,19 +119,18 @@ function CreateGlossaryEntityModal(props: Props) {
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ButtonContainer>
+                    <Button color="gray" onClick={onClose} variant="text">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
                         data-testid="glossary-entity-modal-create-button"
                         onClick={createGlossaryEntity}
                         disabled={createButtonDisabled || !canCreateGlossaryEntity}
                     >
                         Create
                     </Button>
-                </>
+                </ButtonContainer>
             }
         >
             <Form
@@ -186,10 +189,10 @@ function CreateGlossaryEntityModal(props: Props) {
                         </Typography.Text>
                     }
                 >
-                    <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
+                    <Button variant="text" onClick={() => setIsDocumentationModalVisible(true)}>
                         <EditOutlined />
                         {documentation ? 'Edit' : 'Add'} Documentation
-                    </StyledButton>
+                    </Button>
                     {isDocumentationModalVisible && (
                         <DescriptionModal
                             title="Add Documentation"
