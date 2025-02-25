@@ -3,6 +3,7 @@ export * from './theme';
 
 // example usage: import { Button } from '@components';
 export * from './components/Avatar';
+export * from './components/AutoComplete';
 export * from './components/Badge';
 export * from './components/BarChart';
 export * from './components/Button';
@@ -17,6 +18,7 @@ export * from './components/Icon';
 export * from './components/Input';
 export * from './components/LineChart';
 export * from './components/Loader';
+export * from './components/MatchText';
 export * from './components/Modal';
 export * from './components/PageTitle';
 export * from './components/Pills';
