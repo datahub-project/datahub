@@ -160,9 +160,11 @@ project.afterEvaluate {
           def actualImage = _getDockerImages(tag)
           if (actualImage == null || actualImage.size() == 0 && imageIdFromMarker == null ||
               !imageIdFromMarker.startsWith(actualImage.get(0))) {
+            logger.debug("UP-TO-DATE CHECK for ${name}: did not find image ${imageIdFromMarker}")
             return false
           }
         }
+        logger.debug("UP-TO-DATE CHECK for ${name}: Is up-to-date, skipping")
         return true
       } catch (Exception e) {
         // any exceptions also implicitly mean not-up-to-date
