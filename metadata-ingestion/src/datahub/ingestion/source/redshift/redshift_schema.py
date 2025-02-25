@@ -41,6 +41,10 @@ class RedshiftTable(BaseTable):
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
 
+    @property
+    def is_external_table(self) -> bool:
+        return self.type == "EXTERNAL_TABLE"
+
 
 @dataclass
 class RedshiftView(BaseTable):
@@ -51,6 +55,10 @@ class RedshiftView(BaseTable):
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
 
+    @property
+    def is_external_table(self) -> bool:
+        return self.type == "EXTERNAL_TABLE"
+
 
 @dataclass
 class RedshiftSchema:
@@ -59,7 +67,23 @@ class RedshiftSchema:
     type: str
     owner: Optional[str] = None
     option: Optional[str] = None
+    external_platform: Optional[str] = None
     external_database: Optional[str] = None
+
+    @property
+    def is_external_schema(self) -> bool:
+        return self.type == "external"
+
+
+@dataclass
+class RedshiftDatabase:
+    name: str
+    type: str
+    options: Optional[str] = None
+
+    @property
+    def is_shared_database(self) -> bool:
+        return self.type == "shared"
 
 
 @dataclass
@@ -107,6 +131,26 @@ class AlterTableRow:
     start_time: datetime
 
 
+@dataclass
+class OutboundDatashare:
+    share_name: str
+    producer_namespace: str
+    source_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+
+@dataclass
+class InboundDatashare:
+    share_name: str
+    producer_namespace: str
+    consumer_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+
 def _stringy(x: Optional[int]) -> Optional[str]:
     if x is None:
         return None
@@ -142,12 +186,30 @@ class RedshiftDataDictionary:
         return [db[0] for db in dbs]
 
     @staticmethod
+    def get_database_details(
+        conn: redshift_connector.Connection, database: str
+    ) -> Optional[RedshiftDatabase]:
+        cursor = RedshiftDataDictionary.get_query_result(
+            conn,
+            RedshiftCommonQuery.get_database_details(database),
+        )
+
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return RedshiftDatabase(
+            name=database,
+            type=row[1],
+            options=row[2],
+        )
+
+    @staticmethod
     def get_schemas(
         conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas.format(database_name=database),
+            RedshiftCommonQuery.list_schemas(database),
         )
 
         schemas = cursor.fetchall()
@@ -158,8 +220,8 @@ class RedshiftDataDictionary:
                 database=database,
                 name=schema[field_names.index("schema_name")],
                 type=schema[field_names.index("schema_type")],
-                owner=schema[field_names.index("schema_owner_name")],
                 option=schema[field_names.index("schema_option")],
+                external_platform=schema[field_names.index("external_platform")],
                 external_database=schema[field_names.index("external_database")],
             )
             for schema in schemas
@@ -203,6 +265,7 @@ class RedshiftDataDictionary:
         self,
         conn: redshift_connector.Connection,
         skip_external_tables: bool = False,
+        is_shared_database: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -213,7 +276,10 @@ class RedshiftDataDictionary:
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_tables(skip_external_tables=skip_external_tables),
+            RedshiftCommonQuery.list_tables(
+                skip_external_tables=skip_external_tables,
+                is_shared_database=is_shared_database,
+            ),
         )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
@@ -358,11 +424,15 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_columns_for_schema(
-        conn: redshift_connector.Connection, schema: RedshiftSchema
+        conn: redshift_connector.Connection,
+        schema: RedshiftSchema,
+        is_shared_database: bool = False,
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_columns.format(schema_name=schema.name),
+            RedshiftCommonQuery.list_columns(
+                is_shared_database=is_shared_database
+            ).format(schema_name=schema.name),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}
@@ -508,3 +578,32 @@ class RedshiftDataDictionary:
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_outbound_datashares(
+        conn: redshift_connector.Connection,
+    ) -> Iterable[OutboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.list_outbound_datashares())
+        for item in cursor.fetchall():
+            yield OutboundDatashare(
+                share_name=item[1],
+                producer_namespace=item[2],
+                source_database=item[3],
+            )
+
+    @staticmethod
+    def get_inbound_datashare(
+        conn: redshift_connector.Connection,
+        database: str,
+    ) -> Optional[InboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.get_inbound_datashare(database))
+        item = cursor.fetchone()
+        if item:
+            return InboundDatashare(
+                share_name=item[1],
+                producer_namespace=item[2],
+                consumer_database=item[3],
+            )
+        return None
