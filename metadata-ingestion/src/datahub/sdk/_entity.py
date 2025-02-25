@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import abc
-from typing import List, Optional, Type, Union
+from typing import TYPE_CHECKING, List, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -9,6 +11,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import Urn
 from datahub.utilities.urns._urn_base import _SpecificUrn
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+
+ExtraAspectsType = Union[None, List[AspectTypeVar]]
 
 
 class Entity:
@@ -86,6 +94,15 @@ class Entity:
                 )
             )
         return mcps
+
+    def as_workunits(self) -> List[MetadataWorkUnit]:
+        return [mcp.as_workunit() for mcp in self._as_mcps()]
+
+    def _set_extra_aspects(self, extra_aspects: ExtraAspectsType) -> None:
+        # TODO: Add validation to ensure that an "extra aspect" does not conflict
+        # with / get overridden by a standard aspect.
+        for aspect in extra_aspects or []:
+            self._set_aspect(aspect)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}('{self.urn}')"
