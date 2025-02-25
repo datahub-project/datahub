@@ -89,6 +89,7 @@ class VertexAISource(Source):
         aiplatform.init(project=config.project_id, location=config.region)
         self.client = aiplatform
         self.endpoints = None
+        self.datasets = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -281,21 +282,19 @@ class VertexAISource(Source):
         This method iterates through different types of datasets (Text, Tabular, Image,
         TimeSeries, and Video) to find a dataset that matches the given dataset ID.
         """
-        for ds in self.client.datasets.TextDataset.list():
-            if ds.name == dataset_id:
-                return ds
-        for ds in self.client.datasets.TabularDataset.list():
-            if ds.name == dataset_id:
-                return ds
-        for ds in self.client.datasets.ImageDataset.list():
-            if ds.name == dataset_id:
-                return ds
-        for ds in self.client.datasets.TimeSeriesDataset.list():
-            if ds.name == dataset_id:
-                return ds
-        for ds in self.client.datasets.VideoDataset.list():
-            if ds.name == dataset_id:
-                return ds
+
+        if self.datasets is None:
+            self.datasets = []
+            self.datasets.extend(self.client.datasets.TextDataset.list())
+            self.datasets.extend(self.client.datasets.TabularDataset.list())
+            self.datasets.extend(self.client.datasets.ImageDataset.list())
+            self.datasets.extend(self.client.datasets.TimeSeriesDataset.list())
+            self.datasets.extend(self.client.datasets.VideoDataset.list())
+
+        for dataset in self.datasets:
+            if dataset.name == dataset_id:
+                return dataset
+
         return None
 
     def _make_dataset_aspect(self, ds: _Dataset) -> Optional[DatasetPropertiesClass]:
