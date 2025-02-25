@@ -17,6 +17,7 @@ import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import updateNodeContext from './updateNodeContext';
 import { useOnClickExpandLineage } from '../LineageEntityNode/useOnClickExpandLineage';
+import { error } from 'console';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -85,9 +86,8 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     });
                 }
             })
-            .catch((e) => {
-                message.error('Error updating lineage');
-                console.warn(e);
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 
