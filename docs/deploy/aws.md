@@ -203,7 +203,7 @@ able to access datahub-frontend through the host-name.
 Managing the storage services like MySQL, Elasticsearch, and Kafka as kubernetes pods requires a great deal of
 maintenance workload. To reduce the workload, you can use managed services like AWS [RDS](https://aws.amazon.com/rds),
 [Elasticsearch Service](https://aws.amazon.com/elasticsearch-service/), and [Managed Kafka](https://aws.amazon.com/msk/)
-as the storage layer for DataHub. Support for using AWS Neptune as graph DB is coming soon.
+as the storage layer for DataHub.
 
 ### RDS
 

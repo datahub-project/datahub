@@ -64,10 +64,6 @@ If you see the following response, a unique identifier for the new incident will
 
 <TabItem value="python" label="Python">
 
-```
-Python SDK support coming soon!
-```
-
 </TabItem>
 
 </Tabs>
@@ -113,10 +109,6 @@ This will return all relevant incidents for the dataset.
 
 <TabItem value="python" label="Python">
 
-```
-Python SDK support coming soon!
-```
-
 </TabItem>
 </Tabs>
 
@@ -155,10 +147,6 @@ If you see the following response, the operation was successful:
 </TabItem>
 
 <TabItem value="python" label="Python">
-
-```
-Python SDK support coming soon!
-```
 
 </TabItem>
 </Tabs>

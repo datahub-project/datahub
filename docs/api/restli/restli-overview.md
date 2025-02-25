@@ -1344,10 +1344,6 @@ Keep in mind that versions increase monotonically *after* version 0, which repre
 
 Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
 
-##### Get a range of Versioned Aspects
-
-*Coming Soon*! 
-
 ##### Get a range of Timeseries Aspects 
 
 With the introduction of Timeseries Aspects, we've introduced a new API for fetching a series of aspects falling into a particular time range. For this, you'll

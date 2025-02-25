@@ -323,16 +323,6 @@ These privileges are not generalizable.
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: DataHub Cloud only
 
-## Coming Soon
-
-The DataHub team is hard at work trying to improve the Policies feature. We are planning on building out the following:
-
-- Hide edit action buttons on Entity pages to reflect user privileges
-
-Under consideration
-
-- Ability to define Metadata Policies against multiple resources scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
-
 ## Feedback / Questions / Concerns
 
 We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!

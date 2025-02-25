@@ -53,7 +53,3 @@ If you choose to `Mark as Resolved` the message will update in-place, and you wi
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_2.png" />
 </p>
 
-
-## Coming Soon
-We're constantly working on rolling out new features for the Slack app, stay tuned!
-

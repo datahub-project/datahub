@@ -218,7 +218,3 @@ either via CLI or the UI visible as normal assertions.
 - Currently, Snowflake does not allow JOIN queries or non-deterministic functions in DMF definition so you can not use these in SQL for SQL assertion or in filters section.
 - Currently, all DMFs scheduled on a table must follow same exact schedule, so you can not set assertions on same table to run on different schedules.
 - Currently, DMFs are only supported for regular tables and not dynamic or external tables.
-
-## FAQ
-
-Coming soon!

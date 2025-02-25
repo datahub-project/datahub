@@ -223,9 +223,6 @@ Lets consider you have created an uber jar for authorizer plugin and jar name is
 
 By default, authentication is disabled in DataHub GMS, Please follow section [Enable GMS Authentication](#enable-gms-authentication) to enable authentication.
 
-### Kubernetes
-Helm support is coming soon.
-
 ## Config Detail 
 A sample `config.yml` can be found at [config.yml](../metadata-service/plugin/src/test/resources/valid-base-plugin-dir1/config.yml).
 
