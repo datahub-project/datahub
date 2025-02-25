@@ -58,4 +58,5 @@ public class FeatureFlags {
   private boolean showStatsTabRedesign = false;
   private boolean requestMinimalSlackPermissions = false;
   private boolean showTaskCenterRedesign = false;
+  private boolean usePropagationsFramework = false;
 }

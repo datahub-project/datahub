@@ -37,7 +37,7 @@ record MonitorInfo includes CustomProperties, ExternalReference {
     assertionMonitor: optional AssertionMonitor
 
     /**
-    * Advanced: The executor ID of the remote monitor service, if any.
+    * Advanced: The executor pool id of the remote monitor service, if any.
     */
     @Searchable = {}
     executorId: optional string

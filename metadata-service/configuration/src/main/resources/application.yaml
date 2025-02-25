@@ -651,6 +651,7 @@ featureFlags:
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
   showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
+  usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false} # If turned on, use the general Propagations Framework over specialized propagations actions
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

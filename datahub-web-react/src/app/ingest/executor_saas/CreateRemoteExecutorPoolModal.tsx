@@ -1,5 +1,5 @@
 import { colors } from '@src/alchemy-components';
-import { useCreateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.generated';
+import { useCreateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
 import { Button, Form, Input, Modal, Switch, Typography } from 'antd';
 import { CheckCircle } from 'phosphor-react';
 import React, { useState } from 'react';
@@ -37,7 +37,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
             await createPool({
                 variables: {
                     input: {
-                        poolName: name,
+                        executorPoolId: name,
                         description,
                         isDefault,
                     },
@@ -109,7 +109,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                 }
             >
                 <Form.Item
-                    label={<Typography.Text>Pool Name</Typography.Text>}
+                    label={<Typography.Text>Pool Identifier</Typography.Text>}
                     name="name"
                     required={false}
                     rules={[
@@ -117,14 +117,36 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                             required: true,
                             message: 'Please enter a pool name',
                         },
-                        { whitespace: true },
+                        {
+                            validator: (_, value) =>
+                                // disallow all special characters except for underline dash and dot
+                                /^[a-zA-Z0-9_.-]*$/.test(value)
+                                    ? Promise.resolve()
+                                    : Promise.reject(new Error('Only use alphanumerics and _.-')),
+                        },
+                        { whitespace: true, message: 'No spaces' },
                         { min: 1, max: 50 },
                     ]}
                 >
                     <div>
                         <Typography.Text type="secondary">Enter a name for your remote executor pool.</Typography.Text>
                         <div style={{ marginTop: 4 }}>
-                            <Input placeholder="us-east-pool" data-testid="create-pool-name" />
+                            <Input
+                                onKeyDown={(e) => {
+                                    // disallow all special characters except for underline dash and dot
+                                    if (
+                                        !/^[a-zA-Z0-9_.-]*$/.test(e.key) &&
+                                        e.key !== 'Backspace' &&
+                                        e.key !== 'Delete' &&
+                                        e.key !== 'ArrowLeft' &&
+                                        e.key !== 'ArrowRight'
+                                    ) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                placeholder="us-east-pool"
+                                data-testid="create-pool-name"
+                            />
                         </div>
                     </div>
                 </Form.Item>

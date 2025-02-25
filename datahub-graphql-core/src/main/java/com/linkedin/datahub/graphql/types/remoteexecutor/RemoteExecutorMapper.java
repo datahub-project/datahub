@@ -32,7 +32,7 @@ public class RemoteExecutorMapper {
 
   private static void mapStatus(@Nonnull RemoteExecutor executor, @Nonnull DataMap dataMap) {
     final RemoteExecutorStatus status = new RemoteExecutorStatus(dataMap);
-    executor.setPoolName(status.getPoolName());
+    executor.setExecutorPoolId(status.getExecutorPoolId());
     executor.setExecutorReleaseVersion(status.getExecutorReleaseVersion());
     executor.setExecutorAddress(status.getExecutorAddress());
     executor.setExecutorHostname(status.getExecutorHostname());

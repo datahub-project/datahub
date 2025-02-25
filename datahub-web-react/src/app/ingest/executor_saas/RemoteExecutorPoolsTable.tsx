@@ -58,14 +58,14 @@ type Props = {
     pools: RemoteExecutorPool[];
     onRefresh: () => void;
     updateDefaultPool: (urn: string) => void;
-    viewSourcesForPool: (poolName: string) => void;
+    viewSourcesForPool: (executorPoolId: string) => void;
 };
 
 export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, viewSourcesForPool }: Props) => {
     const tableData = pools.map((pool) => ({
         urn: pool.urn,
         isDataHubCloud: !!pool.remoteExecutors?.remoteExecutors?.find((executor) => executor.executorInternal),
-        name: pool.poolName,
+        id: pool.executorPoolId,
         description: pool.description,
         reportedAt: Math.max(
             0,
@@ -77,12 +77,12 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
     }));
     const tableColumns = [
         {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            render: (name: string, record: (typeof tableData)[0]) => (
+            title: 'Identifier',
+            dataIndex: 'id',
+            key: 'id',
+            render: (id: string, record: (typeof tableData)[0]) => (
                 <Typography.Text>
-                    {name || 'unknown'}
+                    {id || 'unknown'}
                     {record.isDataHubCloud ? (
                         <strong style={{ opacity: 0.5, marginLeft: 4 }}> Hosted on DataHub Cloud</strong>
                     ) : (
@@ -121,7 +121,7 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
             dataIndex: 'x',
             key: 'ingestionSources',
             render: (_, record: (typeof tableData)[0]) => (
-                <LinkButton onClick={() => viewSourcesForPool(record.name)}>
+                <LinkButton onClick={() => viewSourcesForPool(record.id)}>
                     {record.ingestionSources?.total ?? 0} {pluralize(record.ingestionSources?.total ?? 0, 'source')}
                 </LinkButton>
             ),

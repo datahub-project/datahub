@@ -13,5 +13,5 @@ record RemoteExecutorPoolKey {
     @Searchable = {
       "fieldType": "KEYWORD"
     }
-    name: string
+    id: string
 }

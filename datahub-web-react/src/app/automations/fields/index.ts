@@ -1,5 +1,6 @@
 import type { Field } from '@app/automations/types';
 import { EntityType } from '@src/types.generated';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 
 import { DEFAULT_AUTOMATION_CATEGORY, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY, DEFAULT_MODE } from '../constants';
 
@@ -382,9 +383,9 @@ const details = {
                     isRequired: true,
                 },
                 executor: {
-                    label: 'Executor ID',
-                    tooltip: 'Optional Remote Executor ID',
-                    placeholder: 'default',
+                    label: 'Executor Pool ID',
+                    tooltip: 'Optional Executor Pool ID',
+                    placeholder: EMBEDDED_EXECUTOR_POOL_NAME,
                     isHidden: false,
                     isRequired: false,
                 },
@@ -396,7 +397,7 @@ const details = {
                 name: '',
                 description: '',
                 category: DEFAULT_AUTOMATION_CATEGORY,
-                executorId: 'default',
+                executorId: EMBEDDED_EXECUTOR_POOL_NAME,
             } as DetailsStateType,
         },
     ],

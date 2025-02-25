@@ -15,7 +15,7 @@ public class AcrylConstants {
   public static final String SHARE_SCHEMA_FILE = "share.graphql";
   public static final String FORMS_ACRYL_SCHEMA_FILE = "forms.acryl.graphql";
   public static final String EXECUTOR_SCHEMA_FILE = "executor.graphql";
-  public static final String REMOTE_EXECUTOR_SCHEMA_FILE = "remote_executor.graphql";
+  public static final String REMOTE_EXECUTOR_SCHEMA_FILE = "remote_executor.saas.graphql";
 
   private AcrylConstants() {}
 }

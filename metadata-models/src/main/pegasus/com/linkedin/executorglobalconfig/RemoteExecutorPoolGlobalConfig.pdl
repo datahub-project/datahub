@@ -9,7 +9,7 @@ namespace com.linkedin.executorglobalconfig
 record RemoteExecutorPoolGlobalConfig {
     /**
      * The default pool to use for tasks that require remote executors.
-     * References 'poolName' in com.linkedin.metadata.key.RemoteExecutorKey
+     * References 'id' in com.linkedin.metadata.key.RemoteExecutorPoolKey
      */
-    defaultPoolName: string
+    defaultExecutorPoolId: string
 }

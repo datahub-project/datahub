@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest.source;
+package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListExecutionRequestsInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;

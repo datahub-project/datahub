@@ -1327,6 +1327,12 @@ type FeatureFlagsConfig {
   If turned on, show the re-designed Proposals page in Task Center
   """
   showTaskCenterRedesign: Boolean!
+
+
+  """
+  If enabled, use general propagations framework over specialized propagations actions.
+  """
+  usePropagationsFramework: Boolean!
 }
 
 """

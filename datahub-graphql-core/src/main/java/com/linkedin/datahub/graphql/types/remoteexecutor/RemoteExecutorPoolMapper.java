@@ -24,7 +24,7 @@ public class RemoteExecutorPoolMapper {
     final RemoteExecutorPool executor = new RemoteExecutorPool();
     executor.setUrn(urn.toString());
     executor.setType(EntityType.REMOTE_EXECUTOR_POOL);
-    executor.setPoolName(urn.getId());
+    executor.setExecutorPoolId(urn.getId());
     executor.setIsDefault(urn.getId().equals(defaultPoolId));
 
     MappingHelper<RemoteExecutorPool> helper = new MappingHelper<>(aspects, executor);

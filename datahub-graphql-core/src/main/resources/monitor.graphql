@@ -185,7 +185,7 @@ type MonitorInfo {
     status: MonitorStatus!
 
     """
-    Advanced: The executor ID of the remote monitor service, if any.
+    Advanced: The executor pool id of the remote monitor service, if any.
     """
     executorId: String
 }
@@ -705,7 +705,7 @@ input CreateAssertionMonitorInput {
     parameters: AssertionEvaluationParametersInput
 
     """
-    Advanced: The executor ID of the remote monitor service, if any.
+    Advanced: The executor pool id of the remote monitor service, if any.
     """
     executorId: String
 }

@@ -13,7 +13,7 @@ mutation updateRemoteExecutorPool($input: UpdateRemoteExecutorPoolInput!) {
 query getDefaultRemoteExecutorPool {
     defaultRemoteExecutorPool {
         pool {
-            poolName
+            executorPoolId
         }
     }
 }
@@ -21,7 +21,7 @@ query getDefaultRemoteExecutorPool {
 query getRemoteExecutor($urn: String!) {
     getRemoteExecutor(urn: $urn) {
         urn
-        poolName
+        executorPoolId
     }
 }
 
@@ -32,7 +32,7 @@ query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
         total
         remoteExecutorPools {
             urn
-            poolName
+            executorPoolId
             description
             createdAt
             isDefault

@@ -39,7 +39,7 @@ public class RemoteExecutorPoolMapperTest {
     assertNotNull(pool);
     assertEquals(pool.getUrn(), "urn:li:remoteExecutorPool:test-pool-1");
     assertEquals(pool.getType(), EntityType.REMOTE_EXECUTOR_POOL);
-    assertEquals(pool.getPoolName(), "test-pool-1"); // poolName should be set from URN ID
+    assertEquals(pool.getExecutorPoolId(), "test-pool-1"); // pool id should be set from URN ID
     assertEquals(pool.getCreatedAt(), createdAtTimestamp);
     assertFalse(pool.getIsDefault());
 
@@ -61,8 +61,8 @@ public class RemoteExecutorPoolMapperTest {
     assertEquals(pool.getUrn(), "urn:li:remoteExecutorPool:test-pool-1");
     assertEquals(pool.getType(), EntityType.REMOTE_EXECUTOR_POOL);
     assertEquals(
-        pool.getPoolName(),
-        "test-pool-1"); // poolName should still be there when no aspect is present
+        pool.getExecutorPoolId(),
+        "test-pool-1"); // pool id should still be there when no aspect is present
     assertFalse(pool.getIsDefault());
   }
 
@@ -86,7 +86,7 @@ public class RemoteExecutorPoolMapperTest {
     RemoteExecutorPool pool = RemoteExecutorPoolMapper.map(null, entityResponse, null);
 
     assertNotNull(pool);
-    assertEquals(pool.getPoolName(), "test-pool-1"); // poolName should be set from URN ID
+    assertEquals(pool.getExecutorPoolId(), "test-pool-1"); // pool id should be set from URN ID
     assertFalse(pool.getIsDefault());
   }
 }

@@ -5,7 +5,7 @@ import * as QueryString from 'query-string';
 import {
     useListRemoteExecutorPoolsQuery,
     useUpdateDefaultRemoteExecutorPoolMutation,
-} from '@src/graphql/remote_executor.generated';
+} from '@src/graphql/remote_executor.saas.generated';
 import { Button, Pagination } from 'antd';
 import { ArrowClockwise, Plus } from 'phosphor-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,8 +18,8 @@ import { SearchBar } from '@src/app/search/SearchBar';
 import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useHistory } from 'react-router';
-import { INGESTION_TAB_QUERY_PARAMS } from '../source/constants';
-import { TabType } from '../source/types';
+import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
+import { TabType } from '../types';
 import { RemoteExecutorPoolsTable } from './RemoteExecutorPoolsTable';
 import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
 

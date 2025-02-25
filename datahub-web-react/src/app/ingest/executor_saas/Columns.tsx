@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { colors } from '@src/alchemy-components';
 import Loading from '@src/app/shared/Loading';
 import { useGetIngestionSourceNameLazyQuery } from '@src/graphql/ingestion.generated';
-import { useUpdateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.generated';
+import { useUpdateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
 import { checkIsExecutionRequestRunning, getExecutionRequestStatusDisplayText } from '../source/utils';
 import { ExecutionDetailsModal } from '../source/executions/ExecutionRequestDetailsModal';
 
