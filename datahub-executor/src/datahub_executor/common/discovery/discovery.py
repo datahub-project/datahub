@@ -42,7 +42,7 @@ class DatahubExecutorDiscovery:
         ).time():
             try:
                 status = RemoteExecutorStatusClass(
-                    poolName=DATAHUB_EXECUTOR_POOL_NAME,
+                    executorPoolId=DATAHUB_EXECUTOR_POOL_NAME,
                     executorReleaseVersion=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
                     executorAddress=DATAHUB_EXECUTOR_IDENTITY_ADDRESS,
                     executorHostname=DATAHUB_EXECUTOR_IDENTITY_HOSTNAME,

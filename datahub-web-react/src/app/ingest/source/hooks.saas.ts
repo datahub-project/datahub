@@ -14,8 +14,8 @@ export const usePoolActionsForIngestionSourceList = (params, onSwitchTab: (tab: 
         history.push(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`);
     };
 
-    const onViewPool = (poolName: string) => {
-        const newParams = { [INGESTION_TAB_QUERY_PARAMS.pool]: poolName };
+    const onViewPool = (poolId: string) => {
+        const newParams = { [INGESTION_TAB_QUERY_PARAMS.pool]: poolId };
         const newSearch = QueryString.stringify(newParams);
         history.push(`${location.pathname}${`?${newSearch}`}`);
         setTimeout(() => onSwitchTab(TabType.RemoteExecutors), 0);

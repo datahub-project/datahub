@@ -158,7 +158,7 @@ type ActionConfig {
   recipe: String!
 
   """
-  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  Advanced: The specific executor pool that should handle the execution request. Defaults to 'default'.
   """
   executorId: String
 
@@ -239,7 +239,7 @@ input UpdateActionPipelineConfigInput {
   version: String
 
   """
-  The id of the executor to use for executing the recipe
+  The id of the executor pool to use for executing the recipe
   """
   executorId: String
 

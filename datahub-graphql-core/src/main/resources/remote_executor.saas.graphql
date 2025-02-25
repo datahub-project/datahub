@@ -25,7 +25,7 @@ input CreateRemoteExecutorPoolInput {
   """
   The unique identifier of the pool
   """
-  poolName: String!
+  executorPoolId: String!
 
   """
   A human-readable description of the pool
@@ -88,7 +88,7 @@ type RemoteExecutorPool implements Entity {
   """
   The unique identifier of the pool, derived from the urn
   """
-  poolName:  String!
+  executorPoolId:  String!
 
   """
   A human-readable description of the pool
@@ -149,7 +149,7 @@ type RemoteExecutor implements Entity {
   """
   The unique identifier of the Remote Executor's pool
   """
-  poolName:  String!
+  executorPoolId:  String!
 
   """
   Release Version (Tag) embedded into remote executor image

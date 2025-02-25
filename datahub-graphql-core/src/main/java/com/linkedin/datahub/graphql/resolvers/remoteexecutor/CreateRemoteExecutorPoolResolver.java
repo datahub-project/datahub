@@ -35,7 +35,8 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
 
     final CreateRemoteExecutorPoolInput input =
         bindArgument(environment.getArgument("input"), CreateRemoteExecutorPoolInput.class);
-    final Urn poolUrn = Urn.createFromTuple(REMOTE_EXECUTOR_POOL_ENTITY_NAME, input.getPoolName());
+    final Urn poolUrn =
+        Urn.createFromTuple(REMOTE_EXECUTOR_POOL_ENTITY_NAME, input.getExecutorPoolId());
 
     return CompletableFuture.supplyAsync(
         () -> {

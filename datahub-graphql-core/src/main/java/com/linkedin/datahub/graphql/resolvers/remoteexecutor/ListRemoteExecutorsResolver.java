@@ -36,7 +36,7 @@ public class ListRemoteExecutorsResolver
     implements DataFetcher<CompletableFuture<ListRemoteExecutorsResult>> {
 
   private static final String REMOTE_EXECUTOR_POOL_ID_FIELD_NAME =
-      Iterables.getLast(RemoteExecutorStatus.fields().poolName().getPathComponents());
+      Iterables.getLast(RemoteExecutorStatus.fields().executorPoolId().getPathComponents());
   private static final String SORT_BY_FIELD =
       Iterables.getLast(RemoteExecutorStatus.fields().reportedAt().getPathComponents());
 

@@ -133,7 +133,7 @@ type Props = {
     open: boolean;
     onClose: () => void;
     saasProps?: {
-        onViewPool?: (poolName: string) => void;
+        onViewPool?: (poolId: string) => void;
     };
 };
 
@@ -157,7 +157,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
     const { data: executorResult } = useGetRemoteExecutorQuery({
         variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
     });
-    const poolName = executorResult?.getRemoteExecutor?.poolName;
+    const poolId = executorResult?.getRemoteExecutor?.executorPoolId;
     // End SaaS only //
 
     useEffect(() => {
@@ -220,17 +220,17 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
                     <SubHeaderParagraph>
                         Pool:{' '}
                         <LinkButton
-                            disabled={!poolName}
+                            disabled={!poolId}
                             onClick={
-                                poolName
+                                poolId
                                     ? () => {
                                           onClose();
-                                          saasProps?.onViewPool?.(poolName);
+                                          saasProps?.onViewPool?.(poolId);
                                       }
                                     : undefined
                             }
                         >
-                            {poolName || 'Unknown'}
+                            {poolId || 'Unknown'}
                         </LinkButton>
                         <br />
                         Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>

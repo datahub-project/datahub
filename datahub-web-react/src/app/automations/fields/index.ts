@@ -382,8 +382,8 @@ const details = {
                     isRequired: true,
                 },
                 executor: {
-                    label: 'Executor ID',
-                    tooltip: 'Optional Remote Executor ID',
+                    label: 'Executor Pool ID',
+                    tooltip: 'Optional Remote Executor Pool ID',
                     placeholder: 'default',
                     isHidden: false,
                     isRequired: false,

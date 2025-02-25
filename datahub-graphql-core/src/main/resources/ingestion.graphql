@@ -139,7 +139,7 @@ type ExecutionRequestInput {
   actorUrn: String
 
   """
-  The specific executor to route the request to. If none is provided, a "default" executor is used.
+  The specific executor pool to route the request to. If none is provided, a "default" executor is used.
   """
   executorId: String
 }
@@ -353,7 +353,7 @@ type IngestionConfig {
   recipe: String!
 
   """
-  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  Advanced: The specific executor pool that should handle the execution request. Defaults to 'default'.
   """
   executorId: String!
 
@@ -546,7 +546,7 @@ input UpdateIngestionSourceConfigInput {
   version: String
 
   """
-  The id of the executor to use for executing the recipe
+  The id of the executor pool to use for executing the recipe
   """
   executorId: String!
 

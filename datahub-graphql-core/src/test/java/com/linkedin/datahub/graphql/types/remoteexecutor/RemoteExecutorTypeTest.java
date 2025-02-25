@@ -35,7 +35,7 @@ public class RemoteExecutorTypeTest {
 
   private static final RemoteExecutorStatus TEST_EXECUTOR_STATUS =
       new RemoteExecutorStatus()
-          .setPoolName("executor-1")
+          .setExecutorPoolId("executor-1")
           .setExecutorReleaseVersion("1.0.0")
           .setExecutorAddress("localhost:8080")
           .setExecutorHostname("test-host")
@@ -96,7 +96,7 @@ public class RemoteExecutorTypeTest {
     RemoteExecutor executor = result.get(0).getData();
     assertEquals(executor.getUrn(), TEST_EXECUTOR_URN);
     assertEquals(executor.getType(), EntityType.REMOTE_EXECUTOR);
-    assertEquals(executor.getPoolName(), TEST_EXECUTOR_STATUS.getPoolName());
+    assertEquals(executor.getExecutorPoolId(), TEST_EXECUTOR_STATUS.getExecutorPoolId());
     assertEquals(
         executor.getExecutorReleaseVersion(), TEST_EXECUTOR_STATUS.getExecutorReleaseVersion());
     assertEquals(executor.getExecutorAddress(), TEST_EXECUTOR_STATUS.getExecutorAddress());

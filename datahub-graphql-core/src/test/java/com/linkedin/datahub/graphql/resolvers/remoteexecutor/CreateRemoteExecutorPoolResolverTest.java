@@ -50,7 +50,7 @@ public class CreateRemoteExecutorPoolResolverTest {
 
     // Setup input
     CreateRemoteExecutorPoolInput input = new CreateRemoteExecutorPoolInput();
-    input.setPoolName(TEST_POOL_NAME);
+    input.setExecutorPoolId(TEST_POOL_NAME);
     input.setIsDefault(false);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
@@ -105,7 +105,7 @@ public class CreateRemoteExecutorPoolResolverTest {
 
     // Setup input with isDefault=true
     CreateRemoteExecutorPoolInput input = new CreateRemoteExecutorPoolInput();
-    input.setPoolName(TEST_POOL_NAME);
+    input.setExecutorPoolId(TEST_POOL_NAME);
     input.setIsDefault(true);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 

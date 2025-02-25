@@ -35,7 +35,7 @@ public class RemoteExecutorUtilsTest {
     // Arrange
     String expectedPoolName = "default-pool";
     RemoteExecutorPoolGlobalConfig config = new RemoteExecutorPoolGlobalConfig();
-    config.setDefaultPoolName(expectedPoolName);
+    config.setDefaultExecutorPoolId(expectedPoolName);
 
     EnvelopedAspect envelopedAspect =
         new EnvelopedAspect()

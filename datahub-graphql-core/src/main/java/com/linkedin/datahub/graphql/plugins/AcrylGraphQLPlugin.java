@@ -1103,8 +1103,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     .dataFetcher(
                         "ingestionSources",
                         environment -> {
-                          final String poolName =
-                              ((RemoteExecutorPool) environment.getSource()).getPoolName();
+                          final String poolId =
+                              ((RemoteExecutorPool) environment.getSource()).getExecutorPoolId();
                           final RemoteExecutorPoolIngestionSourcesInput input =
                               bindArgument(
                                   environment.getArgument("input"),
@@ -1116,7 +1116,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                                       FacetFilterInput.builder()
                                           .setField("sourceExecutorId")
                                           .setCondition(FilterOperator.EQUAL)
-                                          .setValues(List.of(poolName))
+                                          .setValues(List.of(poolId))
                                           .build()));
                           if (input.getHideSystemSources()) {
                             filterInputs.add(

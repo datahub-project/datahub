@@ -45,7 +45,7 @@ type SignalRequest {
   execId: String!
 
   """
-  The executorId associated with this execution request
+  The executor pool id associated with this execution request
   """
   executorId: String!
 
@@ -75,7 +75,7 @@ Executor configurations
 """
 type ExecutorConfigs {
   """
-  The executorId that this queue is configured for
+  The executor pool id that this queue is configured for
   """
   executorId: String!
 

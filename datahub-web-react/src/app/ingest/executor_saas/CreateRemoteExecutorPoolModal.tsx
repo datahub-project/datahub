@@ -37,7 +37,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
             await createPool({
                 variables: {
                     input: {
-                        poolName: name,
+                        executorPoolId: name,
                         description,
                         isDefault,
                     },
@@ -109,7 +109,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                 }
             >
                 <Form.Item
-                    label={<Typography.Text>Pool Name</Typography.Text>}
+                    label={<Typography.Text>Pool Identifier</Typography.Text>}
                     name="name"
                     required={false}
                     rules={[

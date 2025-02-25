@@ -28,7 +28,7 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
 
     const pools = data?.listRemoteExecutorPools.remoteExecutorPools || [];
     const total = data?.listRemoteExecutorPools.total;
-    const defaultPoolName = defaultPool?.defaultRemoteExecutorPool.pool?.poolName || pools[0]?.poolName;
+    const defaultPoolId = defaultPool?.defaultRemoteExecutorPool.pool?.executorPoolId || pools[0]?.executorPoolId;
 
     const handleChange = (newValue: string) => {
         onChange?.(newValue);
@@ -48,21 +48,21 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
 
     return (
         <Select
-            key={defaultPoolName}
+            key={defaultPoolId}
             showSearch
-            value={value ?? defaultPoolName}
+            value={value ?? defaultPoolId}
             placeholder={placeholder}
             onChange={handleChange}
             onBlur={handleBlur}
             onSearch={handleSearch}
             loading={loading}
             filterOption={false}
-            defaultValue={defaultPoolName}
+            defaultValue={defaultPoolId}
         >
             {pools.map((pool) => (
-                <Select.Option key={pool.poolName} value={pool.poolName}>
+                <Select.Option key={pool.executorPoolId} value={pool.executorPoolId}>
                     <div>
-                        {pool.poolName}
+                        {pool.executorPoolId}
                         {pool.remoteExecutors?.remoteExecutors?.find((exec) => exec.executorInternal) ? (
                             <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
                         ) : null}

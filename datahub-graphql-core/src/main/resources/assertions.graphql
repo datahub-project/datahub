@@ -373,7 +373,7 @@ input UpsertDatasetFreshnessAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -450,7 +450,7 @@ input UpsertDatasetVolumeAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -511,7 +511,7 @@ input UpsertDatasetSqlAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -572,7 +572,7 @@ input UpsertDatasetFieldAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -607,7 +607,7 @@ input UpsertDatasetSchemaAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 
