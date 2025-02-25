@@ -5,7 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.SystemAspect;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
@@ -14,9 +13,6 @@ import org.apache.commons.lang3.StringUtils;
  * related data stored along with the aspect
  */
 public interface ChangeMCP extends MCPItem {
-  @Nonnull
-  SystemAspect getSystemAspect(@Nullable Long nextAspectVersion);
-
   @Nullable
   SystemAspect getPreviousSystemAspect();
 

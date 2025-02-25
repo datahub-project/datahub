@@ -9,7 +9,7 @@ import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
