@@ -231,7 +231,7 @@ public class ChangeItemImpl implements ChangeMCP {
         aspect =
             GenericRecordUtils.deserializeAspect(
                 mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        ValidationApiUtils.validateOrThrow(aspect);
+        ValidationApiUtils.validateTrimOrThrow(aspect);
       } catch (ModelConversionException e) {
         throw new RuntimeException(
             String.format(
