@@ -337,6 +337,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        table_name_normalization_rules: Dict[str, str] = {},
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -494,6 +495,8 @@ class SqlParsingAggregator(Closeable):
         # Tool Extractor
         self._tool_meta_extractor = ToolMetaExtractor.create(graph)
         self.report.tool_meta_report = self._tool_meta_extractor.report
+
+        self.table_name_normalization_rules = table_name_normalization_rules
 
     def close(self) -> None:
         # Compute stats once before closing connections
