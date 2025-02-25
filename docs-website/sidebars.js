@@ -93,6 +93,11 @@ module.exports = {
           ],
         },
         {
+          label: "Access Management",
+          type: "doc",
+          id: "features/feature-guides/access-management",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: false,
@@ -845,7 +850,6 @@ module.exports = {
         "docs/authorization/README",
         "docs/authorization/roles",
         "docs/authorization/policies",
-        "docs/authorization/accessmanagement",
         "docs/authorization/groups",
       ],
     },
