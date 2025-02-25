@@ -1,7 +1,6 @@
 import React from 'react';
+import { PageTitle } from '@components';
 import styled from 'styled-components';
-import { DatabaseOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetTotalDatasetsQuery } from '../../../graphql/dataset_health.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -9,22 +8,7 @@ import { AssertionsSummary } from './assertion/AssertionsSummary';
 import { IncidentsSummary } from './incident/IncidentsSummary';
 import { EntityType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
-import { PageTitle } from '@components';
 import { PageContainer, HeaderContainer } from '../../govern/structuredProperties/styledComponents';
-
-const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    height: 100%;
-    background-color: white;
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        overflow:hidden;
-        margin: 5px;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-    `}
-`;
 
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
@@ -42,13 +26,6 @@ const Section = styled.div`
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     margin-bottom: 40px;
     border: 1px solid ${ANTD_GRAY[4]};
-`;
-
-const StyledDatabaseOutlined = styled(DatabaseOutlined)`
-    && {
-        font-size: 18px;
-        padding-right: 12px;
-    }
 `;
 
 /**
