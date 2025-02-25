@@ -1,40 +1,51 @@
 import React, { useState } from 'react';
 import { Typography } from 'antd';
-import { CorpUser, EntityRelationship } from '../../../types.generated';
+import { useRouteMatch } from 'react-router-dom';
+import { useHistory } from 'react-router';
+import { CorpUser, EntityRelationshipsResult } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { TagsSection } from '../shared/SidebarStyledComponents';
+import { ShowMoreButton, TagsSection } from '../shared/SidebarStyledComponents';
 import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
 import { GroupMemberLink } from './GroupMemberLink';
+import { TabType } from './types';
 
 type Props = {
-    relationships: Array<EntityRelationship>;
+    groupMemberRelationships: EntityRelationshipsResult;
 };
-const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
+const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export default function GroupMembersSidebarSectionContent({ relationships }: Props) {
+export default function GroupMembersSidebarSectionContent({ groupMemberRelationships }: Props) {
+    const history = useHistory();
+    const { url } = useRouteMatch();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
 
     const entityRegistry = useEntityRegistry();
-    const relationshipsCount = relationships?.length || 0;
+    const relationshipsTotal = groupMemberRelationships?.total || 0;
+    const relationshipsAvailableCount = groupMemberRelationships.relationships?.length || 0;
     return (
         <>
             <TagsSection>
-                {relationships.length === 0 && (
+                {relationshipsTotal === 0 && (
                     <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
                 )}
-                {relationships.length > 0 &&
-                    relationships.map((item, index) => {
+                {relationshipsTotal > 0 &&
+                    groupMemberRelationships.relationships.map((item, index) => {
                         const user = item.entity as CorpUser;
                         return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
                     })}
             </TagsSection>
-            {relationshipsCount > entityCount && (
+            {relationshipsAvailableCount > entityCount && (
                 <ShowMoreSection
-                    totalCount={relationshipsCount}
+                    totalCount={relationshipsAvailableCount}
                     entityCount={entityCount}
                     setEntityCount={setEntityCount}
                     showMaxEntity={DEFAULT_MAX_ENTITIES_TO_SHOW}
                 />
+            )}
+            {relationshipsTotal > relationshipsAvailableCount && entityCount >= relationshipsAvailableCount && (
+                <ShowMoreButton onClick={() => history.replace(`${url}/${TabType.Members.toLocaleLowerCase()}`)}>
+                    View all members
+                </ShowMoreButton>
             )}
         </>
     );
