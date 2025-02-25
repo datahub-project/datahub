@@ -401,11 +401,10 @@ class RedshiftSqlLineageV2(Closeable):
     ) -> None:
         for schema_name, tables in all_tables[self.database].items():
             for table in tables:
-                if table.type == "EXTERNAL_TABLE":
-                    schema = db_schemas[self.database][schema_name]
-
+                schema = db_schemas[self.database][schema_name]
+                if table.type == "EXTERNAL_TABLE" and schema.external_platform:
                     # external_db_params = schema.option
-                    upstream_platform = schema.type.lower()
+                    upstream_platform = schema.external_platform.lower()
 
                     table_urn = mce_builder.make_dataset_urn_with_platform_instance(
                         self.platform,

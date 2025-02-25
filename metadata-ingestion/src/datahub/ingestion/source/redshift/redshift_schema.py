@@ -59,6 +59,7 @@ class RedshiftSchema:
     type: str
     owner: Optional[str] = None
     option: Optional[str] = None
+    external_platform: Optional[str] = None
     external_database: Optional[str] = None
 
 
@@ -162,12 +163,26 @@ class RedshiftDataDictionary:
         return [db[0] for db in dbs]
 
     @staticmethod
+    def get_database_type(
+        conn: redshift_connector.Connection, database: str
+    ) -> Optional[str]:
+        cursor = RedshiftDataDictionary.get_query_result(
+            conn,
+            RedshiftCommonQuery.get_database_type(database),
+        )
+
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return row[0]
+
+    @staticmethod
     def get_schemas(
         conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas.format(database_name=database),
+            RedshiftCommonQuery.list_schemas(database),
         )
 
         schemas = cursor.fetchall()
@@ -178,8 +193,8 @@ class RedshiftDataDictionary:
                 database=database,
                 name=schema[field_names.index("schema_name")],
                 type=schema[field_names.index("schema_type")],
-                owner=schema[field_names.index("schema_owner_name")],
                 option=schema[field_names.index("schema_option")],
+                external_platform=schema[field_names.index("external_platform")],
                 external_database=schema[field_names.index("external_database")],
             )
             for schema in schemas
@@ -223,6 +238,7 @@ class RedshiftDataDictionary:
         self,
         conn: redshift_connector.Connection,
         skip_external_tables: bool = False,
+        is_shared_database: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -233,7 +249,10 @@ class RedshiftDataDictionary:
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_tables(skip_external_tables=skip_external_tables),
+            RedshiftCommonQuery.list_tables(
+                skip_external_tables=skip_external_tables,
+                is_shared_database=is_shared_database,
+            ),
         )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
@@ -378,11 +397,15 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_columns_for_schema(
-        conn: redshift_connector.Connection, schema: RedshiftSchema
+        conn: redshift_connector.Connection,
+        schema: RedshiftSchema,
+        is_shared_database: bool = False,
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_columns.format(schema_name=schema.name),
+            RedshiftCommonQuery.list_columns(
+                is_shared_database=is_shared_database
+            ).format(schema_name=schema.name),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}

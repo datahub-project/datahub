@@ -361,6 +361,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         database = self.config.database
         logger.info(f"Processing db {database}")
+
+        db_type = self.data_dictionary.get_database_type(connection, database)
+        self.is_shared_database = db_type == "shared"
         with self.report.new_stage(METADATA_EXTRACTION):
             self.db_tables[database] = defaultdict()
             self.db_views[database] = defaultdict()
@@ -500,7 +503,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
-                conn=connection, schema=schema
+                conn=connection,
+                schema=schema,
+                is_shared_database=self.is_shared_database,
             )
 
             if self.config.include_tables:
@@ -824,6 +829,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         tables, views = self.data_dictionary.get_tables_and_views(
             conn=connection,
             skip_external_tables=self.config.skip_external_tables,
+            is_shared_database=self.is_shared_database,
         )
         for schema in tables:
             if not is_schema_allowed(
