@@ -1,5 +1,6 @@
 import logging
 import time
+from collections import defaultdict
 from typing import Iterable, List, Optional, TypeVar
 
 from google.cloud import aiplatform
@@ -60,18 +61,7 @@ class VertexAIConfig(EnvConfigMixin):
         description=("Bucket URI used in your project"),
     )
 
-    vertexai_url: Optional[str] = Field(
-        default="https://console.cloud.google.com/vertex-ai",
-        description=("VertexUI URI"),
-    )
-
-    model_name_separator: str = Field(
-        default="_",
-        description="A string which separates model name from its version (e.g. model_1 or model-1)",
-    )
-
-
-@platform_name("vertexai")
+@platform_name("Vertex AI")
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.TESTING)
 @capability(
@@ -80,7 +70,8 @@ class VertexAIConfig(EnvConfigMixin):
 )
 @capability(SourceCapability.TAGS, "Extract tags for VertexAI Registered Model Stages")
 class VertexAISource(Source):
-    platform = "vertexai"
+    platform: str = "vertexai"
+    model_name_separator = "_"
 
     def __init__(self, ctx: PipelineContext, config: VertexAIConfig):
         super().__init__(ctx)
@@ -90,6 +81,7 @@ class VertexAISource(Source):
         self.client = aiplatform
         self.endpoints = None
         self.datasets = None
+
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -124,7 +116,8 @@ class VertexAISource(Source):
             return False
 
         try:
-            # when model has ref to training job, but field is not accessible, it is not valid
+            # when model has ref to training job, but field is sometimes not accessible and RunTImeError thrown when accessed
+            # if RunTimeError is not thrown, it is valid and proceed
             name = job.name
             logger.debug((f"can fetch training job name: {name} for model: (name:{model.display_name} id:{model.name})"))
             return True
@@ -284,18 +277,21 @@ class VertexAISource(Source):
         """
 
         if self.datasets is None:
-            self.datasets = []
-            self.datasets.extend(self.client.datasets.TextDataset.list())
-            self.datasets.extend(self.client.datasets.TabularDataset.list())
-            self.datasets.extend(self.client.datasets.ImageDataset.list())
-            self.datasets.extend(self.client.datasets.TimeSeriesDataset.list())
-            self.datasets.extend(self.client.datasets.VideoDataset.list())
+            self.datasets = defaultdict(lambda: None)
+            for ds in self.client.datasets.TextDataset.list():
+                self.datasets[ds.name] = ds
+            for ds in self.client.datasets.TabularDataset.list():
+                self.datasets[ds.name] = ds
+            for ds in self.client.datasets.TabularDataset.list():
+                self.datasets[ds.name] = ds
+            for ds in self.client.datasets.TimeSeriesDataset.list():
+                self.datasets[ds.name] = ds
+            for ds in self.client.datasets.VideoDataset.list():
+                self.datasets[ds.name] = ds
 
-        for dataset in self.datasets:
-            if dataset.name == dataset_id:
-                return dataset
+        return self.datasets[dataset_id]
 
-        return None
+
 
     def _make_dataset_aspect(self, ds: _Dataset) -> Optional[DatasetPropertiesClass]:
         """
