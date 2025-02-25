@@ -141,7 +141,7 @@ class VertexAISource(Source):
                 # create work unit for Training Job (if Model has reference to Training Job)
                 if self._validate_training_job(model):
                     logger.info(
-                        f"Generating TrainingJob work unit for model: {model_version.model_display_name}"
+                        f"Ingesting a training job for a model: {model_version.model_display_name}"
                     )
                     yield from self._get_data_process_properties_workunit(
                         model.training_job
@@ -149,7 +149,7 @@ class VertexAISource(Source):
 
                 # create work unit for Model (= Model Version in VertexAI)
                 logger.info(
-                    f"Generating work unit for model (name: {model.display_name} id:{model.name})"
+                    f"Ingesting a model (name: {model.display_name} id:{model.name})"
                 )
                 yield from self._get_ml_model_endpoint_workunit(
                     model=model, model_version=model_version
@@ -223,7 +223,7 @@ class VertexAISource(Source):
         mcp = MetadataChangeProposalWrapper(
             entityUrn=ml_model_group_urn,
             aspect=MLModelGroupPropertiesClass(
-                name=self._make_vertexai_name("model_group", model.name),
+                name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
                 createdAt=int(model.create_time.timestamp()),
                 customProperties={"displayName": model.display_name},
@@ -235,7 +235,7 @@ class VertexAISource(Source):
     def _make_ml_model_group_urn(self, model: Model) -> str:
         urn = builder.make_ml_model_group_urn(
             platform=self.platform,
-            group_name=self._make_vertexai_name("model", model.name),
+            group_name=self._make_vertexai_model_name(model.name),
             env=self.config.env,
         )
         return urn
@@ -249,7 +249,7 @@ class VertexAISource(Source):
         created_time = int(job.start_time.timestamp()) or int(time.time() * 1000)
         created_actor = f"urn:li:platformResource:{self.platform}"
 
-        job_id = self._make_vertexai_name(entity_type="job", entity_id=job.name)
+        job_id = self._make_vertexai_job_name(entity_id=job.name)
         entityUrn = builder.make_data_process_instance_urn(job_id)
 
         prop_mcp = MetadataChangeProposalWrapper(
@@ -344,20 +344,31 @@ class VertexAISource(Source):
         """
         Create a DatasetPropertiesClass aspect for a given Vertex AI dataset.
         """
-        aspect = DatasetPropertiesClass(
-            name=self._make_vertexai_name("dataset", ds.name),
-            created=TimeStampClass(time=int(ds.create_time.timestamp())),
-            description=f"Dataset: {ds.display_name} for training job",
-            customProperties={
-                "displayName": ds.display_name,
-                "resourceName": ds.resource_name,
-            },
-            qualifiedName=ds.resource_name,
+
+        mcps = []
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetPropertiesClass(
+                    name=self._make_vertexai_dataset_name(ds.name),
+                    created=TimeStampClass(time=int(ds.create_time.timestamp())),
+                    description=f"Dataset: {ds.display_name} for training job",
+                    customProperties={
+                        "displayName": ds.display_name,
+                        "resourceName": ds.resource_name,
+                    },
+                    qualifiedName=ds.resource_name,
+                ),
+            )
         )
 
-        mcp = MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect)
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=SubTypesClass(typeNames=["Dataset"])
+            )
+        )
 
-        yield from auto_workunit([mcp])
+        yield from auto_workunit(mcps)
 
     def _get_job_input_workunit(self, job: _TrainingJob) -> Iterable[MetadataWorkUnit]:
         """
@@ -391,9 +402,7 @@ class VertexAISource(Source):
         """
 
         # Create URN of Input Dataset for Training Job
-        dataset_name = self._make_vertexai_name(
-            entity_type="dataset", entity_id=dataset_id
-        )
+        dataset_name = self._make_vertexai_dataset_name(entity_id=dataset_id)
         dataset_urn = builder.make_dataset_urn(
             platform=self.platform,
             name=dataset_name,
@@ -405,7 +414,7 @@ class VertexAISource(Source):
             yield from self._get_dataset_workunit(urn=dataset_urn, ds=dataset)
 
         # Create URN of Training Job
-        job_id = self._make_vertexai_name(entity_type="job", entity_id=job.name)
+        job_id = self._make_vertexai_job_name(entity_id=job.name)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=builder.make_data_process_instance_urn(job_id),
             aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
@@ -429,8 +438,8 @@ class VertexAISource(Source):
         if endpoint:
             endpoint_urn = builder.make_ml_model_deployment_urn(
                 platform=self.platform,
-                deployment_name=self._make_vertexai_name(
-                    "endpoint", endpoint.display_name
+                deployment_name=self._make_vertexai_endpoint_name(
+                    entity_id=endpoint.display_name
                 ),
                 env=self.config.env,
             )
@@ -465,7 +474,7 @@ class VertexAISource(Source):
         logging.info(f"starting model work unit for model {model.name}")
 
         ml_model_group_urn = self._make_ml_model_group_urn(model)
-        model_name = self._make_vertexai_name(entity_type="model", entity_id=model.name)
+        model_name = self._make_vertexai_model_name(entity_id=model.name)
         model_version_name = (
             f"{model_name}{self.model_name_separator}{model_version.version_id}"
         )
@@ -522,13 +531,35 @@ class VertexAISource(Source):
         return urn
 
     def _make_job_urn(self, job: _TrainingJob) -> str:
-        job_id = self._make_vertexai_name(entity_type="job", entity_id=job.name)
+        job_id = self._make_vertexai_job_name(entity_id=job.name)
         urn = builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
         return urn
 
     def _make_vertexai_name(
         self, entity_type: str, entity_id: str, separator: str = "."
     ) -> str:
+        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
+
+    def _make_vertexai_model_group_name(
+        self, entity_id: str, separator: str = "."
+    ) -> str:
+        entity_type = "model_group"
+        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
+
+    def _make_vertexai_endpoint_name(self, entity_id: str, separator: str = ".") -> str:
+        entity_type = "endpoint"
+        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
+
+    def _make_vertexai_model_name(self, entity_id: str, separator: str = ".") -> str:
+        entity_type = "model"
+        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
+
+    def _make_vertexai_dataset_name(self, entity_id: str, separator: str = ".") -> str:
+        entity_type = "dataset"
+        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
+
+    def _make_vertexai_job_name(self, entity_id: str, separator: str = ".") -> str:
+        entity_type = "job"
         return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
 
     def _make_job_external_url(self, job: _TrainingJob):
