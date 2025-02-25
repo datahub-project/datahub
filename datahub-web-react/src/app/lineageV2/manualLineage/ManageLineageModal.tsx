@@ -17,7 +17,6 @@ import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import updateNodeContext from './updateNodeContext';
 import { useOnClickExpandLineage } from '../LineageEntityNode/useOnClickExpandLineage';
-import { error } from 'console';
 
 const ModalFooter = styled.div`
     display: flex;
