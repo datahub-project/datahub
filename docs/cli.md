@@ -48,13 +48,10 @@ datahub --help
 Usage: datahub [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --debug / --no-debug            Enable debug logging.
-  --log-file FILE                 Enable debug logging.
-  --debug-vars / --no-debug-vars  Show variable values in stack traces. Implies --debug. While we try to avoid
-                                  printing sensitive information like passwords, this may still happen.
-  --version                       Show the version and exit.
-  -dl, --detect-memory-leaks      Run memory leak detection.
-  --help                          Show this message and exit.
+  --debug / --no-debug  Enable debug logging.
+  --log-file FILE       Write debug-level logs to a file.
+  --version             Show the version and exit.
+  --help                Show this message and exit.
 
 Commands:
   actions       <disabled due to missing dependencies>
@@ -76,6 +73,7 @@ Commands:
   migrate       Helper commands for migrating metadata within DataHub.
   properties    A group of commands to interact with structured properties in DataHub.
   put           A group of commands to put metadata in DataHub.
+  session       Manage DataHub session profiles
   state         Managed state stored in DataHub by stateful ingestion.
   telemetry     Toggle telemetry.
   timeline      Get timeline for an entity based on certain categories
@@ -280,16 +278,83 @@ DATAHUB_TELEMETRY_TIMEOUT=10
 DATAHUB_DEBUG=false
 ```
 
-### container
+### session
 
-A group of commands to interact with containers in DataHub.
+**🤝 Version Compatibility:** `acryl-datahub>=0.15.0.5`
 
-e.g. You can use this to apply a tag to all datasets recursively in this container.
+The `session` group of commands allows you to manage DataHub sessions to multiple instances using the same cli. The session information will be store in a local file under `~/.datahub/sessions.json`.
+which can be inspected at any time.
+
 ```shell
-datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
-datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"
-datahub container owner --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --owner-urn  "urn:li:corpGroup:eng@example.com"
-datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --term-urn  "urn:li:term:PII"
+datahub session --help
+Usage: datahub session [OPTIONS] COMMAND [ARGS]...
+
+  Manage DataHub session profiles
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  Create profile with which to connect to a DataHub instance
+  delete  Delete a session profile
+  list    List all session profiles
+  save    Save the current active datahubenv config as a session
+  use     Set the active session
+```
+
+Here we detail the sub-commands available under the dataproduct group of commands:
+
+#### create
+
+Use this command to create a new datahub session. This is similar to [datahub init](#init) with an extra step to fill out the name of the *profile* under which to save the session. The profile name is important as it uniquely identifies the name of the session.
+
+```shell
+datahub session create
+```
+
+:::note
+This command has a flag `--use-password`, that can be used to authenticate to the instance using a username/password combo and dynamically generate an access token with an 1 hour validaty for that username.
+:::
+
+#### update
+
+Use this command to update an existing session identified by the profile name.
+A form will then appear for the user to fill out, this will be prefilled with the existing value if it exists or a default exists.
+
+```shell
+datahub session update -p <profile name>
+```
+
+#### delete
+
+Use this command to delete an existing session identified by the profile name.
+
+```shell
+datahub session delete -p <profile name>
+```
+
+#### list
+
+Use this command to list all existing sessions available in `~/.datahub/sessions.json`.
+
+```shell
+datahub session list
+```
+
+#### save
+
+Use this command to save the existing configuration stored in `~/.datahubenv` as a session with the specified name.
+
+```shell
+datahub session save -p <profile name>
+```
+
+#### use
+
+Command used to specify which profile to use. This overwrites whatever is in `~/.datahubenv`.
+
+```shell
+datahub session use -p <profile name>
 ```
 
 ### check
@@ -624,6 +689,18 @@ Use this to delete a Data Product from DataHub. Default to `--soft` which preser
 > datahub dataproduct delete --urn "urn:li:dataProduct:pet_of_the_week"
 # For Hard Delete see below:
 # > datahub dataproduct delete --urn "urn:li:dataProduct:pet_of_the_week" --hard
+```
+
+### container
+
+A group of commands to interact with containers in DataHub.
+
+e.g. You can use this to apply a tag to all datasets recursively in this container.
+```shell
+datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
+datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"
+datahub container owner --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --owner-urn  "urn:li:corpGroup:eng@example.com"
+datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --term-urn  "urn:li:term:PII"
 ```
 
 ## Miscellaneous Admin Commands
