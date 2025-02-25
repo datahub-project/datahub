@@ -174,7 +174,7 @@ public class UrnValidationUtilTest {
   public Object[][] invalidUrnFilePathProvider() {
     return new Object[][] {
       {"../metadata-ingestion/tests/unit/urns/invalid_urns.txt"},
-      {"src/test/resources/urns/invalid_urns.txt"}
+      {"../metadata-ingestion/tests/unit/urns/invalid_urns_java_only.txt"}
       // Add more test files as needed
     };
   }
