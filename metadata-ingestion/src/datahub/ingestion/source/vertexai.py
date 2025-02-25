@@ -11,7 +11,6 @@ from google.cloud.aiplatform import (
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
     Endpoint,
-    TabularDataset,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.datasets import _Dataset
@@ -37,10 +36,8 @@ from datahub.metadata._schema_classes import (
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
-    TimeStampClass, SubTypesClass,
+    TimeStampClass,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
