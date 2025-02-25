@@ -150,6 +150,19 @@ quickstart_configs.each { taskName, config ->
     }
 }
 
+// Register all quickstart tasks
+quickstart_configs.each { taskName, config ->
+    tasks.register("${taskName}BuildImages")
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("${taskName}BuildImages").dependsOn(
+            config.modules.collect { it + ":${config.isDebug ? 'dockerTagDebug' : 'dockerTag'}" }
+        )
+    }
+}
+
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
     args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
@@ -174,6 +187,7 @@ tasks.withType(ComposeUp).configureEach {
 }
 
 task debugReload(type: Exec) {
+    //TODO: Make these a set of tasks that depend on its dependency, making it a no-op if its dependency is up-to-date
     def cmd = ['docker compose -p datahub --profile debug'] + ['-f', compose_base] + [
             'restart',
             'datahub-gms-debug',
@@ -181,4 +195,5 @@ task debugReload(type: Exec) {
             'frontend-debug'
     ]
     commandLine 'bash', '-c', cmd.join(" ")
+    dependsOn project.tasks.named("quickstartDebugBuildImages")
 }
