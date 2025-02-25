@@ -1,6 +1,5 @@
 import logging
 import time
-from collections import defaultdict
 from typing import Iterable, List, Optional, TypeVar
 
 from google.cloud import aiplatform
@@ -85,8 +84,8 @@ class VertexAISource(Source):
         self.report = SourceReport()
         aiplatform.init(project=config.project_id, location=config.region)
         self.client = aiplatform
-        self.endpoints = None
-        self.datasets = None
+        self.endpoints: Optional[List[Endpoint]] = None
+        self.datasets: Optional[dict] = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -100,7 +99,7 @@ class VertexAISource(Source):
         # Fetch Models, Model Versions a from Model Registry
         yield from self._get_ml_model_workunits()
         # Fetch Training Jobs
-        yield from self._get_training_job_workunit()
+        yield from self._get_training_jobs_workunit()
         # TODO Fetch Experiments and Experiment Runs
 
     def _validate_training_job(self, model: Model) -> bool:
@@ -143,9 +142,10 @@ class VertexAISource(Source):
                     logger.info(
                         f"Ingesting a training job for a model: {model_version.model_display_name}"
                     )
-                    yield from self._get_data_process_properties_workunit(
-                        model.training_job
-                    )
+                    if model.training_job:
+                        yield from self._get_data_process_properties_workunit(
+                            model.training_job
+                        )
 
                 # create work unit for Model (= Model Version in VertexAI)
                 logger.info(
@@ -155,7 +155,7 @@ class VertexAISource(Source):
                     model=model, model_version=model_version
                 )
 
-    def _get_training_job_workunit(self) -> Iterable[MetadataWorkUnit]:
+    def _get_training_jobs_workunit(self) -> Iterable[MetadataWorkUnit]:
         """
         Fetches training jobs from Vertex AI and generates corresponding work units.
         This method retrieves various types of training jobs from Vertex AI, including
@@ -165,48 +165,51 @@ class VertexAISource(Source):
         about the job, its inputs, and its outputs.
         """
         logger.info("Fetching a list of CustomJobs from VertexAI server")
-        yield from self._get_data_process_workunit(self.client.CustomJob.list())
+        for job in self.client.CustomJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info("Fetching a list of CustomTrainingJobs from VertexAI server")
-        yield from self._get_data_process_workunit(self.client.CustomTrainingJob.list())
+        for job in self.client.CustomTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info(
             "Fetching a list of CustomContainerTrainingJobs from VertexAI server"
         )
-        yield from self._get_data_process_workunit(
-            self.client.CustomContainerTrainingJob.list()
-        )
+        for job in self.client.CustomContainerTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info(
             "Fetching a list of CustomPythonPackageTrainingJob from VertexAI server"
         )
-        yield from self._get_data_process_workunit(
-            self.client.CustomPythonPackageTrainingJob.list()
-        )
+        for job in self.client.CustomPythonPackageTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info("Fetching a list of AutoMLTabularTrainingJobs from VertexAI server")
-        yield from self._get_data_process_workunit(
-            self.client.AutoMLTabularTrainingJob.list()
-        )
+        for job in self.client.AutoMLTabularTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info("Fetching a list of AutoMLTextTrainingJobs from VertexAI server")
-        yield from self._get_data_process_workunit(
-            self.client.AutoMLTextTrainingJob.list()
-        )
+        for job in self.client.AutoMLTextTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info("Fetching a list of AutoMLImageTrainingJobs from VertexAI server")
-        yield from self._get_data_process_workunit(
-            self.client.AutoMLImageTrainingJob.list()
-        )
+        for job in self.client.AutoMLImageTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info("Fetching a list of AutoMLVideoTrainingJobs from VertexAI server")
-        yield from self._get_data_process_workunit(
-            self.client.AutoMLVideoTrainingJob.list()
-        )
+        for job in self.client.AutoMLVideoTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
+
         logger.info(
             "Fetching a list of AutoMLForecastingTrainingJobs from VertexAI server"
         )
-        yield from self._get_data_process_workunit(
-            self.client.AutoMLForecastingTrainingJob.list()
-        )
+        for job in self.client.AutoMLForecastingTrainingJob.list():
+            yield from self._get_training_job_workunit(job)
 
-    def _get_data_process_workunit(
-        self, jobs: List[_TrainingJob]
+    def _get_training_job_workunit(
+        self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
-        for job in jobs:
+        if isinstance(job, _TrainingJob):
             yield from self._get_data_process_properties_workunit(job)
             yield from self._get_job_output_workunit(job)
             yield from self._get_job_input_workunit(job)
@@ -241,12 +244,13 @@ class VertexAISource(Source):
         return urn
 
     def _get_data_process_properties_workunit(
-        self, job: _TrainingJob
+        self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a work unit for VertexAI Training Job
         """
-        created_time = int(job.start_time.timestamp()) or int(time.time() * 1000)
+
+        created_time = int(job.create_time.timestamp()) or int(time.time() * 1000)
         created_actor = f"urn:li:platformResource:{self.platform}"
 
         job_id = self._make_vertexai_job_name(entity_id=job.name)
@@ -324,7 +328,7 @@ class VertexAISource(Source):
         """
 
         if self.datasets is None:
-            self.datasets = defaultdict(lambda: None)
+            self.datasets = dict()
             for ds in self.client.datasets.TextDataset.list():
                 self.datasets[ds.name] = ds
             for ds in self.client.datasets.TabularDataset.list():
@@ -336,7 +340,7 @@ class VertexAISource(Source):
             for ds in self.client.datasets.VideoDataset.list():
                 self.datasets[ds.name] = ds
 
-        return self.datasets[dataset_id]
+        return self.datasets[dataset_id] if dataset_id in self.datasets else None
 
     def _get_dataset_workunit(
         self, urn: str, ds: VertexAiResourceNoun
@@ -562,40 +566,40 @@ class VertexAISource(Source):
         entity_type = "job"
         return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
 
-    def _make_job_external_url(self, job: _TrainingJob):
+    def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
         """
         Model external URL in Vertex AI
         Sample URLs:
         https://console.cloud.google.com/vertex-ai/training/training-pipelines?project=acryl-poc&trainingPipelineId=5401695018589093888
         """
         entity_type = "training"
-        external_url = (
+        external_url: str = (
             f"{self.config.vertexai_url}/{entity_type}/training-pipelines?trainingPipelineId={job.name}"
             f"?project={self.config.project_id}"
         )
         return external_url
 
-    def _make_model_external_url(self, model: Model):
+    def _make_model_external_url(self, model: Model) -> str:
         """
         Model external URL in Vertex AI
         Sample URL:
         https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336?project=acryl-poc
         """
         entity_type = "models"
-        external_url = (
+        external_url: str = (
             f"{self.config.vertexai_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
             f"?project={self.config.project_id}"
         )
         return external_url
 
-    def _make_model_version_external_url(self, model: Model):
+    def _make_model_version_external_url(self, model: Model) -> str:
         """
         Model Version external URL in Vertex AI
         Sample URL:
         https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336/versions/1?project=acryl-poc
         """
         entity_type = "models"
-        external_url = (
+        external_url: str = (
             f"{self.config.vertexai_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
             f"/versions/{model.version_id}"
             f"?project={self.config.project_id}"
