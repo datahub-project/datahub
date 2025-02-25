@@ -22,6 +22,8 @@ source:
         # table_pattern:
         #    allow:
         #        - "avro"
+        stateful_ingestion:
+            enabled: true
 `;
 
 const glueConfig: SourceConfig = {

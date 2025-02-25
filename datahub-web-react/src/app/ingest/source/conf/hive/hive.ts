@@ -13,6 +13,9 @@ source:
         # Add secret in Secrets Tab with relevant names for each variable
         username: "\${HIVE_USERNAME}" # Your Hive username, e.g. admin
         password: "\${HIVE_PASSWORD}"# Your Hive password, e.g. password_01
+        
+        convert_urns_to_lowercase: true
+        
         stateful_ingestion:
             enabled: true
 `;

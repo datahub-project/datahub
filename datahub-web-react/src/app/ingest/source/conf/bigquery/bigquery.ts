@@ -17,6 +17,7 @@ source:
             
         include_table_lineage: true
         include_view_lineage: true
+        convert_urns_to_lowercase: true
         profiling:
             enabled: true
         stateful_ingestion:
