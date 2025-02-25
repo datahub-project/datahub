@@ -581,6 +581,17 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
 
+        # Preset has a way of naming their platforms differently than
+        # how datahub names them, so map the platform name to the correct naming
+        warehouse_naming = {
+            "awsathena": "athena",
+            "clickhousedb": "clickhouse",
+            "postgresql": "postgres",
+        }
+
+        if upstream_warehouse_platform in warehouse_naming:
+            upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
+
         # TODO: Categorize physical vs virtual upstream dataset
         # mark all upstream dataset as physical for now, in the future we would ideally like
         # to differentiate physical vs virtual upstream datasets
