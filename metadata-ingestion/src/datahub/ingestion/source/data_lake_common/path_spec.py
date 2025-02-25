@@ -11,7 +11,7 @@ from cached_property import cached_property
 from pydantic.fields import Field
 from wcmatch import pathlib
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
@@ -145,6 +145,11 @@ class PathSpec(ConfigModel):
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
 
+    tables_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter tables for ingestion",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -177,6 +182,11 @@ class PathSpec(ConfigModel):
                 ):
                     return False
         logger.debug(f"{path} is not excluded")
+
+        if not self.tables_pattern.allowed(self._get_table_name(path) or ""):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
@@ -218,6 +228,11 @@ class PathSpec(ConfigModel):
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
                     return False
+
+        if not self.tables_pattern.allowed(self._get_table_name(path) or ""):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         return True
 
     @classmethod
@@ -561,3 +576,15 @@ class PathSpec(ConfigModel):
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
+
+    def _get_table_name(self, path: str) -> Optional[str]:
+        if "{table}" not in self.include:
+            return None
+
+        table_idx = self.include.split("/").index("{table}")
+        path_items = path.rstrip("/").split("/")
+
+        if table_idx >= len(path_items):
+            raise ValueError(f"Table not found in path: {path}")
+
+        return path_items[table_idx]
