@@ -1,20 +1,39 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Sequence, Union
+import abc
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    TypedDict,
+    Union,
+)
 
 import pydantic
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from datahub.ingestion.graph.filters import SearchFilterRule
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
+
+
+AndSearchFilterRule = TypedDict("AndSearchFilterRule", {"and": List[SearchFilterRule]})
+FullSearchFilterRule = TypedDict
 
 
 class _BaseFilter(ConfigModel):
     class Config:
         allow_population_by_field_name = True
         populate_by_name = True
+
+    @abc.abstractmethod
+    def compile(self) -> FullSearchFilterRule:
+        pass
 
 
 class Platform(_BaseFilter):
