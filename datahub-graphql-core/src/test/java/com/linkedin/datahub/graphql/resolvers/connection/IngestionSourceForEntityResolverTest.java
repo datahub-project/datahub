@@ -92,7 +92,7 @@ public class IngestionSourceForEntityResolverTest {
             .setInterval("* * * * *"));
     ingestionSourceInfo.setConfig(
         new DataHubIngestionSourceConfig()
-            .setExecutorId("default")
+            .setExecutorId(DEFAULT_EXECUTOR_ID)
             .setVersion("v0.10.5")
             .setRecipe("{}"));
     EnvelopedAspect ingestionSourceEnvelopedInfo =

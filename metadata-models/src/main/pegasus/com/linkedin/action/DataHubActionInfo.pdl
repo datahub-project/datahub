@@ -43,7 +43,7 @@ record DataHubActionInfo {
      recipe: string
 
      /**
-      * The id of the executor pool to use to execute the automation. Defaults to 'default' (runs locally)
+      * The id of the executor pool to use to execute the automation. Defaults to 'embedded' (runs locally)
       */
      executorId: optional string
   }

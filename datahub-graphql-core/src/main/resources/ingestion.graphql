@@ -139,7 +139,7 @@ type ExecutionRequestInput {
   actorUrn: String
 
   """
-  The specific executor pool to route the request to. If none is provided, a "default" executor is used.
+  The specific executor pool to route the request to. If none is provided, a "embedded" executor is used.
   """
   executorId: String
 }
