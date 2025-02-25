@@ -35,6 +35,11 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
 
     final CreateRemoteExecutorPoolInput input =
         bindArgument(environment.getArgument("input"), CreateRemoteExecutorPoolInput.class);
+    // Pool name must only be alphanumeric or _.-
+    if (!input.getExecutorPoolId().matches("^[a-zA-Z0-9_.-]*$")) {
+      throw new RuntimeException(
+          "Pool name must only contain alphanumeric characters, _, ., or -.");
+    }
     final Urn poolUrn =
         Urn.createFromTuple(REMOTE_EXECUTOR_POOL_ENTITY_NAME, input.getExecutorPoolId());
 

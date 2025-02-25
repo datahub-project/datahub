@@ -22,7 +22,9 @@ public class RemoteExecutorUtils {
       final EntityClient entityClient, OperationContext opContext) throws Exception {
     final RemoteExecutorPoolGlobalConfig config =
         tryGetExecutorPoolGlobalConfig(entityClient, opContext);
-    return config != null ? config.getDefaultExecutorPoolId() : null;
+    return config != null && config.hasDefaultExecutorPoolId()
+        ? config.getDefaultExecutorPoolId()
+        : null;
   }
 
   @Nullable
