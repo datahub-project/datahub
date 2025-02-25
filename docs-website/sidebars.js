@@ -95,7 +95,7 @@ module.exports = {
         {
           label: "Access Management",
           type: "doc",
-          id: "features/feature-guides/access-management",
+          id: "docs/features/feature-guides/access-management",
         },
         {
           label: "Automations",
