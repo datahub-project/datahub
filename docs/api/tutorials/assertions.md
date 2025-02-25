@@ -539,8 +539,6 @@ mutation runAssertionsForAsset {
 }
 ```
 
-**Coming Soon**: Support for adding tags to assertions through the DataHub UI.
-
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -1086,10 +1084,6 @@ query getAssertion {
 </TabItem>
 
 <TabItem value="python" label="Python">
-
-```python
-Python support coming soon!
-```
 
 </TabItem>
 </Tabs>

@@ -89,11 +89,6 @@ When creating a Data Contract via UI, the Freshness, Schema, and Data Quality as
 </p>
 
 
-### API
-
-_API guide on creating data contract is coming soon!_
-
-
 ## How to Run Data Contracts
 
 Running Data Contracts is dependent on running the contract’s assertions and getting the results on Datahub. Using Acryl Observe (available on SAAS), you can schedule assertions on Datahub itself. Otherwise, you can run your assertions outside of Datahub and have the results published back to Datahub. 

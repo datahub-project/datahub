@@ -160,11 +160,6 @@ On the host where `datahub-gms` is deployed, follow these steps:
                password: "<Apache Ranger password>"
    ```
 6. Restart DataHub GMS container (i.e. `datahub-gms`)
-
-
-### Kubernetes
-
-Helm support is coming soon.
    
 
 That's it! Now we can test out the integration. 

@@ -57,11 +57,3 @@ version. Some fields were even modified and had a type change at the latest vers
 
 * [getSchemaBlame](../graphql/queries.md#getSchemaBlame)
 * [getSchemaVersionList](../graphql/queries.md#getSchemaVersionList)
-
-## FAQ and Troubleshooting
-
-**What updates are planned for the Schema History feature?**
-
-In the future, we plan on adding the following features
-- Supporting a linear timeline view where you can see what changes were made to various schema fields over time
-- Adding a diff viewer that highlights the differences between two versions of a Dataset

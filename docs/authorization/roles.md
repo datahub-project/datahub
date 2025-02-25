@@ -191,12 +191,3 @@ These privileges are only relevant to DataHub Cloud.
 * [batchAssignRole](../../graphql/mutations.md#batchassignrole)
 * [listRoles](../../graphql/queries.md#listroles)
 
-## FAQ and Troubleshooting
-
-## What updates are planned for Roles?
-
-In the future, the DataHub team is looking into adding the following features to Roles.
-
-- Defining a role mapping from OIDC identity providers to DataHub that will grant users a DataHub role based on their IdP role
-- Allowing Admins to set a default role on DataHub so all users are assigned a role
-- Building custom roles
