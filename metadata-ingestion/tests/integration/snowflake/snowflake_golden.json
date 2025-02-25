@@ -4190,7 +4190,7 @@
                 "BASE_TABLES": "TEST_DB.TEST_SCHEMA.TABLE_1",
                 "STALE_AFTER": "2021-06-22T00:00:00+00:00"
             },
-            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/STREAM_1/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/stream/STREAM_1/",
             "name": "STREAM_1",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.STREAM_1",
             "description": "Comment for Stream 1",
@@ -4205,7 +4205,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2025_02_11-10_32_48-dkw8j5",
         "lastRunId": "no-run-id-provided"
     }
 },
