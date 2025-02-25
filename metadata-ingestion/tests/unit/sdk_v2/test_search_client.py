@@ -1,0 +1,50 @@
+from io import StringIO
+
+import yaml
+
+from datahub.sdk.search_client import Filter, FilterDsl as F, load_filters
+
+
+def test_filters_simple() -> None:
+    yaml_dict = {"platform": ["snowflake", "bigquery"]}
+    filter_obj: Filter = load_filters(yaml_dict)
+    assert filter_obj == F.platform(["snowflake", "bigquery"])
+
+
+def test_filters_and() -> None:
+    yaml_dict = {
+        "and": [
+            {"env": ["PROD"]},
+            {"platform": ["snowflake", "bigquery"]},
+        ]
+    }
+    filter_obj: Filter = load_filters(yaml_dict)
+    assert filter_obj == F.and_(
+        F.env("PROD"),
+        F.platform(["snowflake", "bigquery"]),
+    )
+
+
+def test_filters_complex() -> None:
+    yaml_dict = yaml.safe_load(
+        StringIO("""\
+and:
+  - env: [PROD]
+  - or:
+    - platform: [ snowflake, bigquery ]
+    - and:
+      - platform: [postgres]
+      - domain: [analytics]
+""")
+    )
+    filter_obj: Filter = load_filters(yaml_dict)
+    assert filter_obj == F.and_(
+        F.env("PROD"),
+        F.or_(
+            F.platform(["snowflake", "bigquery"]),
+            F.and_(
+                F.platform("postgres"),
+                F.domain("analytics"),
+            ),
+        ),
+    )
