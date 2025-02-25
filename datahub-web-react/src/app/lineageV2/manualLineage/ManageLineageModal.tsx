@@ -85,9 +85,8 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     });
                 }
             })
-            .catch((e) => {
-                message.error('Error updating lineage');
-                console.warn(e);
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 
