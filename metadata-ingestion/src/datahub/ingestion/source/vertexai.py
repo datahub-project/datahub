@@ -282,7 +282,7 @@ class VertexAISource(Source):
                 self.datasets[ds.name] = ds
             for ds in self.client.datasets.TabularDataset.list():
                 self.datasets[ds.name] = ds
-            for ds in self.client.datasets.TabularDataset.list():
+            for ds in self.client.datasets.ImageDataset.list():
                 self.datasets[ds.name] = ds
             for ds in self.client.datasets.TimeSeriesDataset.list():
                 self.datasets[ds.name] = ds
