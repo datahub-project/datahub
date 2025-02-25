@@ -67,8 +67,14 @@ class RedshiftCommonQuery:
         """
 
     @staticmethod
-    def get_database_type(database):
-        return f"select database_type, database_options from svv_redshift_databases where database_name='{database}';"
+    def get_database_details(database):
+        return f"""\
+            select 
+                database_name,
+                database_type, 
+                database_options 
+            from svv_redshift_databases 
+            where database_name='{database}';"""
 
     # NOTE: although table owner id is available in tables, we do not use it
     # as getting username from id requires access to pg_catalog.pg_user_info

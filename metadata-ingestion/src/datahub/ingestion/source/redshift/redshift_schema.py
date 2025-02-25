@@ -41,6 +41,10 @@ class RedshiftTable(BaseTable):
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
 
+    @property
+    def is_external_table(self) -> bool:
+        return self.type == "EXTERNAL_TABLE"
+
 
 @dataclass
 class RedshiftView(BaseTable):
@@ -50,6 +54,10 @@ class RedshiftView(BaseTable):
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
+
+    @property
+    def is_external_table(self) -> bool:
+        return self.type == "EXTERNAL_TABLE"
 
 
 @dataclass
@@ -61,6 +69,21 @@ class RedshiftSchema:
     option: Optional[str] = None
     external_platform: Optional[str] = None
     external_database: Optional[str] = None
+
+    @property
+    def is_external_schema(self) -> bool:
+        return self.type == "external"
+
+
+@dataclass
+class RedshiftDatabase:
+    name: str
+    type: str
+    options: Optional[str] = None
+
+    @property
+    def is_shared_database(self) -> bool:
+        return self.type == "shared"
 
 
 @dataclass
@@ -163,18 +186,22 @@ class RedshiftDataDictionary:
         return [db[0] for db in dbs]
 
     @staticmethod
-    def get_database_type(
+    def get_database_details(
         conn: redshift_connector.Connection, database: str
-    ) -> Optional[str]:
+    ) -> Optional[RedshiftDatabase]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.get_database_type(database),
+            RedshiftCommonQuery.get_database_details(database),
         )
 
         row = cursor.fetchone()
         if row is None:
             return None
-        return row[0]
+        return RedshiftDatabase(
+            name=database,
+            type=row[1],
+            options=row[2],
+        )
 
     @staticmethod
     def get_schemas(

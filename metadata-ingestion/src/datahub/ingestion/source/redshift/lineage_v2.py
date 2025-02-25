@@ -402,7 +402,11 @@ class RedshiftSqlLineageV2(Closeable):
         for schema_name, tables in all_tables[self.database].items():
             for table in tables:
                 schema = db_schemas[self.database][schema_name]
-                if table.type == "EXTERNAL_TABLE" and schema.external_platform:
+                if (
+                    table.is_external_table
+                    and schema.is_external_schema
+                    and schema.external_platform
+                ):
                     # external_db_params = schema.option
                     upstream_platform = schema.external_platform.lower()
 

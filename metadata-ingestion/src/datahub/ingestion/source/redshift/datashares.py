@@ -14,6 +14,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     InboundDatashare,
     OutboundDatashare,
     RedshiftTable,
+    RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
@@ -88,6 +89,7 @@ class RedshiftDatasharesHelper:
                 platform_resource = PlatformResource.create(
                     key=platform_resource_key,
                     value=value,
+                    secondary_keys=[share.share_name, share.producer_namespace],
                 )
 
                 yield from platform_resource.to_mcps()
@@ -101,68 +103,21 @@ class RedshiftDatasharesHelper:
                 )
 
     def generate_lineage(
-        self, share: Optional[InboundDatashare], tables: Dict[str, List[RedshiftTable]]
+        self,
+        share: Optional[InboundDatashare],
+        tables: Dict[str, List[RedshiftTable | RedshiftView]],
     ) -> Iterable[KnownLineageMapping]:
         if not share:
-            self.report.database_created_from_share = False
-            return
-
-        self.report.database_created_from_share = True
-
-        if not self.graph:
             self.report.warning(
                 title="Upstream lineage of inbound datashare will be missing",
-                message="Missing datahub graph. Either use the datahub-rest sink or "
-                "set the top-level datahub_api config in the recipe",
+                message="Superuser permissions required to query svv_datashares",
             )
             return
 
-        resources = list(
-            PlatformResource.search_by_key(
-                self.graph, key=share.get_key(), primary=True, is_exact=True
-            )
-        )
+        upstream_share = self.find_upstream_share(share)
 
-        if len(resources) == 0 or (
-            not any(
-                [
-                    resource.resource_info is not None
-                    and resource.resource_info.resource_type == PLATFORM_RESOURCE_TYPE
-                    for resource in resources
-                ]
-            )
-        ):
-            self.report.info(
-                title="Upstream lineage of inbound datashare will be missing",
-                message="Missing platform resource for share. "
-                "Setup redshift ingestion for namespace if not already done"
-                "If ingestion is setup, check whether ingestion user has permission to share",
-                context=f"Namespace {share.producer_namespace} Share {share.share_name}",
-            )
+        if not upstream_share:
             return
-
-        upstream_share: OutboundSharePlatformResource
-        # Ideally we should get only one resource as primary key is namespace+share
-        # and type is "OUTBOUND_DATASHARE"
-        for resource in resources:
-            try:
-                # TODO: should this be part of platform resource helper ?
-                assert (
-                    resource.resource_info is not None
-                    and resource.resource_info.value is not None
-                )
-                upstream_share = OutboundSharePlatformResource.parse_raw(
-                    resource.resource_info.value.blob
-                )
-                break
-            except Exception as e:
-                self.report.warning(
-                    title="Upstream lineage of inbound datashare will be missing",
-                    message="Failed to parse platform resource for outbound datashare",
-                    context=f"Namespace {share.producer_namespace} Share {share.share_name}",
-                    exc=e,
-                )
-                return
 
         for schema in tables:
             for table in tables[schema]:
@@ -181,6 +136,66 @@ class RedshiftDatasharesHelper:
                 yield KnownLineageMapping(
                     upstream_urn=upstream_dataset_urn, downstream_urn=dataset_urn
                 )
+
+    def find_upstream_share(
+        self, share: InboundDatashare
+    ) -> Optional[OutboundSharePlatformResource]:
+        upstream_share: Optional[OutboundSharePlatformResource] = None
+
+        if not self.graph:
+            self.report.warning(
+                title="Upstream lineage of inbound datashare will be missing",
+                message="Missing datahub graph. Either use the datahub-rest sink or "
+                "set the top-level datahub_api config in the recipe",
+            )
+
+        else:
+            resources = list(
+                PlatformResource.search_by_key(
+                    self.graph, key=share.get_key(), primary=True, is_exact=True
+                )
+            )
+
+            if len(resources) == 0 or (
+                not any(
+                    [
+                        resource.resource_info is not None
+                        and resource.resource_info.resource_type
+                        == PLATFORM_RESOURCE_TYPE
+                        for resource in resources
+                    ]
+                )
+            ):
+                self.report.info(
+                    title="Upstream lineage of inbound datashare will be missing",
+                    message="Missing platform resource for share. "
+                    "Setup redshift ingestion for namespace if not already done"
+                    "If ingestion is setup, check whether ingestion user has permission to share",
+                    context=f"Namespace {share.producer_namespace} Share {share.share_name}",
+                )
+            else:
+                # Ideally we should get only one resource as primary key is namespace+share
+                # and type is "OUTBOUND_DATASHARE"
+                for resource in resources:
+                    try:
+                        # TODO: should this be part of platform resource helper ?
+                        assert (
+                            resource.resource_info is not None
+                            and resource.resource_info.value is not None
+                        )
+                        upstream_share = OutboundSharePlatformResource.parse_raw(
+                            resource.resource_info.value.blob
+                        )
+                        break
+                    except Exception as e:
+                        self.report.warning(
+                            title="Upstream lineage of inbound datashare will be missing",
+                            message="Failed to parse platform resource for outbound datashare",
+                            context=f"Namespace {share.producer_namespace} Share {share.share_name}",
+                            exc=e,
+                        )
+
+        return upstream_share
 
     # TODO: Refactor and move to new RedshiftIdentifierBuilder class
     def gen_dataset_urn(

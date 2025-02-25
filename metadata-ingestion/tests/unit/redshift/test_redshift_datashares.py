@@ -14,6 +14,7 @@ from datahub.ingestion.source.redshift.datashares import (
     OutboundSharePlatformResource,
     RedshiftDatasharesHelper,
     RedshiftTable,
+    RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata.schema_classes import (
@@ -60,7 +61,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="consumer_db",
         )
-        tables = {
+        tables: dict[str, list[RedshiftTable | RedshiftView]] = {
             "schema1": [
                 RedshiftTable(name="table1", comment=None, created=None),
                 RedshiftTable(name="table2", comment=None, created=None),
@@ -108,7 +109,6 @@ class TestDatasharesHelper:
             ),
         ]
         assert result == expected_mappings
-        assert report.database_created_from_share is True
 
     def test_generate_lineage_missing_graph_reports_warning(self):
         """
@@ -116,7 +116,7 @@ class TestDatasharesHelper:
 
         This test verifies that the method correctly handles the case where an InboundDatashare
         is provided, but the DataHubGraph is not available. It should set the
-        database_created_from_share flag to True and log a warning about missing upstream lineage.
+        self.is_shared_database flag to True and log a warning about missing upstream lineage.
         """
         # Setup
         config = get_redshift_config()
@@ -129,13 +129,12 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="test_db",
         )
-        tables: Dict[str, List[RedshiftTable]] = {}
+        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {}
 
         # Execute
         list(helper.generate_lineage(share, tables))
 
         # Assert
-        assert report.database_created_from_share
         assert len(report.warnings) == 1
 
         assert (
@@ -166,7 +165,7 @@ class TestDatasharesHelper:
         )
 
         # Create mock tables
-        tables: Dict[str, List[RedshiftTable]] = {
+        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {
             "schema1": [RedshiftTable(name="table1", created=None, comment=None)]
         }
 
@@ -177,7 +176,6 @@ class TestDatasharesHelper:
 
         # Assertions
         assert len(result) == 0, "No lineage mappings should be generated"
-        assert report.database_created_from_share is True
         assert len(report.infos) == 1
         assert (
             list(report.infos)[0].title
@@ -205,7 +203,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="consumer_db",
         )
-        tables: Dict[str, List[RedshiftTable]] = {
+        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {
             "schema1": [RedshiftTable(name="table1", comment=None, created=None)]
         }
 
@@ -244,7 +242,7 @@ class TestDatasharesHelper:
             in list(report.warnings)[0].message
         )
 
-    def test_generate_lineage_database_not_created_from_inbound_share(self):
+    def test_generate_lineage_shared_database_without_inbound_share(self):
         """
         Test generate_lineage with empty input for both share and tables parameters.
         """
@@ -255,7 +253,12 @@ class TestDatasharesHelper:
 
         result = list(helper.generate_lineage(None, {}))
         assert len(result) == 0
-        assert not report.database_created_from_share
+        assert len(report.warnings) == 1
+        assert (
+            list(report.warnings)[0].title
+            == "Upstream lineage of inbound datashare will be missing"
+        )
+        assert "Superuser permissions required" in list(report.warnings)[0].message
 
     def test_generate_lineage_shared_database_with_no_tables(self):
         """
@@ -271,14 +274,13 @@ class TestDatasharesHelper:
             consumer_database="db",
             share_name="share",
         )
-        tables: Dict[str, List[RedshiftTable]] = {}
+        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {}
 
         with patch.object(PlatformResource, "search_by_key") as mocked_method:
             mocked_method.return_value = []
             result = list(helper.generate_lineage(share, tables))
 
         assert len(result) == 0
-        assert report.database_created_from_share
 
     def test_to_platform_resource_success(self):
         """

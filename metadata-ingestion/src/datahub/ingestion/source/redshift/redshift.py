@@ -56,6 +56,7 @@ from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
+    RedshiftDatabase,
     RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
@@ -298,6 +299,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             is_serverless=self.config.is_serverless
         )
 
+        self.db: Optional[RedshiftDatabase] = None
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
         self.db_views: Dict[str, Dict[str, List[RedshiftView]]] = {}
         self.db_schemas: Dict[str, Dict[str, RedshiftSchema]] = {}
@@ -362,8 +364,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database = self.config.database
         logger.info(f"Processing db {database}")
 
-        db_type = self.data_dictionary.get_database_type(connection, database)
-        self.is_shared_database = db_type == "shared"
+        self.db = self.data_dictionary.get_database_details(connection, database)
+        self.report.is_shared_database = (
+            self.db is not None and self.db.is_shared_database
+        )
         with self.report.new_stage(METADATA_EXTRACTION):
             self.db_tables[database] = defaultdict()
             self.db_views[database] = defaultdict()
@@ -505,7 +509,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
                 conn=connection,
                 schema=schema,
-                is_shared_database=self.is_shared_database,
+                is_shared_database=self.report.is_shared_database,
             )
 
             if self.config.include_tables:
@@ -829,7 +833,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         tables, views = self.data_dictionary.get_tables_and_views(
             conn=connection,
             skip_external_tables=self.config.skip_external_tables,
-            is_shared_database=self.is_shared_database,
+            is_shared_database=self.report.is_shared_database,
         )
         for schema in tables:
             if not is_schema_allowed(
@@ -978,14 +982,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.datashares_helper.to_platform_resource(list(outbound_shares))
             )
 
-            inbound_share = self.data_dictionary.get_inbound_datashare(
-                connection, database
-            )
+            if self.report.is_shared_database:
+                inbound_share = self.data_dictionary.get_inbound_datashare(
+                    connection, database
+                )
 
-            for known_lineage in self.datashares_helper.generate_lineage(
-                inbound_share, self.db_tables[database]
-            ):
-                lineage_extractor.aggregator.add(known_lineage)
+                # TODO: if inbound_share is missing here, which may happen if
+                # ingestion user is not superuser, try using self.db.options
+                # to find inbound share details. This column is available for
+                # less priviledged users, however, it is truncated due to type
+                # varchar(128) and has only partial information at this point
+                for known_lineage in self.datashares_helper.generate_lineage(
+                    inbound_share, self.get_all_tables()[database]
+                ):
+                    lineage_extractor.aggregator.add(known_lineage)
 
         # TODO: distinguish between definition level lineage and audit log based lineage
         # definition level lineage should never be skipped
