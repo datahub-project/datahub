@@ -179,9 +179,42 @@ def test_get_data_process_properties_workunit(
             assert "Training Job" in aspect.typeNames
 
 
+@patch("google.cloud.aiplatform.datasets.TextDataset.list")
+@patch("google.cloud.aiplatform.datasets.TabularDataset.list")
+@patch("google.cloud.aiplatform.datasets.ImageDataset.list")
+@patch("google.cloud.aiplatform.datasets.TimeSeriesDataset.list")
+@patch("google.cloud.aiplatform.datasets.VideoDataset.list")
 def test_get_data_process_input_workunit(
-    source: VertexAISource, mock_training_job: VertexAiResourceNoun
+    mock_text_list: List[VertexAiResourceNoun],
+    mock_tabular_list: List[VertexAiResourceNoun],
+    mock_image_list: List[VertexAiResourceNoun],
+    mock_time_series_list: List[VertexAiResourceNoun],
+    mock_video_list: List[VertexAiResourceNoun],
+    source: VertexAISource,
+    mock_training_job: VertexAiResourceNoun,
 ) -> None:
+    # Mocking all the dataset list
+    assert hasattr(
+        mock_text_list, "return_value"
+    )  # this check needed to go ground lint
+    mock_text_list.return_value = []
+    assert hasattr(
+        mock_tabular_list, "return_value"
+    )  # this check needed to go ground lint
+    mock_tabular_list.return_value = []
+    assert hasattr(
+        mock_video_list, "return_value"
+    )  # this check needed to go ground lint
+    mock_video_list.return_value = []
+    assert hasattr(
+        mock_time_series_list, "return_value"
+    )  # this check needed to go ground lint
+    mock_time_series_list.return_value = []
+    assert hasattr(
+        mock_image_list, "return_value"
+    )  # this check needed to go ground lint
+    mock_image_list.return_value = []
+
     for wu in source._get_data_process_input_workunit(mock_training_job, "12345"):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
