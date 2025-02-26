@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional
@@ -76,6 +77,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -101,6 +103,14 @@ chart_type_from_viz_type = {
 
 
 platform_without_databases = ["druid"]
+
+
+@dataclass
+class SupersetSourceReport(StaleEntityRemovalSourceReport):
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
+    def report_dropped(self, name: str) -> None:
+        self.filtered.append(name)
 
 
 class SupersetDataset(BaseModel):
@@ -137,6 +147,10 @@ class SupersetConfig(
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
+    )
+    database_pattern: Optional[AllowDenyPattern] = Field(
+        default=None,
+        description="Regex patterns for databases to filter in ingestion.",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -218,7 +232,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     """
 
     config: SupersetConfig
-    report: StaleEntityRemovalSourceReport
+    report: SupersetSourceReport
     platform = "superset"
 
     def __hash__(self):
@@ -227,7 +241,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(config, ctx)
         self.config = config
-        self.report = StaleEntityRemovalSourceReport()
+        self.report = SupersetSourceReport()
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[domain_id for domain_id in self.config.domain],
@@ -647,6 +661,22 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
         for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
             try:
+                dataset_id = dataset_data.get("id")
+                dataset_response = self.get_dataset_info(dataset_id)
+
+                database_name = (
+                    dataset_response.get("result", {})
+                    .get("database", {})
+                    .get("database_name", "")
+                )
+
+                if (
+                    self.config.database_pattern
+                    and not self.config.database_pattern.allowed(database_name)
+                ):
+                    self.report.report_dropped(database_name)
+                    continue
+
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )

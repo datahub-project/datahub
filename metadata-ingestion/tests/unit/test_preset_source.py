@@ -40,3 +40,24 @@ def test_preset_config_parsing():
 
     # Test that regular Superset fields are still parsed
     assert config.connect_uri == "https://preset.io"
+
+
+def test_database_pattern():
+    db_pattern = "test_database1"
+
+    config = PresetConfig.parse_obj(
+        {
+            "database_pattern": {
+                "allow": [".*"],
+                "deny": [db_pattern],
+                "ignoreCase": False,
+            }
+        }
+    )
+
+    assert config.database_pattern.allow == [".*"]
+    assert config.database_pattern.deny == [db_pattern]
+    assert config.database_pattern.ignoreCase is False
+
+    assert config.database_pattern.allowed("test_db2") is True
+    assert config.database_pattern.allowed(db_pattern) is False
