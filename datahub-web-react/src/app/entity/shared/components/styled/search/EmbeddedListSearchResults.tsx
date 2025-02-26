@@ -286,7 +286,7 @@ export const EmbeddedListSearchResults = ({
                     onChange={onChangePage}
                     showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                    pageSizeOptions={['10', '20', '50', '100']}
+                    pageSizeOptions={['10', '20', '30']}
                 />
                 {applyView ? <MatchingViewsLabel /> : <span />}
             </PaginationInfoContainer>
