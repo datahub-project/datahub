@@ -454,7 +454,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_id = chart_data.get("datasource_id")
         if not datasource_id:
             logger.debug(
-                f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info'
+                f"chart {chart_data['id']} has no datasource_id, skipping fetching dataset info"
             )
             datasource_urn = None
         else:
@@ -618,9 +618,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
-            lastModified=TimeStamp(time=dataset.modified_ts)
-            if dataset.modified_ts
-            else None,
+            lastModified=(
+                TimeStamp(time=dataset.modified_ts) if dataset.modified_ts else None
+            ),
             externalUrl=dataset_url,
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
