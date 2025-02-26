@@ -267,7 +267,7 @@ entrypoints==0.4
     #   altair
     #   jupyter-client
     #   papermill
-exceptiongroup==1.2.1 ; python_full_version < '3.11'
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
     # via
     #   -r requirements.txt
     #   anyio
@@ -1134,11 +1134,11 @@ sqlalchemy-bigquery==1.11.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-sqlglot==25.32.1
+sqlglot==26.6.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-sqlglotrs==0.3.0
+sqlglotrs==0.3.14
     # via
     #   -r requirements.txt
     #   sqlglot
@@ -1197,7 +1197,7 @@ toml==0.10.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
-tomli==2.0.1 ; python_full_version <= '3.11'
+tomli==2.2.1 ; python_full_version <= '3.11'
     # via
     #   -r requirements.txt
     #   build

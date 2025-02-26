@@ -36,6 +36,17 @@ public class ValidationApiUtils {
         });
   }
 
+  public static void validateTrimOrThrow(RecordTemplate record) {
+    RecordTemplateValidator.validateTrim(
+        record,
+        validationResult -> {
+          throw new ValidationException(
+              String.format(
+                  "Failed to validate record with class %s: %s",
+                  record.getClass().getName(), validationResult.getMessages().toString()));
+        });
+  }
+
   public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
     UrnValidationUtil.validateUrn(
         entityRegistry,
@@ -43,19 +54,6 @@ public class ValidationApiUtils {
         Boolean.TRUE.equals(
             Boolean.parseBoolean(
                 System.getenv().getOrDefault(STRICT_URN_VALIDATION_ENABLED, "false"))));
-  }
-
-  /**
-   * Validates a {@link RecordTemplate} and logs a warning if validation fails.
-   *
-   * @param record record to be validated.ailure.
-   */
-  public static void validateOrWarn(RecordTemplate record) {
-    RecordTemplateValidator.validate(
-        record,
-        validationResult -> {
-          log.warn(String.format("Failed to validate record %s against its schema.", record));
-        });
   }
 
   public static AspectSpec validate(EntitySpec entitySpec, String aspectName) {
@@ -95,7 +93,7 @@ public class ValidationApiUtils {
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
     if (aspect != null) {
-      RecordTemplateValidator.validate(aspect, resultFunction, validator);
+      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
     }
   }
 }

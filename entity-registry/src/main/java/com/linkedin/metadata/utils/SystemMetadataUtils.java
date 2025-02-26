@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SystemMetadataUtils {
+  private static final String NO_OP_KEY = "isNoOp";
 
   private static final Set<String> LAST_INGESTED_ALLOWED_ASPECTS =
       Collections.unmodifiableSet(
@@ -132,5 +134,24 @@ public class SystemMetadataUtils {
       return createDefaultSystemMetadata();
     }
     return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
+  }
+
+  public static boolean isNoOp(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata != null && systemMetadata.hasProperties()) {
+      return Boolean.parseBoolean(systemMetadata.getProperties().getOrDefault(NO_OP_KEY, "false"));
+    }
+
+    return false;
+  }
+
+  @Nullable
+  public static SystemMetadata setNoOp(@Nullable SystemMetadata systemMetadata, boolean isNoOp) {
+    if (systemMetadata != null) {
+      if (!systemMetadata.hasProperties()) {
+        systemMetadata.setProperties(new StringMap());
+      }
+      systemMetadata.getProperties().put(NO_OP_KEY, String.valueOf(isNoOp));
+    }
+    return systemMetadata;
   }
 }

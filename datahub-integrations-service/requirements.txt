@@ -169,7 +169,7 @@ entrypoints==0.4
     #   acryl-datahub-actions
     #   altair
     #   jupyter-client
-exceptiongroup==1.2.1 ; python_full_version < '3.11'
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
     # via
     #   anyio
     #   ipython
@@ -737,9 +737,9 @@ sqlalchemy==1.4.52
     #   sqlalchemy-bigquery
 sqlalchemy-bigquery==1.11.0
     # via acryl-datahub
-sqlglot==25.32.1
+sqlglot==26.6.0
     # via acryl-datahub
-sqlglotrs==0.3.0
+sqlglotrs==0.3.14
     # via sqlglot
 sqlparse==0.5.0
     # via acryl-datahub
@@ -773,7 +773,7 @@ toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-tomli==2.0.1 ; python_full_version < '3.11'
+tomli==2.2.1 ; python_full_version < '3.11'
     # via build
 tomlkit==0.12.4
     # via snowflake-connector-python

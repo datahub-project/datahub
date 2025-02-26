@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 import click
 import humanfriendly
@@ -21,13 +21,12 @@ from datahub.configuration.common import (
     IgnorableError,
     PipelineExecutionError,
 )
-from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
-from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.api.sink import Sink, SinkReport
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
@@ -36,15 +35,15 @@ from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig, ReporterConfig
+from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, LoggingCallback
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.system_metadata_transformer import (
     SystemMetadataTransformer,
 )
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities._custom_package_loader import model_version_name
@@ -56,68 +55,6 @@ from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
-
-
-class LoggingCallback(WriteCallback):
-    def __init__(self, name: str = "") -> None:
-        super().__init__()
-        self.name = name
-
-    def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
-    ) -> None:
-        logger.debug(
-            f"{self.name} sink wrote workunit {record_envelope.metadata['workunit_id']}"
-        )
-
-    def on_failure(
-        self,
-        record_envelope: RecordEnvelope,
-        failure_exception: Exception,
-        failure_metadata: dict,
-    ) -> None:
-        logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}",
-            extra={"failure_metadata": failure_metadata},
-            exc_info=failure_exception,
-        )
-
-
-class DeadLetterQueueCallback(WriteCallback, Closeable):
-    def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
-        if not config:
-            config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
-        self.file_sink: FileSink = FileSink(ctx, config)
-        self.logging_callback = LoggingCallback(name="failure-queue")
-        logger.info(f"Failure logging enabled. Will log to {config.filename}.")
-
-    def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
-    ) -> None:
-        pass
-
-    def on_failure(
-        self,
-        record_envelope: RecordEnvelope,
-        failure_exception: Exception,
-        failure_metadata: dict,
-    ) -> None:
-        if "workunit_id" in record_envelope.metadata:
-            if isinstance(record_envelope.record, MetadataChangeProposalClass):
-                mcp = cast(MetadataChangeProposalClass, record_envelope.record)
-                if mcp.systemMetadata:
-                    if not mcp.systemMetadata.properties:
-                        mcp.systemMetadata.properties = {}
-                    if "workunit_id" not in mcp.systemMetadata.properties:
-                        # update the workunit id
-                        mcp.systemMetadata.properties["workunit_id"] = (
-                            record_envelope.metadata["workunit_id"]
-                        )
-                record_envelope.record = mcp
-        self.file_sink.write_record_async(record_envelope, self.logging_callback)
-
-    def close(self) -> None:
-        self.file_sink.close()
 
 
 class PipelineInitError(Exception):
@@ -473,6 +410,10 @@ class Pipeline:
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
+
+            self.exit_stack.enter_context(
+                change_default_attribution(KnownAttribution.INGESTION)
+            )
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()

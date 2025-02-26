@@ -172,17 +172,9 @@ def _patch_lineage() -> None:
          derived_tables = [
              source.expression.parent
              for source in scope.sources.values()
-@@ -254,6 +257,7 @@ def to_node(
-         if dt.comments and dt.comments[0].startswith("source: ")
-     }
-
-+    c: exp.Column
-     for c in source_columns:
-         table = c.table
-         source = scope.sources.get(table)
 @@ -281,8 +285,21 @@ def to_node(
-             # it means this column's lineage is unknown. This can happen if the definition of a source used in a query
-             # is not passed into the `sources` map.
+             # is unknown. This can happen if the definition of a source used in a query is not
+             # passed into the `sources` map.
              source = source or exp.Placeholder()
 +
 +            subfields = []
