@@ -38,9 +38,6 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
     final List<NotificationSetting> expectedSettings = _expected.getSettings();
     final List<NotificationSetting> actualSettings = actual.getSettings();
 
-    System.out.println(_expected);
-    System.out.println(actual);
-
     if (expectedSlackSettings == null
         && actualSlackSettings == null
         && expectedEmailSettings == null

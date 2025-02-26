@@ -1,5 +1,5 @@
 import React from 'react';
-import { NotificationScenarioType, NotificationSetting, NotificationSinkType } from '@src/types.generated';
+import { NotificationScenarioType, NotificationSetting } from '@src/types.generated';
 import {
     NotificationTypeDescription,
     OptionsPlaceholder,
