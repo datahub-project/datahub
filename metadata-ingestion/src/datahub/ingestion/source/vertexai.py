@@ -129,7 +129,7 @@ class VertexAIConfig(EnvConfigMixin):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
 
-@platform_name("Vertex AI")
+@platform_name("VertexAI")
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.TESTING)
 @capability(
