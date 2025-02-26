@@ -5,7 +5,7 @@
 
 #### Create a service account in the Extractor Project
 
-1. Setup a ServiceAccount as per [VertexAI docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
+1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
    and assign the previously created role to this service account.
 2. Download a service account JSON keyfile.
    Example credential file:
@@ -39,7 +39,6 @@
 
    ```yml
    credential:
-     project_id: project-id-1234567
      private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
      private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
      client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
