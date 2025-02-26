@@ -33,7 +33,6 @@ export const NotificationSettingValue = ({
     updateNotificationSettings,
     originalSettings,
 }: Props) => {
-
     const [selected, setSelected] = useState(() =>
         isSinkNotificationTypeEnabled(sink.id, existingNotificationSettings.get(notificationType)),
     );

@@ -1440,7 +1440,7 @@ public class SlackNotificationSinkTest {
         messageText,
         ":incoming_envelope: *New Proposal Raised*\n"
             + "\n"
-            + "*John Joyce* has proposed to update Description for *SampleKafkaDataset*. <http://localhost:9002/requests|View details>");
+            + "*John Joyce* has proposed to update Description for *SampleKafkaDataset*. <http://localhost:9002/requests/proposals|View details>");
   }
 
   // =========================================================================
@@ -1519,7 +1519,7 @@ public class SlackNotificationSinkTest {
 
     assertTrue(
         messageText.contains(
-            "*Approver* has accepted the proposal to add Structured Property(s) 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests|View details>"));
+            "*Approver* has accepted the proposal to add Structured Property(s) 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests/proposals|View details>"));
   }
 
   @Test
@@ -1542,7 +1542,7 @@ public class SlackNotificationSinkTest {
 
     assertTrue(
         messageText.contains(
-            "*Approver* has accepted the proposal to update Description for *TestEntity*. <http://localhost:9002/requests|View details>"));
+            "*Approver* has accepted the proposal to update Description for *TestEntity*. <http://localhost:9002/requests/proposals|View details>"));
   }
 
   // =========================================================================

@@ -14,6 +14,7 @@ from datahub_integrations.notifications.sinks.context import NotificationContext
 # Replace 'your_module.email_sink' with the actual module path where EmailNotificationSink is located
 from datahub_integrations.notifications.sinks.email.email_sink import (
     EmailNotificationSink,
+    RetryMode,
     send_change_notification_to_recipients,
     send_ingestion_run_notification_to_recipients,
 )
@@ -47,21 +48,6 @@ def notification_request_custom() -> NotificationRequestClass:
         ),
         recipients=[],
     )
-    
-import pytest
-from unittest.mock import MagicMock, patch
-
-from datahub.metadata.schema_classes import (
-    NotificationMessageClass,
-    NotificationRecipientClass,
-    NotificationRecipientTypeClass,
-    NotificationRequestClass,
-)
-from datahub_integrations.notifications.sinks.email.email_sink import (
-    EmailNotificationSink,
-)
-from datahub_integrations.notifications.sinks.context import NotificationContext
-from datahub_integrations.notifications.sinks.email.email_sink import RetryMode
 
 
 @pytest.fixture
@@ -105,8 +91,12 @@ def recipients_without_creator() -> list[NotificationRecipientClass]:
     ]
 
 
-@patch("datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters")
-@patch("datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters")
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters"
+)
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
 def test_send_broadcast_proposal_status_change_with_creator(
     mock_build_broadcast_params,
     mock_build_proposer_params,
@@ -162,8 +152,12 @@ def test_send_broadcast_proposal_status_change_with_creator(
     assert kwargs_broadcast["retry_mode"] == RetryMode.DISABLED
 
 
-@patch("datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters")
-@patch("datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters")
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters"
+)
 def test_send_broadcast_proposal_status_change_with_creator_no_match(
     mock_build_proposer_params,
     mock_build_broadcast_params,
@@ -177,7 +171,9 @@ def test_send_broadcast_proposal_status_change_with_creator_no_match(
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template="BROADCAST_PROPOSAL_STATUS_CHANGE",
-            parameters={"creatorUrn": "urn:creator"},  # No recipient has actor 'urn:creator'
+            parameters={
+                "creatorUrn": "urn:creator"
+            },  # No recipient has actor 'urn:creator'
         ),
         recipients=recipients_without_creator,
     )
@@ -196,7 +192,9 @@ def test_send_broadcast_proposal_status_change_with_creator_no_match(
     assert kwargs["retry_mode"] == RetryMode.DISABLED
 
 
-@patch("datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters")
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
 def test_send_broadcast_proposal_status_change_without_creator(
     mock_build_broadcast_params,
     sink_with_base_url: EmailNotificationSink,

@@ -124,7 +124,7 @@ def test_build_new_proposal_parameters_for_entity(base_url_fix: str) -> None:
             "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -165,7 +165,7 @@ def test_build_new_proposal_parameters_for_sub_resource_no_modifier_paths(
             "for column <b>bar</b> of table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -203,7 +203,7 @@ def test_build_new_proposal_parameters_for_glossary_term(base_url_fix: str) -> N
             " in Term Group <b>PII</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -241,7 +241,7 @@ def test_build_new_proposal_parameters_for_glossary_node(base_url_fix: str) -> N
             " in Term Group <b>Root</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -277,7 +277,7 @@ def test_build_new_proposal_parameters_for_description(base_url_fix: str) -> Non
             "<b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -334,7 +334,7 @@ def test_build_proposal_status_change_parameters_for_entity(base_url_fix: str) -
             "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -376,7 +376,7 @@ def test_build_proposal_status_change_parameters_for_sub_resource_no_paths(
             "for column <b>foo</b> of table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -416,7 +416,7 @@ def test_build_proposal_status_change_parameters_for_glossary_term(
             "named <b>SSN</b> in Term Group <b>PII</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -456,7 +456,7 @@ def test_build_proposal_status_change_parameters_for_glossary_node(
             "named <b>PII</b> in Term Group <b>Root</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -495,7 +495,7 @@ def test_build_proposal_status_change_parameters_for_description(
             "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -553,7 +553,7 @@ def test_build_proposer_proposal_status_change_parameters_normal(
             "for table <b>SampleKafkaDataset</b> has been <b>approved</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -595,7 +595,7 @@ def test_build_proposer_proposal_status_change_parameters_for_sub_resource_no_mo
             "for column <b>foo</b> of table <b>SampleKafkaDataset</b> has been <b>approved</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -633,7 +633,7 @@ def test_build_proposer_proposal_status_change_parameters_glossary_term(
             " in Term Group <b>PII</b> has been <b>accepted</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -671,7 +671,7 @@ def test_build_proposer_proposal_status_change_parameters_glossary_node(
             " in Term Group <b>Root</b> has been <b>rejected</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -708,7 +708,7 @@ def test_build_proposer_proposal_status_change_parameters_description(
             " for table <b>SampleHiveDataset</b> has been <b>rejected</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/proposals",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)

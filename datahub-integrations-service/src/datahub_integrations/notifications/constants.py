@@ -16,7 +16,11 @@ FROM_EMAIL_ADDRESS = "notifications@app.acryl.io"
 FROM_EMAIL_TITLE = "DataHub Cloud"
 
 # SendGrid API Key - Generate a key from the sendgrid dashboard for local usage.
-SEND_GRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+# FOR LOCAL TESTING. REMOVE BEFORE PROD.
+SEND_GRID_API_KEY = os.environ.get(
+    "SENDGRID_API_KEY",
+    "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",
+)
 
 # SendGrid Templates - view and manage in sendgrid account
 ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE = "d-07f940f138dd44b3bdd8e6d3932a587b"

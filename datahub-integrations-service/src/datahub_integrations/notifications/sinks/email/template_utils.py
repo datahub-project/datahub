@@ -105,7 +105,7 @@ def build_new_proposal_parameters(
     if request.message.parameters is None:
         raise ValueError("Parameters are required for new proposal notifications.")
 
-    inbox_url = f"{base_url}/proposals"
+    proposals_url = f"{base_url}/requests/proposals"
 
     params = request.message.parameters
     actor_name = params.get("actorName", "Someone")
@@ -159,7 +159,7 @@ def build_new_proposal_parameters(
             "subject": subject,
             "message": message,
             "baseUrl": base_url,
-            "detailsUrl": inbox_url,
+            "detailsUrl": proposals_url,
         }
 
     # 2) If NOT a glossary term scenario, follow your usual format
@@ -180,7 +180,7 @@ def build_new_proposal_parameters(
         "subject": subject,
         "message": message,
         "baseUrl": base_url,
-        "detailsUrl": inbox_url,
+        "detailsUrl": proposals_url,
     }
 
 
@@ -196,7 +196,7 @@ def build_proposer_proposal_status_change_parameters(
             "Parameters are required for proposal status change notifications."
         )
 
-    inbox_url = f"{base_url}/proposals" # TODO: Change to my-proposals!
+    proposals_url = f"{base_url}/requests/proposals"  # TODO: Change to my proposals.
 
     params = request.message.parameters
     action = params.get("action", "accepted")  # "accepted", "rejected", ...
@@ -240,7 +240,7 @@ def build_proposer_proposal_status_change_parameters(
             "subject": subject,
             "message": message,
             "baseUrl": base_url,
-            "detailsUrl": inbox_url
+            "detailsUrl": proposals_url,
         }
 
     # 2) Normal scenario
@@ -260,7 +260,7 @@ def build_proposer_proposal_status_change_parameters(
         "subject": subject,
         "message": message,
         "baseUrl": base_url,
-        "detailsUrl": inbox_url
+        "detailsUrl": proposals_url,
     }
 
 
@@ -276,7 +276,7 @@ def build_proposal_status_change_parameters(
             "Parameters are required for proposal status change notifications."
         )
 
-    inbox_url = f"{base_url}/proposals"
+    proposals_url = f"{base_url}/requests/proposals"
 
     params = request.message.parameters
     actor_name = params.get("actorName", "Someone")
@@ -325,7 +325,7 @@ def build_proposal_status_change_parameters(
             "subject": subject,
             "message": message,
             "baseUrl": base_url,
-            "detailsUrl": inbox_url,
+            "detailsUrl": proposals_url,
         }
 
     # 2) Normal (non-glossary) scenario
@@ -352,7 +352,7 @@ def build_proposal_status_change_parameters(
         "subject": subject,
         "message": message,
         "baseUrl": base_url,
-        "detailsUrl": inbox_url,
+        "detailsUrl": proposals_url,
     }
 
 

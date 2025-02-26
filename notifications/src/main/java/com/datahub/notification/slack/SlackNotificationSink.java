@@ -571,7 +571,8 @@ public class SlackNotificationSink implements NotificationSink {
     final String actorName = params.getOrDefault("actorName", "Someone");
     // This is just a simple link for "View details".
     // If you’re using http://localhost:9002, keep it consistent with your tests.
-    final String detailsLink = String.format("<%s%s|View details>", this.baseUrl, "/requests");
+    final String detailsLink =
+        String.format("<%s%s|View details>", this.baseUrl, "/requests/proposals");
 
     final String entityName = params.getOrDefault("entityName", "UnknownEntity");
     final String operation = params.getOrDefault("operation", "add");
@@ -640,7 +641,8 @@ public class SlackNotificationSink implements NotificationSink {
   String buildProposalStatusChangeMessage(@Nonnull NotificationRequest request) {
     final Map<String, String> params = request.getMessage().getParameters();
     final String actorName = params.getOrDefault("actorName", "Someone");
-    final String detailsLink = String.format("<%s%s|View details>", this.baseUrl, "/requests");
+    final String detailsLink =
+        String.format("<%s%s|View details>", this.baseUrl, "/requests/proposals");
 
     final String entityName = params.getOrDefault("entityName", "UnknownEntity");
     final String entityPath = params.get("entityPath");

@@ -105,7 +105,12 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
 
     return (
         <>
-            <PageTitle title={pageTitle} subTitle={`Customize when and where ${isPersonal ? 'you receive' : 'this group receives'} notifications`} />
+            <PageTitle
+                title={pageTitle}
+                subTitle={`Customize when and where ${
+                    isPersonal ? 'you receive' : 'this group receives'
+                } notifications`}
+            />
             <NotificationSettingsContainer>
                 <SinksContainer>
                     <EmailSinkSettingsSection

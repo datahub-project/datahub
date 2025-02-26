@@ -1,8 +1,7 @@
+import React from 'react';
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
-import { Badge as BadgeAntd, Tabs } from 'antd';
-import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { Badge as BadgeAntd } from 'antd';
 import styled from 'styled-components';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -10,6 +9,7 @@ import { Requests } from '../taskCenter/requests/Requests';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
+import { RoutedTabs } from '../shared/RoutedTabs';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -49,7 +49,7 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const StyledTabs = styled(Tabs)`
+const StyledTabs = styled(RoutedTabs)`
     &&& .ant-tabs-nav {
         margin-bottom: 0;
         padding-left: 28px;
@@ -69,11 +69,6 @@ const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-tab + .ant-tabs-tab {
         margin: 0px;
     }
-`;
-
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    line-height: 22px;
 `;
 
 interface TabTitleProps {
@@ -133,38 +128,35 @@ export const TaskCenter = () => {
     } = useUserContext();
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const location = useLocation();
-    const history = useHistory();
 
-    const searchParams = new URLSearchParams(location.search);
-
-    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'requests');
-
-    useEffect(() => {
-        const newSearchParams = new URLSearchParams(location.search);
-        newSearchParams.set('tab', activeTab);
-
-        // Update the URL without reloading the page
-        history.replace({ pathname: location.pathname, search: newSearchParams.toString() });
-    }, [activeTab, history, location.pathname, location.search]);
+    const getTabs = () => {
+        return [
+            {
+                name: <TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />,
+                path: 'requests',
+                content: <Requests />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: <TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />,
+                path: 'proposals',
+                content: <Proposals />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+        ];
+    };
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <PageHeaderContainer>
                 <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
             </PageHeaderContainer>
-            <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
-                <Tab
-                    key="requests"
-                    tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
-                />
-                <Tab
-                    key="proposals"
-                    tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
-                />
-            </StyledTabs>
-            {activeTab === 'requests' && <Requests />}
-            {activeTab === 'proposals' && <Proposals />}
+            <StyledTabs tabs={getTabs()} defaultPath={defaultTabPath} />
         </PageContainer>
     );
 };

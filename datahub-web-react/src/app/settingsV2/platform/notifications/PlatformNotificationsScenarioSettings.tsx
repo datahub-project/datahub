@@ -164,7 +164,7 @@ export const PlatformNotificationsScenarioSettings = ({ globalSettings, loading,
                     refetch={refetch}
                     notificationOptionsEnabled={notificationOptionsEnabled}
                     openNotificationOptions={(type) => openNotificationOptions(type)}
-                    isSinkEnabled={sink => isSinkEnabled(sink.id, globalSettings, config)}
+                    isSinkEnabled={(sink) => isSinkEnabled(sink.id, globalSettings, config)}
                 />
                 <Divider />
                 <GlobalNotificationsBanner>
@@ -180,7 +180,7 @@ export const PlatformNotificationsScenarioSettings = ({ globalSettings, loading,
                     refetch={refetch}
                     notificationOptionsEnabled={notificationOptionsEnabled}
                     openNotificationOptions={(type) => openNotificationOptions(type)}
-                    isSinkEnabled={sink => isSinkEnabled(sink.id, globalSettings, config)}
+                    isSinkEnabled={(sink) => isSinkEnabled(sink.id, globalSettings, config)}
                 />
             </ScenarioSettingsContainer>
             {focusedNotificationType && (
