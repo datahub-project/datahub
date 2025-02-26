@@ -34,9 +34,11 @@ def test_database_pattern():
         }
     )
 
+    assert config.database_pattern is not None
     assert config.database_pattern.allow == [".*"]
     assert config.database_pattern.deny == [db_pattern]
     assert config.database_pattern.ignoreCase is False
 
+    assert config.database_pattern is not None
     assert config.database_pattern.allowed("test_db2") is True
     assert config.database_pattern.allowed(db_pattern) is False
