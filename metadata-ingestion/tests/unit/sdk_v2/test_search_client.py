@@ -34,7 +34,7 @@ and:
     - platform: [ snowflake, bigquery ]
     - and:
       - platform: [postgres]
-      - domain: [analytics]
+      - domain: [urn:li:domain:analytics]
 """)
     )
     filter_obj: Filter = load_filters(yaml_dict)
@@ -44,7 +44,8 @@ and:
             F.platform(["snowflake", "bigquery"]),
             F.and_(
                 F.platform("postgres"),
-                F.domain("analytics"),
+                F.domain("urn:li:domain:analytics"),
             ),
         ),
     )
+    assert filter_obj.compile()

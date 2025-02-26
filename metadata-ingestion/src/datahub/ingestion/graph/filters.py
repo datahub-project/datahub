@@ -14,7 +14,7 @@ RawSearchFilterRule = Dict[str, Any]
 @dataclasses.dataclass
 class SearchFilterRule:
     field: str
-    condition: str
+    condition: str  # TODO: convert to an enum
     values: List[str]
     negated: bool = False
 
@@ -25,6 +25,14 @@ class SearchFilterRule:
             "values": self.values,
             "negated": self.negated,
         }
+
+    def negate(self) -> "SearchFilterRule":
+        return SearchFilterRule(
+            field=self.field,
+            condition=self.condition,
+            values=self.values,
+            negated=not self.negated,
+        )
 
 
 class RemovedStatusFilter(enum.Enum):
