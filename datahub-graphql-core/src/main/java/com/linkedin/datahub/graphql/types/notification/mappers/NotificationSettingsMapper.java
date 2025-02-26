@@ -49,6 +49,12 @@ public class NotificationSettingsMapper
       result.setEmailSettings(mapEmailSettings(notificationSettings.getEmailSettings()));
     }
 
+    if (notificationSettings.hasSettings()) {
+      result.setSettings(
+          NotificationSettingMapMapper.mapNotificationSettings(
+              context, notificationSettings.getSettings()));
+    }
+
     return result;
   }
 

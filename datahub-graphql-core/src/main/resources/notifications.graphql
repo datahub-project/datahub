@@ -50,9 +50,9 @@ input UpdateGroupNotificationSettingsInput {
 
 input NotificationSettingsInput {
     """
-    Sink types that notifications are sent to.
+    Sink types that notifications are sent to. If left undefined, the sink types will NOT be changed.
     """
-    sinkTypes: [NotificationSinkType!]!
+    sinkTypes: [NotificationSinkType!]
 
     """
     Slack Notification Settings
@@ -63,6 +63,13 @@ input NotificationSettingsInput {
     Email Notification Settings
     """
     emailSettings: EmailNotificationSettingsInput
+
+    """
+    Scenario settings, dictating scenarios in which the actor is notified. This may be updated in isolation without impacting sink types, slack settings, or email settings.
+
+    If not provided, these will be unchanged.
+    """
+    settings: [NotificationSettingInput!]
 }
 
 type NotificationSettings {
@@ -80,6 +87,11 @@ type NotificationSettings {
     Email Notification Settings
     """
     emailSettings: EmailNotificationSettings
+
+    """
+    Scenario settings, dictating scenarios in which the actor is notified.
+    """
+    settings: [NotificationSetting!]
 }
 
 input SlackNotificationSettingsInput {

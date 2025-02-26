@@ -833,6 +833,11 @@ enum NotificationScenarioType {
   PROPOSAL_STATUS_CHANGE
 
   """
+  Notification to the original proposer when a proposal's status changes.
+  """
+  PROPOSER_PROPOSAL_STATUS_CHANGE
+
+  """
   Notification when an ingestion run changes.
   """
   INGESTION_RUN_CHANGE

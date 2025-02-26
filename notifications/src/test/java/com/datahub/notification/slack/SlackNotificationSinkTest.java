@@ -1401,7 +1401,7 @@ public class SlackNotificationSinkTest {
     Map<String, String> params = new HashMap<>();
     params.put("actorName", "John Joyce");
     params.put("operation", "add");
-    params.put("modifierType", "Structured Properties");
+    params.put("modifierType", "Structured Property(s)");
     params.put("modifierNames", "[\"Test Property\", \"Test Property 2\"]");
     params.put("entityName", "TestEntity");
 
@@ -1412,7 +1412,7 @@ public class SlackNotificationSinkTest {
     String messageText = sink.buildNewProposalMessage(request);
 
     assertTrue(
-        messageText.contains("proposed to add Structured Properties"),
+        messageText.contains("proposed to add Structured Property(s)"),
         "Should mention link to structured properties");
     assertTrue(messageText.contains("Test Property"), "Should mention the first property");
     assertTrue(messageText.contains("Test Property 2"), "Should mention the first property 2");
@@ -1507,7 +1507,7 @@ public class SlackNotificationSinkTest {
     params.put("actorName", "Approver");
     params.put("action", "accepted");
     params.put("operation", "add");
-    params.put("modifierType", "Structured Properties");
+    params.put("modifierType", "Structured Property(s)");
     params.put("modifierNames", "[\"Test Property\", \"Test Property 2\"]");
     params.put("entityName", "TestEntity");
 
@@ -1519,7 +1519,7 @@ public class SlackNotificationSinkTest {
 
     assertTrue(
         messageText.contains(
-            "*Approver* has accepted the proposal to add Structured Properties 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests|View details>"));
+            "*Approver* has accepted the proposal to add Structured Property(s) 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests|View details>"));
   }
 
   @Test

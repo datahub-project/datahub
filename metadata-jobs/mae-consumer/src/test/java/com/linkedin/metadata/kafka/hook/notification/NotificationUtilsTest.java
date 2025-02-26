@@ -118,7 +118,7 @@ public class NotificationUtilsTest {
         NotificationUtils.generateEntityPaths(List.of(datasetUrn, dashboardUrn)),
         ImmutableList.of(
             "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29",
-            "/dashboard/urn%3Ali%dashboard%3A%28airflow%2Ctest%29"));
+            "/dashboard/urn%3Ali%3Adashboard%3A%28airflow%2Ctest%29"));
   }
 
   @Test

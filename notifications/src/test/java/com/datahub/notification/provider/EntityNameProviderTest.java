@@ -5,6 +5,10 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
@@ -28,6 +32,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -46,6 +52,8 @@ public class EntityNameProviderTest {
   private static final Urn TEST_OWNERSHIP_TYPE_URN = UrnUtils.getUrn("urn:li:ownershipType:test");
   private static final Urn TEST_STRUCTURED_PROPERTY_URN =
       UrnUtils.getUrn("urn:li:structuredProperty:test");
+  private static final Urn TEST_GLOSSARY_TERM_URN = UrnUtils.getUrn("urn:li:glossaryTerm:test");
+  private static final Urn TEST_GLOSSARY_NODE_URN = UrnUtils.getUrn("urn:li:glossaryNode:test");
 
   private SystemEntityClient entityClient;
   private Authentication systemAuthentication;
@@ -143,6 +151,48 @@ public class EntityNameProviderTest {
       String name =
           entityNameProvider.getName(mock(OperationContext.class), TEST_STRUCTURED_PROPERTY_URN);
       Assert.assertEquals(name, "Expected Structured Property Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
+  public void testGetGlossaryTermNameExists() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_GLOSSARY_TERM_URN)),
+                  Mockito.eq(ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME))))
+          .thenReturn(
+              Map.of(
+                  TEST_GLOSSARY_TERM_URN,
+                  getMockGlossaryTermResponse("Expected Glossary Term Name")));
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_GLOSSARY_TERM_URN);
+      Assert.assertEquals(name, "Expected Glossary Term Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
+  public void testGetGlossaryNodeNameExists() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(GLOSSARY_NODE_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_GLOSSARY_NODE_URN)),
+                  Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
+          .thenReturn(
+              Map.of(
+                  TEST_GLOSSARY_NODE_URN,
+                  getMockGlossaryNodeResponse("Expected Glossary Node Name")));
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_GLOSSARY_NODE_URN);
+      Assert.assertEquals(name, "Expected Glossary Node Name");
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
     }
@@ -327,6 +377,32 @@ public class EntityNameProviderTest {
                         .setValue(
                             new Aspect(
                                 new StructuredPropertyDefinition().setDisplayName(name).data())))));
+  }
+
+  private EntityResponse getMockGlossaryTermResponse(String name) {
+    return new EntityResponse()
+        .setEntityName(GLOSSARY_TERM_ENTITY_NAME)
+        .setUrn(TEST_GLOSSARY_TERM_URN)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    GLOSSARY_TERM_INFO_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setName(GLOSSARY_TERM_INFO_ASPECT_NAME)
+                        .setValue(new Aspect(new GlossaryTermInfo().setName(name).data())))));
+  }
+
+  private EntityResponse getMockGlossaryNodeResponse(String name) {
+    return new EntityResponse()
+        .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+        .setUrn(TEST_GLOSSARY_NODE_URN)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    GLOSSARY_NODE_INFO_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setName(GLOSSARY_NODE_INFO_ASPECT_NAME)
+                        .setValue(new Aspect(new GlossaryNodeInfo().setName(name).data())))));
   }
 
   private EntityResponse getMockSubTypesResponse(String name) {

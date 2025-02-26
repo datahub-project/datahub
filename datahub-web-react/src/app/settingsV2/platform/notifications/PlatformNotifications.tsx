@@ -2,37 +2,29 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { InfoCircleFilled } from '@ant-design/icons';
-import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { PlatformNotificationsConfigurationCard } from './PlatformNotificationsConfigurationCard';
+import { colors, PageTitle } from '@src/alchemy-components';
+
+import { PlatformNotificationsScenarioSettings } from './PlatformNotificationsScenarioSettings';
 import { DefaultsCard } from './DefaultsCard';
 import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
 
 const Container = styled.div`
     width: 100%;
     overflow: auto;
-    padding-top: 40px;
-    padding-right: 40px;
-    padding-left: 40px;
-    padding-bottom: 40px;
-`;
-
-const SubHeader = styled(Typography.Text)`
-    color: ${ANTD_GRAY[9]};
-    font-size: 14px;
+    padding: 16px 20px;
 `;
 
 const GlobalNotificationsBanner = styled.div`
     background: #f9f0ff;
     border-radius: 8px;
-    border: 1px solid #984ecc;
-    padding: 8px 16px;
+    border: 1px solid ${colors.violet['500']};
+    padding: 8px 12px;
     margin: 18px 0 25px;
     font-size: 14px;
 `;
 
 const InfoIcon = styled(InfoCircleFilled)`
-    color: #7532a4;
+    color: ${colors.violet['500']};
     margin-right: 8px;
 `;
 
@@ -41,8 +33,7 @@ export const PlatformNotifications = () => {
     const { data, loading, error, refetch } = useGetGlobalSettingsQuery();
     return (
         <Container>
-            <Typography.Title level={3}>Notifications</Typography.Title>
-            <SubHeader type="secondary">Select when and where global notifications are sent.</SubHeader>
+            <PageTitle title="Notifications" subTitle="Customize when and where you receive platform notifications" />
             <GlobalNotificationsBanner>
                 <InfoIcon />
                 These notifications settings are global. To set up notifications for a specific entity, you can{' '}
@@ -56,7 +47,7 @@ export const PlatformNotifications = () => {
                 to that entity.
             </GlobalNotificationsBanner>
             <DefaultsCard refetch={refetch} globalSettings={data?.globalSettings || undefined} />
-            <PlatformNotificationsConfigurationCard
+            <PlatformNotificationsScenarioSettings
                 loading={loading}
                 error={error}
                 refetch={refetch}

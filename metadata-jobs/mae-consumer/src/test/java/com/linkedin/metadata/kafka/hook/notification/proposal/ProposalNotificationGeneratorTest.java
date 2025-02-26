@@ -40,7 +40,6 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.Aspect;
@@ -151,8 +150,26 @@ public class ProposalNotificationGeneratorTest {
     testGlobalNotificationRecipient.setOrigin(NotificationRecipientOriginType.GLOBAL_NOTIFICATION);
     testGlobalNotificationRecipient.setType(NotificationRecipientType.EMAIL);
 
-    when(mockBuilder.buildActorRecipients(any(), any(), any()))
+    when(mockBuilder.buildActorRecipients(
+            any(), any(), eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE)))
         .thenReturn(Collections.singletonList(testUserNotificationRecipient));
+
+    when(mockBuilder.buildActorRecipients(any(), any(), eq(NotificationScenarioType.NEW_PROPOSAL)))
+        .thenReturn(Collections.singletonList(testUserNotificationRecipient));
+
+    Urn proposerUrn = UrnUtils.getUrn("urn:li:corpuser:proposer");
+    NotificationRecipient proposerRecipient = new NotificationRecipient();
+    proposerRecipient.setId("proposer@gmail.com");
+    proposerRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+    proposerRecipient.setActor(proposerUrn);
+    proposerRecipient.setDisplayName("Test User");
+    proposerRecipient.setType(NotificationRecipientType.EMAIL);
+
+    when(mockBuilder.buildActorRecipients(
+            any(),
+            eq(ImmutableList.of(proposerUrn)),
+            eq(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)))
+        .thenReturn(Collections.singletonList(proposerRecipient));
 
     when(mockBuilder.buildGlobalRecipients(any(), any()))
         .thenReturn(Collections.singletonList(testGlobalNotificationRecipient));
@@ -206,6 +223,13 @@ public class ProposalNotificationGeneratorTest {
     assertTrue(
         proposalNotificationGenerator.isEligibleForCustomRecipients(
             NotificationScenarioType.PROPOSAL_STATUS_CHANGE));
+  }
+
+  @Test
+  public void testIsEligibleForCustomRecipientsForProposerProposalStatusChange() {
+    assertTrue(
+        proposalNotificationGenerator.isEligibleForCustomRecipients(
+            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE));
   }
 
   @Test
@@ -292,7 +316,7 @@ public class ProposalNotificationGeneratorTest {
     mockInfo.setAssignedGroups(
         new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:corpGroup:assigneeGroup"))));
     mockInfo.setAssignedRoles(new UrnArray());
-    mockInfo.setCreatedBy(TEST_USER_CREATOR_URN);
+    mockInfo.setCreatedBy(UrnUtils.getUrn("urn:li:corpuser:proposer"));
     extraContext.setOriginalAspect(mockInfo);
 
     List<NotificationRecipient> result =
@@ -307,7 +331,7 @@ public class ProposalNotificationGeneratorTest {
     assertNotNull(
         result, "For PROPOSER_PROPOSAL_STATUS_CHANGE, should not return null (based on code).");
     assertEquals(result.size(), 1, "We expect one recipient based on mocked recipient builders");
-    assertEquals(result.get(0).getId(), "testuser@gmail.com");
+    assertEquals(result.get(0).getId(), "proposer@gmail.com");
   }
 
   @Test
@@ -1522,7 +1546,7 @@ public class ProposalNotificationGeneratorTest {
     // Check the templateParams
     Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
     assertEquals(templateParams.get("operation"), "add");
-    assertEquals(templateParams.get("modifierType"), "Structured Properties");
+    assertEquals(templateParams.get("modifierType"), "Structured Property(s)");
     assertEquals(templateParams.get("modifierNames"), "[\"Test Property Name\"]");
     assertEquals(templateParams.get("modifierPaths"), "[\"/structured-properties\"]");
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
@@ -1604,7 +1628,7 @@ public class ProposalNotificationGeneratorTest {
 
     // We expect "action" => "accepted"
     assertEquals(templateParams.get("operation"), "add");
-    assertEquals(templateParams.get("modifierType"), "Structured Properties");
+    assertEquals(templateParams.get("modifierType"), "Structured Property(s)");
     assertEquals(templateParams.get("modifierNames"), "[\"Test Property Name\"]");
     assertEquals(templateParams.get("modifierPaths"), "[\"/structured-properties\"]");
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
@@ -1689,7 +1713,7 @@ public class ProposalNotificationGeneratorTest {
     // Check the templateParams
     Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
     assertEquals(templateParams.get("operation"), "add");
-    assertEquals(templateParams.get("modifierType"), "Structured Properties");
+    assertEquals(templateParams.get("modifierType"), "Structured Property(s)");
     assertEquals(templateParams.get("modifierNames"), "[\"Test Property Name\"]");
     assertEquals(templateParams.get("modifierPaths"), "[\"/structured-properties\"]");
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
@@ -1775,7 +1799,7 @@ public class ProposalNotificationGeneratorTest {
 
     // We expect "action" => "accepted"
     assertEquals(templateParams.get("operation"), "add");
-    assertEquals(templateParams.get("modifierType"), "Structured Properties");
+    assertEquals(templateParams.get("modifierType"), "Structured Property(s)");
     assertEquals(templateParams.get("modifierNames"), "[\"Test Property Name\"]");
     assertEquals(templateParams.get("modifierPaths"), "[\"/structured-properties\"]");
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
@@ -1953,10 +1977,9 @@ public class ProposalNotificationGeneratorTest {
     ActionRequestInfo info = new ActionRequestInfo();
     info.setType(AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL);
     info.setParams(
-            new ActionRequestParams()
-                    .setUpdateDescriptionProposal(
-                            new DescriptionProposal()
-                                    .setDescription("Test Description")));
+        new ActionRequestParams()
+            .setUpdateDescriptionProposal(
+                new DescriptionProposal().setDescription("Test Description")));
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
@@ -1971,36 +1994,36 @@ public class ProposalNotificationGeneratorTest {
     ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
 
     doReturn(Collections.singletonList(mockRecipient))
-            .when(localSpy)
-            .buildRecipients(
-                    any(),
-                    eq(NotificationScenarioType.NEW_PROPOSAL),
-                    eq(actionRequestUrn),
-                    any(),
-                    any(),
-                    any());
+        .when(localSpy)
+        .buildRecipients(
+            any(),
+            eq(NotificationScenarioType.NEW_PROPOSAL),
+            eq(actionRequestUrn),
+            any(),
+            any(),
+            any());
 
     // Trigger
     localSpy.generateNewProposalNotifications(
-            actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
+        actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
     verify(mockEventProducer, atLeast(1))
-            .producePlatformEvent(
-                    Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
-                    Mockito.eq(null),
-                    platformEventArgumentCaptor.capture());
+        .producePlatformEvent(
+            Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
+            Mockito.eq(null),
+            platformEventArgumentCaptor.capture());
 
     // We can examine the captured NotificationRequest, check template, recipients, etc.
     PlatformEvent platformEvent = platformEventArgumentCaptor.getValue();
     assertNotNull(platformEvent, "PlatformEvent should be produced");
 
     NotificationRequest notificationRequest =
-            GenericRecordUtils.deserializePayload(
-                    platformEvent.getPayload().getValue(), NotificationRequest.class);
+        GenericRecordUtils.deserializePayload(
+            platformEvent.getPayload().getValue(), NotificationRequest.class);
     assertEquals(
-            notificationRequest.getMessage().getTemplate().toString(),
-            NotificationTemplateType.BROADCAST_NEW_PROPOSAL.name());
+        notificationRequest.getMessage().getTemplate().toString(),
+        NotificationTemplateType.BROADCAST_NEW_PROPOSAL.name());
 
     // Check the templateParams
     Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
@@ -2012,8 +2035,8 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
     assertEquals(templateParams.get("entityType"), "Dataset");
     assertEquals(
-            templateParams.get("entityPath"),
-            String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
+        templateParams.get("entityPath"),
+        String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
   }
@@ -2024,10 +2047,9 @@ public class ProposalNotificationGeneratorTest {
     ActionRequestInfo info = new ActionRequestInfo();
     info.setType(AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL);
     info.setParams(
-            new ActionRequestParams()
-                    .setUpdateDescriptionProposal(
-                            new DescriptionProposal()
-                                    .setDescription("Test Description")));
+        new ActionRequestParams()
+            .setUpdateDescriptionProposal(
+                new DescriptionProposal().setDescription("Test Description")));
     info.setResource(TEST_DATASET_URN.toString());
     info.setCreatedBy(TEST_USER_CREATOR_URN);
 
@@ -2046,31 +2068,31 @@ public class ProposalNotificationGeneratorTest {
     ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
 
     doReturn(Collections.singletonList(mockRecipient))
-            .when(localSpy)
-            .buildRecipients(
-                    any(),
-                    eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
-                    eq(actionRequestUrn),
-                    any(),
-                    any(),
-                    any());
+        .when(localSpy)
+        .buildRecipients(
+            any(),
+            eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
+            eq(actionRequestUrn),
+            any(),
+            any(),
+            any());
 
     localSpy.generateUpdatedProposalNotifications(
-            actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
+        actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
     verify(mockEventProducer, atLeast(1))
-            .producePlatformEvent(
-                    Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
-                    Mockito.eq(null),
-                    platformEventArgumentCaptor.capture());
+        .producePlatformEvent(
+            Mockito.eq(NOTIFICATION_REQUEST_EVENT_NAME),
+            Mockito.eq(null),
+            platformEventArgumentCaptor.capture());
 
     PlatformEvent platformEvent = platformEventArgumentCaptor.getValue();
     assertNotNull(platformEvent, "PlatformEvent should be produced");
 
     NotificationRequest notificationRequest =
-            GenericRecordUtils.deserializePayload(
-                    platformEvent.getPayload().getValue(), NotificationRequest.class);
+        GenericRecordUtils.deserializePayload(
+            platformEvent.getPayload().getValue(), NotificationRequest.class);
 
     // Check the templateParams
     Map<String, String> templateParams = notificationRequest.getMessage().getParameters();
@@ -2079,13 +2101,12 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("operation"), "update");
     assertEquals(templateParams.get("modifierType"), "Description");
     assertEquals(templateParams.get("modifierNames"), "[]");
-    assertEquals(
-            templateParams.get("modifierPaths"), "[]");
+    assertEquals(templateParams.get("modifierPaths"), "[]");
     assertEquals(templateParams.get("entityName"), "Test Dataset Name");
     assertEquals(templateParams.get("entityType"), "Dataset");
     assertEquals(
-            templateParams.get("entityPath"),
-            String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
+        templateParams.get("entityPath"),
+        String.format("/dataset/%s", urlEncode(TEST_DATASET_URN)));
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");

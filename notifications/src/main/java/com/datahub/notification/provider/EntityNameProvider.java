@@ -16,6 +16,7 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
@@ -75,6 +76,8 @@ public class EntityNameProvider {
         return batchGetContainerName(opContext, entityUrns);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
         return batchGetGlossaryTermName(opContext, entityUrns);
+      case Constants.GLOSSARY_NODE_ENTITY_NAME:
+        return batchGetGlossaryNodeName(opContext, entityUrns);
       case Constants.TAG_ENTITY_NAME:
         return batchGetTagName(opContext, entityUrns);
       case Constants.DOMAIN_ENTITY_NAME:
@@ -362,6 +365,26 @@ public class EntityNameProvider {
                   DataMap data = dataMap.get(urn);
                   if (data == null) return urn.getId();
                   GlossaryTermInfo info = new GlossaryTermInfo(data);
+                  return info.hasName() ? info.getName() : urn.getId();
+                }));
+  }
+
+  private Map<Urn, String> batchGetGlossaryNodeName(
+      @Nonnull OperationContext opContext, Set<Urn> glossaryTermUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            glossaryTermUrns,
+            Constants.GLOSSARY_NODE_ENTITY_NAME,
+            Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
+    return glossaryTermUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.getId();
+                  GlossaryNodeInfo info = new GlossaryNodeInfo(data);
                   return info.hasName() ? info.getName() : urn.getId();
                 }));
   }

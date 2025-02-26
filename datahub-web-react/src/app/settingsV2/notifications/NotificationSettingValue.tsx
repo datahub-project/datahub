@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Checkbox } from 'antd';
 import { Tooltip } from '@components';
+import { EMAIL_SINK } from '@src/app/settings/platform/types';
+import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 import styled from 'styled-components';
-
-import { GlobalNotificationSettings, GlobalSettings, NotificationScenarioType } from '../../../../types.generated';
-import { isSinkEnabled } from '../../utils';
-import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from './settingUtils';
-import { EMAIL_SINK, FormattedNotificationSetting, NotificationSink } from '../types';
-import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
-import { useAppConfig } from '../../../useAppConfig';
+import { NotificationScenarioType, NotificationSetting } from '../../../types.generated';
+import { isSinkEnabled } from '../utils';
+import { useAppConfig } from '../../useAppConfig';
+import { FormattedNotificationSetting, NotificationSink } from './types';
+import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from './utils';
 
 const SettingValue = styled.div`
     width: 64px;
@@ -22,7 +22,8 @@ type Props = {
     notificationType: NotificationScenarioType;
     existingNotificationSettings: Map<NotificationScenarioType, FormattedNotificationSetting>;
     refetch: () => void;
-    globalSettings?: GlobalSettings;
+    updateNotificationSettings: (settings: NotificationSetting[]) => any;
+    originalSettings?: NotificationSetting[];
 };
 
 export const NotificationSettingValue = ({
@@ -30,11 +31,11 @@ export const NotificationSettingValue = ({
     notificationType,
     existingNotificationSettings,
     refetch,
-    globalSettings,
+    updateNotificationSettings,
+    originalSettings,
 }: Props) => {
     const { config } = useAppConfig();
-    const [updateGlobalNotificationSettings] = useUpdateGlobalNotificationSettingsMutation();
-    const globalNotificationSettings = globalSettings?.notificationSettings as GlobalNotificationSettings;
+    const { globalSettings } = useGlobalSettingsContext();
 
     const [selected, setSelected] = useState(() =>
         isSinkNotificationTypeEnabled(sink.id, existingNotificationSettings.get(notificationType)),
@@ -50,6 +51,7 @@ export const NotificationSettingValue = ({
         <SettingValue key={`${notificationType}-${sink.id}`}>
             {isSinkEnabled(sink.id, globalSettings, config) ? (
                 <Checkbox
+                    data-testid={`notification-type-${sink.id}-${notificationType}}`}
                     checked={selected}
                     onChange={(e) => {
                         setSelected(e.target.checked); // Immediately mark as selected.
@@ -58,8 +60,8 @@ export const NotificationSettingValue = ({
                             notificationType,
                             e.target.checked,
                             refetch,
-                            updateGlobalNotificationSettings,
-                            globalNotificationSettings,
+                            updateNotificationSettings,
+                            originalSettings,
                         );
                     }}
                 />

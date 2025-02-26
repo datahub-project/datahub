@@ -1,11 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import com.linkedin.datahub.graphql.generated.EmailNotificationSettings;
+import com.linkedin.datahub.graphql.generated.NotificationSetting;
+import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
+import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.ArgumentMatcher;
 
 public class NotificationSettingsMatcher implements ArgumentMatcher<NotificationSettings> {
@@ -31,6 +35,12 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
     final List<NotificationSinkType> expectedSinkTypes = _expected.getSinkTypes();
     final List<NotificationSinkType> actualSinkTypes = actual.getSinkTypes();
 
+    final List<NotificationSetting> expectedSettings = _expected.getSettings();
+    final List<NotificationSetting> actualSettings = actual.getSettings();
+
+    System.out.println(_expected);
+    System.out.println(actual);
+
     if (expectedSlackSettings == null
         && actualSlackSettings == null
         && expectedEmailSettings == null
@@ -52,6 +62,10 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
+    if (expectedSettings == null ^ actualSettings == null) {
+      return false;
+    }
+
     if (actualSinkTypes != null
         && expectedSinkTypes != null
         && (!actualSinkTypes.containsAll(expectedSinkTypes)
@@ -69,12 +83,21 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
+    // Notification Settings Comparisons
+    if (!settingsMatch(expectedSettings, actualSettings)) {
+      return false;
+    }
+
     return true;
   }
 
   private boolean slackSettingsMatch(
-      @Nonnull final SlackNotificationSettings expectedSlackSettings,
-      @Nonnull final SlackNotificationSettings actualSlackSettings) {
+      @Nullable final SlackNotificationSettings expectedSlackSettings,
+      @Nullable final SlackNotificationSettings actualSlackSettings) {
+    if (expectedSlackSettings == null && actualSlackSettings == null) {
+      return true;
+    }
+
     final String actualUserHandle = actualSlackSettings.getUserHandle();
     final String expectedUserHandle = expectedSlackSettings.getUserHandle();
     if (actualUserHandle == null ^ expectedUserHandle == null) {
@@ -104,8 +127,12 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
   }
 
   private boolean emailSettingsMatch(
-      @Nonnull final EmailNotificationSettings expectedEmailSettings,
-      @Nonnull final EmailNotificationSettings actualEmailSettings) {
+      @Nullable final EmailNotificationSettings expectedEmailSettings,
+      @Nullable final EmailNotificationSettings actualEmailSettings) {
+    if (expectedEmailSettings == null && actualEmailSettings == null) {
+      return true;
+    }
+
     final String actualEmail = actualEmailSettings.getEmail();
     final String expectedEmail = expectedEmailSettings.getEmail();
     if (actualEmail == null ^ expectedEmail == null) {
@@ -113,5 +140,84 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
     }
 
     return actualEmail == null || actualEmail.equals(expectedEmail);
+  }
+
+  private boolean settingsMatch(
+      @Nullable final List<NotificationSetting> expectedSettings,
+      @Nullable final List<NotificationSetting> actualSettings) {
+    if (expectedSettings == null && actualSettings == null) {
+      return true;
+    }
+
+    if (expectedSettings.size() != actualSettings.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < expectedSettings.size(); i++) {
+      final NotificationSetting expectedSetting = expectedSettings.get(i);
+
+      // Because we convert from an unordered map, we need to find the corresponding actualSetting
+      // based on the type of the expectedSetting
+      final NotificationSetting actualSetting =
+          actualSettings.stream()
+              .filter(setting -> setting.getType().equals(expectedSetting.getType()))
+              .findFirst()
+              .orElse(null);
+
+      if (!settingMatch(expectedSetting, actualSetting)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private boolean settingMatch(
+      @Nonnull final NotificationSetting expectedSetting,
+      @Nonnull final NotificationSetting actualSetting) {
+    if (expectedSetting.getType() != actualSetting.getType()) {
+      return false;
+    }
+
+    NotificationSettingValue expectedValue = expectedSetting.getValue();
+    NotificationSettingValue actualValue = actualSetting.getValue();
+
+    if (!expectedValue.equals(actualValue)) {
+      return false;
+    }
+
+    List<StringMapEntry> expectedParams = expectedSetting.getParams();
+    List<StringMapEntry> actualParams = actualSetting.getParams();
+
+    if (expectedParams == null && actualParams == null) {
+      return true;
+    }
+
+    if (expectedParams.size() != actualParams.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < expectedParams.size(); i++) {
+
+      StringMapEntry expectedParam = expectedParams.get(i);
+
+      // Because we convert from an unordered map, we need to find the corresponding actualParam
+      // based on the key of the expectedParam
+      StringMapEntry actualParam =
+          actualParams.stream()
+              .filter(param -> param.getKey().equals(expectedParam.getKey()))
+              .findFirst()
+              .orElse(null);
+
+      if (!expectedParam.getKey().equals(actualParam.getKey())) {
+        return false;
+      }
+
+      if (!expectedParam.getValue().equals(actualParam.getValue())) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

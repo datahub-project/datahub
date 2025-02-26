@@ -248,28 +248,26 @@ public class DefaultNotificationSettingsHookTest {
             nullable(OperationContext.class), eq(TEST_USER_URN), settingsCaptor.capture());
 
     NotificationSettings capturedSettings = settingsCaptor.getValue().getNotificationSettings();
-    assertNotNull(capturedSettings.getScenarioSettings());
+    assertNotNull(capturedSettings.getSettings());
 
     // Verify NEW_PROPOSAL scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.NEW_PROPOSAL.toString()));
     NotificationSetting newProposalSetting =
-        capturedSettings
-            .getScenarioSettings()
-            .get(NotificationScenarioType.NEW_PROPOSAL.toString());
+        capturedSettings.getSettings().get(NotificationScenarioType.NEW_PROPOSAL.toString());
     assertEquals(newProposalSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(newProposalSetting.getParams().get("email.enabled").equals("true"));
 
     // Verify PROPOSAL_STATUS_CHANGE scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString()));
     NotificationSetting statusChangeSetting =
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .get(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString());
     assertEquals(statusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(statusChangeSetting.getParams().get("email.enabled").equals("true"));
@@ -277,11 +275,11 @@ public class DefaultNotificationSettingsHookTest {
     // Verify PROPOSER_PROPOSAL_STATUS_CHANGE scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString()));
     NotificationSetting proposerStatusChangeSetting =
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .get(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString());
     assertEquals(proposerStatusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(proposerStatusChangeSetting.getParams().get("email.enabled").equals("true"));
@@ -308,28 +306,26 @@ public class DefaultNotificationSettingsHookTest {
             nullable(OperationContext.class), eq(TEST_USER_URN), settingsCaptor.capture());
 
     NotificationSettings capturedSettings = settingsCaptor.getValue().getNotificationSettings();
-    assertNotNull(capturedSettings.getScenarioSettings());
+    assertNotNull(capturedSettings.getSettings());
 
     // Verify NEW_PROPOSAL scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.NEW_PROPOSAL.toString()));
     NotificationSetting newProposalSetting =
-        capturedSettings
-            .getScenarioSettings()
-            .get(NotificationScenarioType.NEW_PROPOSAL.toString());
+        capturedSettings.getSettings().get(NotificationScenarioType.NEW_PROPOSAL.toString());
     assertEquals(newProposalSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(newProposalSetting.getParams().get("slack.enabled").equals("true"));
 
     // Verify PROPOSAL_STATUS_CHANGE scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString()));
     NotificationSetting statusChangeSetting =
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .get(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString());
     assertEquals(statusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(statusChangeSetting.getParams().get("slack.enabled").equals("true"));
@@ -337,11 +333,11 @@ public class DefaultNotificationSettingsHookTest {
     // Verify PROPOSER_PROPOSAL_STATUS_CHANGE scenario
     assertTrue(
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .containsKey(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString()));
     NotificationSetting proposerStatusChangeSetting =
         capturedSettings
-            .getScenarioSettings()
+            .getSettings()
             .get(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString());
     assertEquals(proposerStatusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(proposerStatusChangeSetting.getParams().get("slack.enabled").equals("true"));
@@ -352,7 +348,7 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
-    notificationSettings.setScenarioSettings(
+    notificationSettings.setSettings(
         new NotificationSettingMap(
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,
@@ -385,7 +381,7 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
     notificationSettings.setSlackSettings(
         new SlackNotificationSettings().setUserHandle(TEST_SLACK));
-    notificationSettings.setScenarioSettings(
+    notificationSettings.setSettings(
         new NotificationSettingMap(
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,
@@ -413,7 +409,7 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
-    notificationSettings.setScenarioSettings(
+    notificationSettings.setSettings(
         new NotificationSettingMap(
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,

@@ -29,5 +29,5 @@ record NotificationSettings {
      * A map of notification scenario type to the settings associated with it.
      * For a list of all scenario types to notify on, check out NotificationScenarioType enum.
      */
-    scenarioSettings: optional map[string, NotificationSetting]
+    settings: optional map[string, NotificationSetting]
 }

@@ -96,6 +96,10 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     if (NotificationScenarioType.PROPOSAL_STATUS_CHANGE.equals(scenarioType)) {
       return true;
     }
+    // When a proposal is resolved, we also notify the actor who originally raised the proposal.
+    if (NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.equals(scenarioType)) {
+      return true;
+    }
     return false;
   }
 
@@ -107,6 +111,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nullable final EntityChangeType changeType,
       @Nullable final Urn actorUrn,
       @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+    System.out.println("Scenario type: " + type);
     if (NotificationScenarioType.NEW_PROPOSAL.equals(type)) {
       // Fetch and add assignee recipients, depending on settings of course.
       return buildAssigneeRecipientsForNewProposal(systemOpContext, entityUrn, extraContext);
@@ -162,10 +167,10 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
   private List<NotificationRecipient> buildActorRecipients(
       @Nonnull OperationContext opContext,
-      final List<Urn> userUrns,
+      final List<Urn> actorUrns,
       final NotificationScenarioType type) {
     return _recipientBuilders.listBuilders().stream()
-        .flatMap(builder -> builder.buildActorRecipients(opContext, userUrns, type).stream())
+        .flatMap(builder -> builder.buildActorRecipients(opContext, actorUrns, type).stream())
         .filter(Objects::nonNull)
         .map(recipient -> recipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION))
         .collect(Collectors.toList());
@@ -241,11 +246,20 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Step 3: Build the recipients!
     final List<NotificationRecipient> recipients = new ArrayList<>();
+
+    System.out.println("Building proposer!");
+    System.out.println(proposer.toString());
+    System.out.println(
+        buildActorRecipients(
+            opContext,
+            Collections.singletonList(proposer),
+            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE));
+
     recipients.addAll(
         buildActorRecipients(
             opContext,
             Collections.singletonList(proposer),
-            NotificationScenarioType.PROPOSAL_STATUS_CHANGE));
+            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE));
 
     return recipients;
   }
@@ -448,6 +462,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             null,
             actorUrn,
             context);
+
     List<NotificationRecipient> proposer =
         buildRecipients(
             systemOpContext,
@@ -508,7 +523,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             templateParams,
             recipients);
 
-    log.debug(
+    log.info(
         String.format(
             "Broadcasting proposal status change for entity %s, action request %s...",
             entityUrn, urn));
@@ -527,10 +542,22 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         && info.getParams().hasStructuredPropertyProposal()) {
       templateParams.put(
           "context", toSerializedJsonObject(info.getParams().getStructuredPropertyProposal()));
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(info.getType())) {
-      templateParams.put("parentTermGroupName", _entityNameProvider.getName(systemOpContext, info.getParams().getCreateGlossaryNodeProposal().getParentNode()));
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(info.getType())) {
-      templateParams.put("parentTermGroupName", _entityNameProvider.getName(systemOpContext, info.getParams().getCreateGlossaryTermProposal().getParentNode()));
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(
+        info.getType())) {
+      if (info.getParams().getCreateGlossaryNodeProposal().hasParentNode()) {
+        templateParams.put(
+            "parentTermGroupName",
+            _entityNameProvider.getName(
+                systemOpContext, info.getParams().getCreateGlossaryNodeProposal().getParentNode()));
+      }
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(
+        info.getType())) {
+      if (info.getParams().getCreateGlossaryTermProposal().hasParentNode()) {
+        templateParams.put(
+            "parentTermGroupName",
+            _entityNameProvider.getName(
+                systemOpContext, info.getParams().getCreateGlossaryTermProposal().getParentNode()));
+      }
     }
   }
 
@@ -644,7 +671,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL:
         return "Glossary Term(s)";
       case AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
-        return "Structured Properties";
+        return "Structured Property(s)";
       case AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL:
         return "Domain";
       case AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL:

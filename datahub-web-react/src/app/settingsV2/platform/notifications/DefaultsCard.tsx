@@ -1,43 +1,23 @@
 import React, { useMemo } from 'react';
 
 import styled from 'styled-components';
-import { Typography, Card, Form, message } from 'antd';
+import { message } from 'antd';
 import { useConnectionQuery } from '@src/graphql/connection.generated';
+import { EMAIL_SINK } from '@src/app/settings/platform/types';
 import { useUpdateGlobalIntegrationSettingsMutation } from '../../../../graphql/settings.generated';
 import { EmailDefaults } from './EmailDefaults';
 import { SlackDefaults } from './SlackDefaults';
 import { GlobalSettings } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
-import { EMAIL_SINK } from '../types';
 import { useAppConfig } from '../../../useAppConfig';
 import { SLACK_CONNECTION_URN } from '../slack/constants';
 import { decodeSlackConnection } from '../slack/utils';
 
-const CardContainer = styled(Card)`
-    margin-bottom: 24px;
-    color: #373d44;
-    font-size: 14px;
-    font-family: Manrope;
-    line-height: 20px;
-    word-wrap: break-word;
-`;
-
-const SettingsHeader = styled.div`
-    width: 100%;
+const Container = styled.div`
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const SettingsTitle = styled(Typography.Text)`
-    font-size: 18px;
-    margin-bottom: 12px;
-`;
-
-const Description = styled(Typography.Text)`
-    display: block;
-    margin-bottom: 20px;
-    font-size: 14px;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
 `;
 
 type Props = {
@@ -122,24 +102,18 @@ export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
     };
 
     return (
-        <CardContainer>
-            <SettingsHeader>
-                <SettingsTitle>Channels</SettingsTitle>
-            </SettingsHeader>
-            <Form layout="vertical">
-                <Description type="secondary">The places where you will be notified by default.</Description>
-                <EmailDefaults
-                    isEmailEnabled={isEmailEnabled}
-                    emailAddress={defaultEmailAddress || undefined}
-                    onChange={onSaveEmailAddress}
-                />
-                <SlackDefaults
-                    isSlackEnabled={isSlackEnabled}
-                    channel={defaultSlackChannel || undefined}
-                    onChange={onSaveSlackChannel}
-                    botToken={slackConnData?.botToken || undefined}
-                />
-            </Form>
-        </CardContainer>
+        <Container>
+            <EmailDefaults
+                isEmailEnabled={isEmailEnabled}
+                emailAddress={defaultEmailAddress || undefined}
+                onChange={onSaveEmailAddress}
+            />
+            <SlackDefaults
+                isSlackEnabled={isSlackEnabled}
+                channel={defaultSlackChannel || undefined}
+                onChange={onSaveSlackChannel}
+                botToken={slackConnData?.botToken || undefined}
+            />
+        </Container>
     );
 };

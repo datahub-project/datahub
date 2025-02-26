@@ -172,9 +172,8 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
   private boolean isActorSettingsEnabledForScenario(
       @Nonnull final NotificationSettings notificationSettings,
       @Nonnull final NotificationScenarioType type) {
-    if (notificationSettings.hasScenarioSettings()) {
-      final Map<String, NotificationSetting> scenarioSettings =
-          notificationSettings.getScenarioSettings();
+    if (notificationSettings.hasSettings()) {
+      final Map<String, NotificationSetting> scenarioSettings = notificationSettings.getSettings();
       if (scenarioSettings.containsKey(type.toString())) {
         return isEmailNotificationEnabled(scenarioSettings.get(type.toString()));
       }
@@ -253,7 +252,7 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
   private String extractEmailFromNotificationSettingsForScenarioType(
       @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
     // First, see if there is a scenario-specific override email address.
-    final Map<String, NotificationSetting> scenarioSettings = settings.getScenarioSettings();
+    final Map<String, NotificationSetting> scenarioSettings = settings.getSettings();
     if (scenarioSettings.containsKey(type.toString())) {
       final NotificationSetting setting = scenarioSettings.get(type.toString());
       if (hasParam(setting.getParams(), "email.address")

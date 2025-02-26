@@ -1,9 +1,8 @@
 package com.linkedin.gms.factory.notifications.recipient;
 
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import javax.annotation.Nonnull;
-
 import com.linkedin.metadata.service.SettingsService;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;

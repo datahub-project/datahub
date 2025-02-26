@@ -71,7 +71,7 @@ public class ListRemoteExecutorPoolsResolverTest {
             any(List.class),
             eq(0),
             eq(2)))
-            .thenReturn(searchResult);
+        .thenReturn(searchResult);
 
     // Execute resolver
     CompletableFuture<ListRemoteExecutorPoolsResult> futureResult = resolver.get(environment);
@@ -116,7 +116,7 @@ public class ListRemoteExecutorPoolsResolverTest {
             any(List.class),
             eq(0),
             eq(2)))
-            .thenReturn(searchResult);
+        .thenReturn(searchResult);
 
     // Execute resolver
     CompletableFuture<ListRemoteExecutorPoolsResult> futureResult = resolver.get(environment);
@@ -147,7 +147,7 @@ public class ListRemoteExecutorPoolsResolverTest {
             any(List.class),
             anyInt(),
             anyInt()))
-            .thenReturn(emptySearchResult);
+        .thenReturn(emptySearchResult);
 
     // Execute resolver
     CompletableFuture<ListRemoteExecutorPoolsResult> futureResult = resolver.get(environment);
@@ -175,7 +175,7 @@ public class ListRemoteExecutorPoolsResolverTest {
             any(List.class),
             anyInt(),
             anyInt()))
-            .thenThrow(new RemoteInvocationException("Test error"));
+        .thenThrow(new RemoteInvocationException("Test error"));
 
     // Execute and verify exception
     CompletableFuture<ListRemoteExecutorPoolsResult> futureResult = resolver.get(environment);

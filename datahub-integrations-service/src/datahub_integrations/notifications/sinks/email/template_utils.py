@@ -105,12 +105,12 @@ def build_new_proposal_parameters(
     if request.message.parameters is None:
         raise ValueError("Parameters are required for new proposal notifications.")
 
-    inbox_url = f"{base_url}/requests"
+    inbox_url = f"{base_url}/proposals"
 
     params = request.message.parameters
     actor_name = params.get("actorName", "Someone")
     entity_name = params.get("entityName", "UnknownEntity")
-    entity_type = params.get("entityType", "")
+    entity_type = params.get("entityType", "").lower()
     operation = params.get("operation", "add")
 
     modifier_type = params.get("modifierType", "UnknownModifier")
@@ -118,12 +118,14 @@ def build_new_proposal_parameters(
     modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
 
     all_modifiers_str = (
-        join_modifiers_text(modifier_names) if modifier_names else modifier_type
+        join_modifiers_text(modifier_type, modifier_names)
+        if modifier_names and len(modifier_names) > 0
+        else modifier_type.lower()
     )
     all_modifiers_str_with_links = (
-        join_modifiers(modifier_names, modifier_paths, base_url)
-        if modifier_names
-        else modifier_type
+        join_modifiers(modifier_type, modifier_names, modifier_paths, base_url)
+        if modifier_names and len(modifier_names) > 0
+        else modifier_type.lower()
     )
 
     sub_resource_type = params.get("subResourceType")
@@ -150,7 +152,7 @@ def build_new_proposal_parameters(
         )
         # Example message:
         message = (
-            f"<b>{actor_name}</b> has proposed creating <b>{modifier_type}</b> named <b>{entity_name}</b>"
+            f"<b>{actor_name}</b> has proposed creating {modifier_type} named <b>{entity_name}</b>"
             f"{term_group_string}."
         )
         return {
@@ -164,14 +166,14 @@ def build_new_proposal_parameters(
     if sub_resource_name and sub_resource_type:
         subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {sub_resource_type_name} {sub_resource_name} of {entity_type} {entity_name}"
         message = (
-            f"<b>{actor_name}</b> has proposed to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
+            f"<b>{actor_name}</b> has proposed to {operation} {all_modifiers_str_with_links} "
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of {entity_type} <b>{entity_name}</b>."
         )
     else:
         subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {entity_type} {entity_name}"
         message = (
-            f"<b>{actor_name}</b> has proposed to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for <b>{entity_type} {entity_name}</b>."
+            f"<b>{actor_name}</b> has proposed to {operation} {all_modifiers_str_with_links} "
+            f"for {entity_type} <b>{entity_name}</b>."
         )
 
     return {
@@ -194,21 +196,23 @@ def build_proposer_proposal_status_change_parameters(
             "Parameters are required for proposal status change notifications."
         )
 
+    inbox_url = f"{base_url}/proposals" # TODO: Change to my-proposals!
+
     params = request.message.parameters
     action = params.get("action", "accepted")  # "accepted", "rejected", ...
     operation = params.get("operation", "add")
     modifier_type = params.get("modifierType", "UnknownModifier")
 
     entity_name = params.get("entityName", "UnknownEntity")
-    entity_type = params.get("entityType", "")
+    entity_type = params.get("entityType", "").lower()
 
     modifier_names = safe_deserialize_json_list(params.get("modifierNames"))
     modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
 
     all_modifiers_str = (
-        join_modifiers(modifier_names, modifier_paths, base_url)
-        if modifier_names
-        else modifier_type
+        join_modifiers(modifier_type, modifier_names, modifier_paths, base_url)
+        if modifier_names and len(modifier_names) > 0
+        else modifier_type.lower()
     )
 
     sub_resource_type = params.get("subResourceType")
@@ -229,32 +233,34 @@ def build_proposer_proposal_status_change_parameters(
             else ""
         )
         message = (
-            f"Your proposal to create <b>{modifier_type}</b> named <b>{entity_name}</b>"
+            f"Your proposal to create {modifier_type} named <b>{entity_name}</b>"
             f"{term_group_string} has been <b>{action}</b>."
         )
         return {
             "subject": subject,
             "message": message,
             "baseUrl": base_url,
+            "detailsUrl": inbox_url
         }
 
     # 2) Normal scenario
     if sub_resource_name and sub_resource_type:
         message = (
-            f"Your proposal to {operation} <b>{all_modifiers_str}</b> "
-            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b> "
+            f"Your proposal to {operation} {all_modifiers_str} "
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of {entity_type} <b>{entity_name}</b> "
             f"has been <b>{action}</b>."
         )
     else:
         message = (
-            f"Your proposal to {operation} <b>{all_modifiers_str}</b> "
-            f"for <b>{entity_type} {entity_name}</b> has been <b>{action}</b>."
+            f"Your proposal to {operation} {all_modifiers_str} "
+            f"for {entity_type} <b>{entity_name}</b> has been <b>{action}</b>."
         )
 
     return {
         "subject": subject,
         "message": message,
         "baseUrl": base_url,
+        "detailsUrl": inbox_url
     }
 
 
@@ -270,12 +276,12 @@ def build_proposal_status_change_parameters(
             "Parameters are required for proposal status change notifications."
         )
 
-    inbox_url = f"{base_url}/requests"
+    inbox_url = f"{base_url}/proposals"
 
     params = request.message.parameters
     actor_name = params.get("actorName", "Someone")
     entity_name = params.get("entityName", "UnknownEntity")
-    entity_type = params.get("entityType", "")
+    entity_type = params.get("entityType", "").lower()
     operation = params.get("operation", "add")
     action = params.get("action", "accepted")  # e.g. "accepted", "rejected", etc
 
@@ -283,12 +289,14 @@ def build_proposal_status_change_parameters(
     modifier_names = safe_deserialize_json_list(params.get("modifierNames"))
     modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
     all_modifiers_str = (
-        join_modifiers_text(modifier_names) if modifier_names else modifier_type
+        join_modifiers_text(modifier_type, modifier_names)
+        if modifier_names and len(modifier_names) > 0
+        else modifier_type.lower()
     )
     all_modifiers_str_with_links = (
-        join_modifiers(modifier_names, modifier_paths, base_url)
-        if modifier_names
-        else modifier_type
+        join_modifiers(modifier_type, modifier_names, modifier_paths, base_url)
+        if modifier_names and len(modifier_names) > 0
+        else modifier_type.lower()
     )
 
     sub_resource_type = params.get("subResourceType")
@@ -310,7 +318,7 @@ def build_proposal_status_change_parameters(
             f"{f' in Term Group {parent_term_group_name}' if parent_term_group_name else ''}."
         )
         message = (
-            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to create <b>{modifier_type}</b> "
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to create {modifier_type} "
             f"named <b>{entity_name}</b>{term_group_string}."
         )
         return {
@@ -327,8 +335,8 @@ def build_proposal_status_change_parameters(
             f"for {sub_resource_type_name} {sub_resource_name} of {entity_type} {entity_name}."
         )
         message = (
-            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} {all_modifiers_str_with_links} "
+            f"for {sub_resource_type_name} <b>{sub_resource_name}</b> of {entity_type} <b>{entity_name}</b>."
         )
     else:
         subject = (
@@ -336,8 +344,8 @@ def build_proposal_status_change_parameters(
             f"for {entity_type} {entity_name}."
         )
         message = (
-            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} <b>{all_modifiers_str_with_links}</b> "
-            f"for <b>{entity_type} {entity_name}</b>."
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} {all_modifiers_str_with_links} "
+            f"for {entity_type} <b>{entity_name}</b>."
         )
 
     return {
@@ -704,18 +712,21 @@ def safe_deserialize_json_list(json_str: str | None) -> List[str]:
         return []
 
 
-def join_modifiers_text(modifier_names: List[str]) -> str:
+def join_modifiers_text(modifier_type: str, modifier_names: List[str]) -> str:
     if not modifier_names:
         return ""
     if len(modifier_names) == 1:
-        return modifier_names[0]
+        return f"{modifier_type.lower()} {modifier_names[0]}"
     if len(modifier_names) == 2:
-        return f"{modifier_names[0]} and {modifier_names[1]}"
-    return f"{', '.join(modifier_names[:-1])}, and {modifier_names[-1]}"
+        return f"{modifier_type.lower()} {modifier_names[0]} and {modifier_names[1]}"
+    return f"{modifier_type.lower()} {', '.join(modifier_names[:-1])}, and {modifier_names[-1]}"
 
 
 def join_modifiers(
-    modifier_names: List[str], modifier_paths: List[str], base_url: str
+    modifier_type: str,
+    modifier_names: List[str],
+    modifier_paths: List[str],
+    base_url: str,
 ) -> str:
     """
     Joins modifier names with "and" before the last item. If the length of
@@ -740,7 +751,7 @@ def join_modifiers(
 
     # 2) Perform the "join with and" logic
     if len(linked_modifiers) == 1:
-        return linked_modifiers[0]
+        return f"{modifier_type.lower()} <b>{linked_modifiers[0]}</b>"
     if len(linked_modifiers) == 2:
-        return f"{linked_modifiers[0]} and {linked_modifiers[1]}"
-    return f"{', '.join(linked_modifiers[:-1])}, and {linked_modifiers[-1]}"
+        return f"{modifier_type.lower()} <b>{linked_modifiers[0]}</b> and <b>{linked_modifiers[1]}</b>"
+    return f"{modifier_type.lower()} <b>{', '.join(linked_modifiers[:-1])}</b>, and <b>{linked_modifiers[-1]}</b>"

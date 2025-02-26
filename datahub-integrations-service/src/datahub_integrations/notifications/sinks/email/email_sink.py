@@ -57,7 +57,7 @@ class EmailNotificationSink(NotificationSink):
     ) -> None:
         template_type: str = str(request.message.template)
 
-        # --- We add a custom branch for BROADCAST_PROPOSAL_STATUS_CHANGE
+        # --- Special handling for Broadcast Proposal Status Change, because we also broadcast to the original author of proposal.
         if (
             template_type
             == NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE
@@ -140,6 +140,7 @@ class EmailNotificationSink(NotificationSink):
                 proposer_params = build_proposer_proposal_status_change_parameters(
                     request, self.base_url
                 )
+
                 # Send the personal email
                 self._send_change_notification(
                     [creator_recipient],

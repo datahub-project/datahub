@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
-
 import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.GetMode;
@@ -12,24 +10,18 @@ import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.datahub.graphql.generated.GlobalVisualSettings;
 import com.linkedin.datahub.graphql.generated.HelpLink;
-import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
-import com.linkedin.datahub.graphql.generated.NotificationSetting;
-import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
 import com.linkedin.datahub.graphql.generated.OidcSettings;
 import com.linkedin.datahub.graphql.generated.SlackIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.SsoSettings;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import javax.annotation.Nonnull;
 
 /** Utility functions useful for Settings resolvers. */
@@ -127,29 +119,10 @@ public class SettingsMapper {
       @Nonnull com.linkedin.settings.global.GlobalNotificationSettings input) {
     final GlobalNotificationSettings result = new GlobalNotificationSettings();
     if (input.hasSettings()) {
-      result.setSettings(mapNotificationSettings(context, input.getSettings()));
+      result.setSettings(
+          NotificationSettingMapMapper.mapNotificationSettings(context, input.getSettings()));
     } else {
       result.setSettings(Collections.emptyList());
-    }
-    return result;
-  }
-
-  private static List<NotificationSetting> mapNotificationSettings(
-      @Nonnull final QueryContext context, NotificationSettingMap settings) {
-    final List<NotificationSetting> result = new ArrayList<>();
-    settings.forEach((key, value) -> result.add(mapNotificationSetting(context, key, value)));
-    return result;
-  }
-
-  private static NotificationSetting mapNotificationSetting(
-      @Nonnull final QueryContext context,
-      String typeStr,
-      com.linkedin.settings.NotificationSetting setting) {
-    final NotificationSetting result = new NotificationSetting();
-    result.setType(NotificationScenarioType.valueOf(typeStr));
-    result.setValue(NotificationSettingValue.valueOf(setting.getValue().name()));
-    if (setting.hasParams()) {
-      result.setParams(StringMapMapper.map(context, setting.getParams()));
     }
     return result;
   }

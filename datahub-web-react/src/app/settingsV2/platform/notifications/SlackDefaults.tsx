@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Form, Input, Space } from 'antd';
-import { Button, Tooltip } from '@components';
+import { Typography, Input, Space } from 'antd';
+import { Button, Card, colors, Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
@@ -15,7 +15,8 @@ const InputDiv = styled.div`
 
 const MessageDiv = styled.div`
     margin-top: 5px;
-    width: 360px;
+    color: ${colors.gray[1700]};
+    font-size: 14px;
 `;
 
 const StyledInput = styled(Input)`
@@ -83,7 +84,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
     };
 
     return (
-        <Form.Item name="default-slack-channel" label={<StyledLabel strong>Slack Channel</StyledLabel>}>
+        <Card title="Slack Notifications" subTitle="Receive Slack notifications when important changes occur.">
             <InputDiv>
                 <Space direction="horizontal">
                     {!editing ? (
@@ -148,14 +149,14 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
             {!botToken &&
                 (isAdminAccess ? (
                     <MessageDiv>
-                        In order to enable,&nbsp;
+                        Slack is currently disabled.&nbsp;
                         <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
-                            click here to setup a Slack integration
+                            click here to setup the Slack integration
                         </Link>
                     </MessageDiv>
                 ) : (
                     <MessageDiv>{unsupportedSinkDescription}</MessageDiv>
                 ))}
-        </Form.Item>
+        </Card>
     );
 };

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
+import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
@@ -18,6 +19,7 @@ import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.settings.NotificationSettingMap;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -46,21 +48,27 @@ public class UpdateUserNotificationSettingsResolver
 
             CorpUserSettings corpUserSettings =
                 _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
+
             if (corpUserSettings == null) {
-              corpUserSettings = SettingsService.DEFAULT_CORP_USER_SETTINGS;
+              // Copy to avoid changing a static reference at runtime.
+              corpUserSettings = SettingsService.DEFAULT_CORP_USER_SETTINGS.copy();
             }
 
             final com.linkedin.event.notification.settings.NotificationSettings
                 notificationSettings =
                     corpUserSettings.hasNotificationSettings()
                         ? corpUserSettings.getNotificationSettings()
-                        : new com.linkedin.event.notification.settings.NotificationSettings();
-            NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
-            input
-                .getNotificationSettings()
-                .getSinkTypes()
-                .forEach(type -> sinkTypes.add(NotificationSinkType.valueOf(type.toString())));
-            notificationSettings.setSinkTypes(sinkTypes);
+                        : new com.linkedin.event.notification.settings.NotificationSettings()
+                            .setSinkTypes(new NotificationSinkTypeArray());
+
+            if (notificationSettingsInput.getSinkTypes() != null) {
+              NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
+              input
+                  .getNotificationSettings()
+                  .getSinkTypes()
+                  .forEach(type -> sinkTypes.add(NotificationSinkType.valueOf(type.toString())));
+              notificationSettings.setSinkTypes(sinkTypes);
+            }
 
             final SlackNotificationSettingsInput slackNotificationSettingsInput =
                 notificationSettingsInput.getSlackSettings();
@@ -79,6 +87,18 @@ public class UpdateUserNotificationSettingsResolver
                   _settingsService.createEmailNotificationSettings(
                       emailNotificationSettingsInput.getEmail());
               notificationSettings.setEmailSettings(emailNotificationSettings);
+            }
+
+            if (input.getNotificationSettings().getSettings() != null) {
+              NotificationSettingMap newSettings =
+                  NotificationSettingMapMapper.mapNotificationSettingInputList(
+                      input.getNotificationSettings().getSettings());
+              if (notificationSettings.hasSettings()) {
+                // Simply overwrite what's already there.
+                notificationSettings.getSettings().putAll(newSettings);
+              } else {
+                notificationSettings.setSettings(newSettings);
+              }
             }
 
             corpUserSettings.setNotificationSettings(notificationSettings);

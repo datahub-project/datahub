@@ -439,7 +439,7 @@ public class EmailNotificationRecipientBuilderTest {
                         "email.enabled", "true",
                         "email.address", "scenario@example.com")));
 
-    settings.setScenarioSettings(
+    settings.setSettings(
         new NotificationSettingMap(
             Collections.singletonMap(
                 NotificationScenarioType.ASSERTION_STATUS_CHANGE.toString(), scenarioSetting)));
@@ -484,8 +484,8 @@ public class EmailNotificationRecipientBuilderTest {
             .setParams(
                 new StringMap(Collections.singletonMap("email.enabled", String.valueOf(enabled))));
 
-    when(settings.hasScenarioSettings()).thenReturn(true);
-    when(settings.getScenarioSettings())
+    when(settings.hasSettings()).thenReturn(true);
+    when(settings.getSettings())
         .thenReturn(
             new NotificationSettingMap(Collections.singletonMap(type.toString(), scenarioSetting)));
 

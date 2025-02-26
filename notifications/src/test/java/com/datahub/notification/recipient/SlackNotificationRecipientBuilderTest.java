@@ -678,7 +678,7 @@ public class SlackNotificationRecipientBuilderTest {
                         "slack.enabled", "true",
                         "slack.channel", "scenario-specific-channel")));
 
-    settings.setScenarioSettings(
+    settings.setSettings(
         new NotificationSettingMap(
             Collections.singletonMap(
                 NotificationScenarioType.ASSERTION_STATUS_CHANGE.toString(), scenarioSetting)));
@@ -720,7 +720,7 @@ public class SlackNotificationRecipientBuilderTest {
                         "slack.enabled", "false",
                         "slack.channel", "scenario-specific-channel")));
 
-    when(settings.getScenarioSettings())
+    when(settings.getSettings())
         .thenReturn(
             new NotificationSettingMap(
                 Collections.singletonMap(
@@ -774,8 +774,8 @@ public class SlackNotificationRecipientBuilderTest {
             .setParams(
                 new StringMap(Collections.singletonMap("slack.enabled", String.valueOf(enabled))));
 
-    when(settings.hasScenarioSettings()).thenReturn(true);
-    when(settings.getScenarioSettings())
+    when(settings.hasSettings()).thenReturn(true);
+    when(settings.getSettings())
         .thenReturn(
             new NotificationSettingMap(Collections.singletonMap(type.toString(), scenarioSetting)));
 

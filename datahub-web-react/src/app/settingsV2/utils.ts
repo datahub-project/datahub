@@ -1,5 +1,5 @@
 import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '../../types.generated';
-import { EMAIL_SINK, SLACK_SINK } from './platform/types';
+import { EMAIL_SINK, SLACK_SINK } from './notifications/types';
 
 /** A type of DataHub Access Token. */
 export const ACCESS_TOKEN_TYPES = [{ text: 'Personal', type: AccessTokenType.Personal }];

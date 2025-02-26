@@ -118,13 +118,13 @@ def test_build_new_proposal_parameters_for_entity(base_url_fix: str) -> None:
     # subject => "John Joyce proposed to add PII for Table SampleKafkaDataset"
     # message => "<b>John Joyce</b> has proposed to <b>add</b> PII for <b>Table SampleKafkaDataset</b>."
     expected = {
-        "subject": "John Joyce proposed to add PII for Table SampleKafkaDataset",
+        "subject": "John Joyce proposed to add tag PII for table SampleKafkaDataset",
         "message": (
-            '<b>John Joyce</b> has proposed to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
-            "for <b>Table SampleKafkaDataset</b>."
+            '<b>John Joyce</b> has proposed to add tag <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
+            "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -147,7 +147,7 @@ def test_build_new_proposal_parameters_for_sub_resource_no_modifier_paths(
                 "entityType": "Table",
                 "entityPath": "/datasets/samplekafkadataset",
                 "operation": "add",
-                "modifierType": "Tag",
+                "modifierType": "Tag(s)",
                 "modifierNames": '["Sensitive","Confidential"]',
                 "modifierPaths": "[]",
                 "subResourceType": "DATASET_FIELD",
@@ -159,13 +159,13 @@ def test_build_new_proposal_parameters_for_sub_resource_no_modifier_paths(
 
     # The code will join "Sensitive" and "Confidential" as "Sensitive and Confidential"
     expected = {
-        "subject": "John Joyce proposed to add Sensitive and Confidential for column bar of Table SampleKafkaDataset",
+        "subject": "John Joyce proposed to add tag(s) Sensitive and Confidential for column bar of table SampleKafkaDataset",
         "message": (
-            "<b>John Joyce</b> has proposed to add <b>Sensitive and Confidential</b> "
-            "for column <b>bar</b> of <b>Table SampleKafkaDataset</b>."
+            "<b>John Joyce</b> has proposed to add tag(s) <b>Sensitive</b> and <b>Confidential</b> "
+            "for column <b>bar</b> of table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -199,11 +199,11 @@ def test_build_new_proposal_parameters_for_glossary_term(base_url_fix: str) -> N
     expected = {
         "subject": "Alice has proposed creating Glossary Term named Email Address in Term Group PII.",
         "message": (
-            "<b>Alice</b> has proposed creating <b>Glossary Term</b> named <b>Email Address</b>"
+            "<b>Alice</b> has proposed creating Glossary Term named <b>Email Address</b>"
             " in Term Group <b>PII</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -237,11 +237,11 @@ def test_build_new_proposal_parameters_for_glossary_node(base_url_fix: str) -> N
     expected = {
         "subject": "Alice has proposed creating Glossary Term Group named PII in Term Group Root.",
         "message": (
-            "<b>Alice</b> has proposed creating <b>Glossary Term Group</b> named <b>PII</b>"
+            "<b>Alice</b> has proposed creating Glossary Term Group named <b>PII</b>"
             " in Term Group <b>Root</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -271,13 +271,13 @@ def test_build_new_proposal_parameters_for_description(base_url_fix: str) -> Non
 
     # No "entityUrl" returned for glossary scenario, per your snippet
     expected = {
-        "subject": "Alice proposed to update Description for Table SampleKafkaDataset",
+        "subject": "Alice proposed to update description for table SampleKafkaDataset",
         "message": (
-            "<b>Alice</b> has proposed to update <b>Description</b> for "
-            "<b>Table SampleKafkaDataset</b>."
+            "<b>Alice</b> has proposed to update description for table "
+            "<b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_new_proposal_parameters(request, base_url_fix)
@@ -317,7 +317,7 @@ def test_build_proposal_status_change_parameters_for_entity(base_url_fix: str) -
                 "entityName": "SampleKafkaDataset",
                 "entityPath": "/datasets/samplekafkadataset",
                 "entityType": "Table",
-                "modifierType": "tag",
+                "modifierType": "Tag(s)",
                 "modifierNames": '["PII"]',  # single item array
                 "modifierPaths": '["/glossary/urn:li:glossaryTerm:pii"]',
                 "operation": "add",
@@ -328,13 +328,13 @@ def test_build_proposal_status_change_parameters_for_entity(base_url_fix: str) -
     )
 
     expected = {
-        "subject": "John Joyce has approved the proposal to add PII for Table SampleKafkaDataset.",
+        "subject": "John Joyce has approved the proposal to add tag(s) PII for table SampleKafkaDataset.",
         "message": (
-            '<b>John Joyce</b> has <b>approved</b> the proposal to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
-            "for <b>Table SampleKafkaDataset</b>."
+            '<b>John Joyce</b> has <b>approved</b> the proposal to add tag(s) <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
+            "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -356,7 +356,7 @@ def test_build_proposal_status_change_parameters_for_sub_resource_no_paths(
                 "entityName": "SampleKafkaDataset",
                 "entityPath": "/datasets/samplekafkadataset",
                 "entityType": "Table",
-                "modifierType": "tag",
+                "modifierType": "Tag(s)",
                 "modifierNames": '["PII","Sensitive"]',
                 "modifierPaths": "[]",
                 "operation": "remove",
@@ -370,13 +370,13 @@ def test_build_proposal_status_change_parameters_for_sub_resource_no_paths(
 
     # "PII" and "Sensitive" => "PII and Sensitive"
     expected = {
-        "subject": "John Joyce has denied the proposal to remove PII and Sensitive for column foo of Table SampleKafkaDataset.",
+        "subject": "John Joyce has denied the proposal to remove tag(s) PII and Sensitive for column foo of table SampleKafkaDataset.",
         "message": (
-            "<b>John Joyce</b> has <b>denied</b> the proposal to remove <b>PII and Sensitive</b> "
-            "for column <b>foo</b> of <b>Table SampleKafkaDataset</b>."
+            "<b>John Joyce</b> has <b>denied</b> the proposal to remove tag(s) <b>PII</b> and <b>Sensitive</b> "
+            "for column <b>foo</b> of table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -412,11 +412,11 @@ def test_build_proposal_status_change_parameters_for_glossary_term(
     expected = {
         "subject": "Bob has accepted the proposal to create Glossary Term named SSN in Term Group PII.",
         "message": (
-            "<b>Bob</b> has <b>accepted</b> the proposal to create <b>Glossary Term</b> "
+            "<b>Bob</b> has <b>accepted</b> the proposal to create Glossary Term "
             "named <b>SSN</b> in Term Group <b>PII</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -452,11 +452,11 @@ def test_build_proposal_status_change_parameters_for_glossary_node(
     expected = {
         "subject": "Bob has accepted the proposal to create Glossary Term Group named PII in Term Group Root.",
         "message": (
-            "<b>Bob</b> has <b>accepted</b> the proposal to create <b>Glossary Term Group</b> "
+            "<b>Bob</b> has <b>accepted</b> the proposal to create Glossary Term Group "
             "named <b>PII</b> in Term Group <b>Root</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -489,13 +489,13 @@ def test_build_proposal_status_change_parameters_for_description(
 
     # No "entityUrl" returned for glossary scenario, per your snippet
     expected = {
-        "subject": "Alice has accepted the proposal to update Description for Table SampleKafkaDataset.",
+        "subject": "Alice has accepted the proposal to update description for table SampleKafkaDataset.",
         "message": (
-            "<b>Alice</b> has <b>accepted</b> the proposal to update <b>Description</b> "
-            "for <b>Table SampleKafkaDataset</b>."
+            "<b>Alice</b> has <b>accepted</b> the proposal to update description "
+            "for table <b>SampleKafkaDataset</b>."
         ),
         "baseUrl": base_url_fix,
-        "detailsUrl": "https://example.acryl.io/requests",
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposal_status_change_parameters(request, base_url_fix)
@@ -534,7 +534,7 @@ def test_build_proposer_proposal_status_change_parameters_normal(
             parameters={
                 "action": "approved",
                 "operation": "add",
-                "modifierType": "tag",
+                "modifierType": "Tag(s)",
                 "modifierNames": '["PII","Sensitive"]',  # => "PII and Sensitive"
                 "modifierPaths": '["/glossary/urn:li:glossaryTerm:pii", "/glossary/urn:li:glossaryTerm:sensitive"]',
                 "entityName": "SampleKafkaDataset",
@@ -549,10 +549,11 @@ def test_build_proposer_proposal_status_change_parameters_normal(
     expected = {
         "subject": "Your proposal has been approved.",
         "message": (
-            'Your proposal to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a> and <a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:sensitive">Sensitive</a></b> '
-            "for <b>Table SampleKafkaDataset</b> has been <b>approved</b>."
+            'Your proposal to add tag(s) <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> and <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:sensitive">Sensitive</a></b> '
+            "for table <b>SampleKafkaDataset</b> has been <b>approved</b>."
         ),
         "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -574,7 +575,7 @@ def test_build_proposer_proposal_status_change_parameters_for_sub_resource_no_mo
                 "entityName": "SampleKafkaDataset",
                 "entityPath": "/datasets/samplekafkadataset",
                 "entityType": "Table",
-                "modifierType": "tag",
+                "modifierType": "Tag(s)",
                 "modifierNames": '["PII","Sensitive"]',
                 "modifierPaths": "[]",
                 "operation": "remove",
@@ -590,10 +591,11 @@ def test_build_proposer_proposal_status_change_parameters_for_sub_resource_no_mo
     expected = {
         "subject": "Your proposal has been approved.",
         "message": (
-            "Your proposal to remove <b>PII and Sensitive</b> "
-            "for column <b>foo</b> of <b>Table SampleKafkaDataset</b> has been <b>approved</b>."
+            "Your proposal to remove tag(s) <b>PII</b> and <b>Sensitive</b> "
+            "for column <b>foo</b> of table <b>SampleKafkaDataset</b> has been <b>approved</b>."
         ),
         "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -627,10 +629,11 @@ def test_build_proposer_proposal_status_change_parameters_glossary_term(
     expected = {
         "subject": "Your proposal has been accepted.",
         "message": (
-            "Your proposal to create <b>Glossary Term</b> named <b>Email Address</b>"
+            "Your proposal to create Glossary Term named <b>Email Address</b>"
             " in Term Group <b>PII</b> has been <b>accepted</b>."
         ),
         "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -664,10 +667,11 @@ def test_build_proposer_proposal_status_change_parameters_glossary_node(
     expected = {
         "subject": "Your proposal has been rejected.",
         "message": (
-            "Your proposal to create <b>Glossary Term Group</b> named <b>PII</b>"
+            "Your proposal to create Glossary Term Group named <b>PII</b>"
             " in Term Group <b>Root</b> has been <b>rejected</b>."
         ),
         "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
@@ -700,10 +704,11 @@ def test_build_proposer_proposal_status_change_parameters_description(
     expected = {
         "subject": "Your proposal has been rejected.",
         "message": (
-            "Your proposal to update <b>Description</b>"
-            " for <b>Table SampleHiveDataset</b> has been <b>rejected</b>."
+            "Your proposal to update description"
+            " for table <b>SampleHiveDataset</b> has been <b>rejected</b>."
         ),
         "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/proposals",
     }
 
     actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)

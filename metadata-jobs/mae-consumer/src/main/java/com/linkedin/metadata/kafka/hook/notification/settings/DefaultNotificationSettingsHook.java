@@ -335,8 +335,8 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(email));
-    if (!notificationSettings.hasScenarioSettings()) {
-      notificationSettings.setScenarioSettings(DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS);
+    if (!notificationSettings.hasSettings()) {
+      notificationSettings.setSettings(DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS);
     }
     return notificationSettings;
   }
@@ -353,8 +353,8 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
             .collect(Collectors.toList());
     existingSettings.setSinkTypes(new NotificationSinkTypeArray(sinkTypes));
     existingSettings.setSlackSettings(new SlackNotificationSettings().setUserHandle(handle));
-    if (!existingSettings.hasScenarioSettings()) {
-      existingSettings.setScenarioSettings(DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS);
+    if (!existingSettings.hasSettings()) {
+      existingSettings.setSettings(DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS);
     }
   }
 

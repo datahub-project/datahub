@@ -1,68 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Typography, Switch, Input, Button, Form } from 'antd';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { Button, colors, ToggleCard } from '@components';
+import { Form } from 'antd';
 import { EmailNotificationSettings, EmailNotificationSettingsInput } from '../../../../../types.generated';
-
-const SinkSettings = styled.div`
-    margin-top: 12px;
-    display: flex;
-    flex-direction: row;
-    align-items: start;
-`;
-
-const SinkTextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding-left: 14px;
-    gap: 4px;
-`;
-
-const SinkTitle = styled(Typography.Text)`
-    font-size: 16px;
-`;
-
-const SinkDescription = styled(Typography.Text)`
-    font-size: 14px;
-`;
-
-const SinkEditButton = styled(Button)`
-    padding: 0 4px;
-`;
-
-const EditDescription = styled(Typography.Text)`
-    text-decoration: underline;
-    color: ${(props) => props.theme.styles['primary-color']};
-`;
-
-const SinkButtonsContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: start;
-    margin-top: 8px;
-    gap: 2px;
-`;
-
-const StyledFormItem = styled(Form.Item)`
-    margin-bottom: 0px;
-`;
-
-const StyledInput = styled(Input)`
-    width: 220px;
-    border-color: ${ANTD_GRAY[8]};
-`;
-
-const SaveButton = styled(Button)`
-    margin: 0 4px;
-`;
-
-const CancelButton = styled(Button)``;
+import {
+    CancelButton,
+    SaveButton,
+    SinkButtonsContainer,
+    SinkConfigurationContainer,
+    StyledFormItem,
+    StyledInput,
+} from './styledComponents';
 
 const HelperText = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${colors.gray[1700]};
     margin-top: 6px;
     font-size: 14px;
+`;
+
+const CurrentValue = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 12px;
+    font-size: 14px;
+    color: ${colors.gray[1700]};
 `;
 
 type Props = {
@@ -105,7 +67,9 @@ export const EmailSinkSettingsSection = ({
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
     const supportedSinkDescription = `Receive Email notifications for entities ${actorDescription} subscribed to.`;
-    const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to enable Email notifications.`;
+    const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to enable Email notifications${
+        !isPersonal ? ' and ensure you have permission to manage notifications for this group' : ''
+    }.`;
 
     const saveSettings = () => {
         const input = inputValue ? { email: inputValue } : undefined;
@@ -124,56 +88,63 @@ export const EmailSinkSettingsSection = ({
         setIsEditing(false);
     };
 
-    const onToggle = (enabled: boolean) => {
-        toggleSink(enabled);
-    };
-
     return (
-        <SinkSettings>
-            <Switch disabled={!sinkSupported} checked={sinkEnabled} onChange={onToggle} />
-            <SinkTextContainer>
-                <SinkTitle strong>Email Notifications</SinkTitle>
-                <SinkDescription>
-                    {sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
+        <ToggleCard
+            title="Email Notifications"
+            subTitle={sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
+            disabled={!sinkSupported}
+            value={sinkEnabled}
+            onToggle={toggleSink}
+            toggleDataTestId="personal-email-notifications-enabled-switch"
+        >
+            {sinkEnabled ? (
+                <SinkConfigurationContainer>
                     {sinkEnabled && inputValue && !editing && (
-                        <>
-                            <br />
+                        <CurrentValue>
                             <strong>{inputValue}</strong>
-                            <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
-                                <EditDescription strong>edit</EditDescription>
-                            </SinkEditButton>
+                            <Button
+                                variant="text"
+                                onClick={() => setIsEditing(true)}
+                                data-testid="personal-email-notifications-edit-email-button"
+                            >
+                                Edit
+                            </Button>
+                        </CurrentValue>
+                    )}
+                    {editing && (
+                        <>
+                            <SinkButtonsContainer>
+                                <Form form={form}>
+                                    <StyledFormItem name="emailFormValue">
+                                        <StyledInput
+                                            placeholder="Email Address"
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            data-testid="personal-email-notifications-edit-email-input"
+                                        />
+                                    </StyledFormItem>
+                                </Form>
+                                <SaveButton
+                                    onClick={saveButtonOnClick}
+                                    disabled={!inputValue || inputValue.length < 2}
+                                    data-testid="personal-email-notifications-save-email-button"
+                                >
+                                    Save
+                                </SaveButton>
+                                <CancelButton
+                                    variant="outline"
+                                    color="gray"
+                                    onClick={cancelButtonOnClick}
+                                    data-testid="personal-email-notifications-cancel-email-button"
+                                >
+                                    Cancel
+                                </CancelButton>
+                            </SinkButtonsContainer>
+                            <HelperText>The email address where notifications will be sent.</HelperText>
                         </>
                     )}
-                </SinkDescription>
-                {sinkEnabled && (
-                    <>
-                        <SinkButtonsContainer>
-                            {editing && (
-                                <>
-                                    <Form form={form}>
-                                        <StyledFormItem name="emailFormValue">
-                                            <StyledInput
-                                                placeholder="Email Address"
-                                                value={inputValue}
-                                                onChange={(e) => setInputValue(e.target.value)}
-                                            />
-                                        </StyledFormItem>
-                                    </Form>
-                                    <SaveButton
-                                        type="primary"
-                                        onClick={saveButtonOnClick}
-                                        disabled={!inputValue || inputValue.length < 2}
-                                    >
-                                        Save
-                                    </SaveButton>
-                                    <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
-                                </>
-                            )}
-                        </SinkButtonsContainer>
-                        {editing && <HelperText>This is the email address where notifications will be sent</HelperText>}
-                    </>
-                )}
-            </SinkTextContainer>
-        </SinkSettings>
+                </SinkConfigurationContainer>
+            ) : null}
+        </ToggleCard>
     );
 };
