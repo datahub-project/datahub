@@ -50,11 +50,12 @@ export const Button = ({
         );
     }
 
+    // Prefer `icon.size` over `size` for icon size
     return (
         <ButtonBase {...styleProps} {...props}>
-            {icon && iconPosition === 'left' && <Icon {...icon} size={icon.size || size} />}
+            {icon && iconPosition === 'left' && <Icon size={size} {...icon} />}
             {!isCircle && children}
-            {icon && iconPosition === 'right' && <Icon {...icon} size={icon.size || size} />}
+            {icon && iconPosition === 'right' && <Icon size={size} {...icon} />}
         </ButtonBase>
     );
 };

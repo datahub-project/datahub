@@ -76,7 +76,7 @@ export const Input = ({
                 </Label>
             )}
             <InputContainer {...inputBaseProps}>
-                {icon && <SearchIcon {...icon} size="xl" />}
+                {icon && <SearchIcon size="xl" {...icon} />}
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}
