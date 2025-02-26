@@ -16,7 +16,11 @@ type Props = {
 export default function EditButton({ setShowSelectMode, disabled }: Props) {
     return (
         <Tooltip title="Edit..." showArrow={false} placement="top">
-            <StyledButton onClick={() => setShowSelectMode(true)} disabled={disabled}>
+            <StyledButton
+                onClick={() => setShowSelectMode(true)}
+                disabled={disabled}
+                data-testid="search-results-edit-button"
+            >
                 <EditOutlined />
             </StyledButton>
         </Tooltip>

@@ -372,6 +372,7 @@ export const EditOwnersModal = ({
                             ref={inputEl}
                             placeholder="Search for users or groups..."
                             showSearch
+                            data-testid="edit-owners-modal-find-actors-input"
                             filterOption={false}
                             defaultActiveFirstOption={false}
                             onSelect={(asset: any) => onSelectOwner(asset)}
