@@ -42,7 +42,7 @@ jobs:
         # Note: not using acryldata/sane-checkout-action because this is a
         # pull_request_target event, and hence requires `ref`.
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
