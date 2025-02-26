@@ -907,4 +907,15 @@ public class ESUtils {
             queryFilterRewriteChain);
     return QueryBuilders.boolQuery().should(isLatest).should(isNotVersioned).minimumShouldMatch(1);
   }
+
+  public static Optional<String> getSystemModifiedAtFieldName(
+      @Nonnull SearchableFieldSpec searchableFieldSpec) {
+    final String fieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+    return searchableFieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()
+        ? searchableFieldSpec
+            .getSearchableAnnotation()
+            .getSystemModifiedAtFieldName()
+            .or(() -> Optional.of(String.format("%sSystemModifiedAt", fieldName)))
+        : Optional.empty();
+  }
 }

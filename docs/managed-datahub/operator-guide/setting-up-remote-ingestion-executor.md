@@ -125,6 +125,50 @@ The Helm chart [datahub-executor-worker](https://executor-helm.acryl.io/index.ya
     --set image.tag=v0.3.1 \
     acryl datahub-executor-worker
   ```
+9. As of DataHub Cloud `v0.3.8.2` It is possible to pass secrets to ingestion recipes using Kubernetes Secret CRDs as shown below. This allows to update secrets at runtime without restarting Remote Executor process.
+  ```
+    # 1. Create K8s Secret object in remote executor namespace, e.g.
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: datahub-secret-store
+    data:
+      REDSHIFT_PASSWORD: cmVkc2hpZnQtc2VjcmV0Cg==
+      SNOWFLAKE_PASSWORD: c25vd2ZsYWtlLXNlY3JldAo=
+    # 2. Add secret into your Remote Executor deployment:
+    extraVolumes:
+      - name: datahub-secret-store
+        secret:
+          secretName: datahub-secret-store
+    # 3. Mount it under /mnt/secrets directory
+    extraVolumeMounts:
+    - mountPath: /mnt/secrets
+      name: datahub-secret-store
+  ```
+You can then reference the mounted secrets directly in the ingestion recipe:
+```yaml
+source:
+    type: redshift
+    config:
+        host_port: '<redshift host:port>'
+        username: connector_test
+        table_lineage_mode: mixed
+        include_table_lineage: true
+        include_tables: true
+        include_views: true
+        profiling:
+            enabled: true
+            profile_table_level_only: false
+        stateful_ingestion:
+            enabled: true
+        password: '${REDSHIFT_PASSWORD}'
+``` 
+
+By default the executor will look for files mounted in `/mnt/secrets`, this is override-able by setting the env var: 
+`DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR` to a different location (default: `/mnt/secrets`)
+
+These files are expected to be under 1MB in data by default. To increase this limit set a higher value using:
+`DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN` (default: `1024768`, size in bytes)
 
 ## FAQ
 

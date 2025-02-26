@@ -26,13 +26,9 @@ import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import { REDESIGN_COLORS } from '../shared/constants';
+import { TabType } from './types';
 
 const messageStyle = { marginTop: '10%' };
-
-export enum TabType {
-    Assets = 'Owner Of',
-    Members = 'Members',
-}
 
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
@@ -119,7 +115,7 @@ export default function GroupProfile({ urn }: Props) {
             },
             {
                 name: TabType.Members,
-                path: TabType.Members.toLocaleLowerCase(),
+                path: TabType.Members.toLocaleLowerCase(), // do not remove toLocaleLowerCase as we link to this tab elsewhere
                 content: (
                     <GroupMembers
                         urn={urn}

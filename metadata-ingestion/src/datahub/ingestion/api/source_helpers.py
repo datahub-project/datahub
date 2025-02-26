@@ -250,6 +250,10 @@ def auto_browse_path_v2(
     emitted_urns: Set[str] = set()
     containers_used_as_parent: Set[str] = set()
     for urn, batch in _batch_workunits_by_urn(stream):
+        # Do not generate browse path v2 for entities that do not support it
+        if not entity_supports_aspect(guess_entity_type(urn), BrowsePathsV2Class):
+            yield from batch
+            continue
         container_path: Optional[List[BrowsePathEntryClass]] = None
         legacy_path: Optional[List[BrowsePathEntryClass]] = None
         browse_path_v2: Optional[List[BrowsePathEntryClass]] = None

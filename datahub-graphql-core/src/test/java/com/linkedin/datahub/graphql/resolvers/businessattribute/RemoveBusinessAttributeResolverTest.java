@@ -4,6 +4,8 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mockStatic;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -13,15 +15,19 @@ import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.urn.BusinessAttributeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddBusinessAttributeInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -39,16 +45,12 @@ public class RemoveBusinessAttributeResolverTest {
   private void init() {
     mockService = getMockEntityService();
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-  }
-
-  private void setupAllowContext() {
     mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
   }
 
   @Test
   public void testSuccess() throws Exception {
-    setupAllowContext();
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
 
@@ -70,7 +72,6 @@ public class RemoveBusinessAttributeResolverTest {
 
   @Test
   public void testBusinessAttributeNotAdded() throws Exception {
-    setupAllowContext();
     AddBusinessAttributeInput input = addBusinessAttributeInput();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(
@@ -96,6 +97,42 @@ public class RemoveBusinessAttributeResolverTest {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(
             any(OperationContext.class), Mockito.any(AspectsBatchImpl.class), eq(false));
+  }
+
+  @Test
+  public void testActorNotHavePermissionToRemoveBusinessAttribute() throws Exception {
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString((BUSINESS_ATTRIBUTE_URN))),
+                eq(true)))
+        .thenReturn(true);
+
+    AddBusinessAttributeInput businessAttributeInput = addBusinessAttributeInput();
+    List<ResourceRefInput> resourceRefInputs = businessAttributeInput.getResourceUrn();
+
+    try (MockedStatic<BusinessAttributeUtils> mockedStatic =
+        mockStatic(BusinessAttributeUtils.class)) {
+      mockedStatic
+          .when(
+              () ->
+                  BusinessAttributeUtils.validateInputResources(
+                      resourceRefInputs, mockEnv.getContext()))
+          .thenThrow(
+              new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator."));
+
+      AddBusinessAttributeResolver addBusinessAttributeResolver =
+          new AddBusinessAttributeResolver(mockService);
+      addBusinessAttributeResolver.get(mockEnv).get();
+
+      assertThrows(
+          AuthorizationException.class,
+          () -> {
+            BusinessAttributeUtils.validateInputResources(resourceRefInputs, mockEnv.getContext());
+          });
+    }
   }
 
   public AddBusinessAttributeInput addBusinessAttributeInput() {

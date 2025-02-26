@@ -14,8 +14,6 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityApiUtils;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -25,7 +23,6 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -86,47 +83,8 @@ public class ChangeItemImpl implements ChangeMCP {
   @Nonnull private final AspectSpec aspectSpec;
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
-  private long nextAspectVersion;
+  @Setter private long nextAspectVersion;
   private final Map<String, String> headers;
-
-  @Override
-  public void setNextAspectVersion(long nextAspectVersion) {
-    this.nextAspectVersion = nextAspectVersion;
-    try {
-      this.systemMetadata = new SystemMetadata(getSystemMetadata().copy().data());
-    } catch (CloneNotSupportedException e) {
-      throw new RuntimeException(e);
-    }
-    this.systemMetadata.setVersion(String.valueOf(nextAspectVersion + 1));
-  }
-
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
-    EntityAspect entityAspect = new EntityAspect();
-    entityAspect.setAspect(getAspectName());
-    entityAspect.setMetadata(EntityApiUtils.toJsonAspect(getRecordTemplate()));
-    entityAspect.setUrn(getUrn().toString());
-    entityAspect.setVersion(nextAspectVersion == null ? getNextAspectVersion() : nextAspectVersion);
-    entityAspect.setCreatedOn(new Timestamp(getAuditStamp().getTime()));
-    entityAspect.setCreatedBy(getAuditStamp().getActor().toString());
-    if (nextAspectVersion != null) {
-      // Apply version to system metadata (copy to ensure we don't pollute shared systemMetadata
-      // objects across aspects)
-      SystemMetadata updatedSystemMetadata = null;
-      try {
-        updatedSystemMetadata = new SystemMetadata(getSystemMetadata().copy().data());
-      } catch (CloneNotSupportedException e) {
-        throw new RuntimeException(e);
-      }
-      updatedSystemMetadata.setVersion(String.valueOf(nextAspectVersion + 1));
-      entityAspect.setSystemMetadata(EntityApiUtils.toJsonAspect(updatedSystemMetadata));
-    } else {
-      entityAspect.setSystemMetadata(EntityApiUtils.toJsonAspect(getSystemMetadata()));
-    }
-    return EntityAspect.EntitySystemAspect.builder()
-        .build(getEntitySpec(), getAspectSpec(), entityAspect);
-  }
 
   @Nonnull
   public MetadataChangeProposal getMetadataChangeProposal() {
@@ -252,6 +210,7 @@ public class ChangeItemImpl implements ChangeMCP {
           .metadataChangeProposal(mcp)
           .auditStamp(auditStamp)
           .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
+          .nextAspectVersion(this.nextAspectVersion)
           .build(aspectRetriever);
     }
 
@@ -272,7 +231,7 @@ public class ChangeItemImpl implements ChangeMCP {
         aspect =
             GenericRecordUtils.deserializeAspect(
                 mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        ValidationApiUtils.validateOrThrow(aspect);
+        ValidationApiUtils.validateTrimOrThrow(aspect);
       } catch (ModelConversionException e) {
         throw new RuntimeException(
             String.format(
