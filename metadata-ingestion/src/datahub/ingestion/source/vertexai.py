@@ -3,7 +3,7 @@ import logging
 import os
 import tempfile
 import time
-from typing import Any, Iterable, List, Optional, TypeVar, Dict
+from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform import (
@@ -35,18 +35,16 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
-    SubTypesClass,
-    TimeStampClass,
-)
-from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
+    SubTypesClass,
+    TimeStampClass,
     VersionTagClass,
 )
 
@@ -54,8 +52,8 @@ T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
-class GCPCredential(ConfigModel):
 
+class GCPCredential(ConfigModel):
     private_key_id: str = Field(description="Private key id")
     private_key: str = Field(
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
@@ -89,8 +87,7 @@ class GCPCredential(ConfigModel):
             )
         return values
 
-    def create_credential_temp_file(self, project_id:str) -> str:
-
+    def create_credential_temp_file(self, project_id: str) -> str:
         # Adding project_id from the top level config
         configs = self.dict()
         configs["project_id"] = project_id
@@ -123,7 +120,9 @@ class VertexAIConfig(EnvConfigMixin):
         super().__init__(**data)
 
         if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file(self.project_id)
+            self._credentials_path = self.credential.create_credential_temp_file(
+                self.project_id
+            )
             logger.debug(
                 f"Creating temporary credential file at {self._credentials_path}"
             )
@@ -291,7 +290,9 @@ class VertexAISource(Source):
             aspect=MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
-                createdAt=int(model.create_time.timestamp()),
+                createdAt=int(model.create_time.timestamp())
+                if model.create_time
+                else None,
                 customProperties={"displayName": model.display_name},
             ),
         )
@@ -313,7 +314,11 @@ class VertexAISource(Source):
         Generate a work unit for VertexAI Training Job
         """
 
-        created_time = int(job.create_time.timestamp()) or int(time.time() * 1000)
+        created_time = (
+            int(job.create_time.timestamp())
+            if job.create_time
+            else int(time.time() * 1000)
+        )
         created_actor = f"urn:li:platformResource:{self.platform}"
 
         job_id = self._make_vertexai_job_name(entity_id=job.name)
@@ -328,13 +333,15 @@ class VertexAISource(Source):
                     actor=created_actor,
                 ),
                 externalUrl=self._make_job_external_url(job),
-                customProperties={"displayName": job.display_name},
+                customProperties={
+                    "displayName": job.display_name,
+                    "jobType": job.__class__.__name__,
+                },
             ),
         )
 
-        jobtype = job.__class__.__name__
         subtype_mcp = MetadataChangeProposalWrapper(
-            entityUrn=entityUrn, aspect=SubTypesClass(typeNames=[f"{jobtype}"])
+            entityUrn=entityUrn, aspect=SubTypesClass(typeNames=["Training Job"])
         )
 
         yield from auto_workunit([prop_mcp, subtype_mcp])
@@ -457,7 +464,7 @@ class VertexAISource(Source):
                 # Create URN of Input Dataset for Training Job
                 dataset_id = job_conf["inputDataConfig"]["datasetId"]
                 logger.info(
-                    f" found a training job: {job.display_name} used input dataset: {id: dataset_id}"
+                    f" found a training job: {job.display_name} used input dataset id: {dataset_id}"
                 )
 
                 if dataset_id:
@@ -480,20 +487,19 @@ class VertexAISource(Source):
             env=self.config.env,
         )
 
-        dataset = self._search_dataset(dataset_id)
+        dataset = self._search_dataset(dataset_id) if dataset_id else None
         if dataset:
             yield from self._get_dataset_workunit(urn=dataset_urn, ds=dataset)
-
-        # Create URN of Training Job
-        job_id = self._make_vertexai_job_name(entity_id=job.name)
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=builder.make_data_process_instance_urn(job_id),
-            aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
-        )
-        logger.info(
-            f" found training job :{job.display_name} used input dataset : {dataset_name}"
-        )
-        yield from auto_workunit([mcp])
+            # Create URN of Training Job
+            job_id = self._make_vertexai_job_name(entity_id=job.name)
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=builder.make_data_process_instance_urn(job_id),
+                aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
+            )
+            logger.info(
+                f" found training job :{job.display_name} used input dataset : {dataset_name}"
+            )
+            yield from auto_workunit([mcp])
 
     def _get_ml_model_endpoint_workunit(
         self,
@@ -562,8 +568,12 @@ class VertexAISource(Source):
                 + model_version.version_id,
                 "resourceName": model.resource_name,
             },
-            created=TimeStampClass(model_version.version_create_time.second),
-            lastModified=TimeStampClass(model_version.version_update_time.second),
+            created=TimeStampClass(model_version.version_create_time.second)
+            if model_version.version_create_time
+            else None,
+            lastModified=TimeStampClass(model_version.version_update_time.second)
+            if model_version.version_update_time
+            else None,
             version=VersionTagClass(versionTag=str(model_version.version_id)),
             groups=[ml_model_group_urn],  # link model version to model group
             trainingJobs=[training_job_urn]
@@ -631,7 +641,9 @@ class VertexAISource(Source):
         entity_type = "dataset"
         return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
 
-    def _make_vertexai_job_name(self, entity_id: str, separator: str = ".") -> str:
+    def _make_vertexai_job_name(
+        self, entity_id: Optional[str], separator: str = "."
+    ) -> str:
         entity_type = "job"
         return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
 
