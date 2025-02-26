@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -98,11 +98,11 @@ def recipients_without_creator() -> list[NotificationRecipientClass]:
     "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
 )
 def test_send_broadcast_proposal_status_change_with_creator(
-    mock_build_broadcast_params,
-    mock_build_proposer_params,
+    mock_build_broadcast_params: MagicMock,
+    mock_build_proposer_params: MagicMock,
     sink_with_base_url: EmailNotificationSink,
-    recipients_with_creator,
-):
+    recipients_with_creator: List[Any],
+) -> None:
     # Prepare dummy parameters
     dummy_proposer_params = {"subject": "Personal Notification"}
     dummy_broadcast_params = {"subject": "Broadcast Notification"}
@@ -119,7 +119,7 @@ def test_send_broadcast_proposal_status_change_with_creator(
     )
 
     # Spy on _send_change_notification calls.
-    sink_with_base_url._send_change_notification = MagicMock()
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
     # Call the new method directly.
     sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
@@ -159,11 +159,11 @@ def test_send_broadcast_proposal_status_change_with_creator(
     "datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters"
 )
 def test_send_broadcast_proposal_status_change_with_creator_no_match(
-    mock_build_proposer_params,
-    mock_build_broadcast_params,
+    mock_build_proposer_params: MagicMock,
+    mock_build_broadcast_params: MagicMock,
     sink_with_base_url: EmailNotificationSink,
-    recipients_without_creator,
-):
+    recipients_without_creator: List[Any],
+) -> None:
     # Even though a creatorUrn is provided, no recipient has that actor.
     dummy_broadcast_params = {"subject": "Broadcast Notification"}
     mock_build_broadcast_params.return_value = dummy_broadcast_params
@@ -179,7 +179,7 @@ def test_send_broadcast_proposal_status_change_with_creator_no_match(
     )
 
     # Spy on _send_change_notification.
-    sink_with_base_url._send_change_notification = MagicMock()
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
     sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
 
@@ -196,10 +196,10 @@ def test_send_broadcast_proposal_status_change_with_creator_no_match(
     "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
 )
 def test_send_broadcast_proposal_status_change_without_creator(
-    mock_build_broadcast_params,
+    mock_build_broadcast_params: MagicMock,
     sink_with_base_url: EmailNotificationSink,
-    recipients_without_creator,
-):
+    recipients_without_creator: List[Any],
+) -> None:
     # Test the case when there is no creatorUrn at all.
     dummy_broadcast_params = {"subject": "Broadcast Notification"}
     mock_build_broadcast_params.return_value = dummy_broadcast_params
@@ -213,7 +213,7 @@ def test_send_broadcast_proposal_status_change_without_creator(
     )
 
     # Spy on _send_change_notification.
-    sink_with_base_url._send_change_notification = MagicMock()
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
     sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
 

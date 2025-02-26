@@ -91,12 +91,6 @@ class SlackNotificationSink(NotificationSink):
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_incident_status_change_notification(
                 request
             ),
-            NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL: lambda: self._send_new_proposal_notification(
-                request
-            ),
-            NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE: lambda: self._send_proposal_status_change(
-                request
-            ),
         }
 
         # Execute the corresponding function or raise an exception for unsupported types
