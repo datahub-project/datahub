@@ -2,7 +2,8 @@ from io import StringIO
 
 import yaml
 
-from datahub.sdk.search_client import Filter, FilterDsl as F, load_filters
+from datahub.sdk.search_client import FilterDsl as F
+from datahub.sdk.search_filters import Filter, load_filters
 
 
 def test_filters_simple() -> None:
