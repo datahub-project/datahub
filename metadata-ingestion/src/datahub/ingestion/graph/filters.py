@@ -74,12 +74,12 @@ def generate_filter(
 
     # Browse path v2 filter.
     if container:
-        and_filters.append(_get_container_filter(container))
+        and_filters.append(_get_container_filter(container).to_raw())
 
     # Status filter.
     status_filter = _get_status_filter(status)
     if status_filter:
-        and_filters.append(status_filter)
+        and_filters.append(status_filter.to_raw())
 
     # Extra filters.
     if extra_filters:
@@ -138,25 +138,25 @@ def _get_env_filters(env: str) -> List[RawSearchFilterRule]:
     ]
 
 
-def _get_status_filter(status: RemovedStatusFilter) -> Optional[RawSearchFilterRule]:
+def _get_status_filter(status: RemovedStatusFilter) -> Optional[SearchFilterRule]:
     if status == RemovedStatusFilter.NOT_SOFT_DELETED:
         # Subtle: in some cases (e.g. when the dataset doesn't have a status aspect), the
         # removed field is simply not present in the ElasticSearch document. Ideally this
         # would be a "removed" : "false" filter, but that doesn't work. Instead, we need to
         # use a negated filter.
-        return {
-            "field": "removed",
-            "values": ["true"],
-            "condition": "EQUAL",
-            "negated": True,
-        }
+        return SearchFilterRule(
+            field="removed",
+            values=["true"],
+            condition="EQUAL",
+            negated=True,
+        )
 
     elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
-        return {
-            "field": "removed",
-            "values": ["true"],
-            "condition": "EQUAL",
-        }
+        return SearchFilterRule(
+            field="removed",
+            values=["true"],
+            condition="EQUAL",
+        )
 
     elif status == RemovedStatusFilter.ALL:
         # We don't need to add a filter for this case.
@@ -165,17 +165,17 @@ def _get_status_filter(status: RemovedStatusFilter) -> Optional[RawSearchFilterR
         raise ValueError(f"Invalid status filter: {status}")
 
 
-def _get_container_filter(container: str) -> RawSearchFilterRule:
+def _get_container_filter(container: str) -> SearchFilterRule:
     # Warn if container is not a fully qualified urn.
     # TODO: Change this once we have a first-class container urn type.
     if guess_entity_type(container) != "container":
         raise ValueError(f"Invalid container urn: {container}")
 
-    return {
-        "field": "browsePathV2",
-        "values": [container],
-        "condition": "CONTAIN",
-    }
+    return SearchFilterRule(
+        field="browsePathV2",
+        values=[container],
+        condition="CONTAIN",
+    )
 
 
 def _get_platform_instance_filter(

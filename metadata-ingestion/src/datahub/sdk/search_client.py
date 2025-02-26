@@ -17,13 +17,14 @@ import pydantic
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
 AndSearchFilterRule = TypedDict("AndSearchFilterRule", {"and": List[SearchFilterRule]})
-FullSearchFilterRule = TypedDict
+OrFilters = List[AndSearchFilterRule]
 
 
 class _BaseFilter(ConfigModel):
@@ -32,22 +33,72 @@ class _BaseFilter(ConfigModel):
         populate_by_name = True
 
     @abc.abstractmethod
-    def compile(self) -> FullSearchFilterRule:
+    def compile(self) -> OrFilters:
         pass
 
 
 class Platform(_BaseFilter):
     platform: List[str]
-
     # TODO: Add validator to convert string -> list of strings
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="platform.keyword",
+            condition="EQUAL",
+            values=[DataPlatformUrn(platform).urn() for platform in self.platform],
+        )
+
+    def compile(self) -> OrFilters:
+        return [{"and": [self._build_rule()]}]
 
 
 class Domain(_BaseFilter):
     domain: List[str]
 
+    def _build_rule(self) -> SearchFilterRule:
+        for domain in self.domain:
+            assert DomainUrn.from_string(domain)
+        return SearchFilterRule(
+            field="domains",
+            condition="EQUAL",
+            values=self.domain,
+        )
+
+    def compile(self) -> OrFilters:
+        return [{"and": [self._build_rule()]}]
+
 
 class Env(_BaseFilter):
+    # Note that not all entity types have an env (e.g. dashboards / charts).
+    # If the env filter is specified, these will be excluded.
     env: List[str]
+
+    def compile(self) -> OrFilters:
+        return [
+            # For most entity types, we look at the origin field.
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="origin",
+                        condition="EQUAL",
+                        values=self.env,
+                    ),
+                ]
+            },
+            # For containers, we now have an "env" property as of
+            # https://github.com/datahub-project/datahub/pull/11214
+            # Prior to this, we put "env" in the customProperties. But we're
+            # not bothering with that here.
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="env",
+                        condition="EQUAL",
+                        values=self.env,
+                    ),
+                ]
+            },
+        ]
 
 
 class CustomCondition(_BaseFilter):
