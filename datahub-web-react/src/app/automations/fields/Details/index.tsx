@@ -6,6 +6,7 @@ import { Tooltip } from '@components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 
+import RemoteExecutorPoolSelector from '@src/app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 import { CategorySelector } from '../CategorySelector';
 
 const { Panel } = Collapse;
@@ -96,13 +97,11 @@ export const Details = ({ state, props, passStateToParent }: ComponentBaseProps)
                                 <Info />
                             </Tooltip>
                         </StyledLabel>
-                        <Input
-                            type="text"
-                            name="executorId"
+                        <RemoteExecutorPoolSelector
                             value={executorId}
+                            onChange={(value) => handleChange('executorId', value)}
+                            onBlur={(value) => handleChange('executorId', value)}
                             placeholder={executor.placeholder}
-                            onChange={(e) => handleChange('executorId', e.target.value)}
-                            required={false}
                         />
                     </div>
                 </Panel>
