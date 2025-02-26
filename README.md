@@ -30,26 +30,26 @@ HOSTED_DOCS_ONLY-->
 
 <div>
   <a target="_blank" href="https://github.com/datahub-project/datahub/blob/master/LICENSE" style="background:none">
-    <img alt="Apache 2.0 License" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?label=license&labelColor=133554&color=1890ff">
+    <img alt="Apache 2.0 License" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?label=license&labelColor=133554&color=1890ff" />
   </a>
   <a target="_blank" href="https://pypi.org/project/acryl-datahub/" style="background:none">
-    <img alt="PyPI" src="https://img.shields.io/pypi/dm/acryl-datahub?label=downloads&labelColor=133554&color=1890ff">
+    <img alt="PyPI" src="https://img.shields.io/pypi/dm/acryl-datahub?label=downloads&labelColor=133554&color=1890ff" />
   </a>
   <a target="_blank" href="https://github.com/datahub-project/datahub/pulse" style="background:none">
-    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?label=commits&labelColor=133554&color=1890ff">
+    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?label=commits&labelColor=133554&color=1890ff" />
   </a>
   <br />
   <a target="_blank" href="https://pages.acryl.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme" style="background:none">
-    <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff">
+    <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" />
   </a>
   <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
     <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/>
   </a>
   <a href="https://blog.datahubproject.io/">
-    <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff"/>
+    <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" />
   </a>
   <a href="https://x.com/datahubproject">
-    <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff"/>
+    <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" />
   </a>
 </div>
 
