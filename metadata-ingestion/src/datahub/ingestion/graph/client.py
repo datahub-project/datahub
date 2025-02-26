@@ -42,8 +42,8 @@ from datahub.ingestion.graph.connections import (
 )
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
+    RawSearchFilterRule,
     RemovedStatusFilter,
-    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -797,7 +797,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
+        extraFilters: Optional[List[RawSearchFilterRule]] = None,
     ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
         """Fetch schema info for datasets that match all of the given filters.
 
@@ -873,8 +873,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extraFilters: Optional[List[RawSearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -965,8 +965,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
-        extra_and_filters: Optional[List[SearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
         extra_source_fields: Optional[List[str]] = None,
         skip_cache: bool = False,
     ) -> Iterable[dict]:

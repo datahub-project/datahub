@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 from typing import Any, Dict, List, Optional
 
@@ -7,7 +8,23 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
-SearchFilterRule = Dict[str, Any]
+RawSearchFilterRule = Dict[str, Any]
+
+
+@dataclasses.dataclass
+class SearchFilterRule:
+    field: str
+    condition: str
+    values: List[str]
+    negated: bool = False
+
+    def to_raw(self) -> RawSearchFilterRule:
+        return {
+            "field": self.field,
+            "condition": self.condition,
+            "values": self.values,
+            "negated": self.negated,
+        }
 
 
 class RemovedStatusFilter(enum.Enum):
@@ -29,9 +46,9 @@ def generate_filter(
     env: Optional[str],
     container: Optional[str],
     status: RemovedStatusFilter,
-    extra_filters: Optional[List[SearchFilterRule]],
-    extra_or_filters: Optional[List[SearchFilterRule]] = None,
-) -> List[Dict[str, List[SearchFilterRule]]]:
+    extra_filters: Optional[List[RawSearchFilterRule]],
+    extra_or_filters: Optional[List[RawSearchFilterRule]] = None,
+) -> List[Dict[str, List[RawSearchFilterRule]]]:
     """
     Generate a search filter based on the provided parameters.
     :param platform: The platform to filter by.
@@ -43,15 +60,17 @@ def generate_filter(
     :param extra_or_filters: Extra OR filters to apply. These are combined with
     the AND filters using an OR at the top level.
     """
-    and_filters: List[SearchFilterRule] = []
+    and_filters: List[RawSearchFilterRule] = []
 
     # Platform filter.
     if platform:
-        and_filters.append(_get_platform_filter(platform))
+        and_filters.append(_get_platform_filter(platform).to_raw())
 
     # Platform instance filter.
     if platform_instance:
-        and_filters.append(_get_platform_instance_filter(platform, platform_instance))
+        and_filters.append(
+            _get_platform_instance_filter(platform, platform_instance).to_raw()
+        )
 
     # Browse path v2 filter.
     if container:
@@ -66,7 +85,7 @@ def generate_filter(
     if extra_filters:
         and_filters += extra_filters
 
-    or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
+    or_filters: List[Dict[str, List[RawSearchFilterRule]]] = [{"and": and_filters}]
 
     # Env filter
     if env:
@@ -89,7 +108,7 @@ def generate_filter(
     return or_filters
 
 
-def _get_env_filters(env: str) -> List[SearchFilterRule]:
+def _get_env_filters(env: str) -> List[RawSearchFilterRule]:
     # The env filter is a bit more tricky since it's not always stored
     # in the same place in ElasticSearch.
     return [
@@ -119,7 +138,7 @@ def _get_env_filters(env: str) -> List[SearchFilterRule]:
     ]
 
 
-def _get_status_filter(status: RemovedStatusFilter) -> Optional[SearchFilterRule]:
+def _get_status_filter(status: RemovedStatusFilter) -> Optional[RawSearchFilterRule]:
     if status == RemovedStatusFilter.NOT_SOFT_DELETED:
         # Subtle: in some cases (e.g. when the dataset doesn't have a status aspect), the
         # removed field is simply not present in the ElasticSearch document. Ideally this
@@ -146,7 +165,7 @@ def _get_status_filter(status: RemovedStatusFilter) -> Optional[SearchFilterRule
         raise ValueError(f"Invalid status filter: {status}")
 
 
-def _get_container_filter(container: str) -> SearchFilterRule:
+def _get_container_filter(container: str) -> RawSearchFilterRule:
     # Warn if container is not a fully qualified urn.
     # TODO: Change this once we have a first-class container urn type.
     if guess_entity_type(container) != "container":
@@ -171,16 +190,16 @@ def _get_platform_instance_filter(
     if guess_entity_type(platform_instance) != "dataPlatformInstance":
         raise ValueError(f"Invalid data platform instance urn: {platform_instance}")
 
-    return {
-        "field": "platformInstance",
-        "values": [platform_instance],
-        "condition": "EQUAL",
-    }
+    return SearchFilterRule(
+        field="platformInstance",
+        condition="EQUAL",
+        values=[platform_instance],
+    )
 
 
 def _get_platform_filter(platform: str) -> SearchFilterRule:
-    return {
-        "field": "platform.keyword",
-        "values": [make_data_platform_urn(platform)],
-        "condition": "EQUAL",
-    }
+    return SearchFilterRule(
+        field="platform.keyword",
+        condition="EQUAL",
+        values=[make_data_platform_urn(platform)],
+    )
