@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from unittest import mock
 
 from freezegun import freeze_time
@@ -22,7 +22,9 @@ def mock_user_to_add(*args, **kwargs):
     return None
 
 
-def register_mock_api(request_mock, override_mock_data: Optional[dict] = None):
+def register_mock_api(
+    request_mock: Any, override_mock_data: Optional[dict] = None
+) -> None:
     if override_mock_data is None:
         override_mock_data = {}
     api_vs_response = {
