@@ -8,7 +8,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     setValue?: React.Dispatch<React.SetStateAction<string>>;
     label: string;
     placeholder?: string;
-    icon?: { name: IconNames; source: IconSource; variant?: MaterialIconVariant };
+    icon?: { icon: IconNames; source: IconSource; variant?: MaterialIconVariant };
     error?: string;
     warning?: string;
     isSuccess?: boolean;

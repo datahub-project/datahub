@@ -1,7 +1,7 @@
-import { ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
+import { Icon, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { LineageDirection } from '../../../../../types.generated';
@@ -227,7 +227,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                         $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >
-                        <SearchOutlined />
+                        <Icon icon="MagnifyingGlass" source="phosphor" />
                     </AdvancedFiltersButton>
                 </Tooltip>
             </Filters>
