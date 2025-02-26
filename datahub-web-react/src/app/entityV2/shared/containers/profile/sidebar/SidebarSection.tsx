@@ -78,6 +78,7 @@ type Props = {
     collapsedContent?: React.ReactNode;
     collapsible?: boolean;
     expandedByDefault?: boolean;
+    showFullCount?: boolean;
 };
 
 export const SidebarSection = ({
@@ -88,6 +89,7 @@ export const SidebarSection = ({
     collapsedContent,
     collapsible = true,
     expandedByDefault = true,
+    showFullCount,
 }: Props) => {
     return (
         <StyledCollapse
@@ -102,7 +104,11 @@ export const SidebarSection = ({
                     <>
                         <SectionHeader collapsible={collapsible}>
                             <Title ellipsis={{ tooltip: true }}>{title}</Title>
-                            {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
+                            {count > 0 && (
+                                <CountStyle>
+                                    {showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}
+                                </CountStyle>
+                            )}
                         </SectionHeader>
                         {collapsedContent}
                     </>
