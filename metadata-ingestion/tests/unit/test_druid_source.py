@@ -8,6 +8,6 @@ def test_druid_uri():
 
 
 def test_druid_get_identifier():
-    config = DruidConfig.parse_obj({})
+    config = DruidConfig.parse_obj({"host_port": "localhost:8082"})
 
     assert config.get_identifier("schema", "table") == "table"
