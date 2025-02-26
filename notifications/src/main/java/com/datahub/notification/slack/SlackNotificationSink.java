@@ -607,7 +607,7 @@ public class SlackNotificationSink implements NotificationSink {
       // *PII*."
       return String.format(
           ":incoming_envelope: *New Proposal Raised*\n\n"
-              + "*%s* has proposed creating %s named %s%s. %s",
+              + "*%s* has proposed creating %s named *%s*%s. %s",
           actorName,
           modifierType,
           entityName, // used as the "new term name"
@@ -626,7 +626,7 @@ public class SlackNotificationSink implements NotificationSink {
       // View details"
       return String.format(
           ":incoming_envelope: *New Proposal Raised*\n\n"
-              + "*%s* has proposed %s for %s %s of %s. %s",
+              + "*%s* has proposed %s for %s *%s* of %s. %s",
           actorName, modifierStr, "schema field", maybeSubResource, entityLink, detailsLink);
     } else {
       // e.g. "John Joyce has proposed to add Tag(s) <...> for *SampleKafkaDataset*. View details"
@@ -674,7 +674,7 @@ public class SlackNotificationSink implements NotificationSink {
               : "";
       return String.format(
           ":incoming_envelope: *Proposal Status Changed*\n\n"
-              + "*%s* has %s the proposal to create %s named %s%s. %s",
+              + "*%s* has %s the proposal to create %s named *%s*%s. %s",
           actorName,
           action,
           modifierType,
@@ -691,7 +691,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (maybeSubResource != null && maybeSubResourceType != null) {
       return String.format(
           ":incoming_envelope: *Proposal Status Changed*\n\n"
-              + "*%s* has %s the proposal to %s %s for %s %s of %s. %s",
+              + "*%s* has %s the proposal to %s %s for %s *%s* of %s. %s",
           actorName,
           action,
           operation,
@@ -746,7 +746,7 @@ public class SlackNotificationSink implements NotificationSink {
               : "";
       return String.format(
           ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
-              + "Your proposal to create %s named %s%s has been *%s*.",
+              + "Your proposal to create %s named *%s*%s has been *%s*.",
           capitalize(action), modifierType, entityName, termGroupString, action);
     }
 
@@ -758,7 +758,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (maybeSubResource != null && maybeSubResourceType != null) {
       return String.format(
           ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
-              + "Your proposal to %s %s for %s %s of %s has been *%s*.",
+              + "Your proposal to %s %s for %s *%s* of %s has been *%s*.",
           capitalize(action),
           operation,
           modifierStr,

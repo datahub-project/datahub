@@ -149,11 +149,11 @@ const ASSERTION_NOTIFICATIONS = [
 const PROPOSAL_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.NewProposal,
-        description: 'A tag or glossary term proposal is raised',
+        description: 'A change proposal is raised',
     },
     {
         type: NotificationScenarioType.ProposalStatusChange,
-        description: 'A tag or glossary term proposal is approved or denied',
+        description: 'A change proposal is approved or denied',
     },
 ];
 

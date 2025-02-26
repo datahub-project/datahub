@@ -1336,7 +1336,7 @@ public class SlackNotificationSinkTest {
 
     assertTrue(messageText.contains("John Joyce"), "Should include actor name");
     assertTrue(
-        messageText.contains("creating Glossary Term named Email Address"),
+        messageText.contains("creating Glossary Term named *Email Address*"),
         "Should mention creating the glossary term with that name");
     assertTrue(
         messageText.contains("in Term Group *PII*"), "Should mention the parent glossary group");
@@ -1362,7 +1362,7 @@ public class SlackNotificationSinkTest {
 
     assertTrue(messageText.contains("John Joyce"), "Should include actor name");
     assertTrue(
-        messageText.contains("creating Glossary Term Group named PII"),
+        messageText.contains("creating Glossary Term Group named *PII*"),
         "Should mention creating the glossary term with that name");
     assertTrue(
         messageText.contains("in Term Group *Root*"), "Should mention the parent glossary group");

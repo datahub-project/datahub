@@ -66,7 +66,7 @@ export const EmailSinkSettingsSection = ({
     }, [email]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const supportedSinkDescription = `Receive Email notifications for entities ${actorDescription} subscribed to.`;
+    const supportedSinkDescription = `Receive Email notifications for assets ${actorDescription} subscribed to & important events.`;
     const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to enable Email notifications${
         !isPersonal ? ' and ensure you have permission to manage notifications for this group' : ''
     }.`;

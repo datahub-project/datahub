@@ -111,14 +111,11 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nullable final EntityChangeType changeType,
       @Nullable final Urn actorUrn,
       @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
-    System.out.println("Scenario type: " + type);
-    if (NotificationScenarioType.NEW_PROPOSAL.equals(type)) {
+    if (NotificationScenarioType.NEW_PROPOSAL.equals(type)
+        || NotificationScenarioType.PROPOSAL_STATUS_CHANGE.equals(type)) {
       // Fetch and add assignee recipients, depending on settings of course.
-      return buildAssigneeRecipientsForNewProposal(systemOpContext, entityUrn, extraContext);
-    }
-    if (NotificationScenarioType.PROPOSAL_STATUS_CHANGE.equals(type)) {
-      // Fetch and add proposer recipient, depending on settings of course.
-      return buildAssigneeRecipientsForNewProposal(systemOpContext, entityUrn, extraContext);
+      return buildAssigneeRecipientsForNewOrUpdatedProposal(
+          systemOpContext, entityUrn, extraContext, type);
     }
     if (NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.equals(type)) {
       // Fetch and add proposer recipient, depending on settings of course.
@@ -127,10 +124,11 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     return null;
   }
 
-  private List<NotificationRecipient> buildAssigneeRecipientsForNewProposal(
+  private List<NotificationRecipient> buildAssigneeRecipientsForNewOrUpdatedProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext,
+      @Nonnull final NotificationScenarioType type) {
 
     // Step 1: Fetch assignee urns from the entity.
     final ActionRequestInfo actionRequestInfo = getActionRequestInfo(entityUrn, extraContext);
@@ -160,8 +158,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Step 3: Build the recipients!
     final List<NotificationRecipient> recipients = new ArrayList<>();
-    recipients.addAll(
-        buildActorRecipients(opContext, allAssignedActors, NotificationScenarioType.NEW_PROPOSAL));
+    recipients.addAll(buildActorRecipients(opContext, allAssignedActors, type));
     return recipients;
   }
 
@@ -246,14 +243,6 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Step 3: Build the recipients!
     final List<NotificationRecipient> recipients = new ArrayList<>();
-
-    System.out.println("Building proposer!");
-    System.out.println(proposer.toString());
-    System.out.println(
-        buildActorRecipients(
-            opContext,
-            Collections.singletonList(proposer),
-            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE));
 
     recipients.addAll(
         buildActorRecipients(

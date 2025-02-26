@@ -24,6 +24,15 @@ const HelperText = styled.div`
     font-size: 12px;
 `;
 
+const CurrentValue = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 12px;
+    font-size: 14px;
+    color: ${colors.gray[1700]};
+`;
+
 type Props = {
     isPersonal: boolean;
     sinkSupported: boolean;
@@ -92,9 +101,7 @@ export const SlackSinkSettingsSection = ({
 
     const renderSinkDescription = () => {
         const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-        const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to at Slack ${
-            isPersonal ? 'member ID' : 'channel'
-        }: `;
+        const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to & important events.`;
         const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
         let description = <>{supportedSinkDescription}</>;
@@ -126,10 +133,10 @@ export const SlackSinkSettingsSection = ({
         >
             {sinkEnabled && (
                 <SinkConfigurationContainer>
-                    {inputValue && !editing && (
-                        <strong>
-                            <br /> {inputValue || 'No Slack channel or id set.'}
-                        </strong>
+                    {!editing && (
+                        <CurrentValue>
+                            {inputValue ? <strong>{inputValue}</strong> : 'No Slack channel or id set.'}
+                        </CurrentValue>
                     )}
                     {!editing && (
                         <Button
