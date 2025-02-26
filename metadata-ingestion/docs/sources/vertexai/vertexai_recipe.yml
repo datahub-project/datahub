@@ -3,8 +3,15 @@ source:
   config:
     project_id: "acryl-poc"
     region:  "us-west2"
+#    credential:
+#      project_id: "project_id"
+#      private_key: "private_key"
+#      private_key_id: "project_key_id"
+#      client_email: "client_email"
+#      client_id: "client_id"
 
 sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
+    token: "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjU5OTBhZjRjLTFiOTEtNDg1Zi1iNDk3LTJmZjVlODA0ODY3YSIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NDI4OTA1NDgsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.yDZzG_Kes9GCYIJeLRNibzTryyzIXG_ve6o3VcDByMo"
