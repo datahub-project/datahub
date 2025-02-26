@@ -1,6 +1,7 @@
 import logging
+import os
 import time
-from typing import Iterable, List, Optional, TypeVar
+from typing import Any, Iterable, List, Optional, TypeVar
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform import (
@@ -13,7 +14,7 @@ from google.cloud.aiplatform import (
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model, VersionInfo
-from google.cloud.aiplatform.training_jobs import _TrainingJob
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -30,6 +31,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.configs import GCPCredential
 from datahub.metadata._schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
@@ -51,6 +53,9 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAIConfig(EnvConfigMixin):
+    credential: Optional[GCPCredential] = Field(
+        default=None, description="GCP credential information"
+    )
     project_id: str = Field(description=("Project ID in Google Cloud Platform"))
     region: str = Field(
         description=("Region of your project in Google Cloud Platform"),
@@ -59,11 +64,22 @@ class VertexAIConfig(EnvConfigMixin):
         default=None,
         description=("Bucket URI used in your project"),
     )
-
     vertexai_url: Optional[str] = Field(
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
     )
+
+    _credentials_path: Optional[str] = PrivateAttr(None)
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self._credentials_path = self.credential.create_credential_temp_file()
+            logger.debug(
+                f"Creating temporary credential file at {self._credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
 
 @platform_name("Vertex AI")
@@ -209,10 +225,9 @@ class VertexAISource(Source):
     def _get_training_job_workunit(
         self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
-        if isinstance(job, _TrainingJob):
-            yield from self._get_data_process_properties_workunit(job)
-            yield from self._get_job_output_workunit(job)
-            yield from self._get_job_input_workunit(job)
+        yield from self._get_data_process_properties_workunit(job)
+        yield from self._get_job_output_workunit(job)
+        yield from self._get_job_input_workunit(job)
 
     def _get_ml_group_workunit(
         self,
@@ -276,7 +291,7 @@ class VertexAISource(Source):
 
         yield from auto_workunit([prop_mcp, subtype_mcp])
 
-    def _is_automl_job(self, job: _TrainingJob) -> bool:
+    def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
         return (
             isinstance(job, AutoMLTabularTrainingJob)
             or isinstance(job, AutoMLTextTrainingJob)
@@ -292,7 +307,9 @@ class VertexAISource(Source):
                 return version
         return None
 
-    def _get_job_output_workunit(self, job: _TrainingJob) -> Iterable[MetadataWorkUnit]:
+    def _get_job_output_workunit(
+        self, job: VertexAiResourceNoun
+    ) -> Iterable[MetadataWorkUnit]:
         """
         This method creates work units that link the training job to the model version
         that it produces. It checks if the job configuration contains a model to upload,
@@ -313,7 +330,7 @@ class VertexAISource(Source):
             model_version = self._search_model_version(model, model_version_str)
             if model and model_version:
                 logger.info(
-                    f"found that training job: {job.display_name} generated "
+                    f" found a training job: {job.display_name} generated "
                     f"a model (name:{model.display_name} id:{model_version_str})"
                 )
                 yield from self._get_ml_model_endpoint_workunit(
@@ -374,7 +391,9 @@ class VertexAISource(Source):
 
         yield from auto_workunit(mcps)
 
-    def _get_job_input_workunit(self, job: _TrainingJob) -> Iterable[MetadataWorkUnit]:
+    def _get_job_input_workunit(
+        self, job: VertexAiResourceNoun
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate work units for the input data of a training job.
         This method checks if the training job is an AutoML job and if it has an input dataset
@@ -390,14 +409,14 @@ class VertexAISource(Source):
                 # Create URN of Input Dataset for Training Job
                 dataset_id = job_conf["inputDataConfig"]["datasetId"]
                 logger.info(
-                    f"found that training job {job.display_name} used input dataset: {dataset_id}"
+                    f" found a training job: {job.display_name} used input dataset: {id: dataset_id}"
                 )
 
                 if dataset_id:
                     yield from self._get_data_process_input_workunit(job, dataset_id)
 
     def _get_data_process_input_workunit(
-        self, job: _TrainingJob, dataset_id: str
+        self, job: VertexAiResourceNoun, dataset_id: str
     ) -> Iterable[MetadataWorkUnit]:
         """
         This method creates a work unit for the input dataset of a training job. It constructs the URN
@@ -423,7 +442,9 @@ class VertexAISource(Source):
             entityUrn=builder.make_data_process_instance_urn(job_id),
             aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
         )
-        logger.info(f"generating input dataset {dataset_name}")
+        logger.info(
+            f" found training job :{job.display_name} used input dataset : {dataset_name}"
+        )
         yield from auto_workunit([mcp])
 
     def _get_ml_model_endpoint_workunit(
@@ -534,7 +555,7 @@ class VertexAISource(Source):
         )
         return urn
 
-    def _make_job_urn(self, job: _TrainingJob) -> str:
+    def _make_job_urn(self, job: VertexAiResourceNoun) -> str:
         job_id = self._make_vertexai_job_name(entity_id=job.name)
         urn = builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
         return urn
