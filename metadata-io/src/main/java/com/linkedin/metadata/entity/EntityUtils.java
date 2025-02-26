@@ -278,7 +278,7 @@ public class EntityUtils {
     // Read Validate
     systemAspects.forEach(
         systemAspect ->
-            RecordTemplateValidator.validate(
+            RecordTemplateValidator.validateTrim(
                 systemAspect.getRecordTemplate(),
                 validationFailure ->
                     log.warn(
