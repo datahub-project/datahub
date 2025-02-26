@@ -24,6 +24,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
 
+- #12671: The `priority` field of the Incident entity is changed from an integer to an enum. This field was previously completely unused in UI and API, so this change should not affect existing deployments.
+
+- #12716: Fix the `platform_instance` being added twice to the URN. If you want to have the previous behavior back, you need to add your platform_instance twice (i.e. `plat.plat`).
+
+
 ### Known Issues
 
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
@@ -34,6 +39,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #12641: Adds a new MCP validator that prevents deletes of any `CorpUser` entity that has a newly introduced `CorpUserInfo#system` flag set to true.
 - #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Mainly, users of Sigma and PowerBI Apps ingestion may be affected by this adjustment. Consequently, a [reindex](https://datahubproject.io/docs/how/restore-indices/) will be automatically triggered during the system upgrade.
 
 ## 0.15.0

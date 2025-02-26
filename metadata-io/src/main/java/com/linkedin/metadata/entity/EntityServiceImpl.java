@@ -76,6 +76,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -250,8 +251,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
         } else {
           // Do not increment version with the incoming change (match existing version)
-          changeMCP.setNextAspectVersion(Long.valueOf(latestSystemMetadata.getVersion()));
-          changeSystemMetadata.setVersion(latestSystemMetadata.getVersion());
+          long matchVersion =
+              Optional.ofNullable(latestSystemMetadata.getVersion())
+                  .map(Long::valueOf)
+                  .orElse(rowNextVersion);
+          changeMCP.setNextAspectVersion(matchVersion);
+          changeSystemMetadata.setVersion(String.valueOf(matchVersion));
+          latestSystemMetadata.setVersion(String.valueOf(matchVersion));
         }
 
         // update previous - based on database aspect, populates MCL
@@ -2045,7 +2051,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Urn entityUrn,
       AuditStamp auditStamp,
       AspectSpec aspectSpec) {
-    boolean isNoOp = Objects.equals(oldAspect, newAspect);
+    boolean isNoOp =
+        SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldAspect, newAspect);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
@@ -2544,7 +2551,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 1. Fetch the latest existing version of the aspect.
                   final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, true);
+                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {

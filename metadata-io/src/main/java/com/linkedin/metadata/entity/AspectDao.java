@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -142,15 +143,19 @@ public interface AspectDao {
           .equals(currentVersion0.getSystemMetadataVersion())) {
 
         inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
-
-        // add trace - overwrite if version incremented
-        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
       }
 
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
+      boolean isNoOp =
+          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
       if (!Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
-          || !Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate())) {
+          || !isNoOp) {
+        // update no-op used for tracing
+        SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
+        // add trace - overwrite if version incremented
+        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
         updated = updateAspect(txContext, newAspect);
       }
 
