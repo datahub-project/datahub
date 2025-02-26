@@ -122,7 +122,7 @@ export const SlackSinkSettingsSection = ({
             disabled={!sinkSupported}
             value={sinkEnabled}
             onToggle={toggleSink}
-            toggleDataTestId="personal-slack-notifications-enabled-switch"
+            toggleDataTestId="slack-notifications-enabled-switch"
         >
             {sinkEnabled && (
                 <SinkConfigurationContainer>
@@ -135,7 +135,7 @@ export const SlackSinkSettingsSection = ({
                         <Button
                             variant="text"
                             onClick={() => setIsEditing(true)}
-                            data-testid="personal-email-notifications-edit-slack-button"
+                            data-testid="email-notifications-edit-slack-button"
                         >
                             Edit
                         </Button>
@@ -154,7 +154,7 @@ export const SlackSinkSettingsSection = ({
                                 </Form>
                                 <SaveButton
                                     onClick={saveButtonOnClick}
-                                    data-testid="personal-email-notifications-save-slack-button"
+                                    data-testid="email-notifications-save-slack-button"
                                 >
                                     Save
                                 </SaveButton>
@@ -162,7 +162,7 @@ export const SlackSinkSettingsSection = ({
                                     variant="outline"
                                     color="gray"
                                     onClick={cancelButtonOnClick}
-                                    data-testid="personal-email-notifications-cancel-slack-button"
+                                    data-testid="email-notifications-cancel-slack-button"
                                 >
                                     Cancel
                                 </CancelButton>

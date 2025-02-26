@@ -95,7 +95,7 @@ export const EmailSinkSettingsSection = ({
             disabled={!sinkSupported}
             value={sinkEnabled}
             onToggle={toggleSink}
-            toggleDataTestId="personal-email-notifications-enabled-switch"
+            toggleDataTestId="email-notifications-enabled-switch"
         >
             {sinkEnabled ? (
                 <SinkConfigurationContainer>
@@ -105,7 +105,7 @@ export const EmailSinkSettingsSection = ({
                             <Button
                                 variant="text"
                                 onClick={() => setIsEditing(true)}
-                                data-testid="personal-email-notifications-edit-email-button"
+                                data-testid="email-notifications-edit-email-button"
                             >
                                 Edit
                             </Button>
@@ -120,14 +120,14 @@ export const EmailSinkSettingsSection = ({
                                             placeholder="Email Address"
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
-                                            data-testid="personal-email-notifications-edit-email-input"
+                                            data-testid="email-notifications-edit-email-input"
                                         />
                                     </StyledFormItem>
                                 </Form>
                                 <SaveButton
                                     onClick={saveButtonOnClick}
                                     disabled={!inputValue || inputValue.length < 2}
-                                    data-testid="personal-email-notifications-save-email-button"
+                                    data-testid="email-notifications-save-email-button"
                                 >
                                     Save
                                 </SaveButton>
@@ -135,7 +135,7 @@ export const EmailSinkSettingsSection = ({
                                     variant="outline"
                                     color="gray"
                                     onClick={cancelButtonOnClick}
-                                    data-testid="personal-email-notifications-cancel-email-button"
+                                    data-testid="email-notifications-cancel-email-button"
                                 >
                                     Cancel
                                 </CancelButton>

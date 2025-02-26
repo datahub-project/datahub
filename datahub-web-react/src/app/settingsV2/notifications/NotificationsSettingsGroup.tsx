@@ -1,5 +1,5 @@
 import React from 'react';
-import { NotificationScenarioType, NotificationSetting } from '@src/types.generated';
+import { NotificationScenarioType, NotificationSetting, NotificationSinkType } from '@src/types.generated';
 import {
     NotificationTypeDescription,
     OptionsPlaceholder,
@@ -10,7 +10,7 @@ import {
 } from './styledComponents';
 import { NotificationSettingValue } from './NotificationSettingValue';
 import { NotificationTypeOptionsButton } from './NotificationTypeOptionButton';
-import { NOTIFICATION_SINKS, NotificationGroup } from './types';
+import { NOTIFICATION_SINKS, NotificationGroup, NotificationSink } from './types';
 
 type Props = {
     notifications: NotificationGroup[];
@@ -20,6 +20,7 @@ type Props = {
     refetch: () => void;
     notificationOptionsEnabled: boolean;
     openNotificationOptions: (type: NotificationScenarioType) => void;
+    isSinkEnabled: (sink: NotificationSink) => boolean;
 };
 
 export const NotificationSettingsGroup = ({
@@ -30,6 +31,7 @@ export const NotificationSettingsGroup = ({
     refetch,
     notificationOptionsEnabled,
     openNotificationOptions,
+    isSinkEnabled,
 }: Props) => {
     return (
         <>
@@ -44,6 +46,7 @@ export const NotificationSettingsGroup = ({
                                     {NOTIFICATION_SINKS.map((sink) => (
                                         <NotificationSettingValue
                                             sink={sink}
+                                            disabled={!isSinkEnabled(sink)}
                                             notificationType={notif.type}
                                             existingNotificationSettings={formattedNotificationSettings}
                                             originalSettings={originalSettings}

@@ -143,6 +143,18 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
   cy.wait(3000);
 });
 
+Cypress.Commands.add("goToMyNotificationSettings", () => {
+  cy.visit("/settings/personal-notifications");
+  cy.waitTextVisible("My Notifications");
+  cy.wait(3000);
+});
+
+Cypress.Commands.add("goToGroupNotificationSettings", (groupUrn) => {
+  cy.visit(`/group/${groupUrn}/notifications`);
+  cy.waitTextVisible("Group Notifications");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
   cy.waitTextVisible("Sources");

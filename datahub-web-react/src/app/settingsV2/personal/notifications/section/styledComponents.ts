@@ -24,7 +24,6 @@ export const SinkButtonsContainer = styled.div`
     flex-direction: row;
     justify-content: flex-start;
     align-items: start;
-    margin-top: 8px;
     gap: 2px;
 `;
 

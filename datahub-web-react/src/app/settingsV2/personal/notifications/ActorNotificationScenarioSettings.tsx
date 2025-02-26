@@ -173,6 +173,7 @@ export const ActorNotificationScenarioSettings = ({
                     refetch={refetch}
                     notificationOptionsEnabled={notificationOptionsEnabled}
                     openNotificationOptions={(type) => openNotificationOptions(type)}
+                    isSinkEnabled={(sink) => isSinkEnabled(sink.id, actorNotificationSettings, globalSettings, config) || false}
                 />
             </ScenarioSettingsContainer>
             {focusedNotificationType && (

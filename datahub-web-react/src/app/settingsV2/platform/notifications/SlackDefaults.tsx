@@ -150,9 +150,10 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                 (isAdminAccess ? (
                     <MessageDiv>
                         Slack is currently disabled.&nbsp;
-                        <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
-                            click here to setup the Slack integration
+                        <Link to="/settings/integrations/slack" style={{ color: colors.violet[500] }}>
+                            Click here
                         </Link>
+                        {' '}to setup the Slack integration.
                     </MessageDiv>
                 ) : (
                     <MessageDiv>{unsupportedSinkDescription}</MessageDiv>
