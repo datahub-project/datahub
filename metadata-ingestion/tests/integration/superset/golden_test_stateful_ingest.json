@@ -39,13 +39,23 @@
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -88,13 +98,23 @@
                         ],
                         "type": "BAR"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -137,13 +157,23 @@
                         ],
                         "type": "PIE"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -186,13 +216,23 @@
                         ],
                         "type": "AREA"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -260,13 +300,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -334,13 +389,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -408,13 +478,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -482,13 +567,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -556,13 +656,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -630,13 +745,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -704,13 +834,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -778,13 +923,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -852,13 +1012,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -876,7 +1051,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -893,41 +1068,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(superset,2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -944,7 +1085,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-2dl7uh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

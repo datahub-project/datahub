@@ -39,6 +39,16 @@
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -87,6 +97,16 @@
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -133,6 +153,16 @@
                             }
                         ],
                         "type": "BAR"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
                     }
                 }
             ]
@@ -181,6 +211,16 @@
                         ],
                         "type": "PIE"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -228,6 +268,16 @@
                         ],
                         "type": "AREA"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -274,6 +324,16 @@
                             }
                         ],
                         "type": "HISTOGRAM"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
                     }
                 }
             ]

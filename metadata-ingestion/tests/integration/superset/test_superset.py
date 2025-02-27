@@ -387,6 +387,63 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 },
             },
         },
+        "mock://mock-domain.superset.com/api/v1/dashboard/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner1@example.com"},
+                        "text": "test_owner1",
+                        "value": 1,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner2@example.com"},
+                        "text": "test_owner2",
+                        "value": 2,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dataset/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner3@example.com"},
+                        "text": "test_owner3",
+                        "value": 3,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner4@example.com"},
+                        "text": "test_owner4",
+                        "value": 4,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/chart/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner5@example.com"},
+                        "text": "test_owner5",
+                        "value": 5,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner6@example.com"},
+                        "text": "test_owner6",
+                        "value": 6,
+                    },
+                ],
+            },
+        },
     }
 
     api_vs_response.update(override_data)
@@ -595,6 +652,80 @@ def test_superset_stateful_ingest(
                 ],
             },
         },
+        "mock://mock-domain.superset.com/api/v1/dataset/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": 1,
+                "result": {
+                    "always_filter_main_dttm": False,
+                    "cache_timeout": None,
+                    "changed_by": {"first_name": "Test", "last_name": "User1"},
+                    "changed_on": "2024-01-05T21:10:15.650819+0000",
+                    "changed_on_humanized": "10 months ago",
+                    "created_by": {"first_name": "Test", "last_name": "User1"},
+                    "created_on": "2024-01-05T21:10:15.650819+0000",
+                    "created_on_humanized": "10 months ago",
+                    "currency_formats": {},
+                    "database": {
+                        "backend": "postgresql",
+                        "database_name": "test_database1",
+                        "id": 1,
+                    },
+                    "datasource_name": "Test Table 1",
+                    "datasource_type": "table",
+                    "default_endpoint": None,
+                    "description": None,
+                    "extra": None,
+                    "fetch_values_predicate": None,
+                    "filter_select_enabled": True,
+                    "granularity_sqla": [
+                        ["created_at", "created_at"],
+                        ["updated_at", "updated_at"],
+                    ],
+                    "id": 1,
+                    "is_managed_externally": False,
+                    "is_sqllab_view": False,
+                    "kind": "virtual",
+                    "main_dttm_col": None,
+                    "metrics": [
+                        {
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "currency": None,
+                            "d3format": None,
+                            "description": None,
+                            "expression": "count(*)",
+                            "extra": None,
+                            "id": 1,
+                            "metric_name": "count",
+                            "metric_type": None,
+                            "rendered_expression": "count(*)",
+                            "verbose_name": None,
+                            "warning_text": None,
+                        }
+                    ],
+                    "name": "Test Table 1",
+                    "normalize_columns": True,
+                    "offset": 0,
+                    "owners": [],
+                    "rendered_sql": "SELECT * FROM test_table1",
+                    "schema": "test_schema1",
+                    "select_star": "SELECT * FROM test_schema1.test_table1 LIMIT 100",
+                    "sql": "SELECT * FROM test_table1",
+                    "table_name": "Test Table 1",
+                    "uid": "1__table",
+                    "url": "/tablemodelview/edit/1",
+                    "verbose_map": {
+                        "__timestamp": "Time",
+                        "id": "ID",
+                        "name": "Name",
+                        "created_at": "Created At",
+                        "updated_at": "Updated At",
+                    },
+                },
+            },
+        },
     }
 
     with patch(
@@ -611,7 +742,7 @@ def test_superset_stateful_ingest(
         assert checkpoint1
         assert checkpoint1.state
 
-        # Remove one dashboard, chart, dataset from the superset config.
+        # Remove one dashboard, chart, dataset and one owner from the superset config.
         register_mock_api(request_mock=requests_mock, override_data=asset_override)
 
         # Capture MCEs of second run to validate Status(removed=true)
