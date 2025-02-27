@@ -44,10 +44,7 @@ export const ActionRequestsGroupTab = ({ assignee }: Props) => {
                     </Button>
                 </div>
             </TabToolbar>
-            <ProposalList
-                status={(viewType as ActionRequestStatus) || ActionRequestStatus.Pending}
-                assignee={assignee}
-            />
+            <ProposalList assignee={assignee} />
         </>
     );
 };

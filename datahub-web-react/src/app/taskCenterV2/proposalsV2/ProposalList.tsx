@@ -3,7 +3,7 @@ import { message, Typography } from 'antd';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Pagination } from '@src/alchemy-components';
-import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
+import { ActionRequest, ActionRequestAssignee } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import ProposalsTable from './proposalsTable/ProposalsTable';
@@ -35,11 +35,10 @@ const DEFAULT_PAGE_SIZE = 25;
 
 type Props = {
     title?: string;
-    status: ActionRequestStatus;
     assignee?: ActionRequestAssignee;
 };
 
-export const ProposalList = ({ title, status, assignee }: Props) => {
+export const ProposalList = ({ title, assignee }: Props) => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -54,20 +53,13 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
             input: {
                 start,
                 count: pageSize,
-                status,
                 assignee,
             },
         },
         fetchPolicy: 'no-cache',
     });
 
-    let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
-
-    // Workaround for lack of read-write lookup consistency.
-    if (status === ActionRequestStatus.Pending) {
-        // Filter out completed.
-        actionRequests = actionRequests.filter((request) => request.status !== ActionRequestStatus.Completed);
-    }
+    const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
 
     const totalActionRequests = data?.listActionRequests?.total || 0;
 
