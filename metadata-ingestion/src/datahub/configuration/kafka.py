@@ -44,7 +44,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
             try:
                 value = CallableConsumerConfig(value).callable_config()
             except Exception as e:
-                raise ConfigurationError() from e
+                raise ConfigurationError(e) from e
         return value
 
 
