@@ -1,5 +1,7 @@
 namespace com.linkedin.metric
 
+import com.linkedin.timeseries.TimeseriesAspectBase
+
 /**
  * A timeseries measure event, e.g. a single observation.
  */
@@ -7,5 +9,5 @@ namespace com.linkedin.metric
     "name": "dataHubMetricCubeEvent",
     "type": "timeseries",
 }
-record DataHubMetricCubeEvent includes DataHubMetricCubeRow {
+record DataHubMetricCubeEvent includes DataHubMetricCubeRow, TimeseriesAspectBase {
 }

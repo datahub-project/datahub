@@ -615,9 +615,9 @@ entities:
     category: internal
     keyAspect: dataHubMetricCubeKey
     aspects:
+      - dataHubMetricCubeDefinition
       - dataHubMetricCubeEvent
       # To be added later.
-      # - dataHubMetricCubeDefinition
       # - dataHubMetricCubeStorageConfig
 events:
   - name: notificationRequest
