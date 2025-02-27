@@ -228,7 +228,7 @@ class DataHubFormReportingData(FormData):
             )
         for completed_form in forms.completedForms:
             is_published = self.is_published(completed_form.urn)
-            assignment_time = self.assignment_time(incomplete_form)
+            assignment_time = self.assignment_time(completed_form)
             form_assigned_dates[completed_form.urn] = (
                 datetime.fromtimestamp(
                     assignment_time,
