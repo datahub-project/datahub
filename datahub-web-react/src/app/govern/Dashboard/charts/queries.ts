@@ -18,10 +18,8 @@ export const sqlQueries = (
     // Reduces code duplication
     const queryBuilder = (query: string) => {
         let updatedQuery = query;
-        const whereIndex = updatedQuery.indexOf('where') + 5;
 
-        const injectWhere = (whereItem: string) =>
-            `${updatedQuery.slice(0, whereIndex)} ${whereItem} and ${query.slice(whereIndex)}`;
+        const injectWhere = (whereItem: string) => updatedQuery.replaceAll('where', `where ${whereItem} and `);
 
         if (entity === 'form') updatedQuery = injectWhere(`form_urn = '${formId}'`);
         if (entity === 'assignee') updatedQuery = injectWhere(`assignee_urn = '${assigneeId}'`);
@@ -42,13 +40,54 @@ export const sqlQueries = (
         if (series === 30) trunc = 'day'; // last 30 days
         if (series === 90) trunc = 'week'; // last 90 days
         if (series === 365) trunc = 'month'; // last 365 days
+        if (series === 10000) trunc = 'month'; // last 365 days
         return trunc;
     };
 
-    // Reusable select for percentage and count stats
-    const percentAndCount = (status: string) => `
-		count(distinct(case when form_status = '${status}' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-		count(distinct(case when form_status = '${status}' then asset_urn end)) as completed_asset_count,
+    // assets are complete or not started only if all of their forms are either complete or not_started
+    const completeOrNotStartedCount = (status: string) => `
+		COUNT(DISTINCT 
+			CASE 
+				WHEN form_status = '${status}' 
+				AND asset_urn NOT IN (
+					SELECT DISTINCT asset_urn 
+					FROM '{{ table }}' 
+					where form_status != '${status}'
+				)
+				THEN asset_urn 
+			END
+		)
+	`;
+
+    const completeOrNotStartedPercentAndCount = (status: string) => `
+		${completeOrNotStartedCount(status)} / count(distinct(asset_urn)) as completed_asset_percent,
+		${completeOrNotStartedCount(status)} as completed_asset_count,
+		count(distinct(asset_urn)) as assigned_asset_count
+	`;
+
+    // assets are in progress if they have one or more forms in_progress OR they have forms in both complete AND not_started
+    const inProgressCount = `
+		COUNT(DISTINCT 
+			CASE 
+				WHEN form_status = 'in_progress' 
+				OR (asset_urn IN (
+					SELECT DISTINCT asset_urn 
+					FROM '{{ table }}' 
+					where form_status = 'complete'
+					)
+				AND asset_urn IN (
+					SELECT DISTINCT asset_urn 
+					FROM '{{ table }}' 
+					where form_status = 'not_started'
+				))
+				THEN asset_urn 
+			END
+		)
+	`;
+
+    const inProgressPercentAndCount = `
+		${inProgressCount} / count(distinct(asset_urn)) as completed_asset_percent,
+		${inProgressCount} as completed_asset_count,
 		count(distinct(asset_urn)) as assigned_asset_count
 	`;
 
@@ -58,11 +97,25 @@ export const sqlQueries = (
 		count(distinct(asset_urn)) as value
 	`;
 
-    // Reusable select aggregate for status categories
-    const statusAsCategories = `
+    // Reusable select aggregate for status categories - only to be used BY FORM
+    const statusAsCategoriesByForm = `
 		count(distinct(case when form_status = 'complete' then asset_urn end)) as "Completed",
 		count(distinct(case when form_status = 'in_progress' then asset_urn end)) as "In Progress",
 		count(distinct(case when form_status = 'not_started' then asset_urn end)) as "Not Started"
+	`;
+
+    // Reusable select aggregate for status categories- only to be used BY ASSET
+    const statusAsCategoriesByAsset = `
+		${completeOrNotStartedCount('complete')} as "Completed",
+		${inProgressCount} as "In Progress",
+		${completeOrNotStartedCount('not_started')} as "Not Started"
+	`;
+
+    // Reusable select aggregate for prompt status categories
+    const promptStatusAsCategories = `
+		count(distinct(case when question_status = 'complete' then asset_urn end)) as "Completed",
+		count(distinct(case when question_status = 'in_progress' then asset_urn end)) as "In Progress",
+		count(distinct(case when question_status = 'not_started' then asset_urn end)) as "Not Started"
 	`;
 
     // Reusable select for percentage completed
@@ -98,7 +151,7 @@ export const sqlQueries = (
         // TODO: Validate use of `snapshot_date` vs `form_assigned_date`
         completedTrendPercentAndCount: queryBuilder(
             `select
-				${percentAndCount('complete')}
+				${completeOrNotStartedPercentAndCount('complete')}
 			from
 				'{{ table }}'
 			where
@@ -125,7 +178,7 @@ export const sqlQueries = (
         // In Progress Trend Stat Details
         inProgressTrendPercentAndCount: queryBuilder(
             `select
-				${percentAndCount('in_progress')}
+				${inProgressPercentAndCount}
 			from
 				'{{ table }}'
 			where
@@ -152,13 +205,13 @@ export const sqlQueries = (
         // Not Started Trend Stat Details
         notStartedTrendPercentAndCount: queryBuilder(
             `select
-				${percentAndCount('not_started')}
+        		${completeOrNotStartedPercentAndCount('not_started')}
 			from
 				'{{ table }}'
 			where
 				snapshot_date >= '${daysSinceDate}'
 				and form_assigned_date >= '${daysSinceDate}';
-			`,
+        	`,
         ),
 
         // Not Started Trend Line Chart
@@ -181,7 +234,7 @@ export const sqlQueries = (
         docStatusByDate: queryBuilder(
             `select
 				DATE_TRUNC('${dateTrunc()}', form_assigned_date) as 'date',
-				${statusAsCategories}
+				${statusAsCategoriesByAsset}
 			from
 				'{{ table }}'
 			where
@@ -198,7 +251,7 @@ export const sqlQueries = (
         docProgressByForm: queryBuilder(
             `select
 				form_urn as 'form',
-				${statusAsCategories}
+				${statusAsCategoriesByForm}
 			from
 				'{{ table }}'
 			where
@@ -216,7 +269,7 @@ export const sqlQueries = (
         completionPerformanceByForm: queryBuilder(
             `select
 				form_urn as 'form',
-				${statusAsCategories},
+				${statusAsCategoriesByForm},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 			from
 				'{{ table }}'
@@ -273,7 +326,7 @@ export const sqlQueries = (
         // Does not use the queryBuilder as it only appears on the `form` tab
         formQuestionProgress: `select
 				question_id as 'question',
-				${statusAsCategories}
+				${promptStatusAsCategories}
 			from
 				'{{ table }}'
 			where
@@ -291,8 +344,8 @@ export const sqlQueries = (
         docProgressByAssignee: queryBuilder(
             `select
 				assignee_urn,
-				${statusAsCategories},
-				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
+				${statusAsCategoriesByAsset},
+				${completeOrNotStartedCount('complete')} / count(distinct(asset_urn)) as completed_asset_percent,
 			from
 				'{{ table }}'
 			where
@@ -350,7 +403,7 @@ export const sqlQueries = (
         docProgressByDomain: queryBuilder(
             `select
 				domain_urn,
-				${statusAsCategories}
+				${statusAsCategoriesByAsset}
 			from
 				'{{ table }}'
 			where
@@ -368,8 +421,8 @@ export const sqlQueries = (
         completionPerformanceByDomain: queryBuilder(
             `select
 				domain_urn,
-				${statusAsCategories},
-				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
+				${statusAsCategoriesByAsset},
+				${completeOrNotStartedCount('complete')} / count(distinct(asset_urn)) as completed_asset_percent,
 			from
 				'{{ table }}'
 			where
