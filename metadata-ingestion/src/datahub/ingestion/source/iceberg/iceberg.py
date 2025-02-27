@@ -261,7 +261,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     LOGGER.debug(
                         f"Skipping table {dataset_name} due to not being allowed by the config pattern"
                     )
-                    return []
+                    return
 
                 yield from _try_processing_dataset(dataset_path, dataset_name)
             except Exception as e:
@@ -334,7 +334,8 @@ class IcebergSource(StatefulIngestionSourceBase):
                 name=table.name()[-1],
                 description=table.metadata.properties.get("comment", None),
                 customProperties=custom_properties,
-                **additional_properties,
+                lastModified=additional_properties.get("lastModified"),
+                created=additional_properties.get("created"),
             )
             dataset_snapshot.aspects.append(dataset_properties)
             # Dataset ownership aspect.
