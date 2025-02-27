@@ -20,10 +20,12 @@ from pydantic import PrivateAttr, root_validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
+import datahub.emitter.mcp_builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -37,6 +39,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
@@ -159,11 +162,25 @@ class VertexAISource(Source):
         - Models and Model Versions from the Model Registry
         - Training Jobs
         """
-        # Fetch Models, Model Versions a from Model Registry
+
+        # Ingest Project
+        yield from self._get_project_workunit()
+        # Fetch and Ingest Models, Model Versions a from Model Registry
         yield from self._get_ml_model_workunits()
-        # Fetch Training Jobs
+        # Fetch and Ingest Training Jobs
         yield from self._get_training_jobs_workunit()
         # TODO Fetch Experiments and Experiment Runs
+
+    def _get_project_workunit(self) -> Iterable[MetadataWorkUnit]:
+        container_key = ProjectIdKey(
+            project_id=self.config.project_id, platform=self.platform
+        )
+
+        yield from datahub.emitter.mcp_builder.gen_containers(
+            container_key=container_key,
+            name=self.config.project_id,
+            sub_types=["Project"],
+        )
 
     def _validate_training_job(self, model: Model) -> bool:
         """
@@ -290,7 +307,7 @@ class VertexAISource(Source):
             aspect=MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
-                createdAt=int(model.create_time.timestamp())
+                createdAt=int(model.create_time.timestamp() * 1000)
                 if model.create_time
                 else None,
                 customProperties={"displayName": model.display_name},
@@ -322,29 +339,48 @@ class VertexAISource(Source):
         created_actor = f"urn:li:platformResource:{self.platform}"
 
         job_id = self._make_vertexai_job_name(entity_id=job.name)
-        entityUrn = builder.make_data_process_instance_urn(job_id)
+        job_urn = builder.make_data_process_instance_urn(job_id)
 
-        prop_mcp = MetadataChangeProposalWrapper(
-            entityUrn=entityUrn,
-            aspect=DataProcessInstancePropertiesClass(
-                name=job_id,
-                created=AuditStampClass(
-                    time=created_time,
-                    actor=created_actor,
+        mcps = []
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataProcessInstancePropertiesClass(
+                    name=job_id,
+                    created=AuditStampClass(
+                        time=created_time,
+                        actor=created_actor,
+                    ),
+                    externalUrl=self._make_job_external_url(job),
+                    customProperties={
+                        "displayName": job.display_name,
+                        "jobType": job.__class__.__name__,
+                    },
                 ),
-                externalUrl=self._make_job_external_url(job),
-                customProperties={
-                    "displayName": job.display_name,
-                    "jobType": job.__class__.__name__,
-                },
-            ),
+            )
         )
 
-        subtype_mcp = MetadataChangeProposalWrapper(
-            entityUrn=entityUrn, aspect=SubTypesClass(typeNames=["Training Job"])
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=job_urn, aspect=SubTypesClass(typeNames=["Training Job"])
+            )
         )
 
-        yield from auto_workunit([prop_mcp, subtype_mcp])
+        # Create a container for Project as parent of the dataset
+        container_key = ProjectIdKey(
+            project_id=self.config.project_id, platform=self.platform
+        )
+
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=ContainerClass(
+                    container=container_key.as_urn(),
+                ),
+            )
+        )
+
+        yield from auto_workunit(mcps)
 
     def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
         return (
@@ -415,19 +451,20 @@ class VertexAISource(Source):
         return self.datasets[dataset_id] if dataset_id in self.datasets else None
 
     def _get_dataset_workunit(
-        self, urn: str, ds: VertexAiResourceNoun
+        self, dataset_urn: str, ds: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
         """
         Create a DatasetPropertiesClass aspect for a given Vertex AI dataset.
         """
 
+        # Create aspects for the dataset
         mcps = []
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=urn,
+                entityUrn=dataset_urn,
                 aspect=DatasetPropertiesClass(
                     name=self._make_vertexai_dataset_name(ds.name),
-                    created=TimeStampClass(time=int(ds.create_time.timestamp())),
+                    created=TimeStampClass(time=int(ds.create_time.timestamp() * 1000)),
                     description=f"Dataset: {ds.display_name} for training job",
                     customProperties={
                         "displayName": ds.display_name,
@@ -437,13 +474,25 @@ class VertexAISource(Source):
                 ),
             )
         )
-
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=SubTypesClass(typeNames=["Dataset"])
+                entityUrn=dataset_urn, aspect=SubTypesClass(typeNames=["Dataset"])
             )
         )
 
+        # Create a container for Project as parent of the dataset
+        container_key = ProjectIdKey(
+            project_id=self.config.project_id, platform=self.platform
+        )
+
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ContainerClass(
+                    container=container_key.as_urn(),
+                ),
+            )
+        )
         yield from auto_workunit(mcps)
 
     def _get_job_input_workunit(
@@ -489,7 +538,7 @@ class VertexAISource(Source):
 
         dataset = self._search_dataset(dataset_id) if dataset_id else None
         if dataset:
-            yield from self._get_dataset_workunit(urn=dataset_urn, ds=dataset)
+            yield from self._get_dataset_workunit(dataset_urn=dataset_urn, ds=dataset)
             # Create URN of Training Job
             job_id = self._make_vertexai_job_name(entity_id=job.name)
             mcp = MetadataChangeProposalWrapper(
@@ -500,6 +549,49 @@ class VertexAISource(Source):
                 f" found training job :{job.display_name} used input dataset : {dataset_name}"
             )
             yield from auto_workunit([mcp])
+
+    def _get_endpoint_workunit(
+        self, endpoint: Endpoint, model: Model, model_version: VersionInfo
+    ) -> Iterable[MetadataWorkUnit]:
+        endpoint_urn = builder.make_ml_model_deployment_urn(
+            platform=self.platform,
+            deployment_name=self._make_vertexai_endpoint_name(
+                entity_id=endpoint.display_name
+            ),
+            env=self.config.env,
+        )
+        deployment_aspect = MLModelDeploymentPropertiesClass(
+            description=model.description,
+            createdAt=int(endpoint.create_time.timestamp() * 1000),
+            version=VersionTagClass(versionTag=str(model_version.version_id)),
+            customProperties={"displayName": endpoint.display_name},
+        )
+
+        mcps = []
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=endpoint_urn, aspect=deployment_aspect
+            )
+        )
+
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=endpoint_urn,
+                aspect=ContainerClass(
+                    container=ProjectIdKey(
+                        project_id=self.config.project_id, platform=self.platform
+                    ).as_urn(),
+                ),
+            )
+        )
+
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=endpoint_urn, aspect=SubTypesClass(typeNames=["Endpoint"])
+            )
+        )
+
+        yield from auto_workunit(mcps)
 
     def _get_ml_model_endpoint_workunit(
         self,
@@ -515,24 +607,7 @@ class VertexAISource(Source):
         endpoint_urn = None
 
         if endpoint:
-            endpoint_urn = builder.make_ml_model_deployment_urn(
-                platform=self.platform,
-                deployment_name=self._make_vertexai_endpoint_name(
-                    entity_id=endpoint.display_name
-                ),
-                env=self.config.env,
-            )
-            deployment_aspect = MLModelDeploymentPropertiesClass(
-                description=model.description,
-                createdAt=int(endpoint.create_time.timestamp()),
-                version=VersionTagClass(versionTag=str(model_version.version_id)),
-                customProperties={"displayName": endpoint.display_name},
-            )
-
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=endpoint_urn, aspect=deployment_aspect
-            )
-            yield from auto_workunit([mcp])
+            yield from self._get_endpoint_workunit(endpoint, model, model_version)
 
         yield from self._get_ml_model_properties_workunit(
             model, model_version, training_job_urn, endpoint_urn
@@ -552,14 +627,14 @@ class VertexAISource(Source):
         """
         logging.info(f"starting model work unit for model {model.name}")
 
-        ml_model_group_urn = self._make_ml_model_group_urn(model)
+        model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_model_name(entity_id=model.name)
         model_version_name = (
             f"{model_name}{self.model_name_separator}{model_version.version_id}"
         )
-        ml_model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
+        model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
-        ml_model_properties = MLModelPropertiesClass(
+        model_aspect = MLModelPropertiesClass(
             name=model_version_name,
             description=model_version.version_description,
             customProperties={
@@ -575,7 +650,7 @@ class VertexAISource(Source):
             if model_version.version_update_time
             else None,
             version=VersionTagClass(versionTag=str(model_version.version_id)),
-            groups=[ml_model_group_urn],  # link model version to model group
+            groups=[model_group_urn],  # link model version to model group
             trainingJobs=[training_job_urn]
             if training_job_urn
             else None,  # link to training job
@@ -585,11 +660,12 @@ class VertexAISource(Source):
             externalUrl=self._make_model_version_external_url(model),
         )
 
+        mcps = []
         # logging.info(f"created model version {ml_model_properties.name} associated with group {ml_model_group_urn}")
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=ml_model_urn, aspect=ml_model_properties
+        mcps.append(
+            MetadataChangeProposalWrapper(entityUrn=model_urn, aspect=model_aspect)
         )
-        yield from auto_workunit([mcp])
+        yield from auto_workunit(mcps)
 
     def _search_endpoint(self, model: Model) -> Optional[Endpoint]:
         """
