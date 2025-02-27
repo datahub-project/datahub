@@ -45,8 +45,8 @@ class RedshiftCommonQuery:
             schema_name,
             schema_type,
             schema_option,
-            null as external_platform,
-            null as external_database
+            cast(null as varchar(256)) as external_platform,
+            cast(null as varchar(256)) as external_database
         FROM svv_redshift_schemas
         WHERE database_name = '{database}'
     UNION ALL
