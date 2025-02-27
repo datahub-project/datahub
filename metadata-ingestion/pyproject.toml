@@ -41,8 +41,7 @@ extend-ignore = [
     "RUF012", # mutable-class-default; incompatible with pydantic
     "RUF015", # unnecessary-iterable-allocation-for-first-element
     # TODO: Enable these later
-    "B006",  # Mutable args
-    "B904",  # Checks for raise statements in exception handlers that lack a from clause
+    "B006",  # Mutable args - 21 errors remain
 ]
 
 [tool.ruff.lint.mccabe]

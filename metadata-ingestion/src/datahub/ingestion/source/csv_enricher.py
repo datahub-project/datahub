@@ -640,8 +640,8 @@ class CSVEnricherSource(Source):
                 )
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}, error:{e}"
-                )
+                    f"Cannot read remote file {self.config.filename}"
+                ) from e
         else:
             with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
                 rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
