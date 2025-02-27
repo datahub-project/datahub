@@ -18,34 +18,36 @@ if TYPE_CHECKING:
 
 class FilterDsl:
     @staticmethod
-    def and_(*args: "Filter") -> filters.And:
-        return filters.And(and_=list(args))
+    def and_(*args: "Filter") -> filters._And:
+        return filters._And(and_=list(args))
 
     @staticmethod
-    def or_(*args: "Filter") -> filters.Or:
-        return filters.Or(or_=list(args))
+    def or_(*args: "Filter") -> filters._Or:
+        return filters._Or(or_=list(args))
 
     @staticmethod
-    def not_(arg: "Filter") -> filters.Not:
-        return filters.Not(not_=arg)
+    def not_(arg: "Filter") -> filters._Not:
+        return filters._Not(not_=arg)
 
     @staticmethod
-    def platform(platform: Union[str, List[str]]) -> filters.Platform:
-        return filters.Platform(
+    def platform(platform: Union[str, List[str]]) -> filters._PlatformFilter:
+        return filters._PlatformFilter(
             platform=[platform] if isinstance(platform, str) else platform
         )
 
     @staticmethod
-    def domain(domain: Union[str, List[str]]) -> filters.Domain:
-        return filters.Domain(domain=[domain] if isinstance(domain, str) else domain)
+    def domain(domain: Union[str, List[str]]) -> filters._DomainFilter:
+        return filters._DomainFilter(
+            domain=[domain] if isinstance(domain, str) else domain
+        )
 
     @staticmethod
-    def env(env: Union[str, List[str]]) -> filters.Env:
-        return filters.Env(env=[env] if isinstance(env, str) else env)
+    def env(env: Union[str, List[str]]) -> filters._EnvFilter:
+        return filters._EnvFilter(env=[env] if isinstance(env, str) else env)
 
     @staticmethod
-    def has_custom_property(key: str, value: str) -> filters.CustomCondition:
-        return filters.CustomCondition(
+    def has_custom_property(key: str, value: str) -> filters._CustomCondition:
+        return filters._CustomCondition(
             field="customProperties",
             condition="EQUAL",
             values=[f"{key}={value}"],

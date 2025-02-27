@@ -30,7 +30,7 @@ class _BaseFilter(ConfigModel):
         pass
 
 
-class Platform(_BaseFilter):
+class _PlatformFilter(_BaseFilter):
     platform: List[str]
     # TODO: Add validator to convert string -> list of strings
 
@@ -45,12 +45,15 @@ class Platform(_BaseFilter):
         return [{"and": [self._build_rule()]}]
 
 
-class Domain(_BaseFilter):
+class _DomainFilter(_BaseFilter):
     domain: List[str]
 
+    @pydantic.validator("domain", each_item=True)
+    def validate_domain(cls, v: str) -> str:
+        assert DomainUrn.from_string(v)
+        return v
+
     def _build_rule(self) -> SearchFilterRule:
-        for domain in self.domain:
-            assert DomainUrn.from_string(domain)
         return SearchFilterRule(
             field="domains",
             condition="EQUAL",
@@ -61,7 +64,7 @@ class Domain(_BaseFilter):
         return [{"and": [self._build_rule()]}]
 
 
-class Env(_BaseFilter):
+class _EnvFilter(_BaseFilter):
     # Note that not all entity types have an env (e.g. dashboards / charts).
     # If the env filter is specified, these will be excluded.
     env: List[str]
@@ -94,7 +97,7 @@ class Env(_BaseFilter):
         ]
 
 
-class CustomCondition(_BaseFilter):
+class _CustomCondition(_BaseFilter):
     """Represents a single field condition"""
 
     field: str
@@ -110,7 +113,7 @@ class CustomCondition(_BaseFilter):
         return [{"and": [rule]}]
 
 
-class And(_BaseFilter):
+class _And(_BaseFilter):
     """Represents an AND conjunction of filters"""
 
     and_: Sequence["Filter"] = pydantic.Field(alias="and")
@@ -158,7 +161,7 @@ class And(_BaseFilter):
         }
 
 
-class Or(_BaseFilter):
+class _Or(_BaseFilter):
     """Represents an OR conjunction of filters"""
 
     or_: Sequence["Filter"] = pydantic.Field(alias="or")
@@ -171,7 +174,7 @@ class Or(_BaseFilter):
         return merged_filter
 
 
-class Not(_BaseFilter):
+class _Not(_BaseFilter):
     """Represents a NOT filter"""
 
     not_: "Filter" = pydantic.Field(alias="not")
@@ -196,25 +199,25 @@ class Not(_BaseFilter):
 # TODO: With pydantic 2, we can use a RootModel with a
 # discriminated union to make the error messages more informative.
 Filter = Union[
-    And,
-    Or,
-    Not,
-    Platform,
-    Domain,
-    Env,
-    CustomCondition,
+    _And,
+    _Or,
+    _Not,
+    _PlatformFilter,
+    _DomainFilter,
+    _EnvFilter,
+    _CustomCondition,
 ]
 
 
 # Required to resolve forward references
 if PYDANTIC_VERSION_2:
-    And.model_rebuild()  # type: ignore
-    Or.model_rebuild()  # type: ignore
-    Not.model_rebuild()  # type: ignore
+    _And.model_rebuild()  # type: ignore
+    _Or.model_rebuild()  # type: ignore
+    _Not.model_rebuild()  # type: ignore
 else:
-    And.update_forward_refs()
-    Or.update_forward_refs()
-    Not.update_forward_refs()
+    _And.update_forward_refs()
+    _Or.update_forward_refs()
+    _Not.update_forward_refs()
 
 
 def load_filters(obj: Any) -> Filter:
