@@ -31,6 +31,7 @@ import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '../tabs/Properties/types';
+import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -91,11 +92,19 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
 
+    const uniqueEntityUrnsToHydrate = entityTypeProperties?.flatMap((property) => {
+        const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
+        const values = propertyRow?.values;
+        return values?.map((value) => value?.entity?.urn);
+    });
+
+    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate);
+
     return (
         <>
             {entityTypeProperties?.map((property) => {
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-                const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
+                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
 
@@ -109,7 +118,11 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                     {values ? (
                                         <>
                                             {values.map((val) => (
-                                                <StructuredPropertyValue value={val} isRichText={isRichText} />
+                                                <StructuredPropertyValue
+                                                    value={val}
+                                                    isRichText={isRichText}
+                                                    hydratedEntityMap={hydratedEntityMap}
+                                                />
                                             ))}
                                         </>
                                     ) : (

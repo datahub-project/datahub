@@ -16,7 +16,7 @@ from datahub.metadata.urns import (
     ContainerUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity
+from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
     DomainInputType,
     HasContainer,
@@ -27,11 +27,13 @@ from datahub.sdk._shared import (
     HasTags,
     HasTerms,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.utilities.sentinels import Auto, auto
 
 
 class Container(
@@ -54,7 +56,7 @@ class Container(
         self,
         /,
         # Identity.
-        container_key: ContainerKey | ContainerUrn,
+        container_key: ContainerKey,
         *,
         # Container attributes.
         display_name: str,
@@ -66,17 +68,22 @@ class Container(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
+        parent_container: Auto | ParentContainerInputType | None = auto,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
+        # Hack: while the type annotations say container_key is always a ContainerKey,
+        # we allow ContainerUrn to make the graph-based constructor work.
         if isinstance(container_key, ContainerUrn):
             urn = container_key
         else:
             urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         # This needs to come first to ensure that the display name is registered.
         self._ensure_container_props(name=display_name)
@@ -84,8 +91,6 @@ class Container(
         # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
         if isinstance(container_key, ContainerKey):
             self._set_platform_instance(container_key.platform, container_key.instance)
-
-            self._set_container(container_key.parent_key())
 
             self.set_custom_properties(
                 {
@@ -100,6 +105,18 @@ class Container(
             env = container_key.env if container_key.env in ALL_ENV_TYPES else None
             if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES and env is not None:
                 self._ensure_container_props().env = env
+        else:
+            self.set_custom_properties(extra_properties or {})
+
+        if parent_container is auto:
+            if not isinstance(container_key, ContainerKey):
+                raise SdkUsageError(
+                    "Either a container_key or parent_container must be provided"
+                )
+
+            self._set_container(container_key.parent_key())
+        else:
+            self._set_container(parent_container)
 
         if description is not None:
             self.set_description(description)
@@ -126,7 +143,8 @@ class Container(
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, ContainerUrn)
-        entity = cls(urn, display_name="__dummy_value__")
+
+        entity = cls(urn, display_name="__dummy_value__", parent_container=None)  # type: ignore[arg-type]
         return entity._init_from_graph(current_aspects)
 
     def _ensure_container_props(

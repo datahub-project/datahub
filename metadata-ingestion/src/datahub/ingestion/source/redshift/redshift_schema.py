@@ -1,7 +1,8 @@
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import redshift_connector
 
@@ -76,6 +77,41 @@ class RedshiftSchema:
 
 
 @dataclass
+class PartialInboundDatashare:
+    share_name: str
+    producer_namespace_prefix: str
+    consumer_database: str
+
+    def get_description(self) -> str:
+        return (
+            f"Namespace Prefix {self.producer_namespace_prefix} Share {self.share_name}"
+        )
+
+
+@dataclass
+class OutboundDatashare:
+    share_name: str
+    producer_namespace: str
+    source_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+
+@dataclass
+class InboundDatashare:
+    share_name: str
+    producer_namespace: str
+    consumer_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+    def get_description(self) -> str:
+        return f"Namespace {self.producer_namespace} Share {self.share_name}"
+
+
+@dataclass
 class RedshiftDatabase:
     name: str
     type: str
@@ -84,6 +120,49 @@ class RedshiftDatabase:
     @property
     def is_shared_database(self) -> bool:
         return self.type == "shared"
+
+    # NOTE: ideally options are in form
+    # {"datashare_name":"xxx","datashare_producer_account":"1234","datashare_producer_namespace":"yyy"}
+    # however due to varchar(128) type of database table that captures options
+    # we may receive only partial information about inbound share
+    def get_inbound_share(
+        self,
+    ) -> Optional[Union[InboundDatashare | PartialInboundDatashare]]:
+        if not self.is_shared_database or not self.options:
+            return None
+
+        # Convert into single regex ??
+        share_name_match = re.search(r'"datashare_name"\s*:\s*"([^"]*)"', self.options)
+        namespace_match = re.search(
+            r'"datashare_producer_namespace"\s*:\s*"([^"]*)"', self.options
+        )
+        partial_namespace_match = re.search(
+            r'"datashare_producer_namespace"\s*:\s*"([^"]*)$', self.options
+        )
+
+        if not share_name_match:
+            # We will always at least get share name
+            return None
+
+        share_name = share_name_match.group(1)
+        if namespace_match:
+            return InboundDatashare(
+                share_name=share_name,
+                producer_namespace=namespace_match.group(1),
+                consumer_database=self.name,
+            )
+        elif partial_namespace_match:
+            return PartialInboundDatashare(
+                share_name=share_name,
+                producer_namespace_prefix=partial_namespace_match.group(1),
+                consumer_database=self.name,
+            )
+        else:
+            return PartialInboundDatashare(
+                share_name=share_name,
+                producer_namespace_prefix="",
+                consumer_database=self.name,
+            )
 
 
 @dataclass
@@ -129,26 +208,6 @@ class AlterTableRow:
     session_id: str
     query_text: str
     start_time: datetime
-
-
-@dataclass
-class OutboundDatashare:
-    share_name: str
-    producer_namespace: str
-    source_database: str
-
-    def get_key(self) -> str:
-        return f"{self.producer_namespace}.{self.share_name}"
-
-
-@dataclass
-class InboundDatashare:
-    share_name: str
-    producer_namespace: str
-    consumer_database: str
-
-    def get_key(self) -> str:
-        return f"{self.producer_namespace}.{self.share_name}"
 
 
 def _stringy(x: Optional[int]) -> Optional[str]:
@@ -592,6 +651,8 @@ class RedshiftDataDictionary:
                 source_database=item[3],
             )
 
+    # NOTE: this is not used right now as it requires superuser privilege
+    # We can use this in future if the permissions are lowered.
     @staticmethod
     def get_inbound_datashare(
         conn: redshift_connector.Connection,

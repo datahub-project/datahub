@@ -19,6 +19,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -94,6 +95,14 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, mlFeature) => {
+                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

@@ -11,6 +11,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.systemmetadata.TraceService;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -168,7 +169,12 @@ public class TraceServiceImpl implements TraceService {
             String aspectName = aspectEntry.getKey();
 
             if (traceId.equals(systemTraceId)) {
-              aspectStatuses.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.ACTIVE_STATE));
+              if (SystemMetadataUtils.isNoOp(systemMetadata)) {
+                aspectStatuses.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.NO_OP));
+              } else {
+                aspectStatuses.put(
+                    aspectName, TraceStorageStatus.ok(TraceWriteStatus.ACTIVE_STATE));
+              }
             } else if (traceTimestampMillis <= extractTimestamp(systemTraceId, createdOnMillis)) {
               aspectStatuses.put(
                   aspectName, TraceStorageStatus.ok(TraceWriteStatus.HISTORIC_STATE));
@@ -421,7 +427,9 @@ public class TraceServiceImpl implements TraceService {
             storageEntry -> {
               String aspectName = storageEntry.getKey();
               TraceStorageStatus primaryStatus = storageEntry.getValue();
-              TraceStorageStatus searchStatus = searchAspectStatus.get(aspectName);
+              TraceStorageStatus searchStatus =
+                  searchAspectStatus.getOrDefault(
+                      aspectName, TraceStorageStatus.ok(TraceWriteStatus.PENDING));
               TraceStatus traceStatus =
                   TraceStatus.builder()
                       .primaryStorage(primaryStatus)
@@ -448,7 +456,7 @@ public class TraceServiceImpl implements TraceService {
   }
 
   private static boolean isSuccess(
-      TraceStorageStatus primaryStatus, TraceStorageStatus searchStatus) {
+      @Nonnull TraceStorageStatus primaryStatus, @Nonnull TraceStorageStatus searchStatus) {
     return !TraceWriteStatus.ERROR.equals(primaryStatus.getWriteStatus())
         && !TraceWriteStatus.ERROR.equals(searchStatus.getWriteStatus());
   }

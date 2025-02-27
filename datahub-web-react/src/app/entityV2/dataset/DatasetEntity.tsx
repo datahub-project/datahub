@@ -288,8 +288,8 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         { component: SidebarDatasetViewDefinitionSection },
         { component: SidebarQueryOperationsSection },
-        { component: StatusSection },
         { component: SidebarStructuredProperties },
+        { component: StatusSection },
         // {
         //    component: SidebarRecommendationsSection,
         // },

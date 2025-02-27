@@ -1,10 +1,12 @@
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel
 
 from datahub.api.entities.platformresource.platform_resource import (
+    ElasticPlatformResourceQuery,
     PlatformResource,
     PlatformResourceKey,
+    PlatformResourceSearchFields,
 )
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -13,11 +15,13 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift_schema import (
     InboundDatashare,
     OutboundDatashare,
+    PartialInboundDatashare,
     RedshiftTable,
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
+from datahub.utilities.search_utils import LogicalOperator
 
 
 class OutboundSharePlatformResource(BaseModel):
@@ -104,16 +108,9 @@ class RedshiftDatasharesHelper:
 
     def generate_lineage(
         self,
-        share: Optional[InboundDatashare],
+        share: Union[InboundDatashare | PartialInboundDatashare],
         tables: Dict[str, List[RedshiftTable | RedshiftView]],
     ) -> Iterable[KnownLineageMapping]:
-        if not share:
-            self.report.warning(
-                title="Upstream lineage of inbound datashare will be missing",
-                message="Superuser permissions required to query svv_datashares",
-            )
-            return
-
         upstream_share = self.find_upstream_share(share)
 
         if not upstream_share:
@@ -138,8 +135,9 @@ class RedshiftDatasharesHelper:
                 )
 
     def find_upstream_share(
-        self, share: InboundDatashare
+        self, share: Union[InboundDatashare | PartialInboundDatashare]
     ) -> Optional[OutboundSharePlatformResource]:
+        # TODO: handle case of partial inbound share
         upstream_share: Optional[OutboundSharePlatformResource] = None
 
         if not self.graph:
@@ -150,11 +148,7 @@ class RedshiftDatasharesHelper:
             )
 
         else:
-            resources = list(
-                PlatformResource.search_by_key(
-                    self.graph, key=share.get_key(), primary=True, is_exact=True
-                )
-            )
+            resources = self.get_platform_resources(self.graph, share)
 
             if len(resources) == 0 or (
                 not any(
@@ -169,9 +163,9 @@ class RedshiftDatasharesHelper:
                 self.report.info(
                     title="Upstream lineage of inbound datashare will be missing",
                     message="Missing platform resource for share. "
-                    "Setup redshift ingestion for namespace if not already done"
-                    "If ingestion is setup, check whether ingestion user has permission to share",
-                    context=f"Namespace {share.producer_namespace} Share {share.share_name}",
+                    "Setup redshift ingestion for namespace if not already done. If ingestion is setup, "
+                    "check whether ingestion user has ALTER/SHARE permission to share.",
+                    context=share.get_description(),
                 )
             else:
                 # Ideally we should get only one resource as primary key is namespace+share
@@ -191,11 +185,46 @@ class RedshiftDatasharesHelper:
                         self.report.warning(
                             title="Upstream lineage of inbound datashare will be missing",
                             message="Failed to parse platform resource for outbound datashare",
-                            context=f"Namespace {share.producer_namespace} Share {share.share_name}",
+                            context=share.get_description(),
                             exc=e,
                         )
 
         return upstream_share
+
+    def get_platform_resources(
+        self,
+        graph: DataHubGraph,
+        share: Union[InboundDatashare, PartialInboundDatashare],
+    ) -> List[PlatformResource]:
+        if isinstance(share, PartialInboundDatashare):
+            return list(
+                PlatformResource.search_by_filters(
+                    graph,
+                    ElasticPlatformResourceQuery.create_from()
+                    .group(LogicalOperator.AND)
+                    .add_field_match(
+                        PlatformResourceSearchFields.RESOURCE_TYPE,
+                        PLATFORM_RESOURCE_TYPE,
+                    )
+                    .add_field_match(
+                        PlatformResourceSearchFields.PLATFORM, self.platform
+                    )
+                    .add_field_match(
+                        PlatformResourceSearchFields.SECONDARY_KEYS,
+                        share.share_name,
+                    )
+                    .add_wildcard(
+                        PlatformResourceSearchFields.SECONDARY_KEYS.field_name,
+                        f"{share.producer_namespace_prefix}*",
+                    )
+                    .end(),
+                )
+            )
+        return list(
+            PlatformResource.search_by_key(
+                graph, key=share.get_key(), primary=True, is_exact=True
+            )
+        )
 
     # TODO: Refactor and move to new RedshiftIdentifierBuilder class
     def gen_dataset_urn(

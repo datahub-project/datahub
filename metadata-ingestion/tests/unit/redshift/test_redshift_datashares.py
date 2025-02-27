@@ -242,24 +242,6 @@ class TestDatasharesHelper:
             in list(report.warnings)[0].message
         )
 
-    def test_generate_lineage_shared_database_without_inbound_share(self):
-        """
-        Test generate_lineage with empty input for both share and tables parameters.
-        """
-        config = get_redshift_config()
-        report = RedshiftReport()
-        graph = None
-        helper = RedshiftDatasharesHelper(config, report, graph)
-
-        result = list(helper.generate_lineage(None, {}))
-        assert len(result) == 0
-        assert len(report.warnings) == 1
-        assert (
-            list(report.warnings)[0].title
-            == "Upstream lineage of inbound datashare will be missing"
-        )
-        assert "Superuser permissions required" in list(report.warnings)[0].message
-
     def test_generate_lineage_shared_database_with_no_tables(self):
         """
         Test generate_lineage with valid share but empty tables dictionary.

@@ -982,20 +982,19 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.datashares_helper.to_platform_resource(list(outbound_shares))
             )
 
-            if self.report.is_shared_database:
-                inbound_share = self.data_dictionary.get_inbound_datashare(
-                    connection, database
-                )
-
-                # TODO: if inbound_share is missing here, which may happen if
-                # ingestion user is not superuser, try using self.db.options
-                # to find inbound share details. This column is available for
-                # less priviledged users, however, it is truncated due to type
-                # varchar(128) and has only partial information at this point
-                for known_lineage in self.datashares_helper.generate_lineage(
-                    inbound_share, self.get_all_tables()[database]
-                ):
-                    lineage_extractor.aggregator.add(known_lineage)
+            if self.db and self.db.is_shared_database:
+                inbound_share = self.db.get_inbound_share()
+                if inbound_share is None:
+                    self.report.warning(
+                        title="Upstream lineage of inbound datashare will be missing",
+                        message="Database options do not contain sufficient information",
+                        context=f"Database: {database}, Options {self.db.options}",
+                    )
+                else:
+                    for known_lineage in self.datashares_helper.generate_lineage(
+                        inbound_share, self.get_all_tables()[database]
+                    ):
+                        lineage_extractor.aggregator.add(known_lineage)
 
         # TODO: distinguish between definition level lineage and audit log based lineage
         # definition level lineage should never be skipped

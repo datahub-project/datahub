@@ -33,7 +33,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+from datahub.ingestion.graph.config import (
     DatahubClientConfig as DatahubClientConfig,
 )
 from datahub.ingestion.graph.connections import (
@@ -1547,7 +1547,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         return fragment
 
     def _run_assertion_build_params(
-        self, params: Optional[Dict[str, str]] = {}
+        self, params: Optional[Dict[str, str]] = None
     ) -> List[Any]:
         if params is None:
             return []
@@ -1566,9 +1566,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         urn: str,
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1597,9 +1599,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         urns: List[str],
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1636,10 +1640,14 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions_for_asset(
         self,
         urn: str,
-        tag_urns: Optional[List[str]] = [],
-        parameters: Optional[Dict[str, str]] = {},
+        tag_urns: Optional[List[str]] = None,
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if tag_urns is None:
+            tag_urns = []
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
