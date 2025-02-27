@@ -22,6 +22,11 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
     const entityRegistry = useEntityRegistry();
     const relationshipsTotal = groupMemberRelationships?.total || 0;
     const relationshipsAvailableCount = groupMemberRelationships.relationships?.length || 0;
+
+    const hasHiddenEntities = relationshipsTotal > relationshipsAvailableCount;
+    const isShowingMaxEntities = entityCount >= relationshipsAvailableCount;
+    const showAndMoreText = hasHiddenEntities && isShowingMaxEntities;
+
     return (
         <>
             <TagsSection>
@@ -42,7 +47,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
                     showMaxEntity={DEFAULT_MAX_ENTITIES_TO_SHOW}
                 />
             )}
-            {relationshipsTotal > relationshipsAvailableCount && entityCount >= relationshipsAvailableCount && (
+            {showAndMoreText && (
                 <ShowMoreButton onClick={() => history.replace(`${url}/${TabType.Members.toLocaleLowerCase()}`)}>
                     View all members
                 </ShowMoreButton>
