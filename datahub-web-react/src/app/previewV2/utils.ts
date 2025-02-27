@@ -153,5 +153,5 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {
-    return browsePaths.path?.length === 1 && browsePaths?.path[0].name === 'Default';
+    return browsePaths.path?.length === 1 && browsePaths?.path[0]?.name === 'Default';
 };

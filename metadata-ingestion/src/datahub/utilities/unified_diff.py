@@ -2,8 +2,12 @@ import logging
 from dataclasses import dataclass
 from typing import List, Tuple
 
+from datahub.cli.env_utils import get_boolean_env_variable
+
+_debug_diff = get_boolean_env_variable("DATAHUB_DEBUG_DIFF_PATCHER")
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG if _debug_diff else logging.INFO)
 
 _LOOKAROUND_LINES = 300
 

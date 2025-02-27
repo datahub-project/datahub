@@ -1673,7 +1673,9 @@
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term Applied",
-        "hasValuesFieldName" : "hasGlossaryTerms"
+        "hasValuesFieldName" : "hasGlossaryTerms",
+        "includeSystemModifiedAt" : true,
+        "systemModifiedAtFieldName" : "termsModifiedAt"
       }
     }, {
       "name" : "actor",
@@ -2056,14 +2058,14 @@
       "default" : [ ],
       "Relationship" : {
         "/*/destinationUrn" : {
-          "createdActor" : "datasetEdges/*/created/actor",
-          "createdOn" : "datasetEdges/*/created/time",
+          "createdActor" : "dashboards/*/created/actor",
+          "createdOn" : "dashboards/*/created/time",
           "entityTypes" : [ "dashboard" ],
           "isLineage" : true,
           "name" : "DashboardContainsDashboard",
-          "properties" : "datasetEdges/*/properties",
-          "updatedActor" : "datasetEdges/*/lastModified/actor",
-          "updatedOn" : "datasetEdges/*/lastModified/time"
+          "properties" : "dashboards/*/properties",
+          "updatedActor" : "dashboards/*/lastModified/actor",
+          "updatedOn" : "dashboards/*/lastModified/time"
         }
       }
     }, {
@@ -4423,7 +4425,9 @@
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldGlossaryTerms",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "includeSystemModifiedAt" : true,
+                              "systemModifiedAtFieldName" : "schemaFieldTermsModifiedAt"
                             }
                           }
                         } ]

@@ -113,13 +113,6 @@
         <appender-ref ref="ASYNC_GRAPHQL_DEBUG_FILE"/>
     </logger>
 
-    <logger name="com.datahub.graphql" level="TRACE">
-        <appender-ref ref="ASYNC_GRAPHQL_DEBUG_FILE"/>
-    </logger>
-
-    <logger name="com.datahub.graphql" level="DEBUG">
-        <appender-ref ref="ASYNC_GRAPHQL_DEBUG_FILE"/>
-    </logger>
     <logger name="org.springframework" level="ERROR"/>
 
     <root level="INFO">

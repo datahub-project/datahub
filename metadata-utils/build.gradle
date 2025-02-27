@@ -34,6 +34,9 @@ dependencies {
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+  testImplementation project(':metadata-operation-context')
 
   constraints {
       implementation(externalDependency.log4jCore) {

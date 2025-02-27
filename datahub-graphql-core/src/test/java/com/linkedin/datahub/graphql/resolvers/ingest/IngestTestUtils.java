@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -86,7 +87,7 @@ public class IngestTestUtils {
                 "recipe", "my-custom-recipe",
                 "version", "0.8.18")));
     input.setTask("RUN_INGEST");
-    input.setExecutorId("default");
+    input.setExecutorId(DEFAULT_EXECUTOR_ID);
     input.setRequestedAt(0L);
     input.setSource(
         new ExecutionRequestSource()

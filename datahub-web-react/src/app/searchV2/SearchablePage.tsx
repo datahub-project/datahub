@@ -59,7 +59,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const DEBOUNCE_DELAY_IN_MS = 200;
 
 type Props = React.PropsWithChildren<any>;
 
@@ -86,7 +86,9 @@ export const SearchablePage = ({ children }: Props) => {
     const themeConfig = useTheme();
     const { selectedQuickFilter } = useQuickFiltersContext();
 
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
     const userContext = useUserContext();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const viewUrn = userContext.localState?.selectedViewUrn;
@@ -129,7 +131,7 @@ export const SearchablePage = ({ children }: Props) => {
                 },
             });
         }
-    }, FIFTH_SECOND_IN_MS);
+    }, DEBOUNCE_DELAY_IN_MS);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {

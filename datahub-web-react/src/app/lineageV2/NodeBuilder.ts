@@ -180,7 +180,6 @@ export default class NodeBuilder {
     createEdges(edges: NodeContext['edges']): Edge<LineageTableEdgeData>[] {
         const baseEdges = new Map<EdgeId, BaseEdge<LineageTableEdgeData>>();
         edges.forEach((edge, edgeId) => {
-            if (!edge.isDisplayed) return;
             const [upstream, downstream] = parseEdgeId(edgeId);
             if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
                 const upstreamDirection = this.nodeInformation[upstream].direction;

@@ -120,6 +120,7 @@ query appConfig {
             showStatsTabRedesign
             requestMinimalSlackPermissions
             showTaskCenterRedesign
+            usePropagationsFramework
         }
         chromeExtensionConfig {
             enabled

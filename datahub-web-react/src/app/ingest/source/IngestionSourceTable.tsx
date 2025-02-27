@@ -54,7 +54,7 @@ interface Props {
     onRefresh: () => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     saasProps: {
-        onViewPool: (poolName: string) => void;
+        onViewPool: (poolId: string) => void;
     };
 }
 

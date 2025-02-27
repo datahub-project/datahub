@@ -17,16 +17,10 @@ const Container = styled.div`
     padding: 2px 6px 2px 4px;
     border-radius: 200px;
     border: 1px solid #ccebf6;
-    background: linear-gradient(
-        113deg,
-        var(--gradient-5, #f1f3fd) 23.75%,
-        var(--gradient-6, #e5e2f8) 66.64%,
-        var(--gradient-7, #e5e2f8) 94.06%
-    );
+    background: linear-gradient(113deg, #f1f3fd 23.75%, #e5e2f8 66.64%, #e5e2f8 94.06%);
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-right: 4px;
     line-height: normal;
 `;
 

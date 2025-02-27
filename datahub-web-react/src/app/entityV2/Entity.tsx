@@ -191,6 +191,12 @@ export interface Entity<T> {
     displayName: (data: T) => string;
 
     /**
+     * Returns the created time for the entity
+     *
+     */
+    createdTime?: (data: T) => number | undefined | null;
+
+    /**
      * Returns generic entity properties for the entity
      */
     getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;

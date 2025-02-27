@@ -30,6 +30,11 @@ query getChart($urn: String!) {
                 value
             }
         }
+        info {
+            created {
+                time
+            }
+        }
         query {
             rawQuery
             type

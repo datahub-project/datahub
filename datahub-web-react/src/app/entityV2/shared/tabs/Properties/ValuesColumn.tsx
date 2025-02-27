@@ -28,7 +28,7 @@ const ValueContainer = styled.div`
 
 export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMap, renderType }: Props) {
     const { values } = propertyRow;
-    const isRichText = propertyRow.dataType?.info.type === StdDataType.RichText;
+    const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
     return (
         <ValuesContainerFlex renderType={renderType}>

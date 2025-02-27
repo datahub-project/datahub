@@ -108,11 +108,14 @@ export const SettingsPage = () => {
     const showViews = isViewsEnabled || false;
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
-    const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
-    const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
+
+    // SaaS Only
+    const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
+    const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
+    // End SaaS Only
 
     // Menu Items based on PATHS
     const menuItems: NavBarMenuItems = {

@@ -50,7 +50,7 @@ public class MetadataTestHookTest {
     newInfo.setName("My Redshift Source");
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
-            .setExecutorId("default")
+            .setExecutorId(DEFAULT_EXECUTOR_ID)
             .setRecipe("{ type }")
             .setVersion("0.8.18"));
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
@@ -111,7 +111,7 @@ public class MetadataTestHookTest {
     newInfo.setName("My Redshift Source");
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
-            .setExecutorId("default")
+            .setExecutorId(DEFAULT_EXECUTOR_ID)
             .setRecipe("{ type }")
             .setVersion("0.8.18"));
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));

@@ -12,7 +12,10 @@ from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_GET_ASSERTION_QUERY,
     GRAPHQL_GET_DATASET_QUERY,
 )
-from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
+    RUN_ASSERTION_TASK_NAME,
+)
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
@@ -31,7 +34,7 @@ from datahub_executor.common.types import (
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
 
@@ -121,16 +124,16 @@ def _evaluate_assertion(
 ) -> Optional[AssertionResultSchema]:
     monitor_urn = assertion.monitor.get("urn", None) if assertion.monitor else None
     executor_id = (
-        assertion.monitor.get("executor_id", "default")
+        assertion.monitor.get("executor_id", DATAHUB_EXECUTOR_EMBEDDED_POOL_ID)
         if assertion.monitor
-        else "default"
+        else DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
     )
     context = AssertionEvaluationContext(
         dry_run=dry_run,
         monitor_urn=monitor_urn,
     )
     is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
-        DATAHUB_EXECUTOR_POOL_NAME == executor_id
+        DATAHUB_EXECUTOR_POOL_ID == executor_id
     )
 
     if async_flag and not is_embedded:

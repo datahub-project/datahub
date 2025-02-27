@@ -23,6 +23,11 @@ record RemoteExecutorPoolInfo {
   creator: optional Urn
 
   /**
+   * A description for this pool
+   */
+  description: optional string
+
+  /**
    * The url to the task queue for this pool. I.e., SQS queue url.
    */
   queueUrl: optional string

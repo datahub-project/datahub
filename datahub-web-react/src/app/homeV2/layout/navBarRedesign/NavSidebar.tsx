@@ -85,25 +85,28 @@ export const NavSidebar = () => {
     const me = useUserContext();
 
     const { isUserInitializing } = useContext(OnboardingContext);
-    const { helpLinkState, globalSettings } = useGlobalSettingsContext();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
-    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
     const logout = useGetLogoutHandler();
 
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+
+    /* SaaS Only */
+    const { helpLinkState, globalSettings } = useGlobalSettingsContext();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
     const showActionRequests = config?.actionRequestsConfig.enabled || false;
     const showTests = ((config?.testsConfig.enabled || false) && me?.platformPrivileges?.manageTests) || false;
     const showAddHelpLink = !helpLinkState.isEnabled && me.platformPrivileges?.manageGlobalSettings;
-    const showAnalytics = (config?.analyticsConfig.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
         (showFormAnalytics || formCreationEnabled);
-    const showStructuredProperties =
-        config?.featureFlags?.showManageStructuredProperties &&
-        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    /* End SaaS Only */
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
@@ -343,7 +346,7 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Sign out',
-                icon: <SignOut />,
+                icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
                 href: '/logOut',

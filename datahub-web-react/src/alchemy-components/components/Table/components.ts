@@ -113,3 +113,8 @@ export const LoadingContainer = styled.div({
     color: colors.violet[700],
     fontSize: typography.fontSizes['3xl'],
 });
+
+export const CheckboxWrapper = styled.div({
+    display: 'flex',
+    alignItems: 'center',
+});

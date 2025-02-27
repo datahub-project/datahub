@@ -31,7 +31,7 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Mlmodel, model.urn)}
-            name={model.name || ''}
+            name={data?.name || ''}
             urn={model.urn}
             data={data}
             description={model.description || ''}

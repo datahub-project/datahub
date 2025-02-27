@@ -49,8 +49,9 @@ describe("manage queries", () => {
     cy.openEntityTab("Queries");
   });
 
-  it.skip("go to queries tab on dataset page then create query and verify & view the card", () => {
-    cy.waitTextVisible("Highlighted Queries");
+  it("go to queries tab on dataset page then create query and verify & view the card", () => {
+    cy.wait(1000);
+    cy.url().should("include", "Queries");
     cy.ensureTextNotPresent("Recent Queries");
     addNewQuery();
     cy.waitTextVisible(`+ Test Query-${runId}`);
@@ -64,7 +65,7 @@ describe("manage queries", () => {
     );
   });
 
-  it.skip("go to queries tab on dataset page then edit the query and verify edited Query card", () => {
+  it("go to queries tab on dataset page then edit the query and verify edited Query card", () => {
     editQuery();
     verifyViewCardDetails(
       `+ Test Query-${runId} + Edited Query-${runId}`,
@@ -73,7 +74,7 @@ describe("manage queries", () => {
     );
   });
 
-  it.skip("go to queries tab on dataset page then delete the query and verify that query should be gone", () => {
+  it("go to queries tab on dataset page then delete the query and verify that query should be gone", () => {
     deleteQuery();
     cy.ensureTextNotPresent(`+ Test Query-${runId} + Edited Query-${runId}`);
     cy.ensureTextNotPresent(`Edited Table-${runId}`);

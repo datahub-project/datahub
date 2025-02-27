@@ -5,8 +5,9 @@
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/snowflake/tag_propagator.py
 */
 
+import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
 import SnowflakeLogo from '@images/snowflakelogo.png';
-import { EntityType } from '@src/types.generated';
+import { AppConfig, EntityType } from '@src/types.generated';
 import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 
@@ -17,7 +18,7 @@ export const automationType = 'datahub_integrations.propagation.snowflake.tag_pr
 const automationName = 'Snowflake Tag Propagation';
 const automationDescription = 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags';
 
-const defaultRecipe = {
+const defaultRecipe: AutomationRecipe = {
     name: automationName,
     description: automationDescription,
     category: 'Data Discovery',
@@ -102,7 +103,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template = {
+export const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'snowflake',
@@ -110,7 +111,7 @@ export const template = {
     name: automationName,
     description: automationDescription,
     defaultRecipe,
-    isDisabled: false,
+    isDisabled: (appConfig: AppConfig) => !appConfig.classificationConfig.automations.snowflake,
     isBeta: true,
     fields,
 };

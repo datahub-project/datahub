@@ -152,7 +152,7 @@ public class ElasticSearchTestExecutor {
                   elasticTestDefinition.getFailingFilters(),
                   null,
                   0,
-                  1000,
+                  executionLimit,
                   null)
               .getEntities()
               .stream();
@@ -165,7 +165,7 @@ public class ElasticSearchTestExecutor {
               elasticTestDefinition.getSelectionFilters(),
               null,
               0,
-              1000,
+              executionLimit,
               null);
       failingEntities =
           selectionSearchResult.getEntities().stream()

@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { DataPlatformInstance, EntityType, SyncMechanism } from '../../../../../../../types.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { useEntityRegistryV2 as useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { Entity } from '../../../../../Entity';
 import { REDESIGN_COLORS } from '../../../../constants';
 import { getPlatformName } from '../../../../utils';
@@ -52,14 +52,13 @@ const EmptyText = styled(Typography.Text)`
 `;
 
 const StatusSection = () => {
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
     const dataset = entityData as any;
-    const entityType = entityData?.type;
     const properties = dataset?.properties;
 
-    const created = properties?.created?.time;
+    const created = entityRegistry.getCreatedTime(entityType, entityData);
     const lastModified = properties?.lastModified?.time;
     const lastRefreshed = properties?.lastRefreshed;
     const lastOp = dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;

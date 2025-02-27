@@ -143,7 +143,7 @@
   {
     "auditHeader": null,
     "entityType": "incident",
-    "entityUrn": "urn:li:incident:test",
+    "entityUrn": "urn:li:incident:test2",
     "changeType": "UPSERT",
     "aspectName": "incidentInfo",
     "aspect": {

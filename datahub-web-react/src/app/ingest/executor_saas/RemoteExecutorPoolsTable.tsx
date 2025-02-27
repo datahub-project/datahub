@@ -6,8 +6,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { Check } from 'phosphor-react';
 import { colors } from '@src/alchemy-components';
+import { pluralize } from '@src/app/shared/textUtil';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
-import { PoolStatusColumn } from './Columns';
+import { PoolDescriptionColumn, PoolStatusColumn } from './Columns';
+import { checkIsExecutionRequestRunning } from '../source/utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 const ExecutorsTable = styled(StyledTable)`
@@ -56,14 +58,15 @@ type Props = {
     pools: RemoteExecutorPool[];
     onRefresh: () => void;
     updateDefaultPool: (urn: string) => void;
-    viewSourcesForPool: (poolName: string) => void;
+    viewSourcesForPool: (executorPoolId: string) => void;
 };
 
 export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, viewSourcesForPool }: Props) => {
     const tableData = pools.map((pool) => ({
         urn: pool.urn,
         isDataHubCloud: !!pool.remoteExecutors?.remoteExecutors?.find((executor) => executor.executorInternal),
-        name: pool.poolName,
+        id: pool.executorPoolId,
+        description: pool.description,
         reportedAt: Math.max(
             0,
             ...(pool.remoteExecutors?.remoteExecutors?.map((executor) => executor.reportedAt) ?? []),
@@ -74,18 +77,26 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
     }));
     const tableColumns = [
         {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            render: (name: string, record: (typeof tableData)[0]) => (
+            title: 'Identifier',
+            dataIndex: 'id',
+            key: 'id',
+            render: (id: string, record: (typeof tableData)[0]) => (
                 <Typography.Text>
-                    {name || 'unknown'}
+                    {id || 'unknown'}
                     {record.isDataHubCloud ? (
                         <strong style={{ opacity: 0.5, marginLeft: 4 }}> Hosted on DataHub Cloud</strong>
                     ) : (
                         ''
                     )}
                 </Typography.Text>
+            ),
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (description: string, record: (typeof tableData)[0]) => (
+                <PoolDescriptionColumn description={description} urn={record.urn} onUpdate={onRefresh} />
             ),
         },
         {
@@ -110,9 +121,26 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
             dataIndex: 'x',
             key: 'ingestionSources',
             render: (_, record: (typeof tableData)[0]) => (
-                <LinkButton onClick={() => viewSourcesForPool(record.name)}>
-                    {record.ingestionSources?.total ?? 0} sources
+                <LinkButton onClick={() => viewSourcesForPool(record.id)}>
+                    {record.ingestionSources?.total ?? 0} {pluralize(record.ingestionSources?.total ?? 0, 'source')}
                 </LinkButton>
+            ),
+        },
+        {
+            title: 'Tasks',
+            dataIndex: 'x',
+            key: 'runningTasks',
+            render: (_, record: (typeof tableData)[0]) => (
+                <Typography.Text>
+                    {record.remoteExecutors?.remoteExecutors?.reduce(
+                        (total, exec) =>
+                            total +
+                            (exec.recentExecutions?.executionRequests.filter((task) =>
+                                checkIsExecutionRequestRunning(task.result),
+                            ).length || 0),
+                        0,
+                    ) || 'None'}
+                </Typography.Text>
             ),
         },
         {

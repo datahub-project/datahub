@@ -9,7 +9,7 @@ import BigQueryLogo from '@images/bigquerylogo.png';
 import { EntityType } from '@src/types.generated';
 import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
-import { ConfigMap } from '../../types';
+import { AutomationRecipe, AutomationTemplate, ConfigMap } from '../../types';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
@@ -19,7 +19,7 @@ const automationName = 'BigQuery Metadata Sync';
 const automationDescription = 'Propagate tags, terms, and descriptions to BigQuery.';
 
 // Important: This is the form state which is taken by default, when creating a new automation of this type.
-const defaultRecipe = {
+const defaultRecipe: AutomationRecipe = {
     name: automationName,
     description: automationDescription,
     category: 'Data Discovery',
@@ -231,7 +231,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template = {
+export const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'bigquery',
@@ -239,7 +239,6 @@ export const template = {
     name: automationName,
     defaultRecipe,
     description: automationDescription,
-    isDisabled: false,
     isBeta: true,
     fields,
 };

@@ -11,11 +11,9 @@ acryl-datahub-actions==0.1.3
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
-aiohappyeyeballs==2.4.6
-    # via aiohttp
-aiohttp==3.11.12
+aiohttp==3.9.5
     # via acryl-datahub
-aiosignal==1.3.2
+aiosignal==1.3.1
     # via aiohttp
 altair==4.2.0
     # via great-expectations
@@ -31,27 +29,25 @@ anyio==3.7.1
 appnope==0.1.4 ; sys_platform == 'darwin'
     # via ipykernel
 argon2-cffi==23.1.0
-    # via jupyter-server
+    # via
+    #   jupyter-server
+    #   nbclassic
+    #   notebook
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
-arrow==1.3.0
-    # via isoduration
 asgiref==3.8.1
     # via reactpy
 asn1crypto==1.5.1
     # via snowflake-connector-python
-asttokens==3.0.0
+asttokens==2.4.1
     # via stack-data
-async-lru==2.0.4
-    # via jupyterlab
-async-timeout==5.0.1 ; python_full_version < '3.11'
+async-timeout==4.0.3 ; python_full_version < '3.11'
     # via aiohttp
 asyncer==0.0.8
     # via acryl-datahub-integrations
-attrs==25.1.0
+attrs==23.2.0
     # via
     #   aiohttp
-    #   confluent-kafka
     #   jsonschema
     #   referencing
 avro==1.11.3
@@ -60,56 +56,53 @@ avro==1.11.3
     #   avro-gen3
 avro-gen3==0.7.16
     # via acryl-datahub
-babel==2.17.0
-    # via jupyterlab-server
-beautifulsoup4==4.13.3
+beautifulsoup4==4.12.3
     # via nbconvert
-bleach==6.2.0
+bleach==6.1.0
     # via nbconvert
 blis==0.7.11
     # via thinc
-boto3==1.36.23
+boto3==1.34.91
     # via acryl-datahub-integrations
-botocore==1.36.23
+botocore==1.34.91
     # via
     #   boto3
     #   s3transfer
 bracex==2.5.post1
     # via wcmatch
-build==1.2.2.post1
+build==1.2.2
     # via acryl-datahub-integrations
-cached-property==2.0.1
+cached-property==1.5.2
     # via acryl-datahub
-cachetools==5.5.1
+cachetools==5.3.3
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
-    #   confluent-kafka
     #   google-auth
 catalogue==2.0.10
     # via
     #   spacy
     #   srsly
     #   thinc
-certifi==2025.1.31
+certifi==2024.2.2
     # via
     #   httpcore
     #   httpx
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
-cffi==1.17.1
+cffi==1.16.0
     # via
     #   argon2-cffi-bindings
     #   cryptography
     #   pynacl
     #   pyzmq
     #   snowflake-connector-python
-charset-normalizer==3.4.1
+charset-normalizer==3.3.2
     # via
     #   requests
     #   snowflake-connector-python
-click==8.1.8
+click==8.1.7
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -123,8 +116,6 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-spinner==0.1.10
     # via acryl-datahub
-cloudpathlib==0.20.0
-    # via weasel
 colorama==0.4.6
     # via
     #   build
@@ -136,19 +127,15 @@ colorama==0.4.6
     #   tqdm
     #   uvicorn
     #   wasabi
-colorlog==6.9.0
+colorlog==6.8.2
     # via reactpy
 comm==0.2.2
-    # via
-    #   ipykernel
-    #   ipywidgets
-confection==0.1.5
-    # via
-    #   thinc
-    #   weasel
-confluent-kafka==2.8.0
+    # via ipywidgets
+confection==0.1.4
+    # via thinc
+confluent-kafka==2.3.0
     # via acryl-datahub
-cryptography==44.0.1
+cryptography==42.0.5
     # via
     #   acryl-datahub
     #   great-expectations
@@ -156,65 +143,63 @@ cryptography==44.0.1
     #   pyjwt
     #   pyopenssl
     #   snowflake-connector-python
-cymem==2.0.11
+cymem==2.0.8
     # via
     #   preshed
     #   spacy
     #   thinc
-debugpy==1.8.12
+debugpy==1.8.1
     # via ipykernel
 decorator==5.1.1
     # via ipython
 defusedxml==0.7.1
     # via nbconvert
-deprecated==1.2.18
+deprecated==1.2.14
     # via
     #   acryl-datahub
     #   pygithub
 dictdiffer==0.9.0
     # via acryl-datahub-actions
-docker==7.1.0
+docker==7.0.0
     # via acryl-datahub
-duckdb==1.2.0
+duckdb==0.10.2
     # via acryl-datahub-integrations
 entrypoints==0.4
     # via
     #   acryl-datahub-actions
     #   altair
-exceptiongroup==1.2.2
+    #   jupyter-client
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
     # via
     #   anyio
     #   ipython
-    #   reactpy
-executing==2.2.0
+executing==2.0.1
     # via stack-data
 expandvars==0.12.0
     # via acryl-datahub
-fastapi==0.115.8
+fastapi==0.110.2
     # via acryl-datahub-integrations
-fastavro==1.10.0
+fastavro==1.9.4
     # via acryl-datahub
-fastjsonschema==2.21.1
+fastjsonschema==2.19.1
     # via
     #   nbformat
     #   reactpy
-filelock==3.17.0
+filelock==3.14.0
     # via
     #   pygitops
     #   snowflake-connector-python
-fqdn==1.5.1
-    # via jsonschema
-frozenlist==1.5.0
+frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
-gitdb==4.0.12
+gitdb==4.0.11
     # via gitpython
-gitpython==3.1.44
+gitpython==3.1.43
     # via
     #   acryl-datahub-integrations
     #   pygitops
-google-api-core==2.24.1
+google-api-core==2.20.0
     # via
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -224,7 +209,7 @@ google-api-core==2.24.1
     #   google-cloud-logging
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-auth==2.38.0
+google-auth==2.35.0
     # via
     #   google-api-core
     #   google-cloud-appengine-logging
@@ -233,11 +218,11 @@ google-auth==2.38.0
     #   google-cloud-datacatalog
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-cloud-appengine-logging==1.6.0
+google-cloud-appengine-logging==1.4.5
     # via google-cloud-logging
 google-cloud-audit-log==0.3.0
     # via google-cloud-logging
-google-cloud-bigquery==3.29.0
+google-cloud-bigquery==3.26.0
     # via
     #   acryl-datahub
     #   sqlalchemy-bigquery
@@ -245,19 +230,19 @@ google-cloud-core==2.4.1
     # via
     #   google-cloud-bigquery
     #   google-cloud-logging
-google-cloud-datacatalog==3.25.0
+google-cloud-datacatalog==3.20.1
     # via acryl-datahub
 google-cloud-datacatalog-lineage==0.2.2
     # via acryl-datahub
 google-cloud-logging==3.5.0
     # via acryl-datahub
-google-cloud-resource-manager==1.14.0
+google-cloud-resource-manager==1.12.5
     # via acryl-datahub
 google-crc32c==1.6.0
     # via google-resumable-media
 google-resumable-media==2.7.2
     # via google-cloud-bigquery
-googleapis-common-protos==1.67.0
+googleapis-common-protos==1.65.0
     # via
     #   google-api-core
     #   google-cloud-audit-log
@@ -265,16 +250,16 @@ googleapis-common-protos==1.67.0
     #   grpcio-status
 great-expectations==0.15.50
     # via acryl-datahub
-greenlet==3.1.1
+greenlet==3.0.3
     # via
     #   acryl-datahub
     #   sqlalchemy
-grpc-google-iam-v1==0.14.0
+grpc-google-iam-v1==0.13.1
     # via
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-grpcio==1.70.0
+grpcio==1.66.2
     # via
     #   google-api-core
     #   googleapis-common-protos
@@ -286,165 +271,143 @@ h11==0.14.0
     # via
     #   httpcore
     #   uvicorn
-httpcore==1.0.7
+httpcore==1.0.5
     # via httpx
-httptools==0.6.4
+httptools==0.6.1
     # via uvicorn
-httpx==0.28.1
-    # via
-    #   acryl-datahub-integrations
-    #   confluent-kafka
-    #   jupyterlab
+httpx==0.27.0
+    # via acryl-datahub-integrations
 humanfriendly==10.0
     # via acryl-datahub
-idna==3.10
+idna==3.7
     # via
     #   anyio
     #   httpx
-    #   jsonschema
     #   requests
     #   snowflake-connector-python
     #   yarl
-ijson==3.3.0
+ijson==3.2.3
     # via acryl-datahub
-importlib-metadata==8.6.1
+importlib-metadata==7.1.0
     # via great-expectations
-importlib-resources==6.5.2 ; python_full_version < '3.12'
+importlib-resources==6.4.0 ; python_full_version < '3.12'
     # via schwifty
-inflect==7.5.0
+inflect==7.2.1
     # via acryl-datahub-integrations
 ipaddress==1.0.23
     # via acryl-datahub-classify
-ipykernel==6.29.5
-    # via jupyterlab
-ipython==8.32.0
+ipykernel==6.17.1
+    # via
+    #   nbclassic
+    #   notebook
+ipython==8.21.0
     # via
     #   acryl-datahub
     #   great-expectations
     #   ipykernel
     #   ipywidgets
-ipywidgets==8.1.5
+ipython-genutils==0.2.0
+    # via
+    #   nbclassic
+    #   notebook
+ipywidgets==8.1.2
     # via great-expectations
-isoduration==20.11.0
-    # via jsonschema
-jedi==0.19.2
+iso3166==2.1.1
+    # via schwifty
+jedi==0.19.1
     # via ipython
-jinja2==3.1.5
+jinja2==3.1.3
     # via
     #   acryl-datahub-integrations
     #   altair
     #   great-expectations
     #   jupyter-server
-    #   jupyterlab
-    #   jupyterlab-server
+    #   nbclassic
     #   nbconvert
+    #   notebook
     #   spacy
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
-json5==0.10.0
-    # via jupyterlab-server
 jsonpatch==1.33
     # via
     #   great-expectations
     #   reactpy
-jsonpointer==3.0.0
-    # via
-    #   jsonpatch
-    #   jsonschema
+jsonpointer==2.4
+    # via jsonpatch
 jsonref==1.1.0
     # via acryl-datahub
-jsonschema==4.23.0
+jsonschema==4.21.1
     # via
     #   acryl-datahub
     #   altair
     #   great-expectations
-    #   jupyter-events
-    #   jupyterlab-server
     #   nbformat
-jsonschema-specifications==2024.10.1
+jsonschema-specifications==2023.12.1
     # via jsonschema
-jupyter-client==8.6.3
+jupyter-client==7.4.9
     # via
     #   ipykernel
     #   jupyter-server
+    #   nbclassic
     #   nbclient
-jupyter-core==5.7.2
+    #   notebook
+jupyter-core==4.12.0
     # via
-    #   ipykernel
     #   jupyter-client
     #   jupyter-server
-    #   jupyterlab
-    #   nbclient
+    #   nbclassic
     #   nbconvert
     #   nbformat
-jupyter-events==0.12.0
-    # via jupyter-server
-jupyter-lsp==2.2.5
-    # via jupyterlab
-jupyter-server==2.15.0
-    # via
-    #   jupyter-lsp
-    #   jupyterlab
-    #   jupyterlab-server
     #   notebook
+jupyter-server==1.16.0
+    # via
+    #   nbclassic
     #   notebook-shim
-jupyter-server-terminals==0.5.3
-    # via jupyter-server
-jupyterlab==4.3.5
-    # via notebook
 jupyterlab-pygments==0.3.0
     # via nbconvert
-jupyterlab-server==2.27.3
-    # via
-    #   jupyterlab
-    #   notebook
-jupyterlab-widgets==3.0.13
+jupyterlab-widgets==3.0.10
     # via ipywidgets
-langcodes==3.5.0
+langcodes==3.4.0
     # via spacy
-language-data==1.3.0
+language-data==1.2.0
     # via langcodes
-loguru==0.7.3
+loguru==0.7.2
     # via acryl-datahub-integrations
-lxml==5.3.1
+lxml==5.2.1
     # via reactpy
-makefun==1.15.6
+makefun==1.15.2
     # via great-expectations
-marisa-trie==1.2.1
+marisa-trie==1.1.0
     # via language-data
-markdown-it-py==3.0.0
-    # via rich
-markupsafe==3.0.2
+markupsafe==2.1.5
     # via
     #   jinja2
     #   nbconvert
-marshmallow==3.26.1
+marshmallow==3.21.1
     # via great-expectations
 matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mdurl==0.1.2
-    # via markdown-it-py
-mistune==3.1.1
+mistune==3.0.2
     # via
     #   great-expectations
     #   nbconvert
 mixpanel==4.10.1
     # via acryl-datahub
-more-itertools==10.6.0
+more-itertools==10.2.0
     # via
     #   acryl-datahub
     #   inflect
-msal==1.31.1
+msal==1.28.0
     # via acryl-datahub
-multidict==6.1.0
+multidict==6.0.5
     # via
     #   aiohttp
     #   yarl
-murmurhash==1.0.12
+murmurhash==1.0.10
     # via
     #   preshed
     #   spacy
@@ -454,24 +417,34 @@ mypy-extensions==1.0.0
     #   acryl-datahub-actions
     #   reactpy
     #   typing-inspect
-nbclient==0.10.2
+nbclassic==1.0.0
+    # via notebook
+nbclient==0.6.3
     # via nbconvert
-nbconvert==7.16.6
-    # via jupyter-server
+nbconvert==7.16.3
+    # via
+    #   jupyter-server
+    #   nbclassic
+    #   notebook
 nbformat==5.10.4
     # via
     #   great-expectations
     #   jupyter-server
+    #   nbclassic
     #   nbclient
     #   nbconvert
+    #   notebook
 nest-asyncio==1.6.0
-    # via ipykernel
-notebook==7.3.2
+    # via
+    #   ipykernel
+    #   jupyter-client
+    #   nbclassic
+    #   nbclient
+    #   notebook
+notebook==6.5.6
     # via great-expectations
 notebook-shim==0.2.4
-    # via
-    #   jupyterlab
-    #   notebook
+    # via nbclassic
 numpy==1.26.4
     # via
     #   acryl-datahub
@@ -479,30 +452,26 @@ numpy==1.26.4
     #   blis
     #   great-expectations
     #   pandas
+    #   pyarrow
     #   scipy
     #   spacy
     #   thinc
-overrides==7.7.0
-    # via jupyter-server
-packaging==24.2
+packaging==24.0
     # via
     #   acryl-datahub
     #   build
+    #   docker
     #   google-cloud-bigquery
     #   great-expectations
     #   ipykernel
-    #   jupyter-events
     #   jupyter-server
-    #   jupyterlab
-    #   jupyterlab-server
     #   marshmallow
     #   nbconvert
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
     #   thinc
-    #   weasel
-pandas==2.2.3
+pandas==2.2.2
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
@@ -516,16 +485,18 @@ parso==0.8.4
     # via jedi
 patchy==2.8.0
     # via acryl-datahub
-pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+pathlib-abc==0.1.1
+    # via pathy
+pathy==0.11.0
+    # via spacy
+pexpect==4.9.0 ; sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
     # via acryl-datahub-classify
-pip==25.0.1
+pip==24.0
     # via acryl-datahub
-platformdirs==4.3.6
-    # via
-    #   jupyter-core
-    #   snowflake-connector-python
+platformdirs==4.2.1
+    # via snowflake-connector-python
 preshed==3.0.9
     # via
     #   spacy
@@ -534,17 +505,15 @@ progressbar2==4.4.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-prometheus-client==0.21.1
+prometheus-client==0.20.0
     # via
     #   acryl-datahub-actions
     #   jupyter-server
-prompt-toolkit==3.0.50
+    #   nbclassic
+    #   notebook
+prompt-toolkit==3.0.43
     # via ipython
-propcache==0.2.1
-    # via
-    #   aiohttp
-    #   yarl
-proto-plus==1.26.0
+proto-plus==1.24.0
     # via
     #   google-api-core
     #   google-cloud-appengine-logging
@@ -552,7 +521,7 @@ proto-plus==1.26.0
     #   google-cloud-datacatalog-lineage
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.6
+protobuf==4.25.5
     # via
     #   google-api-core
     #   google-cloud-appengine-logging
@@ -565,17 +534,19 @@ protobuf==4.25.6
     #   grpc-google-iam-v1
     #   grpcio-status
     #   proto-plus
-psutil==7.0.0
+psutil==5.9.8
     # via
     #   acryl-datahub
     #   ipykernel
-ptyprocess==0.7.0 ; os_name != 'nt' or (sys_platform != 'emscripten' and sys_platform != 'win32')
+ptyprocess==0.7.0 ; os_name != 'nt' or sys_platform != 'win32'
     # via
     #   pexpect
     #   terminado
-pure-eval==0.2.3
+pure-eval==0.2.2
     # via stack-data
-pyarrow==19.0.1
+py==1.11.0 ; implementation_name == 'pypy'
+    # via pyzmq
+pyarrow==16.0.0
     # via acryl-datahub-integrations
 pyasn1==0.6.1
     # via
@@ -583,11 +554,11 @@ pyasn1==0.6.1
     #   rsa
 pyasn1-modules==0.4.1
     # via google-auth
-pycountry==24.6.1
+pycountry==23.12.11
     # via schwifty
 pycparser==2.22
     # via cffi
-pydantic==1.10.21
+pydantic==1.10.15
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -596,36 +567,33 @@ pydantic==1.10.21
     #   great-expectations
     #   spacy
     #   thinc
-    #   weasel
-pygithub==2.6.0
+pygithub==2.3.0
     # via acryl-datahub-integrations
 pygitops==0.16.1
     # via acryl-datahub-integrations
-pygments==2.19.1
+pygments==2.18.0
     # via
     #   ipython
     #   nbconvert
-    #   rich
-pyjwt==2.10.1
+pyjwt==2.8.0
     # via
     #   msal
     #   pygithub
     #   snowflake-connector-python
 pynacl==1.5.0
     # via pygithub
-pyopenssl==24.3.0
+pyopenssl==24.1.0
     # via snowflake-connector-python
-pyparsing==3.2.1
+pyparsing==3.1.2
     # via great-expectations
-pyproject-hooks==1.2.0
+pyproject-hooks==1.1.0
     # via build
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
-python-dateutil==2.9.0.post0
+python-dateutil==2.8.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-    #   arrow
     #   botocore
     #   google-cloud-bigquery
     #   great-expectations
@@ -635,13 +603,11 @@ python-dotenv==1.0.1
     # via uvicorn
 python-http-client==3.3.7
     # via sendgrid
-python-json-logger==3.2.1
-    # via jupyter-events
 python-stdnum==1.20
     # via acryl-datahub-classify
-python-utils==3.9.1
+python-utils==3.8.2
     # via progressbar2
-pytz==2025.1
+pytz==2024.1
     # via
     #   great-expectations
     #   pandas
@@ -653,39 +619,37 @@ pywin32==308 ; sys_platform == 'win32'
 pywinpty==2.0.15 ; os_name == 'nt'
     # via
     #   jupyter-server
-    #   jupyter-server-terminals
     #   terminado
-pyyaml==6.0.2
+pyyaml==6.0.1
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-    #   jupyter-events
     #   uvicorn
-pyzmq==26.2.1
+pyzmq==24.0.1
     # via
     #   ipykernel
     #   jupyter-client
     #   jupyter-server
+    #   nbclassic
+    #   notebook
 ratelimit==2.2.1
     # via acryl-datahub-actions
-reactpy==1.1.0
+reactpy==1.0.2
     # via
     #   acryl-datahub-integrations
     #   reactpy-router
-reactpy-router==1.0.3
+reactpy-router==0.1.1
     # via acryl-datahub-integrations
-referencing==0.36.2
+referencing==0.35.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-    #   jupyter-events
-requests==2.32.3
+requests==2.31.0
     # via
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
     #   great-expectations
-    #   jupyterlab-server
     #   mixpanel
     #   msal
     #   pygithub
@@ -693,113 +657,104 @@ requests==2.32.3
     #   requests-file
     #   snowflake-connector-python
     #   spacy
-    #   weasel
-requests-file==2.1.0
+requests-file==2.0.0
     # via acryl-datahub
-rfc3339-validator==0.1.4
-    # via
-    #   jsonschema
-    #   jupyter-events
-rfc3986-validator==0.1.1
-    # via
-    #   jsonschema
-    #   jupyter-events
-rich==13.9.4
-    # via typer
-rpds-py==0.22.3
+rpds-py==0.18.0
     # via
     #   jsonschema
     #   referencing
 rsa==4.9
     # via google-auth
-rstr==3.2.2
-    # via schwifty
 ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
     #   great-expectations
-s3transfer==0.11.2
+s3transfer==0.10.1
     # via boto3
-schwifty==2024.6.1
+schwifty==2024.4.0
     # via
     #   acryl-datahub
     #   acryl-datahub-classify
-scipy==1.15.2
+scipy==1.13.0
     # via
     #   acryl-datahub
     #   great-expectations
 send2trash==1.8.3
-    # via jupyter-server
+    # via
+    #   jupyter-server
+    #   nbclassic
+    #   notebook
 sendgrid==6.11.0
     # via acryl-datahub-integrations
-sentry-sdk==2.22.0
+sentry-sdk==1.45.0
     # via acryl-datahub
-setuptools==75.8.0
+setuptools==69.5.1
     # via
-    #   jupyterlab
     #   marisa-trie
     #   spacy
     #   thinc
-shellingham==1.5.4
-    # via typer
-six==1.17.0
+six==1.16.0
     # via
+    #   asttokens
     #   avro-gen3
+    #   bleach
     #   mixpanel
     #   python-dateutil
-    #   rfc3339-validator
-slack-bolt==1.22.0
+slack-bolt==1.18.1
     # via acryl-datahub-integrations
-slack-sdk==3.34.0
+slack-sdk==3.27.1
     # via slack-bolt
-smart-open==7.1.0
-    # via weasel
-smmap==5.0.2
+smart-open==6.4.0
+    # via
+    #   pathy
+    #   spacy
+smmap==5.0.1
     # via gitdb
 sniffio==1.3.1
-    # via anyio
-snowflake-connector-python==3.13.2
+    # via
+    #   anyio
+    #   httpx
+snowflake-connector-python==3.13.1
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
-snowflake-sqlalchemy==1.7.3
+snowflake-sqlalchemy==1.5.3
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via snowflake-connector-python
-soupsieve==2.6
+soupsieve==2.5
     # via beautifulsoup4
-spacy==3.7.5
+spacy==3.5.0
     # via acryl-datahub-classify
 spacy-legacy==3.0.12
     # via spacy
 spacy-loggers==1.0.5
     # via spacy
-sqlalchemy==1.4.54
+sqlalchemy==1.4.52
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
-sqlalchemy-bigquery==1.12.1
+sqlalchemy-bigquery==1.11.0
     # via acryl-datahub
-sqlglot==25.32.1
+sqlglot==26.6.0
     # via acryl-datahub
-sqlglotrs==0.3.0
+sqlglotrs==0.3.14
     # via sqlglot
-sqlparse==0.5.3
+sqlparse==0.5.0
     # via acryl-datahub
-srsly==2.5.1
+srsly==2.4.8
     # via
     #   confection
     #   spacy
     #   thinc
-    #   weasel
 stack-data==0.6.3
     # via ipython
 stackprinter==0.2.12
     # via acryl-datahub-actions
 starkbank-ecdsa==2.2.0
     # via sendgrid
-starlette==0.45.3
+starlette==0.37.2
     # via fastapi
 tabulate==0.9.0
     # via acryl-datahub
@@ -808,36 +763,35 @@ tenacity==9.0.0
 terminado==0.18.1
     # via
     #   jupyter-server
-    #   jupyter-server-terminals
-thinc==8.2.5
+    #   nbclassic
+    #   notebook
+thinc==8.1.12
     # via spacy
-tinycss2==1.4.0
-    # via bleach
+tinycss2==1.3.0
+    # via nbconvert
 toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
 tomli==2.2.1 ; python_full_version < '3.11'
-    # via
-    #   build
-    #   jupyterlab
-tomlkit==0.13.2
+    # via build
+tomlkit==0.12.4
     # via snowflake-connector-python
-toolz==1.0.0
+toolz==0.12.1
     # via altair
-tornado==6.4.2
+tornado==6.4
     # via
     #   ipykernel
     #   jupyter-client
     #   jupyter-server
-    #   jupyterlab
+    #   nbclassic
     #   notebook
     #   terminado
-tqdm==4.67.1
+tqdm==4.66.2
     # via
     #   great-expectations
     #   spacy
-traitlets==5.14.3
+traitlets==5.2.1.post0
     # via
     #   acryl-datahub
     #   comm
@@ -846,59 +800,46 @@ traitlets==5.14.3
     #   ipywidgets
     #   jupyter-client
     #   jupyter-core
-    #   jupyter-events
     #   jupyter-server
-    #   jupyterlab
     #   matplotlib-inline
+    #   nbclassic
     #   nbclient
     #   nbconvert
     #   nbformat
-typeguard==4.4.2
+    #   notebook
+typeguard==4.2.1
     # via inflect
-typer==0.15.1
+typer==0.7.0
     # via
+    #   pathy
     #   spacy
-    #   weasel
-types-python-dateutil==2.9.0.20241206
-    # via arrow
-typing-extensions==4.12.2
+typing-extensions==4.11.0
     # via
     #   acryl-datahub
     #   asgiref
-    #   async-lru
-    #   beautifulsoup4
-    #   cloudpathlib
     #   fastapi
     #   great-expectations
-    #   ipython
-    #   mistune
-    #   multidict
+    #   inflect
     #   pydantic
     #   pygithub
     #   python-utils
     #   reactpy
     #   reactpy-router
-    #   referencing
-    #   rich
-    #   schwifty
     #   snowflake-connector-python
     #   typeguard
-    #   typer
     #   typing-inspect
     #   uvicorn
 typing-inspect==0.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-tzdata==2025.1
+tzdata==2024.1
     # via
     #   pandas
     #   tzlocal
-tzlocal==5.3
+tzlocal==5.2
     # via great-expectations
-uri-template==1.3.0
-    # via jsonschema
-urllib3==1.26.20
+urllib3==1.26.18
     # via
     #   botocore
     #   docker
@@ -907,44 +848,37 @@ urllib3==1.26.20
     #   pygithub
     #   requests
     #   sentry-sdk
-uvicorn==0.34.0
+uvicorn==0.29.0
     # via acryl-datahub-integrations
-uvloop==0.21.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 vininfo==1.8.0
     # via acryl-datahub-classify
-wasabi==1.1.3
+wasabi==1.1.2
     # via
     #   spacy
     #   thinc
-    #   weasel
-watchfiles==1.0.4
+watchfiles==0.21.0
     # via uvicorn
 wcmatch==10.0
     # via acryl-datahub
 wcwidth==0.2.13
     # via prompt-toolkit
-weasel==0.4.1
-    # via spacy
-webcolors==24.11.1
-    # via jsonschema
 webencodings==0.5.1
     # via
     #   bleach
     #   tinycss2
 websocket-client==1.8.0
     # via jupyter-server
-websockets==15.0
+websockets==12.0
     # via uvicorn
-widgetsnbextension==4.0.13
+widgetsnbextension==4.0.10
     # via ipywidgets
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
-wrapt==1.17.2
-    # via
-    #   deprecated
-    #   smart-open
-yarl==1.18.3
+wrapt==1.16.0
+    # via deprecated
+yarl==1.9.4
     # via aiohttp
-zipp==3.21.0
+zipp==3.19.1
     # via importlib-metadata

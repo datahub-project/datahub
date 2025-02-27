@@ -18,6 +18,16 @@ query getDashboard($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        properties {
+            created {
+                time
+            }
+        }
+        info {
+            created {
+                time
+            }
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields

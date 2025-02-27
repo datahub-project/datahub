@@ -8,7 +8,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/config,/config/search/export
+  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -300,7 +300,7 @@ elasticsearch:
       maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
       enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
-      graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:true} # enable soft delete tracking of the urns on edges
+      graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
   scroll:
     timeout: ${ELASTICSEARCH_SCROLL_TIMEOUT:5m} # Default timeout of the scroll reference for legacy scroll and PIT for searchAfter
 
@@ -534,6 +534,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_LIMIT:0}
+  dashboardInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -573,7 +578,7 @@ systemUpdate:
     reprocess:
       enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_REPROCESS:false}
   edgeStatus:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_ENABLED:true}
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_DELAY_MS:5000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_LIMIT:0}
@@ -642,10 +647,11 @@ featureFlags:
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
-  showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
+  showFormAnalytics: ${SHOW_FORM_ANALYTICS:true} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
   showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
+  usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false} # If turned on, use the general Propagations Framework over specialized propagations actions
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -791,7 +797,7 @@ subscriptions:
     consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 executors:
-  backendRevision: 1
+  backendRevision: 2
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
 
@@ -854,6 +860,10 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+icebergCatalog:
+      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
+      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

@@ -31,12 +31,13 @@ dependencies = [
   "watchdog==3.0.0",
   "acryl-executor==0.1.11",
   "acryl-datahub-actions==0.1.4",
-  "pycurl==7.45.3"
+  "pycurl==7.45.3",
+  "psutil>=7.0.0"
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff",
+  "ruff==0.9.6",
   "pytest",
   "mypy",
   "pytest-cov",

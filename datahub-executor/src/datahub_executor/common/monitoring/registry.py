@@ -1,27 +1,122 @@
 from prometheus_client import Gauge, Summary
 
 REGISTRY = {
-    "MONITORING_PUSH_PAYLOAD_SIZE": [
+    # Worker-specific metrics. Metrics not prefixed with WORKER_ are not exposed in the
+    # worker instances to hide irrelevant items from the users.
+    "WORKER_MONITORING_PUSH_PAYLOAD_SIZE": [
         Gauge,
         "Compressed payload size of the prometheus metrics pushed to the backend",
     ],
-    "MONITORING_PUSH_ERRORS": [
+    "WORKER_MONITORING_PUSH_ERRORS": [
         Gauge,
         "Number of errors occured while pushing prometheus metrics to the backend",
     ],
-    "MONITORING_PUSH_REQUESTS": [
+    "WORKER_MONITORING_PUSH_REQUESTS": [
         Summary,
         "Number of requests to push prometheus metrics to the backend",
     ],
-    "CONFIG_FETCHER_ERRORS": [
+    "WORKER_CONFIG_FETCHER_ERRORS": [
         Gauge,
         "Number of errors occurred while fetching executor configs from GMS",
         ["exception"],
     ],
-    "CONFIG_FETCHER_REQUESTS": [
+    "WORKER_CONFIG_FETCHER_REQUESTS": [
         Summary,
         "Count/time spent fetching executor configs from GMS",
     ],
+    "WORKER_DISCOVERY_PING_REQUESTS": [
+        Summary,
+        "Number of ping requests made by discovery thread",
+        ["pool_name"],
+    ],
+    "WORKER_DISCOVERY_PING_ERRORS": [
+        Gauge,
+        "Number of errors occurred while making discovery ping requests",
+        ["pool_name"],
+    ],
+    "WORKER_CREDENTIALS_REFRESH_REQUESTS": [
+        Gauge,
+        "Number of requests to refresh credentials",
+        ["pool_name"],
+    ],
+    "WORKER_CREDENTIALS_REFRESH_ERRORS": [
+        Gauge,
+        "Number of errors occurred when refreshing credentials",
+        ["pool_name", "exception"],
+    ],
+    "WORKER_ASSERTION_REQUESTS": [
+        Gauge,
+        "Number of assertion requests received/processed by worker",
+        ["pool_name"],
+    ],
+    "WORKER_ASSERTION_ERRORS": [
+        Gauge,
+        "Number of errors occurred while processing assertion requests in worker",
+        ["pool_name", "exception"],
+    ],
+    "WORKER_INGESTION_REQUESTS": [
+        Gauge,
+        "Number of ingestion requests received/processed by worker",
+        ["pool_name"],
+    ],
+    "WORKER_INGESTION_ERRORS": [
+        Gauge,
+        "Number of errors occurred while processing ingestion requests in worker",
+        ["pool_name"],
+    ],
+    "WORKER_INGESTION_VISIBILITY_TIMEOUT": [
+        Gauge,
+        "Number of skipped due to SQS visibility timeout",
+        ["pool_name"],
+    ],
+    "WORKER_THREAD_POOL_MAX_THREADS": [
+        Gauge,
+        "Max number of worker threads in a thread pool",
+        ["thread_pool_name"],
+    ],
+    "WORKER_THREAD_POOL_ACTIVE_THREADS": [
+        Gauge,
+        "Number of active worker threads in a thread pool",
+        ["thread_pool_name"],
+    ],
+    "WORKER_THREAD_POOL_ACTIVE_WEIGHT": [
+        Gauge,
+        "Total weight of all active tasks executing in the thread pool",
+        ["thread_pool_name"],
+    ],
+    "WORKER_THREAD_POOL_MAX_WEIGHT": [
+        Gauge,
+        "Max weight of all tasks in the thread pool",
+        ["thread_pool_name"],
+    ],
+    "WORKER_ASSERTION_EVALUATE_REQUESTS": [
+        Summary,
+        "Number of evaluate requests handled by assertions executor",
+    ],
+    "WORKER_ASSERTION_EVALUATE_ERRORS": [
+        Gauge,
+        "Number of errors occurred while evaluating assertions",
+        ["exception"],
+    ],
+    "WORKER_INGESTION_CANCEL_REQUESTS": [
+        Gauge,
+        "Number of cancel requests received by ingestion handler",
+    ],
+    "WORKER_INGESTION_FETCH_SIGNAL_REQUESTS": [
+        Summary,
+        "Count/time spent fetching ingestion singal/cancel requests",
+    ],
+    "WORKER_INGESTION_FETCH_SIGNAL_ERRORS": [
+        Gauge,
+        "Number of errors occurred while fetching ingestion signal requests",
+        ["exception"],
+    ],
+    "WORKER_INGESTION_FALLBACK_FETCH_REQUESTS": [
+        Summary,
+        "Count/time spent fetching ingestion execution requests as a result of GMS-fallback",
+    ],
+    # Coordinator-specific metrics. All metrics are exposed in coordinator instance,
+    # regardless of prefix.
     "INGESTION_FETCHER_ERRORS": [
         Gauge,
         "Number of errors occurred while fetching ingestion execution requests",
@@ -91,23 +186,6 @@ REGISTRY = {
         Gauge,
         "Number of Kafka execution request events received by ingestion handler",
     ],
-    "INGESTION_CANCEL_REQUESTS": [
-        Gauge,
-        "Number of cancel requests received by ingestion handler",
-    ],
-    "INGESTION_FETCH_SIGNAL_REQUESTS": [
-        Summary,
-        "Count/time spent fetching ingestion singal/cancel requests",
-    ],
-    "INGESTION_FALLBACK_FETCH_REQUESTS": [
-        Summary,
-        "Count/time spent fetching ingestion execution requests as a result of GMS-fallback",
-    ],
-    "INGESTION_FETCH_SIGNAL_ERRORS": [
-        Gauge,
-        "Number of errors occurred while fetching ingestion signal requests",
-        ["exception"],
-    ],
     "INGESTION_EMIT_MCP_EVENTS": [
         Gauge,
         "Number of MCP events emitted by ingestion handler",
@@ -115,60 +193,6 @@ REGISTRY = {
     "INGESTION_EMIT_MCP_ERRORS": [
         Gauge,
         "Number of errors occurred while emitting MCP event",
-        ["exception"],
-    ],
-    "CREDENTIALS_REFRESH_REQUESTS": [
-        Gauge,
-        "Number of requests to refresh credentials",
-        ["pool_name"],
-    ],
-    "CREDENTIALS_REFRESH_ERRORS": [
-        Gauge,
-        "Number of errors occurred when refreshing credentials",
-        ["pool_name", "exception"],
-    ],
-    "WORKER_INGESTION_REQUESTS": [
-        Gauge,
-        "Number of ingestion requests received/processed by worker",
-        ["pool_name"],
-    ],
-    "WORKER_ASSERTION_REQUESTS": [
-        Gauge,
-        "Number of assertion requests received/processed by worker",
-        ["pool_name"],
-    ],
-    "WORKER_ASSERTION_ERRORS": [
-        Gauge,
-        "Number of errors occurred while processing assertion requests in worker",
-        ["pool_name", "exception"],
-    ],
-    "THREAD_POOL_MAX_WORKERS": [
-        Gauge,
-        "Max number of worker threads in a thread pool",
-        ["thread_pool_name"],
-    ],
-    "THREAD_POOL_ACTIVE_WORKERS": [
-        Gauge,
-        "Number of active worker threads in a thread pool",
-        ["thread_pool_name"],
-    ],
-    "THREAD_POOL_ACTIVE_WEIGHT": [
-        Gauge,
-        "Total weight of all active tasks executing in the thread pool",
-        ["thread_pool_name"],
-    ],
-    "THREAD_POOL_MAX_WEIGHT": [
-        Gauge,
-        "Max weight of all tasks in the thread pool",
-        ["thread_pool_name"],
-    ],
-    "ASSERTION_EVALUATE_REQUESTS": [
-        Summary,
-        "Number of evaluate requests handled by assertions executor",
-    ],
-    "ASSERTION_EVALUATE_ERRORS": [
-        Gauge,
-        "Number of errors occurred while evaluating assertions",
         ["exception"],
     ],
     "SCHEDULER_MESSAGE_SIZE_EXCEEDED": [
@@ -189,15 +213,5 @@ REGISTRY = {
         Gauge,
         "Number of execution requests processed by the sweeper grouped by status",
         ["status"],
-    ],
-    "DISCOVERY_PING_REQUESTS": [
-        Summary,
-        "Number of ping requests made by discovery thread",
-        ["pool_name"],
-    ],
-    "DISCOVERY_PING_ERRORS": [
-        Gauge,
-        "Number of errors occurred while making discovery ping requests",
-        ["pool_name"],
     ],
 }

@@ -1,3 +1,4 @@
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
 
 /**
@@ -11,7 +12,7 @@ export enum ModalSize {
 /**
  * The default executor id used for ingestion
  */
-export const DEFAULT_EXECUTOR_ID = 'default';
+export const DEFAULT_EXECUTOR_ID = EMBEDDED_EXECUTOR_POOL_NAME;
 
 export interface SourceConfig {
     urn: string;

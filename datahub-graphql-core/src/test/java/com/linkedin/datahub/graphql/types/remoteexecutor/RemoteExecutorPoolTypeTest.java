@@ -85,7 +85,7 @@ public class RemoteExecutorPoolTypeTest {
     RemoteExecutorPool pool = result.get(0).getData();
     assertEquals(pool.getUrn(), TEST_POOL_URN);
     assertEquals(pool.getType(), EntityType.REMOTE_EXECUTOR_POOL);
-    assertEquals(pool.getPoolName(), DEFAULT_POOL_NAME);
+    assertEquals(pool.getExecutorPoolId(), DEFAULT_POOL_NAME);
     assertEquals(pool.getCreatedAt(), TEST_POOL_INFO.getCreatedAt());
     assertFalse(pool.getIsDefault()); // Should be false since we mocked no default pool config
 
@@ -136,7 +136,7 @@ public class RemoteExecutorPoolTypeTest {
     assertEquals(result.size(), 1);
     RemoteExecutorPool pool = result.get(0).getData();
     assertEquals(pool.getUrn(), TEST_POOL_URN);
-    assertEquals(pool.getPoolName(), DEFAULT_POOL_NAME);
+    assertEquals(pool.getExecutorPoolId(), DEFAULT_POOL_NAME);
     assertEquals(pool.getCreatedAt(), TEST_POOL_INFO.getCreatedAt());
   }
 

@@ -48,7 +48,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-	"ruff",
+	"ruff==0.9.6",
 	"pytest",
 	"mypy",
 	"pytest-cov",

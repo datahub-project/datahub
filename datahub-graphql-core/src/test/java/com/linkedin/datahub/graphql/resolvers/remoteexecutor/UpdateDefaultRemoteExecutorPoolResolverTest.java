@@ -87,7 +87,7 @@ public class UpdateDefaultRemoteExecutorPoolResolverTest {
     // Mock global config response with existing pool name
     EntityResponse configResponse = new EntityResponse();
     final RemoteExecutorPoolGlobalConfig existingConfig = new RemoteExecutorPoolGlobalConfig();
-    existingConfig.setDefaultPoolName("oldDefaultPool");
+    existingConfig.setDefaultExecutorPoolId("oldDefaultPool");
     final EnvelopedAspectMap configMap = new EnvelopedAspectMap();
     configMap.put(
         AcrylConstants.REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG_ASPECT_NAME,
@@ -124,7 +124,7 @@ public class UpdateDefaultRemoteExecutorPoolResolverTest {
     // Verify the new pool config has the updated default pool name
     RemoteExecutorPoolGlobalConfig expectedConfig =
         new RemoteExecutorPoolGlobalConfig(existingConfig.data());
-    expectedConfig.setDefaultPoolName(UrnUtils.getUrn(TEST_POOL_URN).getId());
+    expectedConfig.setDefaultExecutorPoolId(UrnUtils.getUrn(TEST_POOL_URN).getId());
     Assert.assertEquals(
         proposal.getAspect(),
         MutationUtils.buildMetadataChangeProposalWithUrn(

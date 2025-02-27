@@ -74,8 +74,7 @@ export const getAutomationData = (key: string) => {
 
 // Get the automation template
 export const getTemplate = (type: string): AutomationTemplate | undefined => {
-    const template = templates.filter((t) => t.type === type);
-    return template[0] || undefined;
+    return templates.find((t) => t.type === type);
 };
 
 // Returns true if the category name is "well-supported" (e.g. a built in), false otherwise.

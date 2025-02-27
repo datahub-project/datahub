@@ -25,7 +25,7 @@ public class RemoteExecutorMapperTest {
     EnvelopedAspect envelopedExecutorStatus = new EnvelopedAspect();
     RemoteExecutorStatus executorStatus =
         new RemoteExecutorStatus()
-            .setPoolName("executor-1")
+            .setExecutorPoolId("executor-1")
             .setExecutorReleaseVersion("1.0.0")
             .setExecutorAddress("localhost:8080")
             .setExecutorHostname("test-host")
@@ -49,7 +49,7 @@ public class RemoteExecutorMapperTest {
     assertNotNull(executor);
     assertEquals(executor.getUrn(), "urn:li:remoteExecutor:test");
     assertEquals(executor.getType(), EntityType.REMOTE_EXECUTOR);
-    assertEquals(executor.getPoolName(), executorStatus.getPoolName());
+    assertEquals(executor.getExecutorPoolId(), executorStatus.getExecutorPoolId());
     assertEquals(executor.getExecutorReleaseVersion(), executorStatus.getExecutorReleaseVersion());
     assertEquals(executor.getExecutorAddress(), executorStatus.getExecutorAddress());
     assertEquals(executor.getExecutorHostname(), executorStatus.getExecutorHostname());

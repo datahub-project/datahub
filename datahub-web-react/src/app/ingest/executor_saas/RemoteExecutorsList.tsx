@@ -4,7 +4,7 @@ import { Button, Empty, Pagination, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { ArrowClockwise } from 'phosphor-react';
-import { DetailsColumn, StatusColumn, TimeColumn } from './Columns';
+import { ActiveTasksColumn, DetailsColumn, StatusColumn, TimeColumn } from './Columns';
 
 const PaginationInfoContainer = styled.span`
     padding: 8px;
@@ -78,6 +78,12 @@ export const RemoteExecutorsList = ({ remoteExecutors, onRefresh }: Props) => {
             dataIndex: 'x',
             key: 'details',
             render: (_, record) => <DetailsColumn executor={record} />,
+        },
+        {
+            title: 'Running tasks',
+            dataIndex: 'x',
+            key: 'runningTasks',
+            render: (_, record) => <ActiveTasksColumn executor={record} />,
         },
         {
             title: '',

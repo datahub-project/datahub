@@ -16,6 +16,7 @@ import {
 } from './components';
 import { SortingState, TableProps } from './types';
 import { getSortedData, handleActiveSort, renderCell } from './utils';
+import { useGetSelectionColumn } from './useGetSelectionColumn';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -40,6 +41,8 @@ export const Table = <T,>({
     onExpand,
     rowClassName,
     handleSortColumnChange = undefined,
+    rowKey,
+    rowSelection,
     rowRefs,
     headerRef,
     ...props
@@ -49,6 +52,9 @@ export const Table = <T,>({
 
     const sortedData = getSortedData(columns, data, sortColumn, sortOrder);
     const isRowClickable = !!onRowClick;
+
+    const selectionColumn = useGetSelectionColumn(data, rowKey, rowSelection);
+    const finalColumns = [...selectionColumn, ...columns];
 
     useEffect(() => {
         if (handleSortColumnChange && sortOrder && sortColumn) {
@@ -74,7 +80,7 @@ export const Table = <T,>({
                     <TableHeader ref={headerRef}>
                         <tr>
                             {/* Map through columns to create header cells */}
-                            {columns.map((column, index) => (
+                            {finalColumns.map((column, index) => (
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
@@ -126,12 +132,12 @@ export const Table = <T,>({
                     {sortedData.map((row: any, index) => {
                         const isExpanded = expandable?.expandedRowKeys?.includes(row?.name); // Check if row is expanded
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
-                        const rowKey = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
+                        const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
                         return (
                             <>
                                 {/* Render the main row */}
                                 <TableRow
-                                    key={rowKey}
+                                    key={key}
                                     canExpand={canExpand}
                                     onClick={() => {
                                         if (canExpand) onExpand?.(row); // Handle row expansion
@@ -148,7 +154,7 @@ export const Table = <T,>({
                                 >
                                     {/* Render each cell in the row */}
 
-                                    {columns.map((column, i) => {
+                                    {finalColumns.map((column, i) => {
                                         return (
                                             <TableCell
                                                 key={column.key}

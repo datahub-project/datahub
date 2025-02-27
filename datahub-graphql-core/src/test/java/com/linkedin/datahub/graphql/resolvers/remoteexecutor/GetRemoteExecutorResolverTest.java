@@ -40,7 +40,7 @@ public class GetRemoteExecutorResolverTest {
 
   private static EnvelopedAspect mockRemoteExecutorStatusAspect() {
     RemoteExecutorStatus status = new RemoteExecutorStatus();
-    status.setPoolName("test-pool");
+    status.setExecutorPoolId("test-pool");
     status.setExecutorReleaseVersion("1.0.0");
     status.setExecutorAddress("localhost:8080");
     status.setExecutorHostname("test-host");
@@ -106,7 +106,7 @@ public class GetRemoteExecutorResolverTest {
     assertNotNull(result);
     assertEquals(urnStr, result.getUrn());
     assertEquals(EntityType.REMOTE_EXECUTOR, result.getType());
-    assertEquals("test-pool", result.getPoolName());
+    assertEquals("test-pool", result.getExecutorPoolId());
     assertEquals("1.0.0", result.getExecutorReleaseVersion());
     assertEquals("localhost:8080", result.getExecutorAddress());
     assertEquals("test-host", result.getExecutorHostname());

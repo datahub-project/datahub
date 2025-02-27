@@ -15,14 +15,26 @@ interface Props {
     actionRequests: ActionRequest[];
     isLoading: boolean;
     onActionRequestUpdate: () => void;
+    selectedKeys: string[];
+    setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
-const ProposalsTable = ({ actionRequests, isLoading, onActionRequestUpdate }: Props) => {
+const ProposalsTable = ({ actionRequests, isLoading, onActionRequestUpdate, selectedKeys, setSelectedKeys }: Props) => {
     const columns = useGetColumns({ onActionRequestUpdate });
 
     return (
         <TableContainer>
-            <Table columns={columns} data={actionRequests} isLoading={isLoading} isScrollable />
+            <Table
+                columns={columns}
+                data={actionRequests}
+                isLoading={isLoading}
+                isScrollable
+                rowKey={(record) => record.urn}
+                rowSelection={{
+                    selectedRowKeys: selectedKeys,
+                    onChange: (keys) => setSelectedKeys(keys),
+                }}
+            />
         </TableContainer>
     );
 };

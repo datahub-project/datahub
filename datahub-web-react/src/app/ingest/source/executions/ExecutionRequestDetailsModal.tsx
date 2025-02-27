@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.generated';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
@@ -133,7 +133,7 @@ type Props = {
     open: boolean;
     onClose: () => void;
     saasProps?: {
-        onViewPool?: (poolName: string) => void;
+        onViewPool?: (poolId: string) => void;
     };
 };
 
@@ -157,7 +157,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
     const { data: executorResult } = useGetRemoteExecutorQuery({
         variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
     });
-    const poolName = executorResult?.getRemoteExecutor?.poolName;
+    const poolId = executorResult?.getRemoteExecutor?.executorPoolId;
     // End SaaS only //
 
     useEffect(() => {
@@ -218,22 +218,22 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {/* SaaS only */}
                     <SubHeaderParagraph>
-                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
-                        <br />
                         Pool:{' '}
                         <LinkButton
-                            disabled={!poolName}
+                            disabled={!poolId}
                             onClick={
-                                poolName
+                                poolId
                                     ? () => {
                                           onClose();
-                                          saasProps?.onViewPool?.(poolName);
+                                          saasProps?.onViewPool?.(poolId);
                                       }
                                     : undefined
                             }
                         >
-                            {poolName || 'Unknown'}
+                            {poolId || 'Unknown'}
                         </LinkButton>
+                        <br />
+                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
                     </SubHeaderParagraph>
                     {/* End SaaS only */}
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}

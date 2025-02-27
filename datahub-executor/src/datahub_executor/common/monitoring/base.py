@@ -21,6 +21,7 @@ from datahub_executor.config import (
     DATAHUB_GMS_URL,
 )
 
+from .process_collector import DatahubProcessCollector
 from .registry import REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,22 @@ class DatahubExecutorMetrics:
         #   self.registry = prometheus_client.CollectorRegistry()
         self.registry = prometheus_client.REGISTRY
 
+        # To hide irrelevant metrics from users in worker mode, create separate registry
+        if DATAHUB_EXECUTOR_MODE != "coordinator":
+            self.worker_registry: Optional[prometheus_client.CollectorRegistry] = (
+                prometheus_client.CollectorRegistry()
+            )
+            # Register standard collectors with worker registry
+            prometheus_client.gc_collector.GCCollector(registry=self.worker_registry)
+            prometheus_client.platform_collector.PlatformCollector(
+                registry=self.worker_registry
+            )
+            prometheus_client.process_collector.ProcessCollector(
+                registry=self.worker_registry
+            )
+        else:
+            self.worker_registry = None
+
         self.namespace = namespace if namespace else "datahub_executor"
         self.registered_metrics: Dict[str, Any] = {}
 
@@ -76,17 +93,24 @@ class DatahubExecutorMetrics:
         self.telemetry_base_url = DATAHUB_GMS_URL
         self.telemetry_token = DATAHUB_GMS_TOKEN
 
-        # Add collectors
+        # Register collectors
         self.add_collectors(collectors)
 
     def register_metrics(self, metrics: Dict[str, List[Any]]) -> None:
         for name, params in metrics.items():
             full_name = self.namespace + "_" + name.lower()
             labels = list(self.common_labels.keys())
+
+            # In worker mode, isolate metrics prefixed with WORKER_ in their own registry
+            if self.worker_registry is not None and name.startswith("WORKER_"):
+                registry = self.worker_registry
+            else:
+                registry = self.registry
+
             if len(params) > 2:
                 labels += list(params[2])
             self.registered_metrics[name] = params[0](
-                full_name, params[1], labelnames=labels, registry=self.registry
+                full_name, params[1], labelnames=labels, registry=registry
             )
 
     def get(self, name: str, **kwargs: Any) -> Any:
@@ -106,18 +130,25 @@ class DatahubExecutorMetrics:
         path = f"{DATAHUB_EXECUTOR_METRICS_PATH}/push/{identity}"
         return url._replace(path=path, fragment="", query="", params="").geturl()
 
+    def _get_registry(self) -> prometheus_client.CollectorRegistry:
+        return (
+            self.worker_registry if self.worker_registry is not None else self.registry
+        )
+
     def add_collectors(self, collectors: Optional[List[Callable]]) -> None:
         if collectors is not None:
             for collector in collectors:
-                collector(registry=self.registry, namespace=self.namespace)
+                collector(registry=self._get_registry(), namespace=self.namespace)
 
     def _push_metrics(self) -> None:
         if self.telemetry_url is None:
             return
 
-        with self.get("MONITORING_PUSH_REQUESTS").time():
+        with self.get("WORKER_MONITORING_PUSH_REQUESTS").time():
             try:
-                data = prometheus_client.exposition.generate_latest(self.registry)
+                data = prometheus_client.exposition.generate_latest(
+                    self._get_registry()
+                )
                 data_compressed = gzip.compress(data)
                 headers = {
                     "Content-Encoding": "gzip",
@@ -128,12 +159,12 @@ class DatahubExecutorMetrics:
                 requests.post(self.telemetry_url, data=data_compressed, headers=headers)
                 payload_size = len(data_compressed)
 
-                self.get("MONITORING_PUSH_PAYLOAD_SIZE").set(payload_size)
+                self.get("WORKER_MONITORING_PUSH_PAYLOAD_SIZE").set(payload_size)
                 logger.info(
                     f"Monitoring: pushing metrics to the backend; payload len = {payload_size}"
                 )
             except Exception:
-                self.get("MONITORING_PUSH_ERRORS").inc()
+                self.get("WORKER_MONITORING_PUSH_ERRORS").inc()
                 logger.exception("Monitoring: failed to push metrics to the backend")
 
     def _loop_handler(self) -> None:
@@ -149,7 +180,9 @@ class DatahubExecutorMetrics:
     def start(self) -> None:
         logger.info("Monitoring: starting")
 
-        handler = prometheus_client.exposition.MetricsHandler.factory(self.registry)
+        handler = prometheus_client.exposition.MetricsHandler.factory(
+            self._get_registry()
+        )
         listen = ("0.0.0.0", DATAHUB_EXECUTOR_METRICS_PORT)
 
         if self.httpd is None:
@@ -192,7 +225,7 @@ class DatahubExecutorMetrics:
             self.httpdt = None
 
 
-collectors = None
+collectors: List[Callable] = [DatahubProcessCollector]
 common_labels = {
     "executor_internal": str(DATAHUB_EXECUTOR_INTERNAL_WORKER),
     "executor_mode": DATAHUB_EXECUTOR_MODE,

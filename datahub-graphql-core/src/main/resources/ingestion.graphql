@@ -24,6 +24,11 @@ extend type Query {
   ingestionSource(urn: String!): IngestionSource
 
   """
+  List all execution requests
+  """
+  listExecutionRequests(input: ListExecutionRequestsInput!): IngestionSourceExecutionRequests
+
+  """
   Get an execution request
   urn: The primary key associated with the execution request.
   """
@@ -97,6 +102,11 @@ type ExecutionRequestSource {
   The type of the source, e.g. SCHEDULED_INGESTION_SOURCE
   """
   type: String
+
+  """
+  The urn of the ingestion source, if applicable
+  """
+  ingestionSource: String
 }
 
 """
@@ -129,7 +139,7 @@ type ExecutionRequestInput {
   actorUrn: String
 
   """
-  The specific executor to route the request to. If none is provided, a "default" executor is used.
+  The specific executor pool to route the request to. If none is provided, a "embedded" executor is used.
   """
   executorId: String
 }
@@ -343,7 +353,7 @@ type IngestionConfig {
   recipe: String!
 
   """
-  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  Advanced: The specific executor pool that should handle the execution request. Defaults to 'default'.
   """
   executorId: String!
 
@@ -372,6 +382,33 @@ type IngestionRun {
   The urn of the execution request associated with the user
   """
   executionRequestUrn: String
+}
+
+input ListExecutionRequestsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  An optional search query
+  """
+  query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+
+  """
+  Optional sort order. Defaults to use systemCreated.
+  """
+  sort: SortCriterion
 }
 
 """
@@ -509,7 +546,7 @@ input UpdateIngestionSourceConfigInput {
   version: String
 
   """
-  The id of the executor to use for executing the recipe
+  The id of the executor pool to use for executing the recipe
   """
   executorId: String!
 

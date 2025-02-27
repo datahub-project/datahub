@@ -16,12 +16,16 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_DISCOVERY_INTERVAL,
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_INTERNAL_WORKER,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_MODE,
+    DATAHUB_EXECUTOR_POOL_ID,
 )
 
-from .utils import get_utc_timestamp, send_remote_executor_status
+from .utils import get_backend_revision, get_utc_timestamp, send_remote_executor_status
 
 logger = logging.getLogger(__name__)
+
+# Due to rename of poolName to poolId, this code requires minimum backend revision of 2
+REQUIRED_MIN_BACKEND_REVISION = 2
 
 
 class DatahubExecutorDiscovery:
@@ -38,17 +42,20 @@ class DatahubExecutorDiscovery:
 
     def _ping(self) -> None:
         with METRIC(
-            "DISCOVERY_PING_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+            "WORKER_DISCOVERY_PING_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
         ).time():
             try:
                 status = RemoteExecutorStatusClass(
-                    poolName=DATAHUB_EXECUTOR_POOL_NAME,
+                    executorPoolId=DATAHUB_EXECUTOR_POOL_ID,
                     executorReleaseVersion=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
                     executorAddress=DATAHUB_EXECUTOR_IDENTITY_ADDRESS,
                     executorHostname=DATAHUB_EXECUTOR_IDENTITY_HOSTNAME,
                     executorUptime=self._get_uptime(),
                     executorStopped=self.stop_flag,
-                    executorEmbedded=DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+                    executorEmbedded=(
+                        DATAHUB_EXECUTOR_MODE == "coordinator"
+                        and DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED
+                    ),
                     executorInternal=DATAHUB_EXECUTOR_INTERNAL_WORKER,
                     logDeliveryEnabled=False,
                     reportedAt=get_utc_timestamp(),
@@ -60,7 +67,7 @@ class DatahubExecutorDiscovery:
                 )
             except Exception as e:
                 METRIC(
-                    "DISCOVERY_PING_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+                    "WORKER_DISCOVERY_PING_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_ID
                 ).inc()
                 logger.error(f"Discovery: failed to sending status to GMS: {e}")
             return
@@ -76,12 +83,14 @@ class DatahubExecutorDiscovery:
                 logger.error(f"Discovery: error in discovery loop: {e}")
 
     def is_backend_discovery_capable(self) -> bool:
-        server_config = self.graph.get_config()
-        if server_config and server_config.get("remoteExecutorBackend"):
-            return True
-        return False
+        revision = get_backend_revision(self.graph)
+        return revision >= REQUIRED_MIN_BACKEND_REVISION
 
     def start(self) -> None:
+        if not self.is_backend_discovery_capable():
+            logger.error("Discovery disabled: backend is not discovery-capable.")
+            return
+
         version = DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version()
         logger.warning(
             f"Discovery: starting discovery loop; Instance ID = {DATAHUB_EXECUTOR_IDENTITY}; Version = {version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
@@ -92,6 +101,9 @@ class DatahubExecutorDiscovery:
         self.loop.start()
 
     def stop(self) -> None:
+        if not self.is_backend_discovery_capable():
+            return
+
         logger.info("Discovery: shutting down")
 
         self.stop_flag = True

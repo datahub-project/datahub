@@ -36,7 +36,7 @@ from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
     DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_GMS_TOKEN,
     DATAHUB_GMS_URL,
 )
@@ -61,7 +61,7 @@ def setup_ingestion_executor(
 
     # Build default executor config
     ingestion_executor_config = ReportingExecutorConfig(
-        id=DATAHUB_EXECUTOR_POOL_NAME,
+        id=DATAHUB_EXECUTOR_POOL_ID,
         task_configs=[ingest_task_config, test_connection_task_config],
         secret_stores=[
             SecretStoreConfig(type="env", config=dict({})),
@@ -139,7 +139,7 @@ def extract_execution_request(
 
     if (
         "executorId" in aspect_dict
-        and not aspect_dict["executorId"] == DATAHUB_EXECUTOR_POOL_NAME
+        and not aspect_dict["executorId"] == DATAHUB_EXECUTOR_POOL_ID
     ):
         logger.error(
             f"Ignoring ExecutionRequest for non-configured executorId {aspect_dict['executorId']}"
@@ -175,7 +175,7 @@ def exec_id_to_urn(exec_id: str) -> str:
     return f"urn:li:{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}:{exec_id}"
 
 
-@METRIC("INGESTION_FETCH_SIGNAL_REQUESTS").time()  # type: ignore
+@METRIC("WORKER_INGESTION_FETCH_SIGNAL_REQUESTS").time()  # type: ignore
 def fetch_execution_signal_requests(
     graph: DataHubGraph, exec_ids: List[str]
 ) -> Dict[str, Any]:
@@ -187,7 +187,7 @@ def fetch_execution_signal_requests(
     )
 
 
-@METRIC("INGESTION_FALLBACK_FETCH_REQUESTS").time()  # type: ignore
+@METRIC("WORKER_INGESTION_FALLBACK_FETCH_REQUESTS").time()  # type: ignore
 def fetch_execution_requests(
     graph: DataHubGraph, urns: List[str]
 ) -> List[ExecutionRequest]:
@@ -263,11 +263,11 @@ def handle_ingestion_signal_requests(
                 )
                 ingestion_executor.signal(signal_request)
 
-                METRIC("INGESTION_CANCEL_REQUESTS").inc()
+                METRIC("WORKER_INGESTION_CANCEL_REQUESTS").inc()
                 logger.info(f"Got {signal.signal} signal for task {exec_id}")
             return True
         except Exception as e:
-            METRIC("INGESTION_FETCH_SIGNAL_ERRORS", exception="exception").inc()
+            METRIC("WORKER_INGESTION_FETCH_SIGNAL_ERRORS", exception="exception").inc()
             logger.error(f"Failed to fetch signal requests: {e}")
     return False
 

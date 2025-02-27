@@ -66,6 +66,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         display: flex;
         font-size: 20px;
         padding: 2px;
+
         :hover {
             color: ${REDESIGN_COLORS.TITLE_PURPLE};
         }
@@ -141,7 +142,6 @@ const EntityDropdown = (props: Props) => {
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
-    // acryl-main only
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
@@ -395,7 +395,6 @@ const EntityDropdown = (props: Props) => {
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
-            {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
                     urn={urn}
