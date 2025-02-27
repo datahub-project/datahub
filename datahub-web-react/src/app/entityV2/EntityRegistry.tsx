@@ -251,6 +251,7 @@ export default class EntityRegistry {
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
             structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
+            versionProperties: genericEntityProperties.versionProperties ?? undefined,
         };
     }
 
