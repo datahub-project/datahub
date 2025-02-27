@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -17,7 +17,9 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "mock://mock-domain.superset.com/api/v1/security/login": {
             "method": "POST",
