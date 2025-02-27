@@ -1145,9 +1145,9 @@ def test_handle_unexpected_exceptions() -> None:
         assert source.report.failures.total_elements == 1
         assert source.report.tables_scanned == 4
         # Needed to make sure all failures are recognized properly
-        failures = [entry for entry in source.report.failures[0][1].context]
+        failures = [f for f in source.report.failures]
         TestCase().assertCountEqual(
-            failures,
+            failures[0].context,
             [
                 "Failed to create workunit for dataset ('namespaceA', 'table6'): Other value exception",
                 "Failed to create workunit for dataset ('namespaceA', 'table5'): ",
