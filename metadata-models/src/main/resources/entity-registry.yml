@@ -615,12 +615,10 @@ entities:
     category: internal
     keyAspect: dataHubMetricCubeKey
     aspects:
-      - dataHubMetricCubeDefinition
-      - dataHubMetricCubeStorageConfig
       - dataHubMetricCubeEvent
-      # - dataHubMetricCubeDailyAggregation Will be supported later.
-      # - dataHubMetricCubeWeeklyAggregation  Will be supported later.
-      # - dataHubMetricCubeMonthlyAggregation Will be supported later.
+      # To be added later.
+      # - dataHubMetricCubeDefinition
+      # - dataHubMetricCubeStorageConfig
 events:
   - name: notificationRequest
 plugins:

@@ -1,9 +1,0 @@
-namespace com.linkedin.metric
-
-import com.linkedin.timeseries.TimeWindowSize
-
-/**
- * The metric retention period. Just a unit + a window size.
- */
-record RetentionPeriod includes TimeWindowSize {
-}

@@ -11,11 +11,12 @@ record DataHubMetricCubeRow {
 
   /**
    * The event or bucket reported time field as epoch at UTC in milli seconds.
+   * This must be provided in order to pass validation.
    */
-  reportedTimeMillis: optional long
+  reportedTimeMillis: long
 
   /**
-   * The first measure value
+   * The first measure value - Typically this is the primary metric.
    */
    @TimeseriesField = {}
    measure1: double
@@ -36,18 +37,18 @@ record DataHubMetricCubeRow {
    * The first dimension value(s). Array type to support multi-dimensionality.
    */
    @TimeseriesField = {}
-   dim1: array[string]
+   dim1: optional array[string]
 
   /**
    * The second dimension value(s). Array type to support multi-dimensionality.
    */
    @TimeseriesField = {}
-   dim2: array[string]
+   dim2: optional array[string]
 
   /**
    * The third dimension value(s). Array type to support multi-dimensionality.
    */
    @TimeseriesField = {}
-   dim3: array[string]
+   dim3: optional array[string]
 }
 
