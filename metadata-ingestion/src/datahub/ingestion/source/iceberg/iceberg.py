@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -185,16 +185,9 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
-        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
-            LOGGER.debug(f"Processing dataset for path {dataset_path}")
-            dataset_name = ".".join(dataset_path)
-            if not self.config.table_pattern.allowed(dataset_name):
-                # Dataset name is rejected by pattern, report as dropped.
-                self.report.report_dropped(dataset_name)
-                LOGGER.debug(
-                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
-                )
-                return
+        def _try_processing_dataset(
+            dataset_path: Tuple[str, ...], dataset_name: str
+        ) -> Iterable[MetadataWorkUnit]:
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
@@ -250,10 +243,31 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.warning(
                     f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
                 )
+            except ValueError as e:
+                if "Could not initialize FileIO" not in str(e):
+                    raise
+                self.report.warning(
+                    "Could not initialize FileIO",
+                    f"Could not initialize FileIO for {dataset_path} due to: {e}",
+                )
+
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            try:
+                LOGGER.debug(f"Processing dataset for path {dataset_path}")
+                dataset_name = ".".join(dataset_path)
+                if not self.config.table_pattern.allowed(dataset_name):
+                    # Dataset name is rejected by pattern, report as dropped.
+                    self.report.report_dropped(dataset_name)
+                    LOGGER.debug(
+                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                    )
+                    return []
+
+                yield from _try_processing_dataset(dataset_path, dataset_name)
             except Exception as e:
                 self.report.report_failure(
                     "general",
-                    f"Failed to create workunit for dataset {dataset_name}: {e}",
+                    f"Failed to create workunit for dataset {dataset_path}: {e}",
                 )
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
