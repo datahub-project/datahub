@@ -42,7 +42,7 @@ jobs:
         # Note: not using acryldata/sane-checkout-action because this is a
         # pull_request_target event, and hence requires `ref`.
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -58,11 +58,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
-        uses: cloudflare/pages-action@v1
+        # Cloudflare's pages-action does not support PRs from forks.
+        # See https://developers.cloudflare.com/pages/platform/known-issues/
+        # Based on the discussion here https://github.com/json-schema-org/website/issues/330
+        # we can use a direct upload to work around this limitation.
+        # See https://github.com/AdrianGonz97/refined-cf-pages-action#enabling-pr-previews-from-forks
+        uses: AdrianGonz97/refined-cf-pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
+          deploymentName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
           directory: site
           gitHubToken: ${{ github.token }}

@@ -285,10 +285,12 @@ def search(
     ctx: click.Context,
     query: str = "",
     flavor: str = SearchFlavor.FREE_TEXT.name.lower(),
-    aspect: List[str] = [],
+    aspect: Optional[List[str]] = None,
     details: bool = True,
 ) -> None:
     """Search with a free text or exact query string"""
+    if aspect is None:
+        aspect = []
 
     # query flavor should be sanitized by now, but we still need to convert it to a SearchFlavor
     try:
