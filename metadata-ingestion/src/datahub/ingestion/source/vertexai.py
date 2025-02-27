@@ -37,6 +37,9 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
+    MLTrainingRunProperties,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
@@ -307,8 +310,13 @@ class VertexAISource(Source):
             aspect=MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
-                createdAt=int(model.create_time.timestamp() * 1000)
+                created=TimeStampClass(time=int(model.create_time.timestamp() * 1000))
                 if model.create_time
+                else None,
+                lastModified=TimeStampClass(
+                    time=int(model.update_time.timestamp() * 1000)
+                )
+                if model.update_time
                 else None,
                 customProperties={"displayName": model.display_name},
             ),
@@ -332,7 +340,7 @@ class VertexAISource(Source):
         """
 
         created_time = (
-            int(job.create_time.timestamp())
+            int(job.create_time.timestamp() * 1000)
             if job.create_time
             else int(time.time() * 1000)
         )
@@ -362,9 +370,28 @@ class VertexAISource(Source):
 
         mcps.append(
             MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=MLTrainingRunProperties(
+                    externalUrl=self._make_job_external_url(job), id=job.name
+                ),
+            )
+        )
+
+        mcps.append(
+            MetadataChangeProposalWrapper(
                 entityUrn=job_urn, aspect=SubTypesClass(typeNames=["Training Job"])
             )
         )
+
+        # mcps.append(
+        #     MetadataChangeProposalWrapper(
+        #         entityUrn=job_urn,
+        #         aspect=DataProcessInstanceRunEventClass(
+        #             status=DataProcessRunStatusClass.COMPLETE,
+        #             timestampMillis=0
+        #         )
+        #     )
+        # )
 
         # Create a container for Project as parent of the dataset
         container_key = ProjectIdKey(
@@ -465,7 +492,7 @@ class VertexAISource(Source):
                 aspect=DatasetPropertiesClass(
                     name=self._make_vertexai_dataset_name(ds.name),
                     created=TimeStampClass(time=int(ds.create_time.timestamp() * 1000)),
-                    description=f"Dataset: {ds.display_name} for training job",
+                    description=f"Dataset: {ds.display_name}",
                     customProperties={
                         "displayName": ds.display_name,
                         "resourceName": ds.resource_name,
@@ -643,10 +670,14 @@ class VertexAISource(Source):
                 + model_version.version_id,
                 "resourceName": model.resource_name,
             },
-            created=TimeStampClass(model_version.version_create_time.second)
+            created=TimeStampClass(
+                int(model_version.version_create_time.timestamp() * 1000)
+            )
             if model_version.version_create_time
             else None,
-            lastModified=TimeStampClass(model_version.version_update_time.second)
+            lastModified=TimeStampClass(
+                int(model_version.version_update_time.timestamp() * 1000)
+            )
             if model_version.version_update_time
             else None,
             version=VersionTagClass(versionTag=str(model_version.version_id)),
@@ -658,6 +689,7 @@ class VertexAISource(Source):
             if endpoint_urn
             else [],  # link to model registry and endpoint
             externalUrl=self._make_model_version_external_url(model),
+            type="ML Model",
         )
 
         mcps = []
@@ -665,6 +697,19 @@ class VertexAISource(Source):
         mcps.append(
             MetadataChangeProposalWrapper(entityUrn=model_urn, aspect=model_aspect)
         )
+
+        # Create a container for Project as parent of the dataset
+        # mcps.append(
+        #     MetadataChangeProposalWrapper(
+        #         entityUrn=model_urn,
+        #         aspect=ContainerClass(
+        #             container=ProjectIdKey(
+        #                 project_id=self.config.project_id,
+        #                 platform=self.platform).as_urn(),
+        #         ),
+        #     )
+        # )
+
         yield from auto_workunit(mcps)
 
     def _search_endpoint(self, model: Model) -> Optional[Endpoint]:

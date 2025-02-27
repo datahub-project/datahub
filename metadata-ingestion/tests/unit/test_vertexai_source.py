@@ -2,8 +2,10 @@ from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.cloud import aiplatform
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model, VersionInfo
+from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.protobuf import timestamp_pb2
 
 from datahub.ingestion.api.common import PipelineContext
@@ -96,6 +98,25 @@ def real_model(source: VertexAISource) -> Model:
     """
     model_name = "projects/872197881936/locations/us-west2/models/3583871344875405312"
     return Model(model_name=model_name)
+
+
+@pytest.fixture
+def real_autoML_tabular_job(source: VertexAISource) -> _TrainingJob:
+    """
+    Fixture for the training job that is actually registered in the Vertex AI Model Registry
+    Use mock_training_job for local testing purpose, but this fixture is provided to use real training job for debugging.
+    Replace training job name with your real training job when using this fixture.
+    """
+
+    # Initialize the AI Platform client
+    aiplatform.init(project=source.config.project_id, location=source.config.region)
+
+    # Retrieve the custom training job by its resource name
+    # resource_name format 'projects/your-project-id/locations/your-location/trainingPipelines/your-training-job-id')
+    job = aiplatform.AutoMLTabularTrainingJob.get(
+        resource_name="projects/872197881936/locations/us-west2/trainingPipelines/5401695018589093888"
+    )
+    return job
 
 
 @pytest.fixture
@@ -241,3 +262,17 @@ def test_real_model_workunit(
         assert aspect.date == model_version.version_create_time
         assert aspect.hyperParams is None
         assert aspect.trainingMetrics is None
+
+
+@pytest.mark.skip(reason="Skipping, this is for debugging purpose")
+def test_real_get_data_process_properties(
+    source: VertexAISource, real_autoML_tabular_job: _TrainingJob
+) -> None:
+    for wu in source._get_data_process_properties_workunit(real_autoML_tabular_job):
+        assert hasattr(wu.metadata, "aspect")
+        aspect = wu.metadata.aspect
+        if isinstance(aspect, DataProcessInstancePropertiesClass):
+            # aspect is DataProcessInstancePropertiesClass
+            assert aspect.externalUrl == source._make_job_external_url(
+                real_autoML_tabular_job
+            )
