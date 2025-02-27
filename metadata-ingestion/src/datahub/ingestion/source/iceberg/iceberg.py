@@ -4,6 +4,7 @@ import threading
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
+from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
@@ -67,6 +68,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import TimeStampClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -288,6 +290,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
 
             # Dataset properties aspect.
+            additional_properties = {}
             custom_properties = table.metadata.properties.copy()
             custom_properties["location"] = table.metadata.location
             custom_properties["format-version"] = str(table.metadata.format_version)
@@ -299,10 +302,25 @@ class IcebergSource(StatefulIngestionSourceBase):
                 custom_properties["manifest-list"] = (
                     table.current_snapshot().manifest_list
                 )
+                additional_properties["lastModified"] = TimeStampClass(
+                    int(table.current_snapshot().timestamp_ms)
+                )
+            if "created-at" in custom_properties:
+                try:
+                    dt = dateutil_parser.isoparse(custom_properties["created-at"])
+                    additional_properties["created"] = TimeStampClass(
+                        int(dt.timestamp() * 1000)
+                    )
+                except Exception as ex:
+                    LOGGER.warning(
+                        f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
+                    )
+
             dataset_properties = DatasetPropertiesClass(
                 name=table.name()[-1],
                 description=table.metadata.properties.get("comment", None),
                 customProperties=custom_properties,
+                **additional_properties,
             )
             dataset_snapshot.aspects.append(dataset_properties)
             # Dataset ownership aspect.
