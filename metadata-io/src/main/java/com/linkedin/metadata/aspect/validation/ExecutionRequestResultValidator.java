@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ABORTED;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_CANCELLED;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_DUPLICATE;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ROLLING_BACK;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_SUCCESS;
 
 import com.linkedin.execution.ExecutionRequestResult;
@@ -56,11 +57,22 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
 
               if (IMMUTABLE_STATUS.contains(existingResult.getStatus())) {
                 ExecutionRequestResult currentResult = item.getAspect(ExecutionRequestResult.class);
-                return AspectValidationException.forItem(
-                    item,
-                    String.format(
-                        "Invalid update to immutable state for aspect dataHubExecutionRequestResult. Execution urn: %s previous status: %s. Denied status update: %s",
-                        item.getUrn(), existingResult.getStatus(), currentResult.getStatus()));
+                if (currentResult != null
+                    && !EXECUTION_REQUEST_STATUS_ROLLING_BACK.equals(currentResult.getStatus())) {
+                  if (!Objects.equals(existingResult.getStatus(), currentResult.getStatus())) {
+                    return AspectValidationException.forItem(
+                        item,
+                        String.format(
+                            "Invalid update to immutable state for aspect dataHubExecutionRequestResult. Execution urn: %s Requested status: %s => %s. Denied update.",
+                            item.getUrn(), existingResult.getStatus(), currentResult.getStatus()));
+                  } else {
+                    return AspectValidationException.forFilter(
+                        item,
+                        String.format(
+                            "Invalid update to immutable state for aspect dataHubExecutionRequestResult. Execution urn: %s Requested status: %s => %s. Ignored update.",
+                            item.getUrn(), existingResult.getStatus(), currentResult.getStatus()));
+                  }
+                }
               }
 
               return null;

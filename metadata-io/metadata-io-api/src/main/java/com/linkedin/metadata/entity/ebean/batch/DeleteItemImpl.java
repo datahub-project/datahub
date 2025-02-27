@@ -8,11 +8,10 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.Objects;
@@ -71,17 +70,6 @@ public class DeleteItemImpl implements ChangeMCP {
   @Override
   public MetadataChangeProposal getMetadataChangeProposal() {
     return EntityApiUtils.buildMCP(getUrn(), aspectName, getChangeType(), null);
-  }
-
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
-    EntityAspect entityAspect = new EntityAspect();
-    entityAspect.setAspect(getAspectName());
-    entityAspect.setUrn(getUrn().toString());
-    entityAspect.setVersion(0);
-    return EntityAspect.EntitySystemAspect.builder()
-        .build(getEntitySpec(), getAspectSpec(), entityAspect);
   }
 
   @Override

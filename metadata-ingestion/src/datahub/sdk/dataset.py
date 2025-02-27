@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -13,13 +13,13 @@ from datahub.errors import (
     IngestionAttributionWarning,
     ItemNotFoundError,
     SchemaFieldKeyError,
+    SdkUsageError,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity
+from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
-    ContainerInputType,
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
@@ -30,20 +30,24 @@ from datahub.sdk._shared import (
     HasTags,
     HasTerms,
     OwnersInputType,
+    ParentContainerInputType,
+    TagInputType,
     TagsInputType,
+    TermInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
-    str,
     Tuple[str, str],  # (name, type)
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,
 ]
 SchemaFieldsInputType: TypeAlias = Union[
-    List[SchemaFieldInputType],
+    Sequence[SchemaFieldInputType],
     models.SchemaMetadataClass,
 ]
 
@@ -271,6 +275,51 @@ class SchemaField:
                 tags=parsed_tags
             )
 
+    def add_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is None:
+                editable_field.globalTags = models.GlobalTagsClass(tags=[])
+
+            add_list_unique(
+                editable_field.globalTags.tags,
+                key=self._parent._tag_key,
+                item=parsed_tag,
+            )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.globalTags is not None:
+                remove_list_unique(
+                    base_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is not None:
+                remove_list_unique(
+                    editable_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                )
+
     @property
     def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
         # TODO: Basically the same implementation as tags - can we share code?
@@ -287,7 +336,7 @@ class SchemaField:
 
         return terms
 
-    def set_terms(self, terms: List[models.GlossaryTermAssociationClass]) -> None:
+    def set_terms(self, terms: TermsInputType) -> None:
         parsed_terms = [
             self._parent._parse_glossary_term_association_class(term) for term in terms
         ]
@@ -317,6 +366,55 @@ class SchemaField:
                     auditStamp=self._parent._terms_audit_stamp(),
                 )
             )
+
+    def add_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is None:
+                editable_field.glossaryTerms = models.GlossaryTermsClass(
+                    terms=[],
+                    auditStamp=self._parent._terms_audit_stamp(),
+                )
+
+            add_list_unique(
+                editable_field.glossaryTerms.terms,
+                key=self._parent._terms_key,
+                item=parsed_term,
+            )
+
+    def remove_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Removing field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.glossaryTerms is not None:
+                remove_list_unique(
+                    base_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is not None:
+                remove_list_unique(
+                    editable_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
 
 
 class Dataset(
@@ -352,13 +450,14 @@ class Dataset(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
+        parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
-        container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         # TODO structured_properties
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
@@ -370,6 +469,7 @@ class Dataset(
             env=env,
         )
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.platform, platform_instance)
 
@@ -393,10 +493,10 @@ class Dataset(
         if last_modified is not None:
             self.set_last_modified(last_modified)
 
+        if parent_container is not unset:
+            self._set_container(parent_container)
         if subtype is not None:
             self.set_subtype(subtype)
-        if container is not None:
-            self._set_container(container)
         if owners is not None:
             self.set_owners(owners)
         if tags is not None:
@@ -536,14 +636,6 @@ class Dataset(
                 ),
                 nativeDataType=field_type,
                 description=description,
-            )
-        elif isinstance(schema_field_input, str):
-            # TODO: Not sure this branch makes sense - we should probably just require types?
-            return models.SchemaFieldClass(
-                fieldPath=schema_field_input,
-                type=models.SchemaFieldDataTypeClass(models.NullTypeClass()),
-                nativeDataType="unknown",
-                description=None,
             )
         else:
             assert_never(schema_field_input)

@@ -18,7 +18,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -199,7 +198,7 @@ public class EntityController
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityApiUtils.parseSystemMetadata(
+                  SystemMetadataUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 

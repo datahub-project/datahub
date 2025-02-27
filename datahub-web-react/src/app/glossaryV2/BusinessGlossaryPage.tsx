@@ -53,10 +53,10 @@ const BusinessGlossaryPage = () => {
         setEntityData(null);
     }, [setEntityData]);
 
-    const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
+    const terms = termsData?.getRootGlossaryTerms?.terms?.sort((termA, termB) =>
         sortGlossaryTerms(entityRegistry, termA, termB),
     );
-    const nodes = nodesData?.getRootGlossaryNodes?.nodes.sort((nodeA, nodeB) =>
+    const nodes = nodesData?.getRootGlossaryNodes?.nodes?.sort((nodeA, nodeB) =>
         sortGlossaryNodes(entityRegistry, nodeA, nodeB),
     );
 

@@ -5,7 +5,7 @@ import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 import nest_asyncio
 from okta.client import Client as OktaClient
@@ -14,7 +14,6 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -56,7 +55,7 @@ logger = logging.getLogger(__name__)
 nest_asyncio.apply()
 
 
-class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
+class OktaConfig(StatefulIngestionConfigBase):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -76,6 +75,10 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     ingest_group_membership: bool = Field(
         default=True,
         description="Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.",
+    )
+    ingest_groups_users: bool = Field(
+        default=True,
+        description="Only ingest users belonging to the selected groups. This option is only useful when `ingest_users` is set to False and `ingest_group_membership` to True.",
     )
 
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
@@ -344,6 +347,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
+        okta_users: Set[User] = set()
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = (
             defaultdict(lambda: GroupMembershipClass(groups=[]))
@@ -372,6 +376,9 @@ class OktaSource(StatefulIngestionSourceBase):
                         self.report.report_failure("okta_user_mapping", error_str)
                         continue
 
+                    if self.config.ingest_groups_users:
+                        okta_users.add(okta_user)
+
                     # Update the GroupMembership aspect for this group member.
                     datahub_corp_user_urn_to_group_membership[
                         datahub_corp_user_urn
@@ -379,7 +386,10 @@ class OktaSource(StatefulIngestionSourceBase):
 
         # Step 3: Produce MetadataWorkUnits for CorpUsers.
         if self.config.ingest_users:
-            okta_users = self._get_okta_users(event_loop)
+            # we can just throw away collected okta users so far and fetch them all
+            okta_users = set(self._get_okta_users(event_loop))
+
+        if okta_users:
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
             datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
             for user_count, datahub_corp_user_snapshot in enumerate(

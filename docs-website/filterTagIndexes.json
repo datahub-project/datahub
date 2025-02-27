@@ -24,7 +24,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/azure-ad",
-      "imgPath": "img/logos/platforms/azure-ad.png",
+      "imgPath": "img/logos/platforms/azure-ad.svg",
       "Title": "Azure AD",
       "Description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications.",
       "tags": {
@@ -326,6 +326,17 @@
       "Description": "Metabase is an open-source business intelligence and data visualization tool that allows users to easily query and visualize their data.",
       "tags": {
         "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/mlflow",
+      "imgPath": "img/logos/platforms/mlflow.svg",
+      "Title": "MLflow",
+      "Description": "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.",
+      "tags": {
+        "Platform Type": "AI+ML",
         "Connection Type": "Pull",
         "Features": ""
       }
