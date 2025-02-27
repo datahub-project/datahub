@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, message, Modal } from 'antd';
+import { Form, message, Modal } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import CreatePostForm from './CreatePostForm';
 import {
     CREATE_POST_BUTTON_ID,
@@ -156,12 +158,11 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             onCancel={onCloseModal}
             width={700}
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
+                <ModalButtonContainer>
+                    <Button color="gray" onClick={onCloseModal} variant="text">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
                         id={CREATE_POST_BUTTON_ID}
                         data-testid={!editData ? 'create-post-button' : 'update-post-button'}
                         onClick={!editData ? onCreatePost : onUpdatePost}
@@ -169,7 +170,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                     >
                         {!editData ? 'Create' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <CreatePostForm

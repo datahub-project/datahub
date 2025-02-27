@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Checkbox } from 'antd';
+import { Checkbox } from 'antd';
 import styled from 'styled-components';
-
+import { Button } from '@src/alchemy-components';
 import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import { ANTD_GRAY } from '../../../../shared/constants';
 
@@ -10,15 +10,6 @@ type Props = {
     setSchemaFilterTypes: (filters: SchemaFilterType[]) => void;
     close: () => void;
 };
-
-const UpdateButton = styled(Button)`
-    width: 100%;
-    text-align: center;
-    background-color: ${(props) => props.theme.styles['primary-color']};
-    color: white;
-    border-radius: 0;
-    margin-top: 10px;
-`;
 
 const StyledCheckbox = styled(Checkbox)`
     font-size: 14px;
@@ -31,6 +22,13 @@ const StyledCheckbox = styled(Checkbox)`
         background-color: ${ANTD_GRAY[3]};
     }
     width: 232px;
+`;
+
+const StyledButton = styled(Button)`
+    width: 100%;
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
 `;
 
 export default function SchemaFilterSelectContent({ schemaFilterTypes, setSchemaFilterTypes, close }: Props) {
@@ -56,16 +54,14 @@ export default function SchemaFilterSelectContent({ schemaFilterTypes, setSchema
                     <StyledCheckbox value={SchemaFilterType.Terms}>Glossary Terms</StyledCheckbox>
                 </span>
             </Checkbox.Group>
-            <div>
-                <UpdateButton
-                    onClick={() => {
-                        setSchemaFilterTypes(stagedSchemaFilterTypes);
-                        close();
-                    }}
-                >
-                    Update
-                </UpdateButton>
-            </div>
+            <StyledButton
+                onClick={() => {
+                    setSchemaFilterTypes(stagedSchemaFilterTypes);
+                    close();
+                }}
+            >
+                Apply
+            </StyledButton>
         </div>
     );
 }
