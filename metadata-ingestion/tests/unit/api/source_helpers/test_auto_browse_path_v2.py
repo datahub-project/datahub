@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import patch
 
 import datahub.metadata.schema_classes as models
@@ -403,9 +403,11 @@ def _get_browse_paths_from_wu(
 
 def _create_container_aspects(
     d: Dict[str, Any],
-    other_aspects: Dict[str, List[models._Aspect]] = {},
+    other_aspects: Optional[Dict[str, List[models._Aspect]]] = None,
     root: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
+    if other_aspects is None:
+        other_aspects = {}
     for k, v in d.items():
         urn = make_container_urn(k)
         yield MetadataChangeProposalWrapper(
