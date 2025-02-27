@@ -4,10 +4,6 @@ namespace com.linkedin.metric
  * A base row format for each metric timeseries index.
  */
 record DataHubMetricCubeRow {
-  /**
-   * The event or bucket timestamp field as epoch at UTC in milli seconds.
-   */
-  timestampMillis: long
 
   /**
    * The event or bucket reported time field as epoch at UTC in milli seconds.

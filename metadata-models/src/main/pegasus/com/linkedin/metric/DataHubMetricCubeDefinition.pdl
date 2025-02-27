@@ -1,6 +1,6 @@
 namespace com.linkedin.metric
 
-import com.linkedin.common.urn.Urn
+import com.linkedin.common.Urn
 
 /**
  * The structure of an individual metric cube in DataHub.
