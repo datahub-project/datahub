@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useTheme } from 'styled-components';
 import { ActionRequestAssignee, ActionRequestStatus } from '../../types.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { ActionRequestsList } from './ActionRequestsList';
+import { ProposalList } from '../taskCenterV2/proposalsV2/ProposalList';
 
 type Props = {
     // The assignee associated with the action request groups,
@@ -44,7 +44,7 @@ export const ActionRequestsGroupTab = ({ assignee }: Props) => {
                     </Button>
                 </div>
             </TabToolbar>
-            <ActionRequestsList
+            <ProposalList
                 status={(viewType as ActionRequestStatus) || ActionRequestStatus.Pending}
                 assignee={assignee}
             />
