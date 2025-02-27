@@ -273,7 +273,7 @@ public class DataHubIcebergWarehouse {
     }
 
     entityService.deleteUrn(operationContext, resourceUrn);
-    datasetUrn.ifPresent(x -> entityService.deleteUrn(operationContext, x));
+    entityService.deleteUrn(operationContext, datasetUrn.get());
 
     return result;
   }
