@@ -8,7 +8,10 @@ from datahub_executor.common.client.fetcher.monitors.fetcher import MonitorFetch
 from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_LIST_MONITORS_QUERY,
 )
-from datahub_executor.common.constants import LIST_MONITORS_BATCH_SIZE
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
+    LIST_MONITORS_BATCH_SIZE,
+)
 from datahub_executor.common.types import (
     AssertionEvaluationParametersType,
     AssertionSourceType,
@@ -385,7 +388,7 @@ def test_fetch_inferred_volume_assertion() -> None:
                         "info": {
                             "type": "ASSERTION",
                             "status": {"mode": "ACTIVE"},
-                            "executorId": "default",
+                            "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
                             "assertionMonitor": {
                                 "assertions": [
                                     {

@@ -46,7 +46,7 @@ class AssertionExecutor:
             if not self.stop:
                 self.evaluate_assertion(request)
         except Exception as e:
-            METRIC("ASSERTION_EVALUATE_ERRORS", exception="exception").inc()
+            METRIC("WORKER_ASSERTION_EVALUATE_ERRORS", exception="exception").inc()
             logger.exception(
                 f"AssertionExecutor: error executing {request.exec_id}: %s", e
             )
@@ -56,7 +56,7 @@ class AssertionExecutor:
         self.stop = True
         self.tp.shutdown(wait)
 
-    @METRIC("ASSERTION_EVALUATE_REQUESTS").time()  # type: ignore
+    @METRIC("WORKER_ASSERTION_EVALUATE_REQUESTS").time()  # type: ignore
     def evaluate_assertion(self, execution_request: ExecutionRequest) -> None:
         assertion_spec = AssertionEvaluationSpec.parse_obj(
             execution_request.args["assertion_spec"]

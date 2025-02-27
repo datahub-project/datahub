@@ -7,7 +7,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
-from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
+    RUN_INGEST_TASK_NAME,
+)
 from datahub_executor.common.ingestion.helpers import (
     build_execution_request_input_from_request,
     emit_execution_request_input,
@@ -16,7 +19,7 @@ from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_EXECUTOR_SCHEDULER_ASSERTIONS_MAX_THREADS,
     DATAHUB_EXECUTOR_SCHEDULER_INGESTIONS_MAX_THREADS,
     DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
@@ -244,5 +247,6 @@ class ExecutionRequestScheduler:
         """
         return DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
             execution_request.executor_id is None
-            or DATAHUB_EXECUTOR_POOL_NAME == execution_request.executor_id
+            or execution_request.executor_id == DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+            or DATAHUB_EXECUTOR_POOL_ID == execution_request.executor_id
         )

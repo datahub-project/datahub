@@ -4,7 +4,10 @@ from typing import Dict, List
 from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.client.fetcher.monitors.util import is_dry_run_mode
-from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
+    RUN_ASSERTION_TASK_NAME,
+)
 from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
@@ -83,7 +86,9 @@ def monitors_to_execution_requests(
 
                     execution_request = ExecutionRequest(
                         executor_id=(
-                            monitor.executor_id if monitor.executor_id else "default"
+                            monitor.executor_id
+                            if monitor.executor_id
+                            else DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
                         ),
                         exec_id=monitor.urn,
                         name=RUN_ASSERTION_TASK_NAME,

@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from threading import Thread
-from typing import Optional, cast
+from typing import cast
 
 from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.ingestion.graph.client import DataHubGraph
@@ -31,7 +31,7 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_SIGNAL_POLL_INTERVAL,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
 )
 from datahub_executor.worker.remote import apply_remote_ingestion_request
 
@@ -40,18 +40,18 @@ logger = logging.getLogger(__name__)
 
 class IngestionAction(Action):
     graph: DataHubGraph
-    discovery: Optional[DatahubExecutorDiscovery]
+    discovery: DatahubExecutorDiscovery
     ingestion_enabled: bool
     embedded_worker_enabled: bool
-    embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME
+    embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_ID
 
     def __init__(
         self,
         graph: DataHubGraph,
-        discovery: Optional[DatahubExecutorDiscovery],
+        discovery: DatahubExecutorDiscovery,
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME,
+        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_ID,
     ) -> None:
         self.ingestion_enabled = ingestion_enabled
         self.embedded_worker_id = embedded_worker_id
@@ -60,13 +60,13 @@ class IngestionAction(Action):
         self.graph = graph
 
         if self.embedded_worker_enabled:
-            if discovery is None:
-                self.ingestion_executor = setup_ingestion_executor()
-            else:
+            if discovery.is_backend_discovery_capable():
                 self.ingestion_executor = setup_ingestion_executor(
                     executor_instance_id=DATAHUB_EXECUTOR_IDENTITY,
                     executor_version=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
                 )
+            else:
+                self.ingestion_executor = setup_ingestion_executor()
             self.tp = ThreadPoolExecutorWithQueueSizeLimit(
                 max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
                 name="ingestions",
@@ -78,10 +78,10 @@ class IngestionAction(Action):
     def create(
         cls,
         graph: DataHubGraph,
-        discovery: Optional[DatahubExecutorDiscovery],
+        discovery: DatahubExecutorDiscovery,
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME,
+        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_ID,
     ) -> Action:
         return cls(
             graph,
