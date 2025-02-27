@@ -74,6 +74,9 @@ check.dependsOn test
 clean {
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
 clean.dependsOn ':metadata-ingestion:clean'
