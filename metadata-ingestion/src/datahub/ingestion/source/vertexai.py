@@ -119,7 +119,6 @@ class VertexAIConfig(EnvConfigMixin):
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
     )
-
     _credentials_path: Optional[str] = PrivateAttr(None)
 
     def __init__(self, **data: Any):
