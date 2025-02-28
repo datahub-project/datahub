@@ -245,6 +245,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                         defaultFilters={[]}
                         showFilterBar={showAdvancedFilters}
                         fixedFilters={levelFilters}
+                        applyView={false}
                     />
                 </LineageTabContext.Provider>
             </Results>

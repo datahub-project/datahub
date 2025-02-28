@@ -23,6 +23,7 @@ type Props = {
     setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
     setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
+    applyView?: boolean;
 };
 
 export const ImpactAnalysis = ({
@@ -40,6 +41,7 @@ export const ImpactAnalysis = ({
     setSkipCache,
     resetShouldRefetch,
     setIsLoading,
+    applyView = true,
 }: Props) => {
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;
@@ -80,7 +82,7 @@ export const ImpactAnalysis = ({
             resetShouldRefetch={resetShouldRefetch}
             placeholderText="Search related assets..."
             showFilterBar={showFilterBar}
-            applyView
+            applyView={applyView}
         />
     );
 };
