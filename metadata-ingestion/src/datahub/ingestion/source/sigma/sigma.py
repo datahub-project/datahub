@@ -124,7 +124,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
-            raise ConfigurationError(f"Unable to connect sigma API. Exception: {e}")
+            raise ConfigurationError("Unable to connect sigma API") from e
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

@@ -168,8 +168,9 @@ class DremioAspects:
         )
 
     def get_container_urn(
-        self, name: Optional[str] = None, path: Optional[List[str]] = []
+        self, name: Optional[str] = None, path: Optional[List[str]] = None
     ) -> str:
+        path = path or []
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
 

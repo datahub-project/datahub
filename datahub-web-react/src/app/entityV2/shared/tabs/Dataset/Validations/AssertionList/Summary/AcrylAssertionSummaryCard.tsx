@@ -2,9 +2,10 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import { AssertionType, EntityType } from '@src/types.generated';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { Button } from '@src/alchemy-components';
 import { AssertionGroup } from '../../acrylTypes';
 import { getAssertionGroupName } from '../../acrylUtils';
 import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
@@ -19,7 +20,7 @@ const StyledCard = styled.div`
     gap: 4px;
     flex-direction: column;
     width: auto;
-    height: 210px;
+    height: 228px;
     box-shadow: 0px 4px 8px 0px #cecece1a;
     border: 1px solid #e5e7ed;
     border-radius: 8px;
@@ -83,18 +84,6 @@ const ChartSectionContainer = styled.div`
     align-items: center;
 `;
 
-const ViewAllWrapper = styled.div`
-    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    cursor: pointer;
-`;
-
-const ViewAllText = styled.div``;
-
 type Props = {
     group: AssertionGroup;
 };
@@ -142,9 +131,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                 <ChartSectionContainer>
                     {/* **********************Render Assertion Summary Card Summary Section**************************** */}
                     <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
-                    <ViewAllWrapper>
-                        <ViewAllText>View All</ViewAllText>
-                    </ViewAllWrapper>
+                    <Button variant="text">View All</Button>
                 </ChartSectionContainer>
 
                 {/* **********************Render Progress bar **************************** */}

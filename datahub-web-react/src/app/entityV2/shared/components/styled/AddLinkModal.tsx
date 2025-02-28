@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input } from 'antd';
-import styled from 'styled-components/macro';
+import { Button as AntButton, message, Modal, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useEntityData, useMutationUrn } from '../../../../entity/shared/EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
-import { REDESIGN_COLORS } from '../../constants';
-
-const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    font-size: 12px;
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-`;
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -71,35 +58,48 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
         }
     };
 
-    return (
-        <>
-            {buttonType === 'transparent' ? (
-                <TransparentButton
-                    data-testid="add-link-button"
-                    size="large"
-                    icon={<PlusOutlined />}
-                    onClick={showModal}
-                    {...buttonProps}
-                >
-                    Add Link
-                </TransparentButton>
-            ) : (
-                <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
+    const renderButton = (bType: string | undefined) => {
+        if (bType === 'transparent') {
+            return (
+                <Button data-testid="add-link-button" variant="outline" onClick={showModal} {...buttonProps}>
+                    <PlusOutlined />
                     Add Link
                 </Button>
-            )}
+            );
+        }
+        if (bType === 'text') {
+            return (
+                <AntButton data-testid="add-link-button" onClick={showModal} type="text">
+                    <PlusOutlined />
+                    Add Link
+                </AntButton>
+            );
+        }
+        return (
+            <Button variant="outline" data-testid="add-link-button" onClick={showModal} {...buttonProps}>
+                <PlusOutlined />
+                Add Link
+            </Button>
+        );
+    };
+
+    return (
+        <>
+            {renderButton(buttonType)}
             <Modal
                 title="Add Link"
                 visible={isModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[
-                    <Button type="text" onClick={handleClose}>
-                        Cancel
-                    </Button>,
-                    <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit" htmlType="submit">
-                        Add
-                    </Button>,
+                    <ModalButtonContainer>
+                        <Button variant="text" onClick={handleClose}>
+                            Cancel
+                        </Button>
+                        <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit">
+                            Add
+                        </Button>
+                    </ModalButtonContainer>,
                 ]}
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">

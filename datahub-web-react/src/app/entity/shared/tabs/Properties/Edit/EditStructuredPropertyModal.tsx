@@ -1,7 +1,9 @@
 import analytics, { EventType } from '@src/app/analytics';
-import { Button, Modal, message } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
 import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
@@ -104,19 +106,18 @@ export default function EditStructuredPropertyModal({
             open={isOpen}
             width={650}
             footer={
-                <>
-                    <Button onClick={closeModal} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={closeModal} color="gray">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
                         onClick={upsertProperties}
                         disabled={!selectedValues.length}
                         data-testid="add-update-structured-prop-on-entity-button"
                     >
                         {isAddMode ? 'Add' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             destroyOnClose
         >

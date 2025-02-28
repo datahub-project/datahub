@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
+import { message, Modal, Typography, Form } from 'antd';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
 import { useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
@@ -72,14 +74,14 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={onClose} variant="outline">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
+                    <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
                         Move
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} initialValues={{}} layout="vertical">

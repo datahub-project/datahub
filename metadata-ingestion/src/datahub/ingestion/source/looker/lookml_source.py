@@ -501,7 +501,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
                 f"in your config file"
-            )
+            ) from None
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
