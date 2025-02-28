@@ -307,21 +307,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             for owner in self.paginate_entity_api_results(f"{entity}/related/owners"):
                 owner_id = owner.get("value")
                 if owner_id:
-                    owners_info[owner_id] = (
-                        owner.get("text", ""),
-                        owner.get("extra", {}).get("email", ""),
-                    )
+                    owners_info[owner_id] = owner.get("extra", {}).get("email", "")
 
         return owners_info
 
     def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
-        owners_urn = []
-        for owner in data.get("owners", []):
-            if not owner.get("id"):
-                continue
-            owner_email = self.owner_info.get(owner.get("id"), ("", ""))[1]
-            owners_urn.append(make_user_urn(owner_email))
-        return owners_urn
+        return [
+            make_user_urn(self.owner_info.get(owner.get("id"), ""))
+            for owner in data.get("owners", [])
+            if owner.get("id")
+        ]
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
