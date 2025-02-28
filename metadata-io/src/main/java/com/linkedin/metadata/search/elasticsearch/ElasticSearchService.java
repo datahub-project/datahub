@@ -150,7 +150,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       int from,
       int size) {
-    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, null);
+    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, List.of());
   }
 
   @Nonnull
@@ -162,7 +162,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -344,7 +344,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
@@ -374,7 +375,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
@@ -415,7 +417,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
 
     return esSearchDAO.explain(
         opContext.withSearchFlags(
