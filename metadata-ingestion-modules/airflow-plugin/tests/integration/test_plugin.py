@@ -253,6 +253,7 @@ def _run_airflow(
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
+        "AIRFLOW__DATAHUB__PLATFORM_INSTANCE": "myairflow",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
