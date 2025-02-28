@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Input, AutoComplete, Button, Skeleton } from 'antd';
+import { Input, AutoComplete, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { colors } from '@src/alchemy-components';
+import { Button, colors } from '@src/alchemy-components';
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
@@ -333,7 +333,7 @@ export const SearchBar = ({
                 value: 'explore-all-unique-key',
                 type: '',
                 label: (
-                    <Button type="link" onClick={onClickExploreAll}>
+                    <Button variant="text" onClick={onClickExploreAll}>
                         Explore all →
                     </Button>
                 ),
