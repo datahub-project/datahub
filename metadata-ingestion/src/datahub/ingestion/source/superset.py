@@ -294,7 +294,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             current_page += 1
 
-    def parse_owner_info(self) -> Dict[str, any]:
+    def parse_owner_info(self) -> Dict[str, Any]:
         entity_types = ["dataset", "dashboard", "chart"]
         owners_info = {}
 
