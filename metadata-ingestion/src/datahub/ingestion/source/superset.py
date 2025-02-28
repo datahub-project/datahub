@@ -312,8 +312,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                         owner.get("extra", {}).get("email", ""),
                     )
 
-        logger.info(owners_info)
-
         return owners_info
 
     def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
