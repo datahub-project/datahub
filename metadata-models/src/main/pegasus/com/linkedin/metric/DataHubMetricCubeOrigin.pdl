@@ -6,13 +6,14 @@ import com.linkedin.common.Urn
 /**
  * Information about the source of an incident raised on an asset.
  */
-record DataHubMetricCubeSource {
+record DataHubMetricCubeOrigin {
   /**
   * Message associated with the incident
   */
   @Searchable = {
     "addToFilters": true,
-    "filterNameOverride": "Source"
+    "fieldName": "originType",
+    "filterNameOverride": "Origin"
   }
   type: enum DataHubMetricSourceType {
     /**
@@ -33,5 +34,5 @@ record DataHubMetricCubeSource {
   @Searchable = {
     "fieldType": "URN"
   }
-  sourceUrn: optional Urn
+  originUrn: optional Urn
 }

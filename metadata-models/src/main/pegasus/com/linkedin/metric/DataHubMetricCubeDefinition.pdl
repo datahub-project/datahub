@@ -34,9 +34,9 @@ record DataHubMetricCubeDefinition {
   entity: optional Urn
 
   /**
-   * The source of the metric cube.
+   * The origin of the metric cube.
    */
-  source: DataHubMetricCubeSource
+  origin: DataHubMetricCubeOrigin
 
   /**
   *  Optional - The measures of the cube for display purposes.
