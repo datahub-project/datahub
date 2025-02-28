@@ -712,6 +712,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
+            "vertexai"
         ]
         if plugin
         for dependency in plugins[plugin]
