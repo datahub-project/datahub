@@ -70,3 +70,9 @@ bootstrap:
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-metadata-sharing.yaml"
       values_env: "DATAHUB_METADATA_SHARING_BOOTSTRAP_VALUES"
+
+    - name: embedded-executor-pool
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/embedded-executor-pool.yaml"

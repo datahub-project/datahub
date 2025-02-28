@@ -1,0 +1,11 @@
+- entityUrn: urn:li:dataHubRemoteExecutorPool:default
+  entityType: dataHubRemoteExecutorPool
+  aspectName: dataHubRemoteExecutorPoolInfo
+  changeType: UPSERT
+  aspect:
+    state:
+      status: READY
+    isEmbedded: true
+    createdAt: 0
+    creator: urn:li:corpuser:admin
+    description: Built-in Ingestion Executor
