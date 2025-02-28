@@ -1,6 +1,156 @@
 [
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.0
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-7wyd9w",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage_with_score_less_than_1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.0
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-k1ikve",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_0,PROD)",
     "changeType": "PATCH",
     "aspectName": "usageFeatures",
@@ -58,11 +208,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user0",
@@ -96,7 +241,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vxp9wh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -159,11 +304,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user4",
@@ -197,7 +337,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vxp9wh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -260,11 +400,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user0",
@@ -298,7 +433,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vxp9wh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -361,11 +496,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user4",
@@ -393,13 +523,13 @@
             {
                 "op": "add",
                 "path": "/combinedSearchRankingMultiplier",
-                "value": 0.9099999999999999
+                "value": 1
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vxp9wh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -462,11 +592,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user4",
@@ -494,13 +619,13 @@
             {
                 "op": "add",
                 "path": "/combinedSearchRankingMultiplier",
-                "value": 0.9099999999999999
+                "value": 1
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vxp9wh",
         "lastRunId": "no-run-id-provided"
     }
 }
