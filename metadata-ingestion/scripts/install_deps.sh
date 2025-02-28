@@ -19,19 +19,22 @@ else
             xz-devel \
             libxml2-devel \
             libxslt-devel \
-            krb5-devel
+            krb5-devel \
+            librdkafka-dev
     elif command -v apk; then
         $sudo_cmd apk add \
             build-base \
             openldap-dev \
             xz-dev \
-            krb5-dev
+            krb5-dev \
+            librdkafka-dev
     else
         $sudo_cmd apt-get update && $sudo_cmd apt-get install -y \
             python3-ldap \
             libldap2-dev \
             libsasl2-dev \
             ldap-utils \
-            libkrb5-dev
+            libkrb5-dev \
+            librdkafka-dev
     fi
 fi
