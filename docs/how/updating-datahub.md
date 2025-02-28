@@ -26,6 +26,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12671: The `priority` field of the Incident entity is changed from an integer to an enum. This field was previously completely unused in UI and API, so this change should not affect existing deployments.
 
+- #12716: Fix the `platform_instance` being added twice to the URN. If you want to have the previous behavior back, you need to add your platform_instance twice (i.e. `plat.plat`).
+
 
 ### Known Issues
 

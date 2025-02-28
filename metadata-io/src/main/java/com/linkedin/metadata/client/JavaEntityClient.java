@@ -460,21 +460,6 @@ public class JavaEntityClient implements EntityClient {
         entityService);
   }
 
-  @Override
-  @Nonnull
-  public SearchResult searchAcrossEntities(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      int start,
-      int count,
-      List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException {
-    return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
-  }
-
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -497,7 +482,7 @@ public class JavaEntityClient implements EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets)
+      @Nonnull List<String> facets)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -523,7 +508,9 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      int count,
+      @Nullable List<String> facets)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateScrollResult(
@@ -533,10 +520,11 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
-            count),
+            count,
+            facets),
         entityService);
   }
 

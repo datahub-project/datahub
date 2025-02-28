@@ -331,7 +331,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         aspect_type_name: Optional[str] = None,
         version: int = 0,
     ) -> Optional[Aspect]:
-        assert aspect_type.ASPECT_NAME == aspect
+        assert aspect == aspect_type.ASPECT_NAME
         return self.get_aspect(
             entity_urn=entity_urn,
             aspect_type=aspect_type,
@@ -1551,7 +1551,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         return fragment
 
     def _run_assertion_build_params(
-        self, params: Optional[Dict[str, str]] = {}
+        self, params: Optional[Dict[str, str]] = None
     ) -> List[Any]:
         if params is None:
             return []
@@ -1570,9 +1570,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         urn: str,
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1601,9 +1603,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         urns: List[str],
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1640,10 +1644,14 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions_for_asset(
         self,
         urn: str,
-        tag_urns: Optional[List[str]] = [],
-        parameters: Optional[Dict[str, str]] = {},
+        tag_urns: Optional[List[str]] = None,
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if tag_urns is None:
+            tag_urns = []
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1681,9 +1689,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         entity_name: str,
         urns: List[str],
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         with_system_metadata: bool = False,
     ) -> Dict[str, Any]:
+        aspects = aspects or []
         payload = {
             "urns": urns,
             "aspectNames": aspects,

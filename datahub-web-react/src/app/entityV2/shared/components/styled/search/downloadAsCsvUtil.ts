@@ -33,6 +33,7 @@ export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface)
 };
 
 export const transformGenericEntityPropertiesToCsvRow = (
+    entityRegistry: EntityRegistry,
     properties: GenericEntityProperties | null,
     entityUrl: string,
     result: SearchResultInterface,
@@ -41,7 +42,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // urn
         properties?.urn || '',
         // name
-        properties?.name || '',
+        entityRegistry.getDisplayName(result.entity.type, result.entity) || properties?.name || '',
         // type
         result.entity.type || '',
         // description
@@ -98,6 +99,6 @@ export const transformResultsToCsvRow = (results: SearchResultInterface[], entit
     return results.map((result) => {
         const genericEntityProperties = entityRegistry.getGenericEntityProperties(result.entity.type, result.entity);
         const entityUrl = entityRegistry.getEntityUrl(result.entity.type, result.entity.urn);
-        return transformGenericEntityPropertiesToCsvRow(genericEntityProperties, entityUrl, result);
+        return transformGenericEntityPropertiesToCsvRow(entityRegistry, genericEntityProperties, entityUrl, result);
     });
 };

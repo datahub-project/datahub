@@ -568,9 +568,7 @@ class OktaSource(StatefulIngestionSourceBase):
         if (
             self.config.include_deprovisioned_users is False
             and okta_user.status == UserStatus.DEPROVISIONED
-        ):
-            return False
-        elif (
+        ) or (
             self.config.include_suspended_users is False
             and okta_user.status == UserStatus.SUSPENDED
         ):

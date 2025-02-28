@@ -191,11 +191,10 @@ public class PolicyEngine {
       return true;
     }
     if (policyResourceFilter == null) {
-      // No resource defined on the policy.
+      log.debug("No resource defined on the policy.");
       return true;
     }
     if (requestResource.isEmpty()) {
-      // Resource filter present in policy, but no resource spec provided.
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }

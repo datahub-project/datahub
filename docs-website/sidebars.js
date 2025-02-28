@@ -93,6 +93,11 @@ module.exports = {
           ],
         },
         {
+          label: "Access Management",
+          type: "doc",
+          id: "docs/features/feature-guides/access-management",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: false,
