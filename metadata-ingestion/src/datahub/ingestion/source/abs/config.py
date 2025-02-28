@@ -144,7 +144,7 @@ class DataLakeSourceConfig(
         return path_specs
 
     @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: str, values: dict) -> str:
+    def platform_not_empty(cls, platform: Any, values: dict) -> str:
         inferred_platform = values.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
