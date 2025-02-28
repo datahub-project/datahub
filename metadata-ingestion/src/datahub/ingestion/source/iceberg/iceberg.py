@@ -68,7 +68,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import TimeStampClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -83,6 +82,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TimeStampClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
