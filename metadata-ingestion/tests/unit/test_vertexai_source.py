@@ -4,20 +4,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from google.cloud import aiplatform
+from google.cloud.aiplatform import AutoMLTabularTrainingJob
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.protobuf import timestamp_pb2
 
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai import VertexAIConfig, VertexAISource
-from datahub.metadata._schema_classes import ContainerClass
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
 )
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     MLModelDeploymentPropertiesClass,
@@ -70,6 +72,28 @@ def mock_training_job() -> VertexAiResourceNoun:
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
     return mock_training_job
+
+
+@pytest.fixture
+def mock_dataset() -> VertexAiResourceNoun:
+    mock_training_job = MagicMock(spec=VertexAiResourceNoun)
+    mock_training_job.name = "mock_dataset"
+    mock_training_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_training_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_training_job.display_name = "mock_dataset_display_name"
+    mock_training_job.description = "mock_dataset_description"
+    return mock_training_job
+
+
+@pytest.fixture
+def mock_training_automl_job() -> AutoMLTabularTrainingJob:
+    mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
+    mock_automl_job.name = "mock_auto_automl_tabular_job"
+    mock_automl_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_automl_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
+    mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
+    return mock_automl_job
 
 
 @pytest.fixture
@@ -340,6 +364,7 @@ def test_get_training_jobs_workunit(
     mock_custom_job_list: List[VertexAiResourceNoun],
     source: VertexAISource,
     mock_training_job: VertexAiResourceNoun,
+    mock_training_automl_job: AutoMLTabularTrainingJob,
 ) -> None:
     assert hasattr(mock_custom_job_list, "return_value")
     mock_custom_job_list.return_value = [mock_training_job]
@@ -350,7 +375,7 @@ def test_get_training_jobs_workunit(
     assert hasattr(mock_custom_python_job_list, "return_value")
     mock_custom_python_job_list.return_value = []
     assert hasattr(mock_automl_tabular_job_list, "return_value")
-    mock_automl_tabular_job_list.return_value = []
+    mock_automl_tabular_job_list.return_value = [mock_training_automl_job]
     assert hasattr(mock_automl_text_job_list, "return_value")
     mock_automl_text_job_list.return_value = []
     assert hasattr(mock_automl_image_list, "return_value")
@@ -364,6 +389,12 @@ def test_get_training_jobs_workunit(
         project_id=source.config.project_id, platform=source.platform
     )
 
+    """
+    Test the retrieval of training jobs work units from Vertex AI.
+    This function mocks customJob and AutoMLTabularTrainingJob, 
+    and verifies the properties of the work units
+    """
+
     for wc in source._get_training_jobs_workunit():
         assert hasattr(wc.metadata, "aspect")
         aspect = wc.metadata.aspect
@@ -371,9 +402,11 @@ def test_get_training_jobs_workunit(
             assert (
                 aspect.name
                 == f"{source.config.project_id}.job.{mock_training_job.name}"
+                or f"{source.config.project_id}.job.{mock_training_automl_job.name}"
             )
             assert (
                 aspect.customProperties["displayName"] == mock_training_job.display_name
+                or mock_training_automl_job.display_name
             )
         if isinstance(aspect, SubTypesClass):
             assert aspect.typeNames == ["Training Job"]
@@ -387,6 +420,15 @@ def test_make_model_external_url(mock_model: Model, source: VertexAISource) -> N
         source._make_model_external_url(mock_model)
         == f"{source.config.vertexai_url}/models/locations/{source.config.region}/models/{mock_model.name}"
         f"?project={source.config.project_id}"
+    )
+
+
+def test_make_job_urn(
+    mock_training_job: VertexAiResourceNoun, source: VertexAISource
+) -> None:
+    assert (
+        source._make_job_urn(mock_training_job)
+        == f"{builder.make_data_process_instance_urn(source._make_vertexai_job_name(mock_training_job.name))}"
     )
 
 
