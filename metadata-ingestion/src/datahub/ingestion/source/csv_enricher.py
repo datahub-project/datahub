@@ -314,7 +314,7 @@ class CSVEnricherSource(Source):
             "datajob": EditableDataJobPropertiesClass,
             "dataflow": EditableDataFlowPropertiesClass,
             "notebook": EditableNotebookPropertiesClass,
-        }.get(entityType, None)
+        }.get(entityType)
 
         if not entityClass:
             raise ValueError(

@@ -77,7 +77,10 @@ kafka_common = {
     # now provide prebuilt wheels for most platforms, including M1 Macs and
     # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
     # from source remains a pain.
-    "confluent_kafka[schemaregistry,avro]>=1.9.0",
+    # With the release of 2.8.1, confluent-kafka only released a source distribution,
+    # and no prebuilt wheels.
+    # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
+    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on

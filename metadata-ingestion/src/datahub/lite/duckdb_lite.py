@@ -760,15 +760,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 entity_id=[str(data_platform_urn), data_platform_instance],
             )
             self._create_edges_from_data_platform_instance(data_platform_instance_urn)
-        elif isinstance(aspect, ChartInfoClass):
-            urn = Urn.from_string(entity_urn)
-            self.add_edge(
-                entity_urn,
-                "name",
-                aspect.title + f" ({urn.get_entity_id()[-1]})",
-                remove_existing=True,
-            )
-        elif isinstance(aspect, DashboardInfoClass):
+        elif isinstance(aspect, ChartInfoClass) or isinstance(
+            aspect, DashboardInfoClass
+        ):
             urn = Urn.from_string(entity_urn)
             self.add_edge(
                 entity_urn,
