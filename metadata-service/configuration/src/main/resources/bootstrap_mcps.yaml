@@ -51,6 +51,13 @@ bootstrap:
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
 
+    - name: ingestion-datahub-action-request-owner
+      version: v1
+      optional: false
+      mcps_location: "bootstrap_mcps/ingestion-datahub-action-request-owner.yaml"
+      values_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_REVISION"
+
     - name: ingestion-datahub-usage-reporting
       version: v3
       optional: true
