@@ -34,11 +34,17 @@ class _PlatformFilter(_BaseFilter):
     platform: List[str]
     # TODO: Add validator to convert string -> list of strings
 
+    @pydantic.validator("platform", each_item=True)
+    def validate_platform(cls, v: str) -> str:
+        # Subtle - we use the constructor instead of the from_string method
+        # because coercion is acceptable here.
+        return str(DataPlatformUrn(v))
+
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
             field="platform.keyword",
             condition="EQUAL",
-            values=[DataPlatformUrn(platform).urn() for platform in self.platform],
+            values=self.platform,
         )
 
     def compile(self) -> _OrFilters:
@@ -50,8 +56,7 @@ class _DomainFilter(_BaseFilter):
 
     @pydantic.validator("domain", each_item=True)
     def validate_domain(cls, v: str) -> str:
-        assert DomainUrn.from_string(v)
-        return v
+        return str(DomainUrn.from_string(v))
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
@@ -209,7 +214,7 @@ Filter = Union[
 ]
 
 
-# Required to resolve forward references
+# Required to resolve forward references to "Filter"
 if PYDANTIC_VERSION_2:
     _And.model_rebuild()  # type: ignore
     _Or.model_rebuild()  # type: ignore
@@ -262,4 +267,4 @@ class FilterDsl:
             values=[f"{key}={value}"],
         )
 
-    # TODO add custom filter
+    # TODO add shortcut for custom filters

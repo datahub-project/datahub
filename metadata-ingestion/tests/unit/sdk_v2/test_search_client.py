@@ -1,9 +1,11 @@
 from io import StringIO
 
+import pytest
 import yaml
 
 from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 def test_filters_simple() -> None:
@@ -155,3 +157,8 @@ and:
             ],
         },
     ]
+
+
+def test_invalid_filter() -> None:
+    with pytest.raises(InvalidUrnError):
+        F.domain("marketing")
