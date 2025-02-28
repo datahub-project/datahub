@@ -26,10 +26,12 @@ _OrFilters = List[_AndSearchFilterRule]
 
 class _BaseFilter(ConfigModel):
     class Config:
+        # We can't wrap this in a TYPE_CHECKING block because the pydantic plugin
+        # doesn't recognize it properly. So unfortunately we'll need to live
+        # with the deprecation warning w/ pydantic v2.
+        allow_population_by_field_name = True
         if PYDANTIC_VERSION_2:
             populate_by_name = True
-        else:
-            allow_population_by_field_name = True
 
     @abc.abstractmethod
     def compile(self) -> _OrFilters:
