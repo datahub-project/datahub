@@ -292,7 +292,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
         return record["properties"]
 
     def get_relationships(self, record: dict) -> dict:
-        return record.get("relationships", None)
+        return record.get("relationships")
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

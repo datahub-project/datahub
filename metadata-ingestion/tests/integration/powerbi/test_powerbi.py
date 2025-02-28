@@ -103,7 +103,7 @@ def register_mock_api(
 
     api_vs_response.update(override_data or {})
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,

@@ -145,9 +145,7 @@ class DataLakeSourceConfig(
 
     @pydantic.validator("platform", always=True)
     def platform_not_empty(cls, platform: str, values: dict) -> str:
-        inferred_platform = values.get(
-            "platform", None
-        )  # we may have inferred it above
+        inferred_platform = values.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")

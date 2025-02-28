@@ -1911,11 +1911,7 @@ class TableauSiteSource:
                     if upstream_col.get(c.TABLE)
                     else None
                 )
-                if (
-                    name
-                    and upstream_table_id
-                    and upstream_table_id in table_id_to_urn.keys()
-                ):
+                if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)

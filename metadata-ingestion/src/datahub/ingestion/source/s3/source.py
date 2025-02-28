@@ -834,7 +834,7 @@ class S3Source(StatefulIngestionSourceBase):
                         min=min,
                     )
                     folders.extend(folders_list)
-                    if not path_spec.traversal_method == FolderTraversalMethod.ALL:
+                    if path_spec.traversal_method != FolderTraversalMethod.ALL:
                         return folders
             if folders:
                 return folders
