@@ -106,7 +106,7 @@ def register_mock_api_state1(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -177,7 +177,7 @@ def register_mock_api_state2(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,

@@ -167,7 +167,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     Try to determine if example data is defined for the endpoint, and return it
     """
     data = {}
-    if "content" in base_res.keys():
+    if "content" in base_res:
         res_cont = base_res["content"]
         if "application/json" in res_cont.keys():
             ex_field = None
@@ -188,7 +188,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 )
         elif "text/csv" in res_cont.keys():
             data = res_cont["text/csv"]["schema"]
-    elif "examples" in base_res.keys():
+    elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
 
     return data
