@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_username_1, test_username_2",
+                            "Owners": "unknown",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -38,6 +38,21 @@
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.preset.io/dashboard/test_dashboard_url_1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
                     }
                 }
             ]
@@ -87,6 +102,21 @@
                         },
                         "dashboardUrl": "mock://mock-domain.preset.io/dashboard/test_dashboard_url_2"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -133,6 +163,16 @@
                             }
                         ],
                         "type": "BAR"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
                     }
                 }
             ]
@@ -181,6 +221,16 @@
                         ],
                         "type": "PIE"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -228,6 +278,16 @@
                         ],
                         "type": "AREA"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
@@ -274,6 +334,16 @@
                             }
                         ],
                         "type": "HISTOGRAM"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
                     }
                 }
             ]

@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_username_1, test_username_2",
+                            "Owners": "unknown",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -39,13 +39,28 @@
                         },
                         "dashboardUrl": "mock://mock-domain.preset.io/dashboard/test_dashboard_url_1"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -87,13 +102,23 @@
                         ],
                         "type": "BAR"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -135,13 +160,23 @@
                         ],
                         "type": "PIE"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -183,13 +218,23 @@
                         ],
                         "type": "AREA"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -231,13 +276,23 @@
                         ],
                         "type": "HISTOGRAM"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -254,7 +309,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-xe6j8e",
+        "runId": "preset-2024_07_10-07_00_00-p4x3vy",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

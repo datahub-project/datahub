@@ -69,12 +69,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "status": "published",
                         "published": True,
                         "owners": [
-                            {
-                                "username": "test_username_1",
-                            },
-                            {
-                                "username": "test_username_2",
-                            },
+                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
@@ -91,9 +86,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "status": "draft",
                         "published": False,
                         "owners": [
-                            {
-                                "first_name": "name",
-                            },
+                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
                         ],
                         "certified_by": "",
                         "certification_details": "",
@@ -179,6 +172,63 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "result": {
                     "sqlalchemy_uri": "test_sqlalchemy_uri",
                 },
+            },
+        },
+        "mock://mock-domain.preset.io/api/v1/dashboard/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner1@example.com"},
+                        "text": "test_owner1",
+                        "value": 1,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner2@example.com"},
+                        "text": "test_owner2",
+                        "value": 2,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.preset.io/api/v1/dataset/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner3@example.com"},
+                        "text": "test_owner3",
+                        "value": 3,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner4@example.com"},
+                        "text": "test_owner4",
+                        "value": 4,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.preset.io/api/v1/chart/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner5@example.com"},
+                        "text": "test_owner5",
+                        "value": 5,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner6@example.com"},
+                        "text": "test_owner6",
+                        "value": 6,
+                    },
+                ],
             },
         },
     }
@@ -290,12 +340,7 @@ def test_preset_stateful_ingest(
                         "status": "published",
                         "published": True,
                         "owners": [
-                            {
-                                "username": "test_username_1",
-                            },
-                            {
-                                "username": "test_username_2",
-                            },
+                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
