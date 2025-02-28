@@ -336,6 +336,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 customProperties=custom_properties,
                 lastModified=additional_properties.get("lastModified"),
                 created=additional_properties.get("created"),
+                qualifiedName=dataset_name,
             )
             dataset_snapshot.aspects.append(dataset_properties)
             # Dataset ownership aspect.
