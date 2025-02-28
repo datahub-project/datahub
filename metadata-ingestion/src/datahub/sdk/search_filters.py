@@ -13,7 +13,9 @@ import pydantic
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from datahub.ingestion.graph.client import entity_type_to_graphql
 from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.metadata.schema_classes import EntityTypeName
 from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
 _AndSearchFilterRule = TypedDict(
@@ -30,6 +32,52 @@ class _BaseFilter(ConfigModel):
     @abc.abstractmethod
     def compile(self) -> _OrFilters:
         pass
+
+
+def _flexible_entity_type_to_graphql(entity_type: str) -> str:
+    if entity_type.upper() == entity_type:
+        # Assume that we were passed a graphql EntityType enum value,
+        # so no conversion is needed.
+        return entity_type
+    return entity_type_to_graphql(entity_type)
+
+
+class _EntityTypeFilter(_BaseFilter):
+    entity_type: List[str] = pydantic.Field(
+        description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', etc.",
+    )
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="_entityType",
+            condition="EQUAL",
+            values=[_flexible_entity_type_to_graphql(t) for t in self.entity_type],
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
+class _EntitySubtypeFilter(_BaseFilter):
+    entity_type: str
+    entity_subtype: str = pydantic.Field(
+        description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
+    )
+
+    def compile(self) -> _OrFilters:
+        rules = [
+            SearchFilterRule(
+                field="_entityType",
+                condition="EQUAL",
+                values=[_flexible_entity_type_to_graphql(self.entity_type)],
+            ),
+            SearchFilterRule(
+                field="typeNames",
+                condition="EQUAL",
+                values=[self.entity_subtype],
+            ),
+        ]
+        return [{"and": rules}]
 
 
 class _PlatformFilter(_BaseFilter):
@@ -209,6 +257,8 @@ Filter = Union[
     _And,
     _Or,
     _Not,
+    _EntityTypeFilter,
+    _EntitySubtypeFilter,
     _PlatformFilter,
     _DomainFilter,
     _EnvFilter,
@@ -234,6 +284,15 @@ def load_filters(obj: Any) -> Filter:
         return pydantic.parse_obj_as(Filter, obj)  # type: ignore
 
 
+# We need FilterDsl for two reasons:
+# 1. To provide wrapper methods around lots of filters while avoid bloating the
+#    yaml spec.
+# 2. Pydantic models in general don't support positional arguments, making the
+#    calls feel repetitive (e.g. Platform(platform=...)).
+#    See https://github.com/pydantic/pydantic/issues/6792
+#    We also considered using dataclasses / pydantic dataclasses, but
+#    ultimately decided that they didn't quite suit our requirements,
+#    particularly with regards to the field aliases for and/or/not.
 class FilterDsl:
     @staticmethod
     def and_(*args: "Filter") -> _And:
@@ -248,17 +307,34 @@ class FilterDsl:
         return _Not(not_=arg)
 
     @staticmethod
-    def platform(platform: Union[str, List[str]]) -> _PlatformFilter:
+    def entity_type(
+        entity_type: Union[EntityTypeName, Sequence[EntityTypeName]],
+    ) -> _EntityTypeFilter:
+        return _EntityTypeFilter(
+            entity_type=(
+                [entity_type] if isinstance(entity_type, str) else list(entity_type)
+            )
+        )
+
+    @staticmethod
+    def entity_subtype(entity_type: str, subtype: str) -> _EntitySubtypeFilter:
+        return _EntitySubtypeFilter(
+            entity_type=entity_type,
+            entity_subtype=subtype,
+        )
+
+    @staticmethod
+    def platform(platform: Union[str, List[str]], /) -> _PlatformFilter:
         return _PlatformFilter(
             platform=[platform] if isinstance(platform, str) else platform
         )
 
     @staticmethod
-    def domain(domain: Union[str, List[str]]) -> _DomainFilter:
+    def domain(domain: Union[str, List[str]], /) -> _DomainFilter:
         return _DomainFilter(domain=[domain] if isinstance(domain, str) else domain)
 
     @staticmethod
-    def env(env: Union[str, List[str]]) -> _EnvFilter:
+    def env(env: Union[str, List[str]], /) -> _EnvFilter:
         return _EnvFilter(env=[env] if isinstance(env, str) else env)
 
     @staticmethod

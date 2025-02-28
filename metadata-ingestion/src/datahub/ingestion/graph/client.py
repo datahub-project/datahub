@@ -106,7 +106,7 @@ class RelatedEntity:
     via: Optional[str] = None
 
 
-def _graphql_entity_type(entity_type: str) -> str:
+def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
@@ -804,7 +804,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
-        types = [_graphql_entity_type("dataset")]
+        types = [entity_type_to_graphql("dataset")]
 
         # Add the query default of * if no query is specified.
         query = query or "*"
@@ -1110,7 +1110,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
                 )
 
-    def _get_types(self, entity_types: Optional[Sequence[str]]) -> Optional[List[str]]:
+    @classmethod
+    def _get_types(cls, entity_types: Optional[Sequence[str]]) -> Optional[List[str]]:
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:
@@ -1118,7 +1119,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     "entity_types cannot be an empty list; use None for all entities"
                 )
 
-            types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
+            types = [
+                entity_type_to_graphql(entity_type) for entity_type in entity_types
+            ]
         return types
 
     def get_latest_pipeline_checkpoint(
