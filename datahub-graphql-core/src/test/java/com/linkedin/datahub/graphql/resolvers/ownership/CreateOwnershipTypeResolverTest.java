@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -46,9 +47,9 @@ public class CreateOwnershipTypeResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .createOwnershipType(
+            any(),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -66,8 +67,7 @@ public class CreateOwnershipTypeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -76,8 +76,7 @@ public class CreateOwnershipTypeResolverTest {
     OwnershipTypeService mockService = Mockito.mock(OwnershipTypeService.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .createOwnershipType(
-            Mockito.any(), Mockito.any(), Mockito.any(Authentication.class), Mockito.anyLong());
+        .createOwnershipType(any(), Mockito.any(), Mockito.any(), Mockito.anyLong());
 
     CreateOwnershipTypeResolver resolver = new CreateOwnershipTypeResolver(mockService);
 
@@ -94,9 +93,9 @@ public class CreateOwnershipTypeResolverTest {
     OwnershipTypeService service = Mockito.mock(OwnershipTypeService.class);
     Mockito.when(
             service.createOwnershipType(
+                any(),
                 Mockito.eq(TEST_INPUT.getName()),
                 Mockito.eq(TEST_INPUT.getDescription()),
-                Mockito.any(Authentication.class),
                 Mockito.anyLong()))
         .thenReturn(TEST_OWNERSHIP_TYPE_URN);
     return service;

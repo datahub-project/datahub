@@ -1,7 +1,6 @@
 package io.datahubproject.openapi.metadatatests.config;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
@@ -12,7 +11,8 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.entity.throttle.ManualThrottleSensor;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -24,38 +24,56 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.openapi.config.TracingInterceptor;
+import io.datahubproject.openapi.events.ExternalEventsController;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.health.HealthCheckController;
 import io.datahubproject.openapi.operations.elastic.OperationsController;
-import io.datahubproject.openapi.relationships.RelationshipsController;
-import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.openapi.v2.controller.RelationshipController;
+import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.concurrent.ExecutorService;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
+@EnableWebMvc
 @TestConfiguration
+@Import(ConfigurationProvider.class)
 public class MetadataTestsTestConfiguration {
+
+  @MockBean TraceContext traceContext;
+
+  @Bean
+  public TracingInterceptor tracingInterceptor(final TraceContext traceContext) {
+    return new TracingInterceptor(traceContext);
+  }
 
   @Bean
   public ObjectMapper objectMapper() {
     return new ObjectMapper(new YAMLFactory());
   }
 
-  @Bean
-  @Primary
-  public EntityService<?> entityService(final EntityRegistry mockRegistry) {
-    EntityService<?> entityService = mock(EntityServiceImpl.class);
-    when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
-    return entityService;
+  @MockBean public EntityServiceImpl entityService;
+
+  @Bean(name = "systemOperationContext")
+  public OperationContext systemOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @MockBean public SearchService searchService;
@@ -115,8 +133,15 @@ public class MetadataTestsTestConfiguration {
           TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
       entityApiDelegate;
 
-  @MockBean public TimelineController timelineController;
-  @MockBean public RelationshipsController relationshipsController;
+  @MockBean public TimelineControllerV2 timelineController;
+  @MockBean public RelationshipController relationshipsController;
   @MockBean public HealthCheckController healthCheckController;
   @MockBean public OperationsController operationsController;
+  @MockBean public ExternalEventsController externalEventsController;
+  @MockBean public TestEngine testEngine;
+  @MockBean public ManualThrottleSensor manualThrottleSensor;
+
+  @Qualifier("metadataTestsActionsExecutorService")
+  @MockBean
+  public ExecutorService metadataTestsActionsExecutorService;
 }

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.connection;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +14,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubConnectionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,14 +39,15 @@ public class ConnectionService {
    * @return the URN of the new connection.
    */
   public Urn upsertConnection(
+      @Nonnull OperationContext opContext,
       @Nullable final String id,
       @Nonnull final Urn platformUrn,
       @Nonnull final DataHubConnectionDetailsType type,
       @Nullable final DataHubJsonConnection json,
-      @Nonnull final Authentication authentication) {
+      @Nullable final String name) {
     Objects.requireNonNull(platformUrn, "platformUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
 
     // 1. Optionally generate new connection id
     final String connectionId = id != null ? id : UUID.randomUUID().toString();
@@ -57,7 +58,9 @@ public class ConnectionService {
     // 2. Build Connection Details
     final DataHubConnectionDetails details = new DataHubConnectionDetails();
     details.setType(type);
+    // default set name as ID if it exists, otherwise use name if it exists
     details.setName(id, SetMode.IGNORE_NULL);
+    details.setName(name, SetMode.IGNORE_NULL);
 
     if (DataHubConnectionDetailsType.JSON.equals(details.getType())) {
       if (json != null) {
@@ -81,7 +84,7 @@ public class ConnectionService {
       aspectsToIngest.add(
           AspectUtils.buildMetadataChangeProposal(
               connectionUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME, platformInstance));
-      _entityClient.batchIngestProposals(aspectsToIngest, authentication, false);
+      _entityClient.batchIngestProposals(opContext, aspectsToIngest, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to upsert Connection with urn %s", connectionUrn), e);
@@ -90,15 +93,15 @@ public class ConnectionService {
   }
 
   public EntityResponse getConnectionEntityResponse(
-      @Nonnull final Urn connectionUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn connectionUrn) {
     try {
       return _entityClient.getV2(
+          opContext,
           Constants.DATAHUB_CONNECTION_ENTITY_NAME,
           connectionUrn,
           ImmutableSet.of(
               Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME),
-          authentication);
+              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Connection with urn %s", connectionUrn), e);

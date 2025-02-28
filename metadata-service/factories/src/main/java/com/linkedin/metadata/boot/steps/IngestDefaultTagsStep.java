@@ -13,6 +13,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.tag.TagProperties;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
@@ -23,15 +24,15 @@ import org.springframework.core.io.ClassPathResource;
 public class IngestDefaultTagsStep implements BootstrapStep {
 
   private static final String DEFAULT_FILE_PATH = "./boot/tags.json";
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final String _filePath;
 
-  public IngestDefaultTagsStep(@Nonnull final EntityService entityService) {
+  public IngestDefaultTagsStep(@Nonnull final EntityService<?> entityService) {
     this(entityService, DEFAULT_FILE_PATH);
   }
 
   public IngestDefaultTagsStep(
-      @Nonnull final EntityService entityService, @Nonnull final String filePath) {
+      @Nonnull final EntityService<?> entityService, @Nonnull final String filePath) {
     _entityService = entityService;
     _filePath = filePath;
   }
@@ -42,7 +43,8 @@ public class IngestDefaultTagsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
@@ -56,7 +58,7 @@ public class IngestDefaultTagsStep implements BootstrapStep {
     try {
 
       // 1. Read from the file into JSON.
-      final JsonNode tags = mapper.readTree(new ClassPathResource(_filePath).getFile());
+      final JsonNode tags = mapper.readTree(new ClassPathResource(_filePath).getInputStream());
 
       if (!tags.isArray()) {
         throw new RuntimeException(
@@ -78,7 +80,8 @@ public class IngestDefaultTagsStep implements BootstrapStep {
 
         final TagProperties tagProperties =
             (TagProperties)
-                _entityService.getLatestAspect(urn, Constants.TAG_PROPERTIES_ASPECT_NAME);
+                _entityService.getLatestAspect(
+                    systemOperationContext, urn, Constants.TAG_PROPERTIES_ASPECT_NAME);
         // Skip ingesting for this JSON object if info already exists.
         if (tagProperties != null) {
           log.debug(
@@ -97,6 +100,7 @@ public class IngestDefaultTagsStep implements BootstrapStep {
                 .setTime(System.currentTimeMillis());
 
         _entityService.ingestProposal(
+            systemOperationContext,
             AspectUtils.buildMetadataChangeProposal(
                 urn, Constants.TAG_PROPERTIES_ASPECT_NAME, properties),
             aspectAuditStamp,

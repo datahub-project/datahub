@@ -3,6 +3,7 @@ package com.linkedin.metadata.test.action.api;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -16,6 +17,10 @@ public abstract class ValuesAction implements Action {
     if (!params.getParams().containsKey(VALUES_PARAM)) {
       throw new InvalidActionParamsException(
           "Action parameters are missing the required 'values' parameter.");
+    }
+    List<String> values = params.getParams().get(VALUES_PARAM);
+    if (values == null || values.isEmpty()) {
+      throw new InvalidActionParamsException("Action 'values' parameter is empty.");
     }
   }
 }

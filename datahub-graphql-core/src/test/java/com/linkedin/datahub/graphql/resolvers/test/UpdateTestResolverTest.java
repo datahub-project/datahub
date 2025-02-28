@@ -23,6 +23,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
@@ -69,8 +70,7 @@ public class UpdateTestResolverTest {
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false));
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
@@ -99,7 +99,7 @@ public class UpdateTestResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
   }
 
   @Test
@@ -112,7 +112,7 @@ public class UpdateTestResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class UpdateTestResolverTest {
     // Execute resolver
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

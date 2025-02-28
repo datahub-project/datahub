@@ -1,9 +1,10 @@
 import { geekblue } from '@ant-design/colors';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { UsageQueryResult } from '../../../../../../../types.generated';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 const USAGE_BAR_MAX_WIDTH = 50;
 
@@ -35,7 +36,10 @@ export default function useUsageStatsRenderer(usageStats?: UsageQueryResult | nu
         }
 
         return (
-            <Tooltip placement="topLeft" title={`${relevantUsageStats.count} queries / month`}>
+            <Tooltip
+                placement="topLeft"
+                title={`${formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month`}
+            >
                 <UsageBarContainer>
                     <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
                 </UsageBarContainer>

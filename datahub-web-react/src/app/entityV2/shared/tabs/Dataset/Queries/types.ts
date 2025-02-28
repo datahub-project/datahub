@@ -1,3 +1,5 @@
+import { CorpUser, Entity, SchemaFieldEntity } from '../../../../../../types.generated';
+
 export type QueryBuilderState = {
     urn?: string;
     query: string;
@@ -10,6 +12,18 @@ export type Query = {
     query: string;
     title?: string;
     description?: string;
-    executedTime?: number;
+    lastRun?: number;
     createdTime?: number;
+    createdBy?: CorpUser | null;
+    poweredEntity?: Entity;
+    usedBy?: CorpUser[];
+    runsPercentileLast30days?: number | null;
+    columns?: SchemaFieldEntity[];
 };
+
+export enum QueriesTabSection {
+    Highlighted,
+    Popular,
+    Recent,
+    Downstream,
+}

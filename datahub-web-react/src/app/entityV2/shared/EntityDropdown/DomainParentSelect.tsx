@@ -1,29 +1,22 @@
 import React, { MouseEvent } from 'react';
-import { Select } from 'antd';
+import { Empty, Select } from 'antd';
 import { CloseCircleFilled } from '@ant-design/icons';
-import styled from 'styled-components';
+import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 import { Domain, EntityType } from '../../../../types.generated';
+import domainAutocompleteOptions from '../../../domainV2/DomainAutocompleteOptions';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
+import { ANTD_GRAY } from '../constants';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import ParentEntities from '../../../search/filters/ParentEntities';
-import { getParentDomains } from '../../../domain/utils';
-
-const SearchResultContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-`;
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&
-        !entity.parentDomains?.domains.some((node) => node.urn === entityUrn)
+        !entity.parentDomains?.domains?.some((node) => node.urn === entityUrn)
     );
 }
 
@@ -48,6 +41,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
         handleSearch,
         clearSelectedParent,
         setIsFocusedOnInput,
+        autoCompleteResultsLoading,
     } = useParentSelector({
         entityType: EntityType.Domain,
         entityData,
@@ -56,7 +50,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     });
     const domainSearchResultsFiltered =
         isMoving && domainUrn
-            ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, domainUrn))
+            ? searchResults.filter((r) => filterResultsForMove(r as Domain, domainUrn))
             : searchResults;
 
     function selectDomain(domain: Domain) {
@@ -77,26 +71,31 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     return (
         <ClickOutside onClickOutside={handleClickOutside}>
             <Select
+                autoFocus
                 showSearch
                 allowClear
                 clearIcon={<CloseCircleFilled onClick={handleClear} />}
-                placeholder="Select"
                 filterOption={false}
+                defaultActiveFirstOption={false}
+                placeholder="Select"
                 value={selectedParentName}
                 onSelect={onSelectParent}
                 onSearch={handleSearch}
                 onFocus={handleFocus}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
-            >
-                {domainSearchResultsFiltered.map((result) => (
-                    <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
-                        <SearchResultContainer>
-                            <ParentEntities parentEntities={getParentDomains(result.entity, entityRegistry)} />
-                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                        </SearchResultContainer>
-                    </Select.Option>
-                ))}
-            </Select>
+                notFoundContent={
+                    <Empty
+                        description="No Domains Found"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        style={{ color: ANTD_GRAY[7] }}
+                    />
+                }
+                options={domainAutocompleteOptions(
+                    domainSearchResultsFiltered,
+                    autoCompleteResultsLoading,
+                    entityRegistry,
+                )}
+            />
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                 <DomainNavigator
                     domainUrnToHide={isMoving ? domainUrn : undefined}

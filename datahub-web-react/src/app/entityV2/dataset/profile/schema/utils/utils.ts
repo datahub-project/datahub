@@ -1,12 +1,12 @@
-import * as diff from 'diff';
 import { SorterResult } from 'antd/lib/table/interface';
+import * as diff from 'diff';
 
 import {
-    EditableSchemaMetadata,
     EditableSchemaFieldInfo,
+    EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
-    SchemaField,
     PlatformSchema,
+    SchemaField,
 } from '../../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../../shared/tags/utils/convertTagsForUpdate';
 import { SchemaDiffSummary } from '../components/SchemaVersionSummary';
@@ -38,7 +38,7 @@ export function convertEditableSchemaMetadataForUpdate(
 ): EditableSchemaMetadataUpdate {
     return {
         editableSchemaFieldInfo:
-            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
+            editableSchemaMetadata?.editableSchemaFieldInfo?.map((editableSchemaFieldInfo) => ({
                 fieldPath: editableSchemaFieldInfo?.fieldPath,
                 description: editableSchemaFieldInfo?.description,
                 globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
@@ -69,10 +69,17 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
     return fieldPathA === fieldPathB || fieldPathA === downgradeV2FieldPath(fieldPathB);
 }
 
+// should use pathMatchesExact when rendering editable info so the user edits the correct field
+export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string | null) {
+    return fieldPathA === fieldPathB;
+}
+
 // group schema fields by fieldPath and grouping for hierarchy in schema table
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
-    options: { showKeySchema: boolean } = { showKeySchema: false },
+    options: {
+        showKeySchema: boolean;
+    } = { showKeySchema: false },
 ): Array<ExtendedSchemaFields> {
     const rows = [
         ...(schemaRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),
@@ -192,7 +199,10 @@ export function getDiffSummary(
     currentVersionRows?: Array<SchemaField>,
     previousVersionRows?: Array<SchemaField>,
     options: { showKeySchema: boolean } = { showKeySchema: false },
-): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } {
+): {
+    rows: Array<ExtendedSchemaFields>;
+    diffSummary: SchemaDiffSummary;
+} {
     let rows = [
         ...(currentVersionRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),
     ] as Array<ExtendedSchemaFields>;

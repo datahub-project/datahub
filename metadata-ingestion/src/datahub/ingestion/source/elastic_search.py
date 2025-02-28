@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -32,9 +32,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
@@ -62,6 +70,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -111,10 +120,10 @@ class ElasticToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
-        type_class: Optional[
-            Type
-        ] = ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
-            elastic_column_type
+        type_class: Optional[Type] = (
+            ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
+                elastic_column_type
+            )
         )
         if type_class is None:
             logger.warning(
@@ -138,20 +147,7 @@ class ElasticToSchemaFieldConverter:
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
             nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
-            if elastic_type is not None:
-                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
-                schema_field_data_type = self.get_column_type(elastic_type)
-                schema_field = SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=elastic_type,
-                    type=schema_field_data_type,
-                    description=None,
-                    nullable=True,
-                    recursive=False,
-                )
-                yield schema_field
-                self._prefix_name_stack.pop()
-            elif nested_props:
+            if nested_props:
                 self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
                 schema_field = SchemaField(
                     fieldPath=self._get_cur_field_path(),
@@ -163,6 +159,19 @@ class ElasticToSchemaFieldConverter:
                 )
                 yield schema_field
                 yield from self._get_schema_fields(nested_props)
+                self._prefix_name_stack.pop()
+            elif elastic_type is not None:
+                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
+                schema_field_data_type = self.get_column_type(elastic_type)
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=elastic_type,
+                    type=schema_field_data_type,
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 self._prefix_name_stack.pop()
             else:
                 # Unexpected! Log a warning.
@@ -187,9 +196,9 @@ class ElasticToSchemaFieldConverter:
 
 
 @dataclass
-class ElasticsearchSourceReport(SourceReport):
+class ElasticsearchSourceReport(StaleEntityRemovalSourceReport):
     index_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_index_scanned(self, index: str) -> None:
         self.index_scanned += 1
@@ -227,7 +236,7 @@ def collapse_name(name: str, collapse_urns: CollapseUrns) -> str:
 def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
     if len(collapse_urns.urns_suffix_regex) == 0:
         return urn
-    urn_obj = DatasetUrn.create_from_string(urn)
+    urn_obj = DatasetUrn.from_string(urn)
     name = collapse_name(name=urn_obj.get_dataset_name(), collapse_urns=collapse_urns)
     data_platform_urn = urn_obj.get_data_platform_urn()
     return str(
@@ -239,7 +248,11 @@ def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
     )
 
 
-class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class ElasticsearchSourceConfig(
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
     )
@@ -248,6 +261,10 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
     password: Optional[str] = Field(
         default=None, description="The password credential."
+    )
+    api_key: Optional[Union[Any, str]] = Field(
+        default=None,
+        description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
     )
 
     use_ssl: bool = Field(
@@ -332,8 +349,7 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-class ElasticsearchSource(Source):
-
+class ElasticsearchSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -342,11 +358,12 @@ class ElasticsearchSource(Source):
     """
 
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
+            api_key=self.source_config.api_key,
             use_ssl=self.source_config.use_ssl,
             verify_certs=self.source_config.verify_certs,
             ca_certs=self.source_config.ca_certs,
@@ -356,7 +373,7 @@ class ElasticsearchSource(Source):
             ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
             url_prefix=self.source_config.url_prefix,
         )
-        self.report = ElasticsearchSourceReport()
+        self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
         self.cat_response: Optional[List[Dict[str, Any]]] = None
@@ -367,6 +384,14 @@ class ElasticsearchSource(Source):
     ) -> "ElasticsearchSource":
         config = ElasticsearchSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()
@@ -479,11 +504,15 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(
                 typeNames=[
-                    DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
-                    if not is_index
-                    else DatasetSubTypes.ELASTIC_INDEX
-                    if not data_stream
-                    else DatasetSubTypes.ELASTIC_DATASTREAM
+                    (
+                        DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
+                        if not is_index
+                        else (
+                            DatasetSubTypes.ELASTIC_INDEX
+                            if not data_stream
+                            else DatasetSubTypes.ELASTIC_DATASTREAM
+                        )
+                    )
                 ]
             ),
         )

@@ -11,10 +11,16 @@ import { UnionType } from '../utils/constants';
 
 const Container = styled.div``;
 
-export const FlexWrapper = styled.div`
+const HorizontalWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 4px;
+`;
+
+const VerticalWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
     gap: 4px;
 `;
 
@@ -40,7 +46,13 @@ interface Props {
     onChangeUnionType?: (unionType: UnionType) => void;
     onClearFilters: () => void;
     disabled?: boolean;
+    vertical?: boolean;
     showUnionType?: boolean;
+    showAddFilter?: boolean;
+    showClearAll?: boolean;
+    isCompact?: boolean;
+    isOperatorDisabled?: boolean;
+    includeCount?: boolean;
 }
 
 export default function SearchFiltersBuilder({
@@ -50,11 +62,17 @@ export default function SearchFiltersBuilder({
     onClearFilters,
     unionType,
     onChangeUnionType,
+    vertical,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disabled = false,
     showUnionType = false,
+    showAddFilter = true,
+    showClearAll = true,
+    isCompact = false,
+    includeCount = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    isOperatorDisabled = false,
 }: Props) {
-    console.log(disabled);
-
     const hydratedFilters = useHydrateFilters(filters);
 
     const onChangeFilterOperator = (index, newOperator) => {
@@ -101,23 +119,31 @@ export default function SearchFiltersBuilder({
         onChangeFilters(newFilters);
     };
 
+    const Wrapper = vertical ? VerticalWrapper : HorizontalWrapper;
+
+    const addFilter = <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} includeCount={includeCount} />;
     return (
         <Container>
             <FlexSpacer>
-                <FlexWrapper>
+                <Wrapper>
+                    {showAddFilter && vertical && addFilter}
                     {hydratedFilters.map((predicate, index) => (
                         <SelectedFilter
                             predicate={predicate}
                             onChangeOperator={(operator) => onChangeFilterOperator(index, operator)}
                             onChangeValues={(newValues) => onChangeFilterValues(index, newValues)}
                             onRemoveFilter={() => onRemoveFilter(index)}
+                            isCompact={isCompact}
+                            // isOperatorDisabled={isOperatorDisabled}
                         />
                     ))}
-                    <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} />
-                </FlexWrapper>
-                <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
-                    clear all
-                </TextButton>
+                    {showAddFilter && !vertical && addFilter}
+                </Wrapper>
+                {showClearAll && (
+                    <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
+                        clear all
+                    </TextButton>
+                )}
             </FlexSpacer>
             {showUnionType && hydratedFilters?.length >= 2 && (
                 <AnyAllToggle>

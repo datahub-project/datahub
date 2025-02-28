@@ -1,22 +1,16 @@
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { message, Modal, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '../../../types.generated';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { Button } from '@src/alchemy-components';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
+import { ActionRequest, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import analytics, { EntityActionType, EventType } from '../../analytics';
-
-type Props = {
-    actionRequest: ActionRequest;
-    requestTypeDisplayName: string;
-    requestContentView: React.ReactNode;
-    onUpdate: () => void;
-    showActionsButtons: boolean;
-};
 
 const ContentContainer = styled.div`
     display: flex;
@@ -35,10 +29,12 @@ const LeftContentContainer = styled.div`
 const LeftContentContainerItem = styled.div`
     margin-left: 20px;
     margin-right: 20px;
+    font-size: 14px;
 `;
 
 const RequestTypeContainer = styled.div`
     width: 200px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 const AuthorView = styled.span`
@@ -55,6 +51,19 @@ const RightContentContainer = styled.div`
     align-items: middle;
 `;
 
+const ButtonContainer = styled.div`
+    display: flex;
+    gap: 16px;
+`;
+
+type Props = {
+    actionRequest: ActionRequest;
+    requestTypeDisplayName: string;
+    requestContentView: React.ReactNode;
+    onUpdate: () => void;
+    showActionsButtons: boolean;
+};
+
 /**
  * Base list item for showing metadata association proposals.
  */
@@ -67,15 +76,16 @@ export default function MetadataAssociationRequestItem({
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
 
     const acceptRequest = () => {
         Modal.confirm({
+            title: 'Accept Proposal',
             content: 'Are you sure you want to accept this proposal?',
             okText: 'Yes',
             onOk() {
-                acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+                acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
                     .then(() => {
                         if (actionRequest.entity?.urn) {
                             analytics.event({
@@ -83,7 +93,7 @@ export default function MetadataAssociationRequestItem({
                                 actionType: EntityActionType.ProposalAccepted,
                                 actionQualifier: actionRequest.type,
                                 entityType: actionRequest.entity?.type,
-                                entityUrn: actionRequest.entity?.urn
+                                entityUrn: actionRequest.entity?.urn,
                             });
                         }
                         message.success('Successfully accepted the proposal!');
@@ -91,7 +101,7 @@ export default function MetadataAssociationRequestItem({
                     })
                     .catch((err) => {
                         console.log(err);
-                        message.error('Failed to accept proposal. :(');
+                        message.error('Failed to accept proposal. An unknown error occurred!');
                     });
             },
         });
@@ -99,10 +109,11 @@ export default function MetadataAssociationRequestItem({
 
     const rejectRequest = () => {
         Modal.confirm({
+            title: 'Reject Proposal',
             content: 'Are you sure you want to reject this proposal?',
             okText: 'Yes',
             onOk() {
-                rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+                rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
                     .then(() => {
                         if (actionRequest.entity?.urn) {
                             analytics.event({
@@ -118,7 +129,7 @@ export default function MetadataAssociationRequestItem({
                     })
                     .catch((err) => {
                         console.log(err);
-                        message.error('Failed to reject proposal. :(');
+                        message.error('Failed to reject proposal. An unknown error occurred!');
                     });
             },
         });
@@ -128,27 +139,9 @@ export default function MetadataAssociationRequestItem({
      * Build the date column view.
      */
     const createdDate = new Date(actionRequest.created.time).toLocaleDateString('en-US'); // Todo format this correctly.
-    const createdDateView = <Typography.Text>{createdDate}</Typography.Text>;
+    const createdDateView = <Typography.Text style={{ wordBreak: 'normal' }}>{createdDate}</Typography.Text>;
 
-    /**
-     * Build the request type view.
-     */
-    let suffix = '';
-    if (actionRequest.result === ActionRequestResult.Accepted) {
-        suffix = ' Accepted';
-    }
-    if (actionRequest.result === ActionRequestResult.Rejected) {
-        suffix = ' Rejected';
-    }
-
-    const requestTypeView = (
-        <RequestTypeContainer>
-            <Typography.Text strong>
-                {requestTypeDisplayName}
-                {suffix}
-            </Typography.Text>
-        </RequestTypeContainer>
-    );
+    const requestTypeView = <RequestTypeContainer>{requestTypeDisplayName}</RequestTypeContainer>;
 
     const createdBy = actionRequest.created.actor;
     const createdByDisplayImage = createdBy && createdBy.editableInfo?.pictureLink;
@@ -186,24 +179,24 @@ export default function MetadataAssociationRequestItem({
         );
     } else {
         actionResultView = (
-            <>
-                <Button onClick={acceptRequest}>
+            <ButtonContainer>
+                <Button onClick={acceptRequest} data-testid="approve-button" variant="outline">
                     <CheckOutlined />
                     Approve
                 </Button>
-                <Button type="text" onClick={rejectRequest}>
+                <Button variant="outline" color="red" onClick={rejectRequest} data-testid="decline-button">
                     <CloseCircleOutlined />
                     Decline
                 </Button>
-            </>
+            </ButtonContainer>
         );
     }
 
     return (
         <ContentContainer>
             <LeftContentContainer>
-                <LeftContentContainerItem>{createdDateView}</LeftContentContainerItem>
-                <LeftContentContainerItem>{requestTypeView}</LeftContentContainerItem>
+                {showActionsButtons && <LeftContentContainerItem>{createdDateView}</LeftContentContainerItem>}
+                {showActionsButtons && <LeftContentContainerItem>{requestTypeView}</LeftContentContainerItem>}
                 <LeftContentContainerItem>{requestContentView}</LeftContentContainerItem>
             </LeftContentContainer>
             {showActionsButtons && <RightContentContainer>{actionResultView}</RightContentContainer>}

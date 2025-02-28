@@ -29,11 +29,11 @@ jobs:
       matrix:
         command: ["check_event_type.py", "check_policies.py"]
     name: run code checks
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
-      - uses: actions/setup-python@v4
+        uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: run check ${{ matrix.command }}

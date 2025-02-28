@@ -25,7 +25,9 @@ query getMe {
                     urn
                 }
             }
-            groups: relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 50 }) {
+            groups: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 50 }
+            ) {
                 relationships {
                     entity {
                         ... on CorpGroup {
@@ -60,6 +62,7 @@ query getMe {
             manageSecrets
             manageTokens
             manageDomains
+            viewTests
             manageTests
             manageGlossaries
             manageUserCredentials
@@ -70,6 +73,13 @@ query getMe {
             manageGlobalViews
             manageOwnershipTypes
             manageGlobalAnnouncements
+            createBusinessAttributes
+            manageBusinessAttributes
+            manageStructuredProperties
+            viewStructuredPropertiesPage
+            manageDocumentationForms
+            viewDocumentationFormsPage
+            manageOrganizationDisplayPreferences
         }
     }
 }

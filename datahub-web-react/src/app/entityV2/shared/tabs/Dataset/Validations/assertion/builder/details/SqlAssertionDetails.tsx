@@ -2,8 +2,8 @@ import React from 'react';
 import { Form } from 'antd';
 import styled from 'styled-components';
 import { Assertion, AssertionType, Monitor } from '../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../steps/freshness/EvaluationScheduleBuilder';
-import { DescriptionBuilder } from '../steps/sql/DescriptionBuilder';
+import { EvaluationScheduleBuilder } from '../steps/common/EvaluationScheduleBuilder';
+import { DescriptionBuilder } from './DescriptionBuilder';
 import { SqlEvaluationBuilder } from '../steps/sql/SqlEvaluationBuilder';
 import { SqlQueryBuilder } from '../steps/sql/SqlQueryBuilder';
 

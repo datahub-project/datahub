@@ -1,19 +1,19 @@
 import { useApolloClient } from '@apollo/client';
 import { removeFromListDomainsCache, updateListDomainsCache } from '../../../domain/utils';
-import { useDomainsContext } from '../../../domain/DomainsContext';
 import { Domain } from '../../../../types.generated';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';
+import { useDomainsContext } from '../../../domainV2/DomainsContext';
 
 export function useHandleMoveDomainComplete() {
     const client = useApolloClient();
-    const { entityData, parentDomainsToUpdate, setParentDomainsToUpdate } = useDomainsContext();
+    const { entityData } = useDomainsContext();
 
     const handleMoveDomainComplete = (urn: string, newParentUrn?: string) => {
         if (!entityData) return;
 
         const domain = entityData as Domain;
-        const oldParentUrn = domain.parentDomains?.domains.length ? domain.parentDomains.domains[0].urn : undefined;
+        const oldParentUrn = domain.parentDomains?.domains?.[0].urn;
 
         analytics.event({
             type: EventType.MoveDomainEvent,
@@ -30,10 +30,6 @@ export function useHandleMoveDomainComplete() {
             domain.properties?.description ?? '',
             newParentUrn,
         );
-        const newParentDomainsToUpdate = [...parentDomainsToUpdate];
-        if (oldParentUrn) newParentDomainsToUpdate.push(oldParentUrn);
-        if (newParentUrn) newParentDomainsToUpdate.push(newParentUrn);
-        setParentDomainsToUpdate(newParentDomainsToUpdate);
     };
 
     return { handleMoveDomainComplete };

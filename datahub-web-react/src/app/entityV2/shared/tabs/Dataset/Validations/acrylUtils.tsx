@@ -3,17 +3,9 @@ import styled from 'styled-components';
 import * as moment from 'moment-timezone';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import {
-    ClockCircleOutlined,
-    TableOutlined,
-    ProjectOutlined,
-    ConsoleSqlOutlined,
-    CheckOutlined,
-    CloseOutlined,
-    ApiOutlined,
-    CodeOutlined,
-    ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, ApiOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import {
     Assertion,
     AssertionResultType,
@@ -29,46 +21,16 @@ import { sortAssertions } from './assertionUtils';
 import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
 import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
+import {
+    GetDatasetAssertionsWithMonitorsQuery,
+    MonitorDetailsFragment,
+} from '../../../../../../graphql/monitor.generated';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { toProperTitleCase } from '../../../utils';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const WARNING_COLOR_HEX = '#FA8C16';
-
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 14px;
-    }
-`;
-
-const StyledTableOutlined = styled(TableOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledProjectOutlined = styled(ProjectOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledConsoleSqlOutlined = styled(ConsoleSqlOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -106,20 +68,28 @@ const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     }
 `;
 
-const StyledCodeOutlined = styled(CodeOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
+const getStyledIconComponent = (type: AssertionType) => {
+    const IconComponent = ASSERTION_TYPE_TO_ICON_MAP[type];
+
+    // Wrap the JSX element in a styled div
+    const StyledIcon = styled.div`
+        margin: 0;
+        padding: 0;
         margin-right: 8px;
         font-size: 18px;
-    }
-`;
+        display: inline-flex;
+        align-items: center;
+    `;
+
+    // Return the styled wrapper with the icon inside
+    return () => <StyledIcon>{IconComponent}</StyledIcon>;
+};
 
 export const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
-        icon: <StyledClockCircleOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -128,7 +98,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
-        icon: <StyledTableOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -137,37 +107,37 @@ export const ASSERTION_INFO = [
     {
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
-        icon: <StyledProjectOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
         enabled: true,
         visible: true,
-        requiresConnection: false,
+        requiresConnectionSupportedByMonitors: false,
     },
     {
-        name: 'Custom',
+        name: 'Schema',
+        description: "Define & monitor your expectations about the table's columns and their types",
+        icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
+        type: AssertionType.DataSchema,
+        entityTypes: [EntityType.Dataset],
+        enabled: true,
+        visible: true,
+    },
+    {
+        name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
-        icon: <StyledConsoleSqlOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
         enabled: true,
         visible: true,
-        requiresConnection: true,
+        requiresConnectionSupportedByMonitors: true,
     },
     {
         name: 'Other',
-        description: 'Assertions that are defined and maintained outside of DataHub.',
-        icon: <StyledApiOutlined />,
+        description: 'Other assertions that are defined and maintained outside of DataHub.',
+        icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
-        entityTypes: [EntityType.Dataset],
-        enabled: false,
-        visible: false,
-    },
-    {
-        name: 'Schema',
-        description: 'Assertions that verify the schema of an asset.',
-        icon: <StyledCodeOutlined />,
-        type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
         enabled: false,
         visible: false,
@@ -179,12 +149,28 @@ ASSERTION_INFO.forEach((info) => {
     ASSERTION_TYPE_TO_INFO.set(info.type, info);
 });
 
-const getAssertionGroupName = (type: AssertionType): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : 'Unknown';
+export const getAssertionGroupName = (type: string): string => {
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
 };
 
-const getAssertionGroupTypeIcon = (type: AssertionType) => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : undefined;
+export const getAssertionGroupTypeIcon = (type: string) => {
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
+};
+
+export type AssertionWithMonitorDetails = Assertion & {
+    monitors?: MonitorDetailsFragment[]; // should almost always have 0-1 items
+};
+
+export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
+    queryData?: GetDatasetAssertionsWithMonitorsQuery,
+): AssertionWithMonitorDetails[] | undefined => {
+    return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
+        ...(assertion as Assertion),
+        monitors:
+            assertion.monitor?.relationships
+                ?.filter((r) => r.entity?.__typename === 'Monitor')
+                .map((r) => r.entity as MonitorDetailsFragment) ?? [],
+    }));
 };
 
 /**
@@ -192,7 +178,7 @@ const getAssertionGroupTypeIcon = (type: AssertionType) => {
  *
  * @param assertions The assertions to extract the summary for
  */
-export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSummary => {
+export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]): AssertionStatusSummary => {
     const summary = {
         passing: 0,
         failing: 0,
@@ -201,6 +187,15 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
+        // Skip inactive monitors
+        // NOTE: we don't assert that the status is Active, because in cases of external assertions they won't have monitors
+        const maybeInactiveMonitor = assertion.monitors?.find(
+            (item) => item.info?.status.mode === MonitorMode.Inactive,
+        );
+        if (maybeInactiveMonitor) {
+            return;
+        }
+
         if ((assertion.runEvents?.runEvents?.length || 0) > 0) {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
@@ -236,6 +231,10 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
     };
 };
 
+export const getAssertionType = (assertion: Assertion): string | undefined => {
+    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+};
+
 /**
  * Returns a list of assertion groups, where assertions are grouped
  * by their "type" or "category". Each group includes the assertions inside, along with
@@ -243,7 +242,7 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
  *
  * @param assertions The assertions to group
  */
-export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGroup[] => {
+export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
 
@@ -251,10 +250,11 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     assertions
         .filter((assertion) => assertion.info?.type)
         .forEach((assertion) => {
-            const groupType = assertion.info?.type;
-            const groupedAssertions = typeToAssertions.get(groupType) || [];
+            const assertionType: string | undefined = getAssertionType(assertion);
+            const assertionGroup: string = assertionType || 'Unknown';
+            const groupedAssertions = typeToAssertions.get(assertionGroup) || [];
             groupedAssertions.push(assertion);
-            typeToAssertions.set(groupType, groupedAssertions);
+            typeToAssertions.set(assertionGroup, groupedAssertions);
         });
 
     // Now, create summary for each type and build the AssertionGroup object
@@ -305,7 +305,7 @@ export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary)
 };
 
 /**
- * Returns the next scheduled run of a cron schedule, in the local timezone of teh user.
+ * Returns the next scheduled run of a cron schedule, in the local timezone of the user.
  *
  * @param schedule a cron schedule
  */
@@ -317,14 +317,36 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
         const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
         return nextDateInUserTz.valueOf();
     } catch (e) {
+        console.log('Failed to parse cron expression', e);
         return undefined;
     }
 };
 
-export const getAssertionTypesForEntityType = (entityType: EntityType, connectionForEntityExists: boolean) => {
+/**
+ * Returns the previously scheduled run of a cron schedule, in the local timezone of the user.
+ *
+ * @param schedule a cron schedule
+ * @param maybeFromDateTS
+ */
+export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
+    try {
+        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
+        if (typeof maybeFromDateTS !== 'undefined') {
+            interval.reset(maybeFromDateTS);
+        }
+        const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
+        return prevDateInUserTz.valueOf();
+    } catch (e) {
+        console.log('Failed to parse cron expression', e);
+        return undefined;
+    }
+};
+export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,
-        enabled: type.enabled && (!type.requiresConnection || connectionForEntityExists),
+        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
     }));
 };
 
@@ -332,11 +354,12 @@ export const isMonitorActive = (monitor: Monitor) => {
     return monitor.info?.status?.mode === MonitorMode.Active;
 };
 
-export const getCronAsText = (interval: string) => {
+export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {
+    const { verbose } = options;
     if (interval) {
         try {
             return {
-                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose: false }))}.`,
+                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose }))}.`,
                 error: false,
             };
         } catch (e) {
@@ -381,6 +404,9 @@ export const getEntityUrnForAssertion = (assertion: Assertion) => {
     if (assertion.info?.type === AssertionType.DataSchema) {
         return assertion.info?.schemaAssertion?.entityUrn;
     }
+    if (assertion.info?.type === AssertionType.Custom) {
+        return assertion.info?.customAssertion?.entityUrn;
+    }
     console.error(`Unable to extract entity urn from unrecognized assertion with type ${assertion.info?.type}`);
     return undefined;
 };
@@ -392,4 +418,44 @@ export const useConnectionForEntityExists = (entityUrn: string) => {
     });
 
     return !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+};
+
+/**
+ * Checks if a connection exists for an entity that is able to run test assertion queries
+ * @param entityUrn
+ * @returns {boolean} optimistically returns true
+ */
+export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityUrn: string): boolean => {
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn as string },
+        fetchPolicy: 'cache-first',
+    });
+
+    // Only embedded executors can run tests right now
+    // If executorId is null, we'll assume it is an embedded executor.
+    // If the executorId starts with {EMBEDDED_EXECUTOR_POOL_NAME}, we assume it's an embedded executor
+    // See setup docs: https://www.notion.so/acryldata/How-to-configure-Remote-Executor-e9ed044b438d4789afcd530952d73944?pvs=4#14237a6d6dd04fcfb2abd45f16c6d63c
+    // and design docs:  https://www.notion.so/acryldata/Remote-Executor-V2-Design-593d41280c4a4e34805def00b3f47a65?pvs=4#fe2a4481fbe74f379eb35cd10546b3b8
+    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
+    return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
+};
+
+/**
+ * Attempts to extract the sibling entity associated with a given urn.
+ */
+export const getSiblingWithUrn = (entityData: GenericEntityProperties, urn: string) => {
+    if (entityData.urn === urn) {
+        return entityData;
+    }
+    return entityData?.siblingsSearch?.searchResults
+        ?.map((result) => result.entity)
+        .find((entity) => entity?.urn === urn);
+};
+
+/**
+ * Extract the siblings for an entity
+ */
+export const getSiblings = (entityData: GenericEntityProperties | null): GenericEntityProperties[] => {
+    if (!entityData) return [];
+    return entityData?.siblingsSearch?.searchResults?.map((result) => result.entity) || [];
 };

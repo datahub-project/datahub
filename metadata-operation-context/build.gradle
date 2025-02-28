@@ -1,0 +1,20 @@
+plugins {
+  id 'java-library'
+}
+apply from: '../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+  api project(':metadata-utils')
+  api project(':metadata-auth:auth-api')
+
+  implementation externalDependency.slf4jApi
+  implementation externalDependency.servletApi
+  implementation spec.product.pegasus.restliServer
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdkTrace
+  compileOnly externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockitoInline
+}

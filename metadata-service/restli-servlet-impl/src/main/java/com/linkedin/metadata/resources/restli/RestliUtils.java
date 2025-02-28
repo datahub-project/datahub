@@ -1,20 +1,16 @@
 package com.linkedin.metadata.resources.restli;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.codahale.metrics.MetricRegistry;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
-import java.util.List;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -37,18 +33,41 @@ public class RestliUtils {
       return Task.value(supplier.get());
     } catch (Throwable throwable) {
 
+      final RestLiServiceException finalException;
+
       // Convert IllegalArgumentException to BAD REQUEST
       if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
-        throwable = badRequestException(throwable.getMessage());
+        finalException = badRequestException(throwable.getMessage());
+      } else if (throwable.getCause() instanceof ActorAccessException) {
+          finalException = forbidden(throwable.getCause().getMessage());
+      } else if (throwable instanceof APIThrottleException) {
+        finalException = apiThrottled(throwable.getMessage());
+      } else if (throwable instanceof RestLiServiceException) {
+        finalException = (RestLiServiceException) throwable;
+      } else {
+        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
       }
 
-      if (throwable instanceof RestLiServiceException) {
-        throw (RestLiServiceException) throwable;
-      }
-
-      throw new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+      throw finalException;
     }
+  }
+
+  @Nonnull
+  public static <T> Task<T> toTask(@Nonnull OperationContext opContext, @Nonnull Supplier<T> supplier, String metricName) {
+    return opContext.withSpan(metricName, () -> {
+      // Stop timer on success and failure
+      return toTask(supplier)
+              .transform(
+                      orig -> {
+                        if (orig.isFailed()) {
+                          MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+                        } else {
+                          MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+                        }
+                        return orig;
+                      });
+    }, MetricUtils.DROPWIZARD_METRIC, "true");
   }
 
   /**
@@ -70,6 +89,11 @@ public class RestliUtils {
   }
 
   @Nonnull
+  public static RestLiServiceException nonExceptionResourceNotFound() {
+    return new NonExceptionHttpErrorResponse(HttpStatus.S_404_NOT_FOUND);
+  }
+
+  @Nonnull
   public static RestLiServiceException resourceNotFoundException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_404_NOT_FOUND, message);
   }
@@ -84,36 +108,13 @@ public class RestliUtils {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
   }
 
-  public static boolean isAuthorized(
-      @Nonnull Authentication authentication,
-      @Nonnull Authorizer authorizer,
-      @Nonnull final List<PoliciesConfig.Privilege> privileges,
-      @Nonnull final List<java.util.Optional<EntitySpec>> resources) {
-    DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
-    return AuthUtil.isAuthorizedForResources(
-        authorizer, authentication.getActor().toUrnStr(), resources, orGroup);
+  @Nonnull
+  public static RestLiServiceException apiThrottled(@Nullable String message) {
+    return new RestLiServiceException(HttpStatus.S_429_TOO_MANY_REQUESTS, message);
   }
 
-  public static boolean isAuthorized(
-      @Nonnull Authentication authentication,
-      @Nonnull Authorizer authorizer,
-      @Nonnull final List<PoliciesConfig.Privilege> privileges,
-      @Nullable final EntitySpec resource) {
-    DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
-    return AuthUtil.isAuthorized(
-        authorizer,
-        authentication.getActor().toUrnStr(),
-        java.util.Optional.ofNullable(resource),
-        orGroup);
-  }
-
-  private static DisjunctivePrivilegeGroup convertPrivilegeGroup(
-      @Nonnull final List<PoliciesConfig.Privilege> privileges) {
-    return new DisjunctivePrivilegeGroup(
-        ImmutableList.of(
-            new ConjunctivePrivilegeGroup(
-                privileges.stream()
-                    .map(PoliciesConfig.Privilege::getType)
-                    .collect(Collectors.toList()))));
+  @Nonnull
+  public static RestLiServiceException forbidden(@Nullable String message) {
+    return new RestLiServiceException(HttpStatus.S_403_FORBIDDEN, message);
   }
 }

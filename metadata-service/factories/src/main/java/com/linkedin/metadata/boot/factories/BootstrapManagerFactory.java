@@ -7,33 +7,35 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.incident.IncidentServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
+import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
-import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
-import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestDefaultPersonasAndViews;
 import com.linkedin.metadata.boot.steps.IngestDefaultTagsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
-import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRolesStep;
-import com.linkedin.metadata.boot.steps.IngestRootUserStep;
+import com.linkedin.metadata.boot.steps.IngestStructuredPropertyExtensionsStep;
+import com.linkedin.metadata.boot.steps.IngestionMetadataTestResultsActionStep;
 import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
+import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
 import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
+import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
-import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.ForwardingActionConfiguration;
+import com.linkedin.metadata.config.structuredProperties.extensions.ModelExtensionValidationConfiguration;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -41,6 +43,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -49,6 +52,7 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -112,58 +116,48 @@ public class BootstrapManagerFactory {
 
   @Autowired private ConfigurationProvider _configurationProvider;
 
-  @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
-  private Boolean _upgradeDefaultBrowsePathsEnabled;
+  @Autowired private IntegrationsService integrationsService;
 
-  @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
-  private Boolean _backfillBrowsePathsV2Enabled;
+  @Value("${bootstrap.defaultPersonas.enabled}")
+  private Boolean _defaultPersonasEnabled;
 
   // Saas-only
   @Autowired
   @Qualifier("ingestMetadataTestsStep")
   private IngestMetadataTestsStep _ingestMetadataTestsStep;
 
+  @Autowired private ApplicationContext applicationContext;
+
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
-
-  @Value("${bootstrap.ownershipTypes.file}")
-  private Resource _ownershipTypesResource;
 
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
-  protected BootstrapManager createInstance() {
-    final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
+  protected BootstrapManager createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
-            _entityRegistry,
-            _entityService,
-            _entitySearchService,
-            _searchDocumentTransformer,
-            _policiesResource);
-    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
-    final IngestDataPlatformsStep ingestDataPlatformsStep =
-        new IngestDataPlatformsStep(_entityService);
+            _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
-        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+        new RestoreGlossaryIndices(_entityService, _entitySearchService);
     final IndexDataPlatformsStep indexDataPlatformsStep =
-        new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
+        new IndexDataPlatformsStep(_entityService, _entitySearchService);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
+        new RestoreDbtSiblingsIndices(_entityService);
     final RemoveClientIdAspectStep removeClientIdAspectStep =
         new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices =
-        new RestoreColumnLineageIndices(_entityService, _entityRegistry);
+        new RestoreColumnLineageIndices(_entityService);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep =
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
-    final IngestOwnershipTypesStep ingestOwnershipTypesStep =
-        new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
-    final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
+    final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
+        new RestoreFormInfoIndicesStep(_entityService);
     final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
@@ -175,39 +169,55 @@ public class BootstrapManagerFactory {
             _configurationProvider);
     final MigrateIncidentsSummaryStep incidentsSummaryStep =
         new MigrateIncidentsSummaryStep(_entityService, _entitySearchService, _incidentService);
+    final MigrateFreshnessAssertionCronToSinceTheLastCheck
+        migrateFreshnessAssertionCronToSinceTheLastCheckStep =
+            new MigrateFreshnessAssertionCronToSinceTheLastCheck(
+                _entityService, _searchService, _assertionService);
 
     final List<BootstrapStep> finalSteps =
         Stream.of(
                 waitForSystemUpdateStep,
-                ingestRootUserStep,
                 ingestPoliciesStep,
-                ingestRolesStep,
-                ingestDataPlatformsStep,
                 ingestDataPlatformInstancesStep,
                 _ingestRetentionPoliciesStep,
-                ingestOwnershipTypesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestDataTypesStep,
+                ingestEntityTypesStep,
+                restoreFormInfoIndicesStep,
                 ingestEntityTypesStep,
                 assertionsSummaryStep,
                 incidentsSummaryStep,
+                migrateFreshnessAssertionCronToSinceTheLastCheckStep,
                 // Saas-only
                 _ingestMetadataTestsStep,
                 ingestDefaultTagsStep)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-    if (_upgradeDefaultBrowsePathsEnabled) {
-      finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
+    if (_defaultPersonasEnabled) {
+      finalSteps.add(new IngestDefaultPersonasAndViews(_entityService, _entityRegistry));
     }
 
-    if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
+    ModelExtensionValidationConfiguration mcpExtensionValidationConfig =
+        _configurationProvider.getMetadataChangeProposal().getValidation().getExtensions();
+    if (mcpExtensionValidationConfig.isEnabled()) {
+      ExtendedModelStructuredPropertyMutator mutator =
+          applicationContext.getBean(ExtendedModelStructuredPropertyMutator.class);
+      finalSteps.add(
+          new IngestStructuredPropertyExtensionsStep(
+              _entityService, mutator.getStructuredPropertyMappings()));
+    }
+
+    ForwardingActionConfiguration forwardingActionConfiguration =
+        _configurationProvider.getMetadataTests().getForwardingAction();
+    if (forwardingActionConfiguration.isEnabled()) {
+      finalSteps.add(
+          new IngestionMetadataTestResultsActionStep(
+              _entityService, integrationsService, forwardingActionConfiguration));
     }
 
     return new BootstrapManager(finalSteps);

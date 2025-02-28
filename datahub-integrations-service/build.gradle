@@ -16,11 +16,12 @@
 
 plugins {
     id 'java' // required for versioning
-    id("org.openapi.generator") version "6.6.0"
+    id("org.openapi.generator") version "7.4.0"
     id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/python-coverage.gradle"
 
 ext {
     python_executable = 'python3'
@@ -34,54 +35,64 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+    def sentinel_file = "${venv_name}/.venv_environment_sentinel"
     inputs.file file('pyproject.toml')
-    outputs.dir("${venv_name}")
+    outputs.file(sentinel_file)
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools pip-tools"
+        "${venv_name}/bin/python -m pip install --upgrade uv && " +
+        "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
-    inputs.file file('pyproject.toml')
-    inputs.file file('requirements.txt')
+task codegenPython(dependsOn: [":metadata-ingestion:codegen"])
+
+task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
+    inputs.files(
+        file('pyproject.toml'),
+        file('scripts/sync.sh'),
+        file('requirements.txt'),
+        file('requirements-dev.txt'),
+    )
     outputs.file("${venv_name}/.build_install_sentinel")
-    commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pip install -r requirements.txt && " +
-        "${venv_name}/bin/pip install -e . && " +
+
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/sync.sh && " +
         "touch ${venv_name}/.build_install_sentinel"
 }
 
 task install(dependsOn: [installPackage])
 
-task installDev(type: Exec, dependsOn: [install]) {
-    inputs.file file('pyproject.toml')
-    inputs.file file('requirements-dev.txt')
-    outputs.file("${venv_name}/.build_install_dev_sentinel")
-    commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pip install -r requirements-dev.txt && " +
-        "touch ${venv_name}/.build_install_dev_sentinel"
+task installDev(dependsOn: [install])
+
+task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile.sh"
+}
+task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile-check.sh"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff src/ tests/ && " +
-        "isort --check --diff src/ tests/ && " +
-        "ruff --statistics src/ tests/ && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check src/ tests/ && " +
+        "ruff format --check src/ tests/ && " +
         "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
-        "black src/ tests/ && " +
-        "isort src/ tests/ && " +
-        "ruff --fix src/ tests/ && " +
-        "mypy src/ tests/"
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check --fix src/ tests/ && " +
+        "ruff format src/ tests/ "
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+        "${venv_name}/bin/pytest ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 test.finalizedBy(pytest)
 
@@ -91,6 +102,7 @@ task cleanPythonCache(type: Exec) {
 }
 
 build.dependsOn install
+check.dependsOn lockfileCheck
 check.dependsOn lint
 check.dependsOn test
 
@@ -100,7 +112,6 @@ clean {
     delete 'dist'
 }
 clean.dependsOn cleanPythonCache
-
 
 openApiGenerate {
     generatorName.set("java")
@@ -113,12 +124,14 @@ openApiGenerate {
     generateApiTests.set(false)
     generateModelTests.set(false)
     configOptions.set([
-        dateLibrary: "java8"
+        dateLibrary: "java8",
+        'java11'             : "true",
+        'delegatePattern'    : "true",
+        'jakarta'            : "true"
     ])
-
 }
 
-task codegen(type: Exec, dependsOn: [install]) {
+task codegen(type: Exec, dependsOn: [codegenPython, install]) {
     commandLine 'bash', '-c',
         "set -x &&" +
         "${venv_name}/bin/python ./scripts/generate_openapi_spec.py"
@@ -159,6 +172,7 @@ docker {
     buildArgs(dockerBuildArgs)
 }
 tasks.getByName('dockerPrepare').dependsOn(['install',
+                                            ':metadata-ingestion:codegen',
                                             ':docker:datahub-ingestion:docker'])
 
 task cleanLocalDockerImages {

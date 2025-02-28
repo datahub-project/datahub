@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PlusOutlined } from '@ant-design/icons';
+import { EditFilled } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import { DataContractState } from '../../../../../../../types.generated';
 import { AssertionStatusSummary } from '../acrylTypes';
@@ -43,6 +43,9 @@ const Actions = styled.div`
 `;
 
 const CreateButton = styled(Button)`
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     margin-right: 12px;
     border-color: ${(props) => props.theme.styles['primary-color']};
     color: ${(props) => props.theme.styles['primary-color']};
@@ -51,6 +54,12 @@ const CreateButton = styled(Button)`
         color: white;
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']};
+    }
+`;
+
+const EditIconStyle = styled(EditFilled)`
+    && {
+        font-size: 12px;
     }
 `;
 
@@ -77,7 +86,7 @@ export const DataContractSummary = ({ state, summary, showContractBuilder }: Pro
             </SummaryContainer>
             <Actions>
                 <CreateButton onClick={showContractBuilder}>
-                    <PlusOutlined />
+                    <EditIconStyle />
                     EDIT
                 </CreateButton>
             </Actions>

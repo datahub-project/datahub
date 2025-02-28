@@ -2,12 +2,14 @@ import React from 'react';
 import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { AndFilterInput } from '../../../../../../types.generated';
 import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
 
@@ -39,9 +41,11 @@ type Props = {
     isSelectMode: boolean;
     isSelectAll: boolean;
     selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
+    numResults?: number;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
 };
@@ -56,13 +60,16 @@ export default function EmbeddedListSearchHeader({
     isSelectMode,
     isSelectAll,
     selectedEntities,
+    setSelectedEntities,
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
+    numResults,
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
     return (
         <>
@@ -96,11 +103,16 @@ export default function EmbeddedListSearchHeader({
                             hideRecommendations
                         />
                         <SearchMenuContainer>
+                            <SearchSortSelect
+                                selectedSortOption={selectedSortOption}
+                                setSelectedSortOption={setSelectedSortOption}
+                            />
                             <SearchMenuItems
                                 downloadSearchResults={downloadSearchResults}
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}
+                                totalResults={numResults}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>
@@ -112,6 +124,7 @@ export default function EmbeddedListSearchHeader({
                         isSelectAll={isSelectAll}
                         onChangeSelectAll={onChangeSelectAll}
                         selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
                         onCancel={() => {
                             setIsSelectMode(false);
                         }}

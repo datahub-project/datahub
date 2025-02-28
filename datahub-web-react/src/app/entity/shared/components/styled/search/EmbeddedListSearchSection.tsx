@@ -8,12 +8,13 @@ import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { useEntityQueryParams } from '../../../containers/profile/utils';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
+import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '../../../../../search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
 } from '../../../../../search/utils/types';
+import { decodeComma } from '../../../utils';
 
 const FILTER = 'filter';
 
@@ -52,6 +53,8 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    onLineageClick?: () => void;
+    isLineageTab?: boolean;
 };
 
 export const EmbeddedListSearchSection = ({
@@ -69,12 +72,14 @@ export const EmbeddedListSearchSection = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView,
+    onLineageClick,
+    isLineageTab,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
     const entityQueryParams = useEntityQueryParams();
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const params = QueryString.parse(decodeComma(location.search), { arrayFormat: 'comma' });
     const paramsWithoutFilters = getParamsWithoutFilters(params);
     const baseParams = { ...entityQueryParams, ...paramsWithoutFilters };
     const query: string = params?.query as string;
@@ -133,6 +138,7 @@ export const EmbeddedListSearchSection = ({
 
     return (
         <EmbeddedListSearch
+            entityTypes={EMBEDDED_LIST_SEARCH_ENTITY_TYPES}
             query={query || ''}
             page={page}
             unionType={unionType}
@@ -155,6 +161,8 @@ export const EmbeddedListSearchSection = ({
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
+            onLineageClick={onLineageClick}
+            isLineageTab={isLineageTab}
         />
     );
 };

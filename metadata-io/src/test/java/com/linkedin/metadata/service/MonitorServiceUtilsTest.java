@@ -1,7 +1,10 @@
 package com.linkedin.metadata.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
@@ -34,10 +37,14 @@ import com.linkedin.assertion.IncrementingSegmentRowCountTotal;
 import com.linkedin.assertion.IncrementingSegmentSpec;
 import com.linkedin.assertion.RowCountChange;
 import com.linkedin.assertion.RowCountTotal;
+import com.linkedin.assertion.SchemaAssertionCompatibility;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.dataset.DatasetFilterType;
@@ -50,10 +57,20 @@ import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFieldAssertionSourceType;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
+import com.linkedin.schema.OtherSchema;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaFieldSpec;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import com.linkedin.timeseries.CalendarInterval;
+import java.util.Collections;
+import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -1071,6 +1088,132 @@ public class MonitorServiceUtilsTest {
           expectedAssertionResult.getMissingCount(), assertionResult.getMissingCount());
       Assert.assertEquals(
           expectedAssertionResult.getUnexpectedCount(), assertionResult.getUnexpectedCount());
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown here.");
+    }
+  }
+
+  @Test
+  public void testBuildDatasetSchemaParametersJson() {
+    DatasetSchemaAssertionParameters parameters = new DatasetSchemaAssertionParameters();
+    parameters.setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA);
+    ObjectNode objectNode = MonitorServiceUtils.buildDatasetSchemaParametersJson(parameters);
+    Assert.assertEquals("DATAHUB_SCHEMA", objectNode.get("sourceType").asText());
+  }
+
+  @Test
+  public void testBuildTestSchemaAssertionBodyJson() throws Exception {
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setVersion(0);
+    schemaMetadata.setHash("testHash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setFieldPath("testPath")
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new StringType())))
+                    .setNativeDataType("varchar"))));
+
+    String bodyJson =
+        MonitorServiceUtils.buildTestSchemaAssertionBodyJson(
+            "DATASET_SCHEMA",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST,PROD)",
+            "urn:li:dataPlatform:snowflake",
+            new SchemaAssertionInfo()
+                .setCompatibility(SchemaAssertionCompatibility.SUPERSET)
+                .setSchema(schemaMetadata),
+            new AssertionEvaluationParameters()
+                .setType(AssertionEvaluationParametersType.DATASET_SCHEMA)
+                .setDatasetSchemaParameters(
+                    new DatasetSchemaAssertionParameters()
+                        .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA)));
+    Assert.assertEquals(
+        bodyJson,
+        "{\n"
+            + "  \"type\" : \"DATASET_SCHEMA\",\n"
+            + "  \"connectionUrn\" : \"urn:li:dataPlatform:snowflake\",\n"
+            + "  \"entityUrn\" : \"urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST,PROD)\",\n"
+            + "  \"assertion\" : {\n"
+            + "    \"schemaAssertion\" : {\n"
+            + "      \"compatibility\" : \"SUPERSET\",\n"
+            + "      \"fields\" : [ {\n"
+            + "        \"path\" : \"testPath\",\n"
+            + "        \"type\" : \"STRING\",\n"
+            + "        \"nativeType\" : \"varchar\"\n"
+            + "      } ]\n"
+            + "    }\n"
+            + "  },\n"
+            + "  \"parameters\" : {\n"
+            + "    \"type\" : \"DATASET_SCHEMA\",\n"
+            + "    \"datasetSchemaParameters\" : {\n"
+            + "      \"sourceType\" : \"DATAHUB_SCHEMA\"\n"
+            + "    }\n"
+            + "  }\n"
+            + "}");
+  }
+
+  @Test
+  public void testBuildRunAssertionsBodyJson() {
+    Urn testUrn1 = UrnUtils.getUrn("urn:li:assertion:test");
+    Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+
+    try {
+      String bodyJson =
+          MonitorServiceUtils.buildRunAssertionsBodyJson(
+              ImmutableList.of(testUrn1, testUrn2), true, Collections.emptyMap(), false);
+      Assert.assertEquals(
+          bodyJson,
+          "{\n"
+              + "  \"urns\" : [ \"urn:li:assertion:test\", \"urn:li:assertion:test2\" ],\n"
+              + "  \"dryRun\" : true,\n"
+              + "  \"async\" : false\n"
+              + "}");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown here.");
+    }
+  }
+
+  @Test
+  public void testBuildSchemaAssertionFieldJson() {
+    SchemaField field =
+        new SchemaField()
+            .setFieldPath("testPath")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("varchar");
+    ObjectNode objectNode = MonitorServiceUtils.buildSchemaAssertionFieldJson(field);
+    Assert.assertEquals("testPath", objectNode.get("path").asText());
+    Assert.assertEquals("STRING", objectNode.get("type").asText());
+    Assert.assertEquals("varchar", objectNode.get("nativeType").asText());
+  }
+
+  @Test
+  public void testBuildRunAssertionsResult() {
+    Urn testAssertionUrn = UrnUtils.getUrn("urn:li:assertion:test");
+    ObjectNode resultsJson = JsonNodeFactory.instance.objectNode();
+    ArrayNode resultsArr = JsonNodeFactory.instance.arrayNode();
+    ObjectNode assertionNode = JsonNodeFactory.instance.objectNode();
+    ObjectNode resultNode = JsonNodeFactory.instance.objectNode();
+    resultNode.put("type", "SUCCESS");
+    assertionNode.set("urn", new TextNode(testAssertionUrn.toString()));
+    assertionNode.set("result", resultNode);
+    resultsArr.add(assertionNode);
+    resultsJson.set("results", resultsArr);
+
+    // Write JSON to string
+    String resultsJsonString = resultsJson.toString();
+
+    try {
+      Map<Urn, AssertionResult> result =
+          MonitorServiceUtils.buildRunAssertionsResult(
+              ImmutableList.of(testAssertionUrn), resultsJsonString);
+      Assert.assertEquals(1, result.size());
+      Assert.assertTrue(result.containsKey(testAssertionUrn));
+      Assert.assertEquals(AssertionResultType.SUCCESS, result.get(testAssertionUrn).getType());
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown here.");
     }

@@ -41,19 +41,20 @@ public class CreateSqlAssertionResolver implements DataFetcher<CompletableFuture
             // First create the new assertion.
             final Urn assertionUrn =
                 _assertionService.createSqlAssertion(
+                    context.getOperationContext(),
                     asserteeUrn,
                     SqlAssertionType.valueOf(input.getType().toString()),
                     input.getDescription(),
                     SqlAssertionUtils.createSqlAssertionInfo(input),
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null,
-                    context.getAuthentication());
+                        : null);
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");

@@ -18,4 +18,14 @@ record FormAssociation {
    * A list of prompts that have been completed for this form.
    */
   completedPrompts: array[FormPromptAssociation] = []
+
+  /**
+  * An audit stamp of when this form association was created
+  */
+  created: optional AuditStamp
+
+  /**
+  * An audit stamp of the last time this form association was modified
+  */
+  lastModified: optional AuditStamp
 }

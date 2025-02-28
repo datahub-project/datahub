@@ -40,9 +40,9 @@ class KafkaTopicsCxtManager:
         for topic, f in fs.items():
             try:
                 f.result()  # The result itself is None
-                print("Topic {} created".format(topic))
+                print(f"Topic {topic} created")
             except Exception as e:
-                print("Failed to create topic {}: {}".format(topic, e))
+                print(f"Failed to create topic {topic}: {e}")
                 raise e
 
     def delete_kafka_topics(self, topics: List[str]) -> None:
@@ -60,11 +60,11 @@ class KafkaTopicsCxtManager:
         for topic, f in fs.items():
             try:
                 f.result()  # The result itself is None
-                print("Topic {} deleted".format(topic))
+                print(f"Topic {topic} deleted")
             except Exception as e:
                 # this error should be ignored when we already deleted
                 # the topic within the test code
-                print("Failed to delete topic {}: {}".format(topic, e))
+                print(f"Failed to delete topic {topic}: {e}")
 
     def __enter__(self):
         topics = [

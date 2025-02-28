@@ -1,6 +1,8 @@
 package com.linkedin.metadata.test.action;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.test.definition.ActionType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,12 +33,13 @@ public class ActionApplier {
    * @param params The parameters required to apply the action to the entities.
    */
   public void apply(
+      @Nonnull OperationContext opContext,
       @Nonnull final ActionType type,
       @Nonnull final List<Urn> urns,
       @Nonnull final ActionParameters params) {
     if (actionAppliers.containsKey(type)) {
       try {
-        actionAppliers.get(type).apply(urns, params);
+        actionAppliers.get(type).apply(opContext, urns, params);
         return;
       } catch (Exception e) {
         log.error(

@@ -1,0 +1,26 @@
+[
+  {
+    "urn": "urn:li:dataHubPersona:technicalUser",
+    "info": {
+      "view": "urn:li:dataHubView:__default_technicalUser"
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPersona:businessUser",
+    "info": {
+      "view": "urn:li:dataHubView:__default_businessUser"
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPersona:dataSteward",
+    "info": {
+      "view": "urn:li:dataHubView:__default_dataSteward"
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPersona:dataEngineer",
+    "info": {
+      "view": "urn:li:dataHubView:__default_dataEngineer"
+    }
+  }
+]

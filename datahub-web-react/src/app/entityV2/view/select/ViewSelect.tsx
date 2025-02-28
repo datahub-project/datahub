@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router';
-import { Popover } from 'antd';
+import { colors, Popover } from '@components';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
@@ -35,6 +37,7 @@ const ViewSelectContainer = styled.div`
         display: flex;
         align-items: center;
         padding: 0px 0px;
+
         & .close-container {
             position: absolute;
             top: -10px;
@@ -45,28 +48,33 @@ const ViewSelectContainer = styled.div`
             border-radius: 100%;
             padding: 5px;
         }
+
         .ant-select {
             .ant-select-selection-search {
                 position: absolute;
             }
+
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
                     color: ${ANTD_GRAY[1]};
                 }
             }
+
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
                     color: #fff;
                 }
             }
+
             .ant-select-selection-placeholder {
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 height: 100%;
             }
+
             .ant-select-selection-item {
                 font-weight: 700;
                 font-size: 14px;
@@ -83,6 +91,21 @@ const overlayInnerStyle = {
     width: '100%',
 };
 
+const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
+    if (isShowNavBarRedesign)
+        return {
+            display: 'flex',
+            width: '100%',
+            opacity: 0.97,
+            backgroundColor: colors.gray[1600],
+            borderRadius: '0 0 12px 12px',
+            paddingTop: '1px',
+            boxShadow: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
+        };
+
+    return overlayInnerStyle;
+};
+
 const overlayStyle = {
     left: '0px',
     backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
@@ -91,6 +114,29 @@ const overlayStyle = {
     zIndex: 13,
     'transform-origin': '0',
 };
+
+const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
+    if (isShowNavBarRedesign)
+        return {
+            left: '0px',
+            zIndex: 13,
+            paddingTop: '5px',
+            'transform-origin': '0',
+        };
+
+    return overlayStyle;
+};
+
+const Blur = styled.div<{ $isOpen?: boolean }>`
+    position: absolute;
+    top: 69px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 69px);
+    z-index: 12;
+    backdrop-filter: blur(2px);
+    ${(props) => !props.$isOpen && 'display: none;'}
+`;
 
 /**
  * The View Select component allows you to select a View to apply to query on the current page. For example,
@@ -118,6 +164,8 @@ export const ViewSelect = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedViewName, setSelectedView] = useState<string>('');
 
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
     const selectRef = useRef(null);
 
     const scrollToRef = useRef<HTMLDivElement>(null);
@@ -144,22 +192,24 @@ export const ViewSelect = () => {
         fetchPolicy: 'cache-first',
     });
 
-    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
-
-    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
-
     useEffect(() => {
         setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
         const selectedView =
-            highlightedPrivateViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn) ||
-            highlightedPublicViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn);
-        setSelectedView(selectedView?.name || undefined);
-    }, [
-        userContext.localState?.selectedViewUrn,
-        setSelectedUrn,
-        highlightedPrivateViewData,
-        highlightedPublicViewData,
-    ]);
+            privateViewsData?.listMyViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            ) ||
+            publicViewsData?.listGlobalViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            );
+        if (selectedView === undefined) {
+            setSelectedView('');
+        } else {
+            setSelectedView(selectedView.name);
+        }
+    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
+
+    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
+    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
 
     const debouncedSetFilterText = debounce(
         (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
@@ -176,11 +226,14 @@ export const ViewSelect = () => {
         const selectedView =
             highlightedPrivateViewData?.find((view) => view?.urn === selectedUrn) ||
             highlightedPublicViewData?.find((view) => view?.urn === selectedUrn);
-        setSelectedView(selectedView?.name);
+        setSelectedView(selectedView?.name ?? '');
         userContext.updateLocalState({
             ...userContext.localState,
             selectedViewUrn: newUrn,
         });
+        setTimeout(() => {
+            setIsOpen(false);
+        }, 250);
     };
 
     const onClickCreateView = () => {
@@ -218,10 +271,12 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: undefined,
         });
+        setIsOpen(false);
     };
 
     const onClickManageViews = () => {
         history.push(PageRoutes.SETTINGS_VIEWS);
+        setIsOpen(false);
     };
 
     const onClickViewTypeFilter = (type: string) => {
@@ -233,79 +288,85 @@ export const ViewSelect = () => {
      * Render variables
      */
     const privateViews = highlightedPrivateViewData || [];
-    const publicViews = highlightedPrivateViewData || [];
+    const publicViews = highlightedPublicViewData || [];
     const privateViewCount = privateViews?.length || 0;
     const publicViewCount = publicViews?.length || 0;
     const hasViews = privateViewCount > 0 || publicViewCount > 0 || false;
 
     return (
-        <ViewSelectContainer>
-            <Popover
-                onOpenChange={() => {
-                    scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                    setIsOpen(!isOpen);
-                }}
-                content={
-                    <ViewSelectPopoverContent
-                        privateView={privateView}
-                        publicView={publicView}
-                        onClickCreateView={onClickCreateView}
-                        onClickManageViews={onClickManageViews}
-                        onClickViewTypeFilter={onClickViewTypeFilter}
-                        onChangeSearch={debouncedSetFilterText}
-                    >
-                        {hasViews &&
-                            privateViewCount > 0 &&
-                            privateView &&
-                            renderViewOptionGroup({
-                                selectedUrn,
-                                views: highlightedPrivateViewData,
-                                isOwnedByUser: true,
-                                userContext,
-                                hoverViewUrn,
-                                scrollToRef,
-                                setHoverViewUrn,
-                                onClickEditView,
-                                onClickPreviewView,
-                                onClickClear: onClear,
-                                onSelectView,
-                            })}
-                        {hasViews &&
-                            publicViewCount > 0 &&
-                            publicView &&
-                            renderViewOptionGroup({
-                                selectedUrn,
-                                views: highlightedPublicViewData,
-                                userContext,
-                                hoverViewUrn,
-                                scrollToRef,
-                                setHoverViewUrn,
-                                onClickEditView,
-                                onClickPreviewView,
-                                onClickClear: onClear,
-                                onSelectView,
-                            })}
-                    </ViewSelectPopoverContent>
-                }
-                trigger="click"
-                overlayClassName="view-select-popover"
-                overlayInnerStyle={overlayInnerStyle}
-                overlayStyle={overlayStyle}
-                showArrow={false}
-                popupVisible={false}
-                ref={selectRef}
-            >
-                {renderSelectedView({ selectedViewName, isOpen, onClear })}
-            </Popover>
-            {viewBuilderDisplayState.visible && (
-                <ViewBuilder
-                    urn={viewBuilderDisplayState.view?.urn || undefined}
-                    initialState={viewBuilderDisplayState.view}
-                    mode={viewBuilderDisplayState.mode}
-                    onSubmit={onCloseViewBuilder}
-                    onCancel={onCloseViewBuilder}
-                />
-            )}
-        </ViewSelectContainer>
+        <>
+            {isShowNavBarRedesign && createPortal(<Blur $isOpen={isOpen} />, document.body)}
+            <ViewSelectContainer>
+                <Popover
+                    open={isOpen}
+                    onOpenChange={() => {
+                        scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        setIsOpen(!isOpen);
+                    }}
+                    content={
+                        <>
+                            <ViewSelectPopoverContent
+                                privateView={privateView}
+                                publicView={publicView}
+                                onClickCreateView={onClickCreateView}
+                                onClickManageViews={onClickManageViews}
+                                onClickViewTypeFilter={onClickViewTypeFilter}
+                                onChangeSearch={debouncedSetFilterText}
+                            >
+                                {hasViews &&
+                                    privateViewCount > 0 &&
+                                    privateView &&
+                                    renderViewOptionGroup({
+                                        selectedUrn,
+                                        views: highlightedPrivateViewData,
+                                        isOwnedByUser: true,
+                                        userContext,
+                                        hoverViewUrn,
+                                        scrollToRef,
+                                        setHoverViewUrn,
+                                        onClickEditView,
+                                        onClickPreviewView,
+                                        onClickClear: onClear,
+                                        onSelectView,
+                                    })}
+                                {hasViews &&
+                                    publicViewCount > 0 &&
+                                    publicView &&
+                                    renderViewOptionGroup({
+                                        selectedUrn,
+                                        views: highlightedPublicViewData,
+                                        userContext,
+                                        hoverViewUrn,
+                                        scrollToRef,
+                                        setHoverViewUrn,
+                                        onClickEditView,
+                                        onClickPreviewView,
+                                        onClickClear: onClear,
+                                        onSelectView,
+                                    })}
+                            </ViewSelectPopoverContent>
+                        </>
+                    }
+                    trigger="click"
+                    overlayClassName="view-select-popover"
+                    overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign)}
+                    overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
+                    showArrow={false}
+                    popupVisible={false}
+                    ref={selectRef}
+                >
+                    {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}
+                </Popover>
+                {viewBuilderDisplayState.visible && (
+                    <ViewBuilder
+                        urn={viewBuilderDisplayState.view?.urn || undefined}
+                        initialState={viewBuilderDisplayState.view}
+                        mode={viewBuilderDisplayState.mode}
+                        onSubmit={onCloseViewBuilder}
+                        onCancel={onCloseViewBuilder}
+                    />
+                )}
+            </ViewSelectContainer>
+        </>
     );
 };

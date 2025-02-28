@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
-import { CorpUser, PlatformPrivileges } from '../../types.generated';
+import {
+    ActionRequestStatus,
+    CorpUser,
+    EntityRelationshipsResult,
+    FormForActor,
+    PlatformPrivileges,
+} from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
+
+import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
+import { useGetFormsForActorQuery } from '../../graphql/form.generated';
+import { filterFormsForUser } from '../taskCenter/requests/utils';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 
@@ -49,6 +59,18 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     });
     useEffect(() => getGlobalViewSettings(), [getGlobalViewSettings]);
 
+    /*
+     * Retrieve user unfinished task count (propsals & forms)
+     */
+    const { data: unfinishedProposals, refetch: unfinishedProposalRefetch } = useListActionRequestsQuery({
+        variables: { input: { count: 0, status: ActionRequestStatus.Pending } },
+        fetchPolicy: 'no-cache',
+    });
+    const { data: unfinishedForms, refetch: unfinishedFormsRefetch } = useGetFormsForActorQuery({
+        variables: { input: { searchFlags: { skipCache: true } } },
+        fetchPolicy: 'no-cache',
+    });
+
     const updateLocalState = (newState: LocalState) => {
         saveLocalState(newState);
         setLocalState(newState);
@@ -63,6 +85,11 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         },
         [localState],
     );
+
+    const fetchUnfinishedTaskCount = () => {
+        unfinishedProposalRefetch();
+        unfinishedFormsRefetch();
+    };
 
     // Update the global default views in local state
     useEffect(() => {
@@ -124,17 +151,41 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [state, localState.selectedViewUrn, setDefaultSelectedView]);
 
+    /*
+     * Update state with user unfinished tasks (proposals + forms)
+     */
+    useEffect(() => {
+        const unfinishedProposalCount = unfinishedProposals?.listActionRequests?.total || 0;
+        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || []).filter((form) =>
+            filterFormsForUser(form as FormForActor),
+        ).length;
+
+        const unfinishedTaskCount = unfinishedProposalCount + unfinishedFormCount || 0;
+
+        if (unfinishedTaskCount !== state.unfinishedTaskCount) {
+            setState({
+                ...state,
+                unfinishedTaskCount,
+                notificationsCount: unfinishedFormCount,
+                proposalCount: unfinishedProposalCount,
+            });
+        }
+    }, [state, unfinishedProposals, unfinishedForms]);
+
     return (
         <UserContext.Provider
             value={{
+                loaded: !!meData,
                 urn: meData?.me?.corpUser?.urn,
                 user: meData?.me?.corpUser as CorpUser,
+                userGroups: meData?.me?.corpUser.groups as EntityRelationshipsResult,
                 platformPrivileges: meData?.me?.platformPrivileges as PlatformPrivileges,
                 state,
                 localState,
                 updateState: setState,
                 updateLocalState,
                 refetchUser: refetch as any,
+                refetchUnfinishedTaskCount: fetchUnfinishedTaskCount as any,
             }}
         >
             {children}

@@ -10,11 +10,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CancelIngestionExecutionRequestInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -42,9 +43,9 @@ public class CancelIngestionExecutionRequestResolver
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          if (AuthorizationUtils.canManageIngestion(context)) {
 
             final CancelIngestionExecutionRequestInput input =
                 bindArgument(
@@ -54,10 +55,10 @@ public class CancelIngestionExecutionRequestResolver
               final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
               final Map<Urn, EntityResponse> response =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       INGESTION_SOURCE_ENTITY_NAME,
                       ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
 
               if (!response.containsKey(ingestionSourceUrn)) {
                 throw new DataHubGraphQLException(
@@ -86,7 +87,7 @@ public class CancelIngestionExecutionRequestResolver
                       UrnUtils.getUrn(input.getExecutionRequestUrn()),
                       EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
                       execSignal);
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to submit cancel signal %s", input), e);
@@ -94,6 +95,8 @@ public class CancelIngestionExecutionRequestResolver
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

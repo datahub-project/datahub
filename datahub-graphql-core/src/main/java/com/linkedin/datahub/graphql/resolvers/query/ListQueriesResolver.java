@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -14,12 +16,12 @@ import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -56,24 +58,40 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+    final Filter inputFilter =
+        input.getOrFilters() != null
+            ? buildFilter(Collections.emptyList(), input.getOrFilters())
+            : null;
+    final Filter finalFilter =
+        inputFilter != null
+            ? FilterUtils.combineFilters(inputFilter, buildFilters(input))
+            : buildFilters(input);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final SortCriterion sortCriterion =
-                new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+            List<SortCriterion> sortCriteria =
+                input.getSortInput() != null
+                    ? Collections.singletonList(
+                        mapSortCriterion(input.getSortInput().getSortCriterion()))
+                    : Collections.singletonList(
+                        new SortCriterion()
+                            .setField(CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(
+                            flags -> flags.setFulltext(true).setSkipHighlighting(true)),
                     QUERY_ENTITY_NAME,
                     query,
-                    buildFilters(input),
-                    sortCriterion,
+                    finalFilter,
+                    sortCriteria,
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true).setSkipHighlighting(true));
+                    count);
 
             final ListQueriesResult result = new ListQueriesResult();
             result.setStart(gmsResult.getFrom());
@@ -88,7 +106,9 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Queries", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Query objects which will be

@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.UpdateGroupNotificationSettingsInp
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.metadata.service.SettingsService;
@@ -50,7 +52,7 @@ public class UpdateGroupNotificationSettingsResolver
             final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
 
             CorpGroupSettings corpGroupSettings =
-                _settingsService.getCorpGroupSettings(groupUrn, authentication);
+                _settingsService.getCorpGroupSettings(context.getOperationContext(), groupUrn);
             if (corpGroupSettings == null) {
               corpGroupSettings = new CorpGroupSettings();
             }
@@ -69,7 +71,6 @@ public class UpdateGroupNotificationSettingsResolver
 
             final SlackNotificationSettingsInput slackNotificationSettingsInput =
                 notificationSettingsInput.getSlackSettings();
-            // In the future, add blocks for other notification settings.
             if (slackNotificationSettingsInput != null) {
               final SlackNotificationSettings slackNotificationSettings =
                   _settingsService.createSlackNotificationSettings(
@@ -78,10 +79,20 @@ public class UpdateGroupNotificationSettingsResolver
               notificationSettings.setSlackSettings(slackNotificationSettings);
             }
 
-            corpGroupSettings.setNotificationSettings(notificationSettings);
-            _settingsService.updateCorpGroupSettings(groupUrn, corpGroupSettings, authentication);
+            final EmailNotificationSettingsInput emailNotificationSettingsInput =
+                notificationSettingsInput.getEmailSettings();
+            if (emailNotificationSettingsInput != null) {
+              final EmailNotificationSettings emailNotificationSettings =
+                  _settingsService.createEmailNotificationSettings(
+                      emailNotificationSettingsInput.getEmail());
+              notificationSettings.setEmailSettings(emailNotificationSettings);
+            }
 
-            return NotificationSettingsMapper.map(notificationSettings);
+            corpGroupSettings.setNotificationSettings(notificationSettings);
+            _settingsService.updateCorpGroupSettings(
+                context.getOperationContext(), groupUrn, corpGroupSettings);
+
+            return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

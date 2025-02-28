@@ -1,0 +1,45 @@
+namespace com.linkedin.executorpool
+
+import com.linkedin.common.Urn
+
+
+@Aspect = {
+  "name": "dataHubRemoteExecutorPoolInfo"
+}
+record RemoteExecutorPoolInfo {
+
+  /**
+   * UTC-based timestamp of when this pool was created
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  createdAt: long
+
+  /**
+   * The creator of this pool
+   */
+  creator: optional Urn
+
+  /**
+   * A description for this pool
+   */
+  description: optional string
+
+  /**
+   * The url to the task queue for this pool. I.e., SQS queue url.
+   */
+  queueUrl: optional string
+
+  /**
+   * Only set true if this is the pool embedded within the DataHub Cloud deployment
+   */
+  isEmbedded: optional boolean
+
+  /**
+   * The status of the remote executor pool
+   */
+  state: optional RemoteExecutorPoolState
+
+}

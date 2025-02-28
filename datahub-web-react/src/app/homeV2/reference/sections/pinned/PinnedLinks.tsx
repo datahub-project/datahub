@@ -1,33 +1,28 @@
-import React, { useState } from 'react';
+import React, { useContext } from 'react';
+import { Section } from '@src/app/homeV2/content/tabs/discovery/sections/Section';
+import OnboardingContext from '../../../../onboarding/OnboardingContext';
 import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
 import { useGetPinnedLinks } from './useGetPinnedLinks';
 import { PinnedLinkList } from './PinnedLinkList';
-
-const DEFAULT_MAX_LINKS_TO_SHOW = 3;
+import { useAppConfig } from '../../../../useAppConfig';
+import { EntityLinkListSkeleton } from '../EntityLinkListSkeleton';
 
 export const PinnedLinks = ({ hideIfEmpty }: ReferenceSectionProps) => {
-    const [linkCount, setLinkCount] = useState(DEFAULT_MAX_LINKS_TO_SHOW);
-    const { links } = useGetPinnedLinks();
+    const { isUserInitializing } = useContext(OnboardingContext);
+    const { links, loading } = useGetPinnedLinks();
+    const appConfig = useAppConfig();
+
+    if (!appConfig.loaded || isUserInitializing || loading) {
+        return <EntityLinkListSkeleton />;
+    }
 
     if (hideIfEmpty && links.length === 0) {
         return null;
     }
 
     return (
-        <ReferenceSection>
-            <PinnedLinkList
-                links={links.slice(0, linkCount)}
-                title="Pinned links"
-                tip="Pinned links for your organization"
-                showMore={links.length > linkCount}
-                onClickMore={() => setLinkCount(linkCount + DEFAULT_MAX_LINKS_TO_SHOW)}
-                showMoreCount={
-                    linkCount + DEFAULT_MAX_LINKS_TO_SHOW > links.length
-                        ? links.length - linkCount
-                        : DEFAULT_MAX_LINKS_TO_SHOW
-                }
-            />
-        </ReferenceSection>
+        <Section title="Pinned Links" tip="Links pinned by your DataHub admins">
+            <PinnedLinkList links={links} />
+        </Section>
     );
 };

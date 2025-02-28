@@ -54,18 +54,22 @@ export class RoleEntity implements Entity<Role> {
 
     renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
 
-    renderPreview = (previewType: PreviewType, data: Role) => (
-        <DefaultPreviewCard
-            description={data?.properties?.description || ''}
-            name={this.displayName(data)}
-            urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-            logoComponent={<PreviewTagIcon />}
-            entityType={EntityType.Role}
-            typeIcon={this.icon(14, IconStyleType.ACCENT)}
-            previewType={previewType}
-        />
-    );
+    renderPreview = (previewType: PreviewType, data: Role) => {
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <DefaultPreviewCard
+                data={genericProperties}
+                description={data?.properties?.description || ''}
+                name={this.displayName(data)}
+                urn={data.urn}
+                url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+                logoComponent={<PreviewTagIcon />}
+                entityType={EntityType.Role}
+                typeIcon={this.icon(14, IconStyleType.ACCENT)}
+                previewType={previewType}
+            />
+        );
+    };
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Role);

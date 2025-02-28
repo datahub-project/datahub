@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.aspect;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -46,6 +48,7 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
       @Nonnull List<VersionedAspectKey> keys, @Nonnull QueryContext context) throws Exception {
 
     try {
+
       return keys.stream()
           .map(
               key -> {
@@ -53,11 +56,13 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
                   Urn entityUrn = Urn.createFromString(key.getUrn());
 
                   Map<Urn, EntityResponse> response =
-                      _entityClient.batchGetV2(
-                          entityUrn.getEntityType(),
-                          ImmutableSet.of(entityUrn),
-                          ImmutableSet.of(key.getAspectName()),
-                          context.getAuthentication());
+                      canView(context.getOperationContext(), entityUrn)
+                          ? _entityClient.batchGetV2(
+                              context.getOperationContext(),
+                              entityUrn.getEntityType(),
+                              ImmutableSet.of(entityUrn),
+                              ImmutableSet.of(key.getAspectName()))
+                          : Map.of();
 
                   EntityResponse entityResponse = response.get(entityUrn);
 
@@ -69,7 +74,7 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
                   final EnvelopedAspect aspect =
                       entityResponse.getAspects().get(key.getAspectName());
                   return DataFetcherResult.<Aspect>newResult()
-                      .data(AspectMapper.map(aspect, entityUrn))
+                      .data(AspectMapper.map(context, aspect, entityUrn))
                       .build();
                 } catch (Exception e) {
                   if (e instanceof RestLiResponseException) {

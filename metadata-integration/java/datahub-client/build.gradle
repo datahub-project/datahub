@@ -1,40 +1,51 @@
 plugins {
   id("com.palantir.git-version") apply false
-  id 'java'
-  id 'com.github.johnrengelman.shadow'
-  id 'jacoco'
+  id 'java-library'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
 }
 
+apply from: "../../../gradle/coverage/java-coverage.gradle"
 apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
 
-jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+jar {
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
+  archiveClassifier = "lib"
+}
 
 dependencies {
+  api project(':entity-registry')
+  api project(':metadata-integration:java:datahub-event')
+  implementation project(':metadata-integration:java:datahub-schematron:lib')
+
   // DO NOT DELETE. Required for SaaS version
-  implementation project(':entity-registry')
   implementation project(':metadata-events:mxe-utils-avro')
 
   implementation project(':entity-registry')
+  implementation project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
   implementation externalDependency.avro
+  implementation externalDependency.httpClient
+
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
     }
   }
 
-  compileOnly externalDependency.httpAsyncClient
+  implementation externalDependency.awsS3
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
-  implementation externalDependency.slf4jApi
+  api externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
@@ -44,15 +55,10 @@ dependencies {
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpAsyncClient
   testRuntimeOnly externalDependency.logbackClassic
   testRuntimeOnly externalDependency.logbackJackson
   testRuntimeOnly externalDependency.logbackJsonClassic
 }
-
-//jacocoTestReport {
-//    dependsOn test // tests are required to run before generating the report
-//}
 
 task copyAvroSchemas {
   dependsOn(':metadata-events:mxe-schemas:renameNamespace')
@@ -64,16 +70,40 @@ task copyAvroSchemas {
 
 compileJava.dependsOn copyAvroSchemas
 
-jacocoTestReport {
-  dependsOn test // tests are required to run before generating the report
+// Add Python environment validation task
+task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
+    doFirst {
+        def venvPath = System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
+
+        def result = exec {
+            commandLine pythonExe, "-c", "import sys; print(sys.executable)"
+            ignoreExitValue = true
+            standardOutput = new ByteArrayOutputStream()
+            errorOutput = new ByteArrayOutputStream()
+        }
+
+        if (result.exitValue != 0) {
+            throw new GradleException("Python virtual environment not properly set up at ${venvPath}")
+        }
+    }
 }
 
 test {
   // to avoid simultaneous executions of tests when complete build is run
   mustRunAfter(":metadata-io:test")
   useJUnit()
-  finalizedBy jacocoTestReport
+  // Add Python environment configuration
+  dependsOn validatePythonEnv
+  dependsOn tasks.getByPath(":metadata-ingestion:installDev")
+  systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
 }
+
+// no submodule depends on datahub-schematron:cli
+// and tests there are the ones checking python-java compatibility
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:lib:test")
 
 task checkShadowJar(type: Exec) {
   commandLine 'sh', '-c', 'scripts/check_jar.sh'
@@ -81,11 +111,19 @@ task checkShadowJar(type: Exec) {
 
 shadowJar {
   zip64 = true
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
   archiveClassifier = ''
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
           '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
+  dependencies {
+    exclude(dependency("org.slf4j::"))
+    exclude(dependency("antlr::"))
+    exclude("org/apache/commons/logging/**")
+  }
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
@@ -98,9 +136,15 @@ shadowJar {
   relocate 'javassist', 'io.acryl.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
   relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
-  relocate 'antlr', 'io.acryl.shaded.antlr'
-  relocate 'com.google.common', 'io.acryl.shaded.com.google.common'
-  relocate 'org.apache.commons', 'io.acryl.shaded.org.apache.commons'
+  // relocate 'antlr', 'io.acryl.shaded.antlr'
+    relocate 'com.google.common', 'io.acryl.shaded.com.google.common'
+    relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.codec'
+    relocate 'org.apache.commons.compress', 'io.acryl.shaded.org.apache.commons.compress'
+    relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
+    relocate 'org.apache.commons.lang', 'io.acryl.shaded.org.apache.commons.lang'
+    relocate 'org.apache.commons.cli', 'io.acryl.shaded.org.apache.commons.cli'
+    relocate 'org.apache.commons.text', 'io.acryl.shaded.org.apache.commons.text'
+    relocate 'org.apache.commons.io', 'io.acryl.shaded.org.apache.commons.io'
   relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
   relocate 'org.reflections', 'io.acryl.shaded.org.reflections'
   relocate 'st4hidden', 'io.acryl.shaded.st4hidden'
@@ -120,6 +164,8 @@ shadowJar {
   relocate 'com.thoughtworks.paranamer', 'io.acryl.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'io.acryl.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'io.acryl.shaded.org.apache.kafka'
+  relocate 'org.apache.http', 'io.acryl.shaded.org.apache.http'
+  relocate 'software.amazon.awssdk', 'io.acryl.shaded.software.amazon.awssdk'
   relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
   relocate 'org.apache.zookeeper', 'io.acryl.shaded.org.apache.zookeeper'
   relocate 'org.apache.yetus', 'io.acryl.shaded.org.apache.yetus'
@@ -131,6 +177,15 @@ shadowJar {
   relocate 'common.message', 'io.acryl.shaded.common.message'
   relocate 'org.glassfish', 'io.acryl.shaded.org.glassfish'
   relocate 'ch.randelshofer', 'io.acryl.shaded.ch.randelshofer'
+  relocate 'io.github.classgraph', 'io.acryl.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'io.acryl.shaded.nonapi.io.github.classgraph'
+  relocate 'org.eclipse.parsson', 'io.acryl.shaded.parsson'
+  relocate 'jakarta.json', 'io.acryl.shaded.json'
+  relocate 'io.netty', 'io.acryl.shaded.io.netty'
+  relocate 'org.apache.hc', 'io.acryl.shaded.org.apache.hc'
+  relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
+  relocate 'software.amazon.eventstream', 'io.acryl.shaded.software.amazon.eventstream'
+  finalizedBy checkShadowJar
 }
 
 assemble {
@@ -155,7 +210,7 @@ publishing {
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'
-        artifactId = 'datahub-client'
+        artifactId = 'datahub-client' + (project.hasProperty('archiveAppendix') ? "-${archiveAppendix}" : '')
         description = 'DataHub Java client for metadata integration'
         url = 'https://datahubproject.io'
         artifacts = [shadowJar, javadocJar, sourcesJar]

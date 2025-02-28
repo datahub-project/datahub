@@ -1,7 +1,8 @@
 import { LockOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { List, Tag, Tooltip, Typography } from 'antd';
+import { List, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import { CorpGroup, DataHubRole, EntityType, OriginType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
@@ -54,7 +55,11 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
             <GroupItemContainer>
                 <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}`}>
                     <GroupHeaderContainer>
-                        <CustomAvatar size={32} name={displayName} />
+                        <CustomAvatar
+                            size={32}
+                            name={displayName}
+                            photoUrl={group?.editableProperties?.pictureLink || undefined}
+                        />
                         <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>

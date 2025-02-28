@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -11,12 +12,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -26,7 +28,7 @@ public class ListTestsResolverTest {
 
   private static final Urn TEST_URN = Urn.createFromTuple("test", "test-id");
 
-  private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null);
+  private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null, null);
 
   private EntityClient mockClient;
   private ListTestsResolver resolver;
@@ -45,14 +47,13 @@ public class ListTestsResolverTest {
   public void testGetSuccess() throws Exception {
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(null),
-                any(SortCriterion.class),
+                Mockito.any(Filter.class),
+                any(List.class),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(ListTestsResolver.SEARCH_FLAGS)))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -86,12 +87,11 @@ public class ListTestsResolverTest {
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
             Mockito.any(),
+            Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(ListTestsResolver.SEARCH_FLAGS));
+            Mockito.anyInt());
   }
 
   @Test
@@ -100,12 +100,11 @@ public class ListTestsResolverTest {
         .when(mockClient)
         .search(
             Mockito.any(),
+            Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(ListTestsResolver.SEARCH_FLAGS));
+            Mockito.anyInt());
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver

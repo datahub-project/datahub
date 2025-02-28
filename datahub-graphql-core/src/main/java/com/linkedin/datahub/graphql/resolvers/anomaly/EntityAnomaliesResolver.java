@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,22 +57,22 @@ public class EntityAnomaliesResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildAnomaliesEntityFilter(entityUrn, maybeState);
-            final SortCriterion sortCriterion = buildAnomaliesSortCriterion();
+            final List<SortCriterion> sortCriteria = buildAnomaliesSortCriteria();
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.ANOMALY_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
             final List<Urn> anomalyUrns =
                 searchResult.getEntities().stream()
                     .map(SearchEntity::getEntity)
                     .collect(Collectors.toList());
             final List<Anomaly> anomalies =
                 anomalyUrns.stream()
-                    .map(UrnToEntityMapper::map)
+                    .map(urn -> UrnToEntityMapper.map(context, urn))
                     .map(entity -> (Anomaly) entity)
                     .collect(Collectors.toList());
             // Step 4: Package and return result
@@ -96,10 +97,10 @@ public class EntityAnomaliesResolver
     return QueryUtils.newFilter(criterionMap);
   }
 
-  private SortCriterion buildAnomaliesSortCriterion() {
+  private List<SortCriterion> buildAnomaliesSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

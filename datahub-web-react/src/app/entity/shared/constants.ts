@@ -4,6 +4,10 @@ import { EntityType } from '../../../types.generated';
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
     BLUE: '#1890FF',
+    YELLOW_500: '#f6cf6a',
+    YELLOW_200: '#fcf1d3',
+    YELLOW_600: '#f4c449',
+    YELLOW_700: '#cfa73e',
 };
 
 export const ANTD_GRAY = {
@@ -77,6 +81,14 @@ export const EMPTY_MESSAGES = {
     'inherited by': {
         title: 'Is not inherited by any terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+    },
+    businessAttributes: {
+        title: 'No business attributes added yet',
+        description: 'Add business attributes to entities to classify their data.',
+    },
+    mlModel: {
+        title: 'No ML models',
+        description: 'ML models will appear here if they are associated with this ML model group.',
     },
 };
 

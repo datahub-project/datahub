@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
@@ -29,16 +30,17 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
         bindArgument(environment.getArgument("input"), TermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    final QueryContext context = environment.getContext();
 
-    if (!LabelUtils.isAuthorizedToUpdateTerms(
-        environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTerms(context, targetUrn, input.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
@@ -49,10 +51,9 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
           try {
             log.info("Adding Term. input: {}", input);
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.addTermsToResources(
+                context.getOperationContext(),
                 ImmutableList.of(termUrn),
                 ImmutableList.of(
                     new ResourceRefInput(
@@ -68,6 +69,8 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

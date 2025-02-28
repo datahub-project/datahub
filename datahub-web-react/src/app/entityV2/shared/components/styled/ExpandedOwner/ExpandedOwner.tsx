@@ -1,24 +1,28 @@
 import { message, Modal, Tag } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { StyledLink } from '@src/app/previewV2/EntityHeader';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
 import { EntityType, Owner } from '../../../../../../types.generated';
 import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import OwnerContent from './OwnerContent';
+import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
 
 const OwnerTag = styled(Tag)`
     padding: 1px;
     padding-right: 6px;
     margin-bottom: 8px;
+    margin-right: 0px;
     display: inline-flex;
     align-items: center;
     font-weight: 600;
     border-color: #9da7c0 !important;
-    padding: 2px 6px;
+    padding: 2px 6px 2px 3px;
+
+    max-width: inherit;
 `;
 
 type Props = {
@@ -33,6 +37,7 @@ type Props = {
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
+    const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
     let name = '';
     let ownershipTypeName = '';
@@ -97,7 +102,10 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
-                <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
+                <StyledLink
+                    to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
+                    {...linkProps}
+                >
                     <OwnerContent
                         name={name}
                         owner={owner}
@@ -105,7 +113,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                         pictureLink={pictureLink}
                         fontSize={fontSize}
                     />
-                </Link>
+                </StyledLink>
             )}
         </OwnerTag>
     );

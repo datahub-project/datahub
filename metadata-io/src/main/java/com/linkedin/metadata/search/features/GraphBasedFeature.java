@@ -10,8 +10,10 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.Neo4jUtil;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,10 +27,11 @@ public class GraphBasedFeature implements FeatureExtractor {
       ImmutableList.of("DownstreamOf", "Consumes");
 
   @Override
-  public List<Features> extractFeatures(List<SearchEntity> entities) {
+  public List<Features> extractFeatures(
+      @Nonnull OperationContext opContext, List<SearchEntity> entities) {
     return ConcurrencyUtils.transformAndCollectAsync(
             entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
-            this::getOutDegree)
+            urn -> getOutDegree(opContext, urn))
         .stream()
         .map(
             outDegree ->
@@ -36,9 +39,10 @@ public class GraphBasedFeature implements FeatureExtractor {
         .collect(Collectors.toList());
   }
 
-  private int getOutDegree(Urn urn) {
+  private int getOutDegree(@Nonnull OperationContext opContext, Urn urn) {
     RelatedEntitiesResult graphResult =
         _graphService.findRelatedEntities(
+            opContext,
             null,
             QueryUtils.EMPTY_FILTER,
             null,

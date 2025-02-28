@@ -26,26 +26,32 @@ fragment autoCompleteFields on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
+        }
+        siblingsSearch(input: { query: "*", count: 1 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                        platform {
+                            ...platformFields
+                        }
+                        parentContainers {
+                            ...parentContainersFields
+                        }
                         name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
+                        properties {
+                            name
+                            description
+                            qualifiedName
+                            externalUrl
+                            lastModified {
+                                time
+                                actor
+                            }
                         }
                     }
                 }
@@ -54,6 +60,9 @@ fragment autoCompleteFields on Entity {
         ...datasetStatsFields
         access {
             ...getAccess
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Role {
@@ -98,6 +107,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Chart {
         chartId
@@ -116,6 +128,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -127,6 +142,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on DataJob {
@@ -145,6 +163,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on GlossaryTerm {
@@ -190,6 +211,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Tag {
@@ -240,6 +264,12 @@ fragment autoCompleteFields on Entity {
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
+    }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
     }
 }
 
@@ -333,6 +363,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...dataPlatformInstanceFields
     }
     editableProperties {
+        name
         description
     }
     access {
@@ -376,37 +407,51 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...deprecationFields
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     ...datasetStatsFields
 }
 
-fragment searchResultFields on Entity {
-    ... on EntityWithRelationships {
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: false }) {
-            total
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: false }) {
-            total
-        }
-    }
+fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
     ... on Dataset {
         ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
+        }
+        siblingsSearch(input: { query: "*", count: 1 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...nonSiblingsDatasetSearchFields
+                        siblings {
+                            isPrimary
+                        }
+                        structuredProperties {
+                            properties {
+                                ...structuredPropertiesFields
+                            }
+                        }
+                    }
                 }
             }
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
     ... on Role {
         id
@@ -425,6 +470,8 @@ fragment searchResultFields on Entity {
             lastName
             fullName
             email
+            departmentName
+            title
         }
         info {
             active
@@ -434,6 +481,8 @@ fragment searchResultFields on Entity {
             lastName
             fullName
             email
+            departmentName
+            title
         }
         editableProperties {
             displayName
@@ -463,6 +512,7 @@ fragment searchResultFields on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
         }
         ownership {
             ...ownershipFields
@@ -518,6 +568,17 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Chart {
         chartId
@@ -530,6 +591,7 @@ fragment searchResultFields on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
@@ -552,6 +614,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         domain {
             ...entityDomain
         }
@@ -561,6 +626,9 @@ fragment searchResultFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         statsSummary {
             viewCount
@@ -586,6 +654,14 @@ fragment searchResultFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on DataFlow {
@@ -615,6 +691,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         domain {
             ...entityDomain
         }
@@ -624,6 +703,14 @@ fragment searchResultFields on Entity {
         }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
+        }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on DataJob {
@@ -658,6 +745,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         subTypes {
             typeNames
         }
@@ -672,6 +762,14 @@ fragment searchResultFields on Entity {
                     time
                     actor
                 }
+            }
+        }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
             }
         }
     }
@@ -699,11 +797,21 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
         parentNodes {
             ...parentNodesFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Domain {
@@ -721,6 +829,11 @@ fragment searchResultFields on Entity {
             ...displayPropertiesFields
         }
         ...domainEntitiesFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Container {
         properties {
@@ -758,6 +871,11 @@ fragment searchResultFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeatureTable {
         name
@@ -783,12 +901,27 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModel {
         name
@@ -805,6 +938,14 @@ fragment searchResultFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        properties {
+            propertiesName: name
         }
     }
     ... on MLModelGroup {
@@ -823,6 +964,14 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        properties {
+            propertiesName: name
+        }
     }
     ... on Tag {
         name
@@ -837,18 +986,209 @@ fragment searchResultFields on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
+    }
+
+    ... on DataHubConnection {
+        details {
+            name
+            json {
+                blob
+            }
+        }
+    }
+    ... on Form {
+        formInfo: info {
+            name
+            description
+            type
+            status {
+                state
+                lastModified {
+                    time
+                    actor
+                }
+            }
+            created {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+            }
+            prompts {
+                id
+                formUrn
+                title
+                description
+                type
+                required
+                structuredPropertyParams {
+                    structuredProperty {
+                        ...structuredPropertyFields
+                    }
+                }
+                ownershipParams {
+                    cardinality
+                    allowedOwners {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    allowedOwnershipTypes {
+                        urn
+                        type
+                        info {
+                            name
+                            description
+                        }
+                    }
+                }
+                glossaryTermsParams {
+                    cardinality
+                    resolvedAllowedTerms {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+                domainParams {
+                    allowedDomains {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+            }
+            actors {
+                owners
+                isAssignedToMe
+                users {
+                    urn
+                    properties {
+                        displayName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+                groups {
+                    urn
+                    properties {
+                        displayName
+                        description
+                    }
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+        }
+    }
+}
+
+fragment searchResultFieldsNoLineage on Entity {
+    ...searchResultsWithoutSchemaField
+    ... on SchemaFieldEntity {
+        ...entityField
+    }
+}
+
+fragment searchResultFields on Entity {
+    ...searchResultFieldsNoLineage
+    ... on EntityWithRelationships {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
+        }
     }
 }
 
 fragment facetFields on FacetMetadata {
     field
     displayName
+    entity {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on StructuredPropertyEntity {
+            definition {
+                valueType {
+                    urn
+                }
+            }
+        }
+    }
     aggregations {
         value
         count
         entity {
             urn
             type
+            ...entityDisplayNameFields
             ... on Tag {
                 name
                 properties {
@@ -885,6 +1225,9 @@ fragment facetFields on FacetMetadata {
                 }
                 properties {
                     name
+                }
+                parentContainers {
+                    ...parentContainersFields
                 }
             }
             ... on CorpUser {
@@ -949,12 +1292,45 @@ fragment searchResults on SearchResults {
     }
 }
 
-fragment schemaFieldEntityFields on SchemaFieldEntity {
+fragment entityField on SchemaFieldEntity {
+    urn
+    type
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+            parentContainers {
+                ...parentContainersFields
+            }
+        }
+    }
+    fieldPath
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+}
+
+fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     urn
     type
     fieldPath
     parent {
-        ...searchResultFields
+        urn
+        type
     }
 }
 
@@ -990,9 +1366,9 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         }
         paths {
             path {
-                ...searchResultFields
+                ...searchResultsWithoutSchemaField
                 ... on SchemaFieldEntity {
-                    ...schemaFieldEntityFields
+                    ...schemaFieldEntitySearchFields
                 }
             }
         }
@@ -1015,6 +1391,12 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
+query getSearchCount($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        total
+    }
+}
+
 query searchAcrossLineage(
     $input: SearchAcrossLineageInput!
     $includeAssertions: Boolean = false
@@ -1022,6 +1404,12 @@ query searchAcrossLineage(
 ) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
+    }
+}
+
+query searchAcrossLineageCount($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
     }
 }
 
@@ -1041,6 +1429,19 @@ query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
                     type
                 }
             }
+            explored
+            ignoredAsHop
+        }
+    }
+}
+
+query aggregateAcrossLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
         }
     }
 }

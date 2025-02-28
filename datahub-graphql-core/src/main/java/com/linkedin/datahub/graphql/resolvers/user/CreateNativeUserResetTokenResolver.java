@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateNativeUserResetTokenInput;
 import com.linkedin.datahub.graphql.generated.ResetToken;
@@ -40,18 +41,20 @@ public class CreateNativeUserResetTokenResolver
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             String resetToken =
                 _nativeUserService.generateNativeUserPasswordResetToken(
-                    userUrnString, context.getAuthentication());
+                    context.getOperationContext(), userUrnString);
             return new ResetToken(resetToken);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
                     "Failed to generate password reset token for user: %s", userUrnString));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -1,8 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.anomaly.AnomalySource;
@@ -20,12 +22,14 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -43,79 +47,83 @@ public class AnomalyServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,non-existent,PROD)");
   private static final Urn TEST_USER_URN = UrnUtils.getUrn(SYSTEM_ACTOR);
 
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   @Test
   private void testGetAnomalyInfo() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Info exists
-    AnomalyInfo info = service.getAnomalyInfo(TEST_ANOMALY_URN);
+    AnomalyInfo info = service.getAnomalyInfo(mock(OperationContext.class), TEST_ANOMALY_URN);
     Assert.assertEquals(info, mockAnomalyInfo());
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
             Mockito.eq(TEST_ANOMALY_URN),
-            Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)));
 
     // Case 2: Info does not exist
-    info = service.getAnomalyInfo(TEST_NON_EXISTENT_ANOMALY_URN);
+    info = service.getAnomalyInfo(mock(OperationContext.class), TEST_NON_EXISTENT_ANOMALY_URN);
     Assert.assertNull(info);
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
             Mockito.eq(TEST_NON_EXISTENT_ANOMALY_URN),
-            Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)));
   }
 
   @Test
   private void testGetAnomaliesSummary() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Summary exists
-    AnomaliesSummary summary = service.getAnomaliesSummary(TEST_DATASET_URN);
+    AnomaliesSummary summary =
+        service.getAnomaliesSummary(mock(OperationContext.class), TEST_DATASET_URN);
     Assert.assertEquals(summary, mockAnomalySummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME)));
 
     // Case 2: Summary does not exist
-    summary = service.getAnomaliesSummary(TEST_NON_EXISTENT_DATASET_URN);
+    summary =
+        service.getAnomaliesSummary(mock(OperationContext.class), TEST_NON_EXISTENT_DATASET_URN);
     Assert.assertNull(summary);
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(Constants.ANOMALIES_SUMMARY_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.ANOMALIES_SUMMARY_ASPECT_NAME)));
   }
 
   @Test
   private void testUpdateAnomaliesSummary() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
-    service.updateAnomaliesSummary(TEST_DATASET_URN, mockAnomalySummary());
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
+    service.updateAnomaliesSummary(
+        mock(OperationContext.class), TEST_DATASET_URN, mockAnomalySummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.eq(mockAnomalySummaryMcp()),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(mockAnomalySummaryMcp()), Mockito.eq(false));
   }
 
   @Test
   private void testRaiseAnomalyRequiredFields() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
     service.raiseAnomaly(
+        mock(OperationContext.class),
         AnomalyType.FRESHNESS,
         null,
         null,
@@ -136,20 +144,21 @@ public class AnomalyServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testRaiseAnomalyAllFields() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
     service.raiseAnomaly(
+        mock(OperationContext.class),
         AnomalyType.FRESHNESS,
         2,
         "description",
@@ -172,20 +181,21 @@ public class AnomalyServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testUpdateAnomalyStatus() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
     service.updateAnomalyStatus(
+        mock(OperationContext.class),
         TEST_ANOMALY_URN,
         AnomalyState.RESOLVED,
         new AnomalyStatusProperties().setAssertionRunEventTime(2L),
@@ -202,36 +212,36 @@ public class AnomalyServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testDeleteAnomaly() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class));
-    service.deleteAnomaly(TEST_ANOMALY_URN);
+        new AnomalyService(mockClient, mock(OpenApiClient.class), objectMapper);
+    service.deleteAnomaly(mock(OperationContext.class), TEST_ANOMALY_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
   }
 
-  private static EntityClient createMockEntityClient() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+  private static SystemEntityClient createMockEntityClient() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     // Init for anomaly info
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(TEST_ANOMALY_URN),
-                Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ANOMALY_URN)
@@ -244,10 +254,10 @@ public class AnomalyServiceTest {
                                 .setValue(new Aspect(mockAnomalyInfo().data()))))));
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(TEST_NON_EXISTENT_ANOMALY_URN),
-                Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_ANOMALY_URN)
@@ -257,10 +267,10 @@ public class AnomalyServiceTest {
     // Init for anomalies summary
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(DATASET_ENTITY_NAME),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_DATASET_URN)
@@ -273,10 +283,10 @@ public class AnomalyServiceTest {
                                 .setValue(new Aspect(mockAnomalySummary().data()))))));
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(DATASET_ENTITY_NAME),
                 Mockito.eq(TEST_NON_EXISTENT_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(ANOMALIES_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_DATASET_URN)
@@ -286,8 +296,8 @@ public class AnomalyServiceTest {
     // Init for update summary
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.eq(mockAnomalySummaryMcp()),
-                Mockito.any(Authentication.class),
                 Mockito.eq(false)))
         .thenReturn(TEST_DATASET_URN.toString());
 

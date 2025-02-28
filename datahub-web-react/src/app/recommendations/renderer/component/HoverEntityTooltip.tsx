@@ -1,9 +1,11 @@
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import { Tooltip } from 'antd';
 import React from 'react';
 import { Entity } from '../../../../types.generated';
 import { PreviewType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
+import { HoverEntityTooltipContext } from '../../HoverEntityTooltipContext';
 
 type Props = {
     entity?: Entity;
@@ -13,6 +15,8 @@ type Props = {
     placement?: TooltipPlacement;
     showArrow?: boolean;
     width?: number;
+    maxWidth?: number;
+    entityCount?: number;
 };
 
 export const HoverEntityTooltip = ({
@@ -22,8 +26,11 @@ export const HoverEntityTooltip = ({
     placement,
     showArrow,
     width = 360,
+    maxWidth = 450,
+    entityCount = undefined,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (!entity || !entity.type || !entity.urn) {
         return <>{children}</>;
@@ -31,15 +38,23 @@ export const HoverEntityTooltip = ({
 
     const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
     return (
-        <Tooltip
-            showArrow={showArrow}
-            visible={canOpen ? undefined : false}
-            color="white"
-            placement={placement || 'bottom'}
-            overlayInnerStyle={{ padding: 20, borderRadius: 20, width }}
-            title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
-        >
-            {children}
-        </Tooltip>
+        <HoverEntityTooltipContext.Provider value={{ entityCount }}>
+            <Tooltip
+                showArrow={showArrow}
+                open={canOpen ? undefined : false}
+                color="white"
+                placement={placement || 'bottom'}
+                overlayStyle={{ minWidth: width, maxWidth, zIndex: 1100 }}
+                overlayInnerStyle={{ padding: 20, borderRadius: 20, overflow: 'hidden', position: 'relative' }}
+                title={
+                    <a href={url} {...linkProps}>
+                        {entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}
+                    </a>
+                }
+                zIndex={1000}
+            >
+                {children}
+            </Tooltip>
+        </HoverEntityTooltipContext.Provider>
     );
 };

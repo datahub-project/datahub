@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
@@ -35,7 +36,7 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
 
@@ -47,7 +48,9 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
           testResults.setPassing(mapTestResults(gmsTestResults.getPassing()));
           testResults.setFailing(mapTestResults(gmsTestResults.getFailing()));
           return testResults;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable
@@ -56,10 +59,10 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
       if (entityResponse.hasAspects()
           && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
         return new com.linkedin.test.TestResults(

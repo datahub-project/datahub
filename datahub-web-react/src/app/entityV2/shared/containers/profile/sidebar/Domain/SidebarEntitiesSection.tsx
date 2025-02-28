@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityContext, useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { getContentsSummary, getContentsSummaryText, navigateToDomainEntities } from './utils';
@@ -36,13 +36,21 @@ const ViewAllButton = styled.div`
 const SidebarEntitiesSection = () => {
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const { entityState } = useEntityContext();
     const history = useHistory();
-    const { data, loading } = useGetDomainEntitySummaryQuery({
+    const { data, loading, refetch } = useGetDomainEntitySummaryQuery({
         variables: {
             urn,
         },
-        fetchPolicy: 'cache-first',
     });
+
+    const shouldRefetch = entityState?.shouldRefetchContents;
+    useEffect(() => {
+        if (shouldRefetch) {
+            refetch();
+            entityState?.setShouldRefetchContents(false);
+        }
+    }, [shouldRefetch, entityState, refetch]);
 
     const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);
     const contentsCount = contentsSummary?.total || 0;

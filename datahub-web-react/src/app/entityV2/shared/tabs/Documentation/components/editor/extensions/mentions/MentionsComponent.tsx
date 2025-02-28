@@ -3,6 +3,7 @@ import { useDebounce } from 'react-use';
 import { FloatingWrapper } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../../../graphql/search.generated';
 import { MentionsDropdown } from './MentionsDropdown';
@@ -13,6 +14,10 @@ const Container = styled.div`
     position: relative;
     top: 0;
     left: 0;
+    .ant-spin-container {
+        overflow: auto;
+        max-height: 350px;
+    }
 `;
 
 const StyledEmpty = styled(Empty)`
@@ -50,7 +55,7 @@ export const MentionsComponent = () => {
     return (
         <FloatingWrapper positioner={mentionsPositioner} enabled={active} placement="bottom-start">
             <Container className="ant-select-dropdown">
-                <Spin spinning={loading} delay={100}>
+                <Spin spinning={loading} delay={100} indicator={<LoadingOutlined />}>
                     {suggestions?.length > 0 ? (
                         <MentionsDropdown suggestions={suggestions} />
                     ) : (

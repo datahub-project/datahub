@@ -1,16 +1,18 @@
 import Icon, { CaretDownFilled } from '@ant-design/icons';
-import { Select, Tooltip } from 'antd';
+import { Select } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+import useGetSortOptions from '@src/app/searchV2/sorting/useGetSortOptions';
 import SortIcon from '../../../images/sort.svg?react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
-import { useSearchContext } from '../context/SearchContext';
+import { DEFAULT_SORT_OPTION } from '../context/constants';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     margin-right: 8px;
+    margin-left: 15px;
 
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
@@ -30,10 +32,15 @@ const StyledIcon = styled(Icon)`
     margin-right: -8px;
 `;
 
-export default function SearchSortSelect() {
-    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+type Props = {
+    selectedSortOption: string | undefined;
+    setSelectedSortOption: (option: string) => void;
+};
 
-    const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
+export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
+    const sortOptions = useGetSortOptions();
+
+    const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
         <Tooltip title="Sort search results" showArrow={false} placement="left">

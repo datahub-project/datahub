@@ -1,17 +1,27 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.notification.provider.EntityNameProvider;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -96,6 +106,99 @@ public class NotificationUtilsTest {
     Assert.assertEquals(
         NotificationUtils.generateEntityPath(urn),
         "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29");
+  }
+
+  @Test
+  public void testGetUniqueHydratedSubscriberRecipientsWithNullValuesShouldIgnoreNulls() {
+    EntityNameProvider nameProvider = mock(EntityNameProvider.class);
+    Urn actorUrn = UrnUtils.getUrn(ACTOR_URN);
+    Mockito.when(nameProvider.getName(any(OperationContext.class), Mockito.eq(actorUrn)))
+        .thenReturn("Hydrated Name");
+    List<NotificationRecipient> recipients = new ArrayList<>();
+    recipients.add(null);
+    recipients.add(
+        new NotificationRecipient()
+            .setId("1")
+            .setType(NotificationRecipientType.CUSTOM)
+            .setActor(actorUrn));
+    recipients.add(null);
+
+    List<NotificationRecipient> uniqueRecipients =
+        NotificationUtils.getUniqueHydratedSubscriberRecipients(
+            mock(OperationContext.class), recipients, nameProvider);
+
+    Assert.assertEquals(uniqueRecipients.size(), 1);
+    Assert.assertEquals(uniqueRecipients.get(0).getDisplayName(), "Hydrated Name");
+    Assert.assertEquals(uniqueRecipients.get(0).getId(), "1");
+    Assert.assertEquals(uniqueRecipients.get(0).getActor(), actorUrn);
+  }
+
+  @Test
+  public void testGetUniqueHydratedSubscriberRecipientsWithDuplicatesShouldReturnUnique() {
+    EntityNameProvider nameProvider = mock(EntityNameProvider.class);
+    Urn actorUrn = UrnUtils.getUrn(ACTOR_URN);
+    Mockito.when(nameProvider.getName(any(OperationContext.class), Mockito.eq(actorUrn)))
+        .thenReturn("Hydrated Name");
+    List<NotificationRecipient> recipients = new ArrayList<>();
+    NotificationRecipient recipient =
+        new NotificationRecipient()
+            .setId("1")
+            .setType(NotificationRecipientType.CUSTOM)
+            .setActor(actorUrn);
+
+    // Add same recipient twice.
+    recipients.add(recipient);
+    recipients.add(recipient);
+
+    List<NotificationRecipient> uniqueRecipients =
+        NotificationUtils.getUniqueHydratedSubscriberRecipients(
+            mock(OperationContext.class), recipients, nameProvider);
+
+    Assert.assertEquals(uniqueRecipients.size(), 1);
+    Assert.assertEquals(uniqueRecipients.get(0).getDisplayName(), "Hydrated Name");
+    Assert.assertEquals(uniqueRecipients.get(0).getId(), "1");
+    Assert.assertEquals(uniqueRecipients.get(0).getActor(), actorUrn);
+  }
+
+  @Test
+  public void testGetUniqueHydratedSubscriberRecipientsShouldHydrateNames() {
+    EntityNameProvider nameProvider = mock(EntityNameProvider.class);
+    Urn actorUrn1 = UrnUtils.getUrn(ACTOR_URN);
+    Urn actorUrn2 = UrnUtils.getUrn("urn:li:corpuser:actor-2");
+
+    Mockito.when(nameProvider.getName(any(OperationContext.class), Mockito.eq(actorUrn1)))
+        .thenReturn("Hydrated Name 1");
+    Mockito.when(nameProvider.getName(any(OperationContext.class), Mockito.eq(actorUrn2)))
+        .thenReturn("Hydrated Name 2");
+
+    List<NotificationRecipient> recipients = new ArrayList<>();
+    NotificationRecipient recipient1 =
+        new NotificationRecipient()
+            .setId("1")
+            .setType(NotificationRecipientType.CUSTOM)
+            .setActor(actorUrn1);
+    NotificationRecipient recipient2 =
+        new NotificationRecipient()
+            .setId("2")
+            .setType(NotificationRecipientType.CUSTOM)
+            .setActor(actorUrn2);
+
+    // Add same recipient twice.
+    recipients.add(recipient1);
+    recipients.add(recipient2);
+
+    List<NotificationRecipient> uniqueRecipients =
+        NotificationUtils.getUniqueHydratedSubscriberRecipients(
+            mock(OperationContext.class), recipients, nameProvider);
+
+    Assert.assertEquals(uniqueRecipients.size(), 2);
+
+    List<String> displayNames =
+        uniqueRecipients.stream()
+            .map(recipient -> recipient.getDisplayName())
+            .collect(Collectors.toList());
+
+    Assert.assertEquals(displayNames, List.of("Hydrated Name 1", "Hydrated Name 2"));
   }
 
   private MetadataChangeLog createMCL(String runId, boolean includePreviousAspect) {

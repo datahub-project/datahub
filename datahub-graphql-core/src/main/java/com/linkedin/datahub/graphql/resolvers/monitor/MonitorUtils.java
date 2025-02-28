@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.metadata.AcrylConstants.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.FreshnessFieldKind;
@@ -24,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpecInput;
 import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
@@ -41,16 +44,20 @@ import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFieldAssertionSourceType;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class MonitorUtils {
+
+  private static final String MONITORS_RELATIONSHIP_NAME = "Monitors";
+  private static final int MAX_MONITORS_TO_FETCH = 10000;
 
   // Entity types that have system monitors enabled.
   public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =
@@ -102,14 +109,12 @@ public class MonitorUtils {
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
-    return AuthorizationUtils.isAuthorized(
-            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
+    return AuthUtil.isAuthorized(
+            context.getOperationContext(),
+            PoliciesConfig.MANAGE_MONITORS,
+            new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            entityUrn.getEntityType(),
-            entityUrn.toString(),
-            orPrivilegeGroups);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   /**
@@ -130,13 +135,11 @@ public class MonitorUtils {
                     ImmutableList.of(
                         PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType()))));
     return AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            entityUrn.getEntityType(),
-            entityUrn.toString(),
-            orPrivilegeGroups)
-        || AuthorizationUtils.isAuthorized(
-            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups)
+        || AuthUtil.isAuthorized(
+            context.getOperationContext(),
+            PoliciesConfig.MANAGE_MONITORS,
+            new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()));
   }
 
   public static CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {
@@ -178,6 +181,16 @@ public class MonitorUtils {
       } else {
         throw new DataHubGraphQLException(
             "Invalid input. Dataset Field Parameters are required when type is DATASET_FIELD.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+    }
+    if (AssertionEvaluationParametersType.DATASET_SCHEMA.equals(result.getType())) {
+      if (input.getDatasetSchemaParameters() != null) {
+        result.setDatasetSchemaParameters(
+            createDatasetSchemaParameters(input.getDatasetSchemaParameters()));
+      } else {
+        throw new DataHubGraphQLException(
+            "Invalid input. Dataset Schema Parameters are required when type is DATASET_SCHEMA.",
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
     }
@@ -230,6 +243,13 @@ public class MonitorUtils {
         && input.getChangedRowsField() != null) {
       result.setChangedRowsField(createFreshnessFieldSpec(input.getChangedRowsField()));
     }
+    return result;
+  }
+
+  private static DatasetSchemaAssertionParameters createDatasetSchemaParameters(
+      @Nonnull final DatasetSchemaAssertionParametersInput input) {
+    final DatasetSchemaAssertionParameters result = new DatasetSchemaAssertionParameters();
+    result.setSourceType(DatasetSchemaSourceType.valueOf(input.getSourceType().toString()));
     return result;
   }
 
@@ -352,5 +372,20 @@ public class MonitorUtils {
       return assertionUrns.get(0);
     }
     return null;
+  }
+
+  public static List<Urn> getMonitorUrnsForDataset(GraphClient graphClient, Urn datasetUrn) {
+    final EntityRelationships relationships =
+        graphClient.getRelatedEntities(
+            datasetUrn.toString(),
+            ImmutableList.of(MONITORS_RELATIONSHIP_NAME),
+            RelationshipDirection.INCOMING,
+            0,
+            MAX_MONITORS_TO_FETCH,
+            null);
+
+    return relationships.getRelationships().stream()
+        .map(EntityRelationship::getEntity)
+        .collect(Collectors.toList());
   }
 }

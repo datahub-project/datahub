@@ -1,7 +1,11 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { InputFields, SchemaField } from '../../types.generated';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useLocation } from 'react-router-dom';
+import { EntityType, SchemaField } from '../../types.generated';
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
+import EntityRegistry from '../entityV2/EntityRegistry';
+import { getFieldPathFromSchemaFieldUrn } from '../entityV2/schemaField/utils';
 
+export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {
     if (!fieldPath) {
         return fieldPath;
@@ -17,6 +21,14 @@ export function downgradeV2FieldPath(fieldPath?: string | null) {
         .join('.');
 }
 
+export function processDocumentationString(docString): string {
+    if (!docString) {
+        return '';
+    }
+    const fieldRegex = /'(\[version=2\.0\](?:\.\[key=True\])?\.\[type=[^\]]+\]\.[^']+)'/g;
+    return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
+}
+
 export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
     return fields.map((field) => ({
         ...field,
@@ -24,25 +36,18 @@ export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
     }));
 }
 
-export function convertInputFieldsToSchemaFields(inputFields: Maybe<InputFields>): SchemaField[] | undefined {
-    return inputFields?.fields?.map((field) => field?.schemaField).filter((field): field is SchemaField => !!field);
+export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
 }
 
-export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
-    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
-}
-
-export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
-    const val = schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
-    try {
-        return decodeURI(val);
-    } catch (e) {
-        return val;
-    }
+export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
+    const [, , entityType] = urn.split(':');
+    return registry.getTypeFromGraphName(entityType);
 }
 
 const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
 const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
+const NESTED_URN_TYPES = ['schemaField'];
 
 // TODO: Add tests
 export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
@@ -53,6 +58,9 @@ export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
     }
     if (TRUNCATED_PLATFORM_TYPES.includes(entityType)) {
         return `urn:li:dataPlatform:${entityIds[0]}`;
+    }
+    if (NESTED_URN_TYPES.includes(entityType)) {
+        return getPlatformUrnFromEntityUrn(entityIds[0]);
     }
     return undefined;
 }
@@ -90,4 +98,14 @@ function splitEntityId(entity_id: string): string[] {
     parts.push(entity_id.slice(partStart, -1));
 
     return parts;
+}
+
+export function useGetLineageUrl(urn?: string, type?: EntityType) {
+    const location = useLocation();
+    const entityRegistry = useEntityRegistry();
+
+    if (!urn || !type) {
+        return '';
+    }
+    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
 }

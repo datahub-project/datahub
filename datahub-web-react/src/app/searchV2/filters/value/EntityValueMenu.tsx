@@ -1,25 +1,20 @@
 import React, { useState } from 'react';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { FilterField, FilterValueOption, FilterValue } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import {
-    deduplicateOptions,
-    useFilterOptionsBySearchQuery,
-    useLoadAggregationOptions,
-    useLoadSearchOptions,
-} from './utils';
+import OptionsDropdownMenu from '../OptionsDropdownMenu';
+import { mapFilterOption } from '../mapFilterOption';
+import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
 import { OptionMenu } from './styledComponents';
+import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadSearchOptions } from './utils';
 
 interface Props {
-    field: FilterField;
+    field: EntityFilterField;
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
     onApply: () => void;
     type?: 'card' | 'default';
     includeCount?: boolean;
-    alignRight?: boolean;
+    className?: string;
 }
 
 export default function EntityValueMenu({
@@ -28,31 +23,27 @@ export default function EntityValueMenu({
     defaultOptions,
     type = 'card',
     includeCount = false,
-    alignRight,
     onChangeValues,
     onApply,
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const isSearchable =
-        field.entityTypes?.length && field.entityTypes.every((t) => entityRegistry.getEntity(t).isSearchEnabled());
+    const isSearchable = !!field.entityTypes?.length;
     const { displayName } = field;
 
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
-    // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
     // Here we optionally load the search options, which are the options that are displayed when the user searches.
     const { options: searchOptions, loading: searchLoading } = useLoadSearchOptions(field, searchQuery, !isSearchable);
 
-    const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
-
-    const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
+    const localSearchOptions = useFilterOptionsBySearchQuery(defaultOptions, searchQuery);
 
     const finalSearchOptions = [...localSearchOptions, ...deduplicateOptions(localSearchOptions, searchOptions)];
 
     // Compute the final options to show to the user.
-    const finalOptions = searchQuery ? finalSearchOptions : allOptions;
+    const finalDefaultOptions = defaultOptions.length ? defaultOptions : searchOptions;
+    const finalOptions = searchQuery ? finalSearchOptions : finalDefaultOptions;
 
     // Finally, create the option set.
     // TODO: Add an option set for "no x".
@@ -63,8 +54,10 @@ export default function EntityValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
+                displayName: option.displayName,
             },
             entityRegistry,
+            includeCount,
             selectedFilterOptions: values.map((value) => {
                 return { field: field.field, value: value.value, entity: value.entity };
             }),
@@ -83,10 +76,10 @@ export default function EntityValueMenu({
             updateFilters={onApply}
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
-            isLoading={searchLoading || aggLoading}
+            isLoading={searchLoading}
             searchPlaceholder={`Search for ${displayName}`}
             type={type}
-            alignRight={alignRight}
+            className={className}
         />
     );
 }

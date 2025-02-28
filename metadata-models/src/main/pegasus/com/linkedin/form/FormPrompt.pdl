@@ -30,9 +30,33 @@ record FormPrompt {
      */
     STRUCTURED_PROPERTY
     /**
-     * This prompt is meant to apply a structured property to a schema fields entity
+     * This prompt is meant to apply a structured property to a schema field entity
      */
     FIELDS_STRUCTURED_PROPERTY
+    /**
+     * This prompt is meant to apply ownership to an entity
+     */
+    OWNERSHIP
+    /**
+     * This prompt is meant to apply documentation to an entity
+     */
+    DOCUMENTATION
+    /**
+     * This prompt is meant to apply documentation to a schema field entity
+     */
+    FIELDS_DOCUMENTATION
+    /**
+     * This prompt is meant to apply glossary terms to an entity
+     */
+    GLOSSARY_TERMS
+    /**
+     * This prompt is meant to apply glossary terms to a schema field entity
+     */
+    FIELDS_GLOSSARY_TERMS
+    /**
+     * This prompt is meant to apply a domain to an entity
+     */
+    DOMAIN
   }
 
   /**
@@ -43,11 +67,33 @@ record FormPrompt {
     /**
      * The structured property that is required on this entity
      */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "structuredPropertyPromptUrns",
+    }
     urn: Urn
   }
 
   /**
+   * An optional set of information specific to ownership prompts.
+   * This should be filled out if the prompt is type OWNERSHIP.
+   */
+  ownershipParams: optional OwnershipParams
+
+  /**
+   * An optional set of information specific to glossary terms prompts.
+   * This should be filled out if the prompt is type GLOSSARY_TERMS or FIELDS_GLOSSARY_TERM.
+   */
+  glossaryTermsParams: optional GlossaryTermsParams
+
+  /**
+   * An optional set of information specific to domain prompts.
+   * This should be filled out if the prompt is type DOMAIN.
+   */
+  domainParams: optional DomainParams
+
+  /**
    * Whether the prompt is required to be completed, in order for the form to be marked as complete.
    */
-   required: boolean = true
+   required: boolean = false
 }

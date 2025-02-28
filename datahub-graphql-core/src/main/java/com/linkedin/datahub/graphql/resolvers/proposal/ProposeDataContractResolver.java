@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataQualityContractInput;
 import com.linkedin.datahub.graphql.generated.FreshnessContractInput;
 import com.linkedin.datahub.graphql.generated.ProposeDataContractInput;
 import com.linkedin.datahub.graphql.generated.SchemaContractInput;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ProposeDataContractResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -49,7 +49,13 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
           try {
             log.info("Proposing change to data contract. input: {}", input);
             return _proposalService.proposeDataContract(
-                actorUrn, entityUrn, opType, freshness, schema, quality, context.getAuthorizer());
+                context.getOperationContext(),
+                actorUrn,
+                entityUrn,
+                opType,
+                freshness,
+                schema,
+                quality);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

@@ -5,11 +5,12 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -17,7 +18,7 @@ public class ProposeCreateGlossaryTermResolverTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:test";
   private static final String GLOSSARY_TERM_NAME = "GLOSSARY_TERM";
 
-  private ProposalService _proposalService;
+  private ActionRequestService _ActionRequestService;
   private ProposeCreateGlossaryTermResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
@@ -25,12 +26,12 @@ public class ProposeCreateGlossaryTermResolverTest {
 
   @BeforeMethod
   public void setupTest() {
-    _proposalService = mock(ProposalService.class);
+    _ActionRequestService = mock(ActionRequestService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
     _authorizer = mock(Authorizer.class);
 
-    _resolver = new ProposeCreateGlossaryTermResolver(_proposalService);
+    _resolver = new ProposeCreateGlossaryTermResolver(_ActionRequestService);
   }
 
   @Test
@@ -61,8 +62,8 @@ public class ProposeCreateGlossaryTermResolverTest {
     CreateGlossaryEntityInput input = new CreateGlossaryEntityInput();
     input.setName(GLOSSARY_TERM_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeCreateGlossaryTerm(
-            any(), eq(GLOSSARY_TERM_NAME), any(), any(), eq(_authorizer)))
+    when(_ActionRequestService.proposeCreateGlossaryTerm(
+            any(OperationContext.class), any(), eq(GLOSSARY_TERM_NAME), any(), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

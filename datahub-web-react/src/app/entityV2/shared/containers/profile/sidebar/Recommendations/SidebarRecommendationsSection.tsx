@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useUserContext } from '../../../../../../context/useUserContext';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarEntityRecommendations } from './SidebarEntityRecommendations';
 
 const RecommendationsContainer = styled.div``;

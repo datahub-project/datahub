@@ -1,50 +1,29 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    parse_ts_millis,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
 )
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
-
-
-@dataclass
-class DetailedProfilerReportMixin:
-    profiling_skipped_not_updated: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-    profiling_skipped_size_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_row_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-
-    num_tables_not_eligible_profiling: Dict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-
-class ProfilingSqlReport(DetailedProfilerReportMixin, SQLSourceReport):
-    pass
 
 
 @dataclass
@@ -60,7 +39,7 @@ class GenericProfiler:
     def __init__(
         self,
         config: SQLCommonConfig,
-        report: ProfilingSqlReport,
+        report: SQLSourceReport,
         platform: str,
         state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
@@ -87,16 +66,25 @@ class GenericProfiler:
             request for request in requests if request.profile_table_level_only
         ]
         for request in table_level_profile_requests:
-            table_level_profile = DatasetProfile(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=request.table.column_count,
-                rowCount=request.table.rows_count,
-                sizeInBytes=request.table.size_in_bytes,
-            )
-            dataset_urn = self.dataset_urn_builder(request.pretty_name)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=table_level_profile
-            ).as_workunit()
+            if (
+                request.table.column_count is None
+                and request.table.rows_count is None
+                and request.table.size_in_bytes is None
+            ):
+                logger.warning(
+                    f"Table {request.pretty_name} has no column count, rows count, or size in bytes. Skipping emitting table level profile."
+                )
+            else:
+                table_level_profile = DatasetProfile(
+                    timestampMillis=int(datetime.now().timestamp() * 1000),
+                    columnCount=request.table.column_count,
+                    rowCount=request.table.rows_count,
+                    sizeInBytes=request.table.size_in_bytes,
+                )
+                dataset_urn = self.dataset_urn_builder(request.pretty_name)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=table_level_profile
+                ).as_workunit()
 
         if not ge_profile_requests:
             return
@@ -158,6 +146,9 @@ class GenericProfiler:
             size_in_bytes=table.size_in_bytes,
             rows_count=table.rows_count,
         ):
+            logger.debug(
+                f"Dataset {dataset_name} was not eligible for profiling due to last_altered, size in bytes or count of rows limit"
+            )
             # Profile only table level if dataset is filtered from profiling
             # due to size limits alone
             if self.is_dataset_eligible_for_profiling(
@@ -226,6 +217,7 @@ class GenericProfiler:
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def is_dataset_eligible_for_profiling(
@@ -244,6 +236,9 @@ class GenericProfiler:
         )
 
         if not self.config.table_pattern.allowed(dataset_name):
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to table pattern"
+            )
             return False
 
         last_profiled: Optional[int] = None
@@ -253,11 +248,7 @@ class GenericProfiler:
                 # If profiling state exists we have to carry over to the new state
                 self.state_handler.add_to_state(dataset_urn, last_profiled)
 
-        threshold_time: Optional[datetime] = (
-            datetime.fromtimestamp(last_profiled / 1000, timezone.utc)
-            if last_profiled
-            else None
-        )
+        threshold_time: Optional[datetime] = parse_ts_millis(last_profiled)
         if (
             not threshold_time
             and self.config.profiling.profile_if_updated_since_days is not None
@@ -265,23 +256,34 @@ class GenericProfiler:
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )
+        schema_name = dataset_name.rsplit(".", 1)[0]
 
-        if not self.config.profile_pattern.allowed(dataset_name):
+        if not check_table_with_profile_pattern(
+            self.config.profile_pattern, dataset_name
+        ):
+            self.report.profiling_skipped_table_profile_pattern[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to profile pattern"
+            )
             return False
 
-        schema_name = dataset_name.rsplit(".", 1)[0]
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
         ):
             self.report.profiling_skipped_not_updated[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} was skipped because it was not updated recently enough"
+            )
             return False
 
         if self.config.profiling.profile_table_size_limit is not None and (
             size_in_bytes is not None
-            and size_in_bytes / (2**30)
-            > self.config.profiling.profile_table_size_limit
+            and size_in_bytes / (2**30) > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to size limit"
+            )
             return False
 
         if self.config.profiling.profile_table_row_limit is not None and (
@@ -289,6 +291,9 @@ class GenericProfiler:
             and rows_count > self.config.profiling.profile_table_row_limit
         ):
             self.report.profiling_skipped_row_limit[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to row limit"
+            )
             return False
 
         return True

@@ -1,29 +1,18 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.datahub.authentication.Authentication;
-import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
+import jakarta.json.JsonPatch;
 import java.util.List;
 import javax.annotation.Nonnull;
 
 /** An abstract class to generate {@link ChangeEvent}s for a given entity aspect. */
 public abstract class EntityChangeEventGenerator<T extends RecordTemplate> {
-  // TODO: Add a check for supported aspects
-  protected SystemEntityClient _entityClient;
-  protected Authentication _authentication;
-
-  public EntityChangeEventGenerator() {}
-
-  public EntityChangeEventGenerator(@Nonnull final SystemEntityClient entityClient) {
-    _entityClient = entityClient;
-  }
 
   @Deprecated
   public ChangeTransaction getSemanticDiff(

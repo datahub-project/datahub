@@ -15,6 +15,7 @@ The Events API allows you to integrate changes happening on the DataHub Metadata
 ### Supported Integrations
 
 * [AWS EventBridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
+* [DataHub Cloud Event Source](docs/actions/sources/datahub-cloud-event-source.md)
 
 ### Use Cases
 
@@ -350,7 +351,7 @@ This event is emitted when a description has been added to an entity on DataHub.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -382,7 +383,7 @@ This event is emitted when an existing description has been removed from an enti
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -876,13 +877,18 @@ This event is emitted when an Incident has been created or it's status changes.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>INCIDENT</td><td><code>ACTIVE, </code><code>RESOLVED</code></td><td><code>incident</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>INCIDENT</td><td><code>ACTIVE</code>,<code>RESOLVED</code></td><td><code>incident</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
-| Name         | Type   | Description                                       | Optional |
-|--------------| ------ |---------------------------------------------------| -------- |
-| entities     | String | The list of entities associated with the incident | False    |
+| Name        | Type   | Description                                       | Optional |
+|-------------| ------ |---------------------------------------------------|----------|
+| entities    | String | The list of entities associated with the incident | False    |
+| type        | String | The type of the incident                          | False    |
+| title       | String | The title of the incident                         | True     |
+| description | String | The description of the incident                   | True     |
+| stage       | String | The lifecycle stage for the incident              | True     |
+| message     | String | The message associated with the incident          | True     |
 
 #### Sample Event
 
@@ -894,6 +900,11 @@ This event is emitted when an Incident has been created or it's status changes.
   "operation": "ACTIVE",
   "parameters": {
     "entities": "[urn:li:dataset:abc, urn:li:dataset:abc2]",
+    "type": "FRESHNESS",
+    "title: "Freshness Assertion `Dataset was updated since the previous check` has failed",
+    "description": "Expected table to be updated since the previous check, but no updates were found.",
+    "stage": "WORK_IN_PROGRESS",
+    "message: "Remediation in progress, expected ETA is 2h",
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",

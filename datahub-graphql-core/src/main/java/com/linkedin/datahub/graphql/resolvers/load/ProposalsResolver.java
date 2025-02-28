@@ -35,6 +35,9 @@ import org.dataloader.DataLoader;
  */
 @AllArgsConstructor
 public class ProposalsResolver implements DataFetcher<CompletableFuture<List<ActionRequest>>> {
+  // WARNING: If a user has more than 1000 proposals active on an asset, this will need to be
+  // increased.
+  private final int MAX_RELATED_PROPOSALS_TO_FETCH = 1000;
 
   private final Function<DataFetchingEnvironment, String> _urnProvider;
   private final EntityClient _entityClient;
@@ -57,16 +60,21 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
           try {
             final SearchResult searchResult =
                 _entityClient.filter(
-                    ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20, context.getAuthentication());
+                    context.getOperationContext(),
+                    ACTION_REQUEST_ENTITY_NAME,
+                    filter,
+                    null,
+                    0,
+                    MAX_RELATED_PROPOSALS_TO_FETCH);
 
             final Map<Urn, Entity> entities =
                 _entityClient.batchGet(
+                    context.getOperationContext(),
                     new HashSet<>(
                         searchResult.getEntities().stream()
                             .map(result -> result.getEntity())
-                            .collect(Collectors.toList())),
-                    context.getAuthentication());
-            return ActionRequestUtils.mapActionRequests(entities.values());
+                            .collect(Collectors.toList())));
+            return ActionRequestUtils.mapActionRequests(context, entities.values());
           } catch (Exception e) {
             throw new RuntimeException("Failed to load action requests", e);
           }

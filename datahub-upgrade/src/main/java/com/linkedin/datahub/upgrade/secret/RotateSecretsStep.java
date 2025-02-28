@@ -11,15 +11,18 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,7 +37,8 @@ public class RotateSecretsStep implements UpgradeStep {
   private static final int BATCH_SIZE = 1000;
   private static final long BATCH_DELAY = 250;
 
-  private final EntityService _entityService;
+  private final OperationContext systemOperationContext;
+  private final EntityService<?> _entityService;
 
   private String _existingKey;
   private String _newKey;
@@ -51,7 +55,9 @@ public class RotateSecretsStep implements UpgradeStep {
     GUESS_ON_DECRYPT_FAILURE
   }
 
-  public RotateSecretsStep(final EntityService entityService) {
+  public RotateSecretsStep(
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
+    this.systemOperationContext = systemOperationContext;
     _entityService = entityService;
   }
 
@@ -94,7 +100,8 @@ public class RotateSecretsStep implements UpgradeStep {
 
       // 1. Fetch urns for all secrets. We support maximum of 10k secrets for this upgrade.
       ListUrnsResult result =
-          _entityService.listUrns(Constants.SECRETS_ENTITY_NAME, 0, MAX_SUPPORTED_SECRETS);
+          _entityService.listUrns(
+              systemOperationContext, Constants.SECRETS_ENTITY_NAME, 0, MAX_SUPPORTED_SECRETS);
 
       if (result.getTotal() > MAX_SUPPORTED_SECRETS) {
         // We don't have > 10k, since this is currently unrealistic.
@@ -116,6 +123,7 @@ public class RotateSecretsStep implements UpgradeStep {
           // 2. Fetch the values for each in batches of 1000.
           Map<Urn, EntityResponse> secretResponse =
               _entityService.getEntitiesV2(
+                  systemOperationContext,
                   Constants.SECRETS_ENTITY_NAME,
                   new HashSet<>(result.getEntities()),
                   ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
@@ -164,6 +172,7 @@ public class RotateSecretsStep implements UpgradeStep {
             proposal.setChangeType(ChangeType.UPSERT);
             try {
               _entityService.ingestProposal(
+                  systemOperationContext,
                   proposal,
                   secretResponse
                       .get(entry.getKey())
@@ -188,7 +197,7 @@ public class RotateSecretsStep implements UpgradeStep {
           .addLine(
               String.format(
                   "Successfully rotated %s / %s total secrets!", totalRotated, result.getTotal()));
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

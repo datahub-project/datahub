@@ -1,0 +1,71 @@
+version: "1"
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: FinTech Business Glossary
+    description: "FinTech Business Glossary"
+    nodes:
+      - name: Account
+        description: "A record of financial transactions and balances associated with a specific customer or entity."
+        terms:
+          - name: Savings Account
+            description: "A type of deposit account that allows customers to deposit and withdraw funds while earning interest on their balance."
+            custom_properties:
+              scope: banking
+            inherits:
+              - Banking.Deposit
+              - Banking.Withdrawal
+          - name: Checking Account
+            description: "A type of deposit account that enables customers to deposit and withdraw funds, often used for everyday transactions."
+            domain: "urn:li:domain:banking"
+            custom_properties:
+              scope: banking
+            inherits:
+              - Banking.Deposit
+              - Banking.Withdrawal
+      - name: Regulatory and Compliance
+        description: "Regulatory and compliance"
+        owners:
+          groups:
+            - complianceOrg
+        knowledge_links:
+          - label: Definition for Regulatory and Compliance
+            url: "https://www.metricstream.com/learn/comprehensive-guide-to-regulatory-compliance.htm"
+        terms:
+          - name: Compliance
+            description: "The adherence to laws, regulations, and internal policies governing the operations of financial institutions."
+            domain: "urn:li:domain:compliance"
+          - name: KYC (Know Your Customer)
+            description: "The process of verifying the identity of customers to prevent fraud."
+            domain: "urn:li:domain:compliance"
+          - name: AML (Anti-Money Laundering)
+            description: "Regulations and procedures designed to detect and prevent the illegal movement of money through financial systems."
+            domain: "urn:li:domain:compliance"
+      - name: Banking
+        description: "Banking"
+        owners:
+          users:
+            - jsmith
+        terms:
+          - name: Deposit
+            description: "The act of placing money into a bank account."
+          - name: Withdrawal
+            description: "The removal of funds from a bank account, either by cash withdrawal or electronic transfer."
+          - name: Transfer
+            description: "The movement of funds from one account to another, either within the same financial institution or between different institutions."
+          - name: Overdraft
+            description: "A negative balance in a bank account resulting from withdrawing more money than is available, often subject to overdraft fees."
+      - name: Loan
+        description: "A sum of money borrowed by an individual or entity from a lender, typically repaid with interest over a specified period."
+        terms:
+          - name: Mortgage
+            description: "A type of loan used to finance the purchase of real estate, with the property serving as collateral for the loan."
+          - name: Personal Loan
+            description: "A type of loan issued to individuals for various personal expenses, such as debt consolidation, home improvements, or medical bills."
+          - name: Auto Loan
+            description: "A type of loan used to finance the purchase of a vehicle, with the vehicle serving as collateral for the loan."
+          - name: Interest Rate
+            description: "The rate at which interest is charged on a loan or paid on an investment, expressed as a percentage of the principal amount."

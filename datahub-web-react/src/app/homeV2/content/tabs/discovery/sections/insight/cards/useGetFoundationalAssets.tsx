@@ -1,6 +1,6 @@
 import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { LAST_OPERATION_TIME_FIELD } from '../../../../../../../searchV2/context/constants';
+import { LAST_MODIFIED_TIME_FIELD } from '../../../../../../../searchV2/context/constants';
 import { UnionType } from '../../../../../../../searchV2/utils/constants';
 
 const FOUNDATIONAL_ASSET_TAGS = ['urn:li:tag:__default_large_table', 'urn:li:tag:__default_high_queries'];
@@ -29,7 +29,7 @@ export const buildFoundationalAssetsFilters = (): FilterSet => {
 
 export const buildFoundationalAssetsSort = (): SortCriterion => {
     return {
-        field: LAST_OPERATION_TIME_FIELD,
+        field: LAST_MODIFIED_TIME_FIELD,
         sortOrder: SortOrder.Descending,
     };
 };

@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import React from 'react';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
-import { TRANSITION_DURATION_MS } from '../LineageEntityNode/useDisplayedColumns';
+import { TRANSITION_DURATION_MS } from '../common';
 
 const StyledZoomButton = styled(Button)`
     border-radius: 8px;
@@ -16,24 +16,24 @@ const StyledZoomButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
-`;
-
-const StyledPanel = styled(Panel)`
-    margin-top: 50px;
+    &:focus {
+        color: unset;
+        border-color: #00000015;
+    }
 `;
 
 const ZoomControls: React.FC = () => {
     const { zoomIn, zoomOut } = useReactFlow();
 
     return (
-        <StyledPanel position="top-right">
+        <Panel position="bottom-left">
             <StyledZoomButton tabIndex={-1} onClick={() => zoomIn({ duration: TRANSITION_DURATION_MS })}>
                 <ZoomInOutlined />
             </StyledZoomButton>
             <StyledZoomButton tabIndex={-1} onClick={() => zoomOut({ duration: TRANSITION_DURATION_MS })}>
                 <ZoomOutOutlined />
             </StyledZoomButton>
-        </StyledPanel>
+        </Panel>
     );
 };
 

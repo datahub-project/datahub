@@ -1,6 +1,7 @@
 import React, { memo, useState } from 'react';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import ExpandIcon from '../../images/expand.svg?react';
 import CollapseIcon from '../../images/collapse.svg?react';

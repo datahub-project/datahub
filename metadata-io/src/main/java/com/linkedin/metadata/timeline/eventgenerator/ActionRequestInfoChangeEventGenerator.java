@@ -2,22 +2,17 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.AcrylConstants.*;
 
-import com.linkedin.actionrequest.ActionRequestInfo;
-import com.linkedin.actionrequest.ActionRequestParams;
-import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
-import com.linkedin.actionrequest.CreateGlossaryTermProposal;
-import com.linkedin.actionrequest.DescriptionProposal;
-import com.linkedin.actionrequest.GlossaryTermProposal;
-import com.linkedin.actionrequest.TagProposal;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.actionrequest.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import java.util.*;
 import javax.annotation.Nonnull;
 
 public class ActionRequestInfoChangeEventGenerator
@@ -116,6 +111,19 @@ public class ActionRequestInfoChangeEventGenerator
           actionRequestParams.getUpdateDescriptionProposal());
     }
 
+    if (actionRequestParams.hasStructuredPropertyProposal()) {
+      return buildStructuredPropertyProposalParameters(
+          actionRequestParams.getStructuredPropertyProposal());
+    }
+
+    if (actionRequestParams.hasOwnerProposal()) {
+      return buildOwnerProposalParameters(actionRequestParams.getOwnerProposal());
+    }
+
+    if (actionRequestParams.hasDomainProposal()) {
+      return buildDomainProposalParameters(actionRequestParams.getDomainProposal());
+    }
+
     return Collections.emptyMap();
   }
 
@@ -167,6 +175,85 @@ public class ActionRequestInfoChangeEventGenerator
       @Nonnull final DescriptionProposal proposal) {
     Map<String, Object> parameters = new HashMap<>();
     parameters.put(DESCRIPTION_KEY, proposal.getDescription());
+    return parameters;
+  }
+
+  @Nonnull
+  private Map<String, Object> buildStructuredPropertyProposalParameters(
+      @Nonnull final StructuredPropertyProposal proposal) {
+    Map<String, Object> parameters = new HashMap<>();
+
+    if (proposal.hasStructuredPropertyValues()
+        && !proposal.getStructuredPropertyValues().isEmpty()) {
+      ObjectMapper objectMapper = new ObjectMapper();
+      ArrayNode propertiesArray = objectMapper.createArrayNode();
+
+      StructuredPropertyValueAssignment assignment = proposal.getStructuredPropertyValues().get(0);
+      ObjectNode propertyNode = objectMapper.createObjectNode();
+      propertyNode.put("propertyUrn", assignment.getPropertyUrn().toString());
+
+      if (assignment.hasValues()) {
+        ArrayNode valuesArray = objectMapper.createArrayNode();
+        assignment
+            .getValues()
+            .forEach(
+                value -> {
+                  if (value.isString()) {
+                    valuesArray.add(value.getString());
+                  } else if (value.isDouble()) {
+                    valuesArray.add(value.getDouble());
+                  } else if (value.isNull()) {
+                    valuesArray.addNull();
+                  } else {
+                    throw new RuntimeException(
+                        "Unsupported structured property value type: " + value);
+                  }
+                });
+        propertyNode.set("values", valuesArray);
+      }
+
+      propertiesArray.add(propertyNode);
+      parameters.put("structuredProperties", propertiesArray.toString());
+    }
+
+    return parameters;
+  }
+
+  @Nonnull
+  private Map<String, Object> buildDomainProposalParameters(
+      @Nonnull final DomainProposal proposal) {
+    Map<String, Object> parameters = new HashMap<>();
+    ObjectMapper objectMapper = new ObjectMapper();
+    ArrayNode arrayNode = objectMapper.createArrayNode();
+
+    proposal.getDomains().forEach(domain -> arrayNode.add(domain.toString()));
+
+    parameters.put("domains", arrayNode.toString());
+    return parameters;
+  }
+
+  @Nonnull
+  private Map<String, Object> buildOwnerProposalParameters(@Nonnull final OwnerProposal proposal) {
+    Map<String, Object> parameters = new HashMap<>();
+
+    if (proposal.hasOwners()) {
+      ObjectMapper objectMapper = new ObjectMapper();
+      ArrayNode ownersArray = objectMapper.createArrayNode();
+
+      proposal
+          .getOwners()
+          .forEach(
+              owner -> {
+                ObjectNode ownerNode = objectMapper.createObjectNode();
+                ownerNode.put("type", owner.getType().toString()); // Changed from ownershipType
+                ownerNode.put(
+                    "typeUrn", owner.getTypeUrn().toString()); // Changed from ownershipTypeUrn
+                ownerNode.put("ownerUrn", owner.getOwner().toString());
+                ownersArray.add(ownerNode);
+              });
+
+      parameters.put("owners", ownersArray.toString());
+    }
     return parameters;
   }
 }

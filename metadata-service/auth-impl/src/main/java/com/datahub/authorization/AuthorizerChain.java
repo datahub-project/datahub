@@ -2,7 +2,9 @@ package com.datahub.authorization;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -153,5 +156,27 @@ public class AuthorizerChain implements Authorizer {
   /** Returns an instance of default {@link DataHubAuthorizer} */
   public DataHubAuthorizer getDefaultAuthorizer() {
     return (DataHubAuthorizer) defaultAuthorizer;
+  }
+
+  @Override
+  public Set<DataHubPolicyInfo> getActorPolicies(@Nonnull Urn actorUrn) {
+    return authorizers.stream()
+        .flatMap(authorizer -> authorizer.getActorPolicies(actorUrn).stream())
+        .collect(Collectors.toSet());
+  }
+
+  @Override
+  public Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
+    return authorizers.stream()
+        .flatMap(authorizer -> authorizer.getActorGroups(actorUrn).stream())
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public Collection<Urn> getActorPeers(@Nonnull Urn actorUrn) {
+    return authorizers.stream()
+        .flatMap(authorizer -> authorizer.getActorPeers(actorUrn).stream())
+        .distinct()
+        .collect(Collectors.toList());
   }
 }

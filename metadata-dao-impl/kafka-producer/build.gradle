@@ -1,5 +1,7 @@
 apply plugin: 'java'
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   implementation project(':metadata-events:mxe-avro')
   implementation project(':metadata-events:mxe-registration')
@@ -18,6 +20,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
 
   constraints {
     implementation(externalDependency.log4jCore) {

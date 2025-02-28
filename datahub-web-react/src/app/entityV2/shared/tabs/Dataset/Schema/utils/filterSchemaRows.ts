@@ -1,5 +1,5 @@
-import { EntityType, SchemaField } from '../../../../../../../types.generated';
 import { EntityRegistry } from '../../../../../../../entityRegistryContext';
+import { EntityType, SchemaField } from '../../../../../../../types.generated';
 
 export enum SchemaFilterType {
     FieldPath = 'Field Path',
@@ -56,7 +56,7 @@ function matchesFieldName(fieldName: string, filterText: string, schemaFilterTyp
 }
 
 function returnNoFilterAndExpandedPathMatch(rows: SchemaField[], expandedDrawerFieldPath: string | null) {
-    const expandedRowsFromFilter = new Set();
+    const expandedRowsFromFilter = new Set<string>();
     rows.forEach((row) => {
         const splitFieldPath = row.fieldPath.split('.');
         if (row.fieldPath === expandedDrawerFieldPath) {
@@ -78,13 +78,18 @@ export function filterSchemaRows(
     // if they have the drawer expanded on some asset we don't want to let this collapse
     expandedDrawerFieldPath: string | null,
     entityRegistry: EntityRegistry,
+    skipParents?: boolean,
 ) {
-    if (!rows) return { filteredRows: [], expandedRowsFromFilter: new Set() };
+    if (!rows) return { filteredRows: [], expandedRowsFromFilter: new Set<string>() };
 
     if (!filterText && expandedDrawerFieldPath) {
         return returnNoFilterAndExpandedPathMatch(rows, expandedDrawerFieldPath);
     }
-    if (!filterText || schemaFilterTypes.length === 0) return { filteredRows: rows, expandedRowsFromFilter: new Set() };
+    if (!filterText || schemaFilterTypes.length === 0)
+        return {
+            filteredRows: rows,
+            expandedRowsFromFilter: new Set<string>(),
+        };
 
     const formattedFilterText = filterText.toLocaleLowerCase();
 
@@ -96,7 +101,7 @@ export function filterSchemaRows(
     );
 
     const finalFieldPaths = new Set();
-    const expandedRowsFromFilter = new Set();
+    const expandedRowsFromFilter = new Set<string>();
     const matches: { path: string; index: number }[] = [];
 
     rows.forEach((row, idx) => {
@@ -110,9 +115,10 @@ export function filterSchemaRows(
         const splitFieldPath = row.fieldPath.split('.');
         const fieldName = splitFieldPath.slice(-1)[0];
         if (
-            matchesFieldName(fieldName, formattedFilterText, schemaFilterTypes) ||
-            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry, schemaFilterTypes) // non-editable tags, terms and description
+            !skipParents &&
+            (matchesFieldName(fieldName, formattedFilterText, schemaFilterTypes) ||
+                matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
+                matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry, schemaFilterTypes)) // non-editable tags, terms and description
         ) {
             // if we match specifically on this field (not just its parent), add and expand all parents
             matches.push({ path: row.fieldPath, index: idx });

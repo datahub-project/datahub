@@ -52,6 +52,20 @@ record TestInfo {
        * JSON format configuration for the test
        */
        json: optional string
+
+      /**
+      * MD5 hash of the test definition.
+      * Computed by the server.
+      * Used to stamp test results accurately.
+      * See TestResult for more details.
+      */
+      md5: optional string
+
+      /**
+      * Optional search query to execute to get the assets this test applies to.
+      * This only works with elastic search test executor and when evaluating a single test.
+      */
+      onQuery: optional string
     }
 
     /**
@@ -88,4 +102,14 @@ record TestInfo {
      * The current status of the Metadata Test, e.g. whether it is actively running.
      */
     status: optional TestStatus
+
+    /**
+     * The source of the metadata test, e.g. whether the test is user generated or system generated.
+     */
+    source: optional TestSource
+
+    /**
+     * Information about the schedule at which this test runs
+     */
+    schedule: optional TestSchedule
 }

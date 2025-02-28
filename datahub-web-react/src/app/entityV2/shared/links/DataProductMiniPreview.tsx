@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { FileDoneOutlined } from '@ant-design/icons';
 
 import { DataProduct, EntityType } from '../../../../types.generated';
 import EntityCount from '../containers/profile/header/EntityCount';
@@ -19,7 +18,6 @@ const DataProductDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
     color: ${ANTD_GRAY[7]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -30,7 +28,6 @@ const DataProductTitle = styled.div`
     font-size: 16px;
     font-weight: 400;
     color: ${ANTD_GRAY[9]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -41,7 +38,6 @@ const DomainContents = styled.div`
     font-size: 12px;
     font-weight: 400;
     color: ${ANTD_GRAY[7]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -54,10 +50,12 @@ const Card = styled(Link)`
     border-radius: 10px;
     display: flex;
     justify-content: start;
+    min-height: 96px;
     min-width: 160px;
-    padding: 16px;
+    padding: 8px 16px 8px 16px;
+
     :hover {
-        border: 2px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
         cursor: pointer;
     }
 `;
@@ -65,18 +63,15 @@ const Card = styled(Link)`
 export const DataProductMiniPreview = ({ dataProduct }: { dataProduct: DataProduct }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.DataProduct, dataProduct.urn as string);
-
+    const assetCount = dataProduct?.entities?.total;
     return (
         <Card to={url}>
             <HoverEntityTooltip entity={dataProduct} placement="bottom" showArrow={false}>
                 <DomainInfoContainer>
-                    <DataProductTitle>
-                        <FileDoneOutlined style={{ marginRight: 4 }} />
-                        {dataProduct?.properties?.name}
-                    </DataProductTitle>
+                    <DataProductTitle>{dataProduct?.properties?.name}</DataProductTitle>
                     <DataProductDescription>{dataProduct?.properties?.description}</DataProductDescription>
                     <DomainContents>
-                        <EntityCount displayAssetsText entityCount={dataProduct?.entities?.total} />
+                        {assetCount ? <EntityCount displayAssetsText entityCount={assetCount} /> : null}
                     </DomainContents>
                 </DomainInfoContainer>
             </HoverEntityTooltip>

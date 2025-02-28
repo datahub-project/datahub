@@ -16,6 +16,7 @@ import { Monitor } from '../../../../../../types.generated';
 import { isMonitorActive } from './acrylUtils';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { useAssertionURNCopyLink } from './assertion/builder/hooks';
+import { useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 const StyledStopOutlined = styled(StopOutlined)`
     margin-right: 8px;
@@ -81,7 +82,8 @@ export const AssertionActionsMenu = ({
     onRemoveFromContract,
 }: Props) => {
     const appConfig = useAppConfig();
-    const contractsEnabled = appConfig.config.featureFlags?.dataContractsEnabled;
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const contractsEnabled = isSeparateSiblingsMode && appConfig.config.featureFlags?.dataContractsEnabled;
     const [isUrnCopied, setIsUrnCopied] = useState(false);
 
     // To handle copying assertion URN link

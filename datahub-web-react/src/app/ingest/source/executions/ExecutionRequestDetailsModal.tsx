@@ -3,6 +3,9 @@ import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
+import { colors } from '@src/alchemy-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -13,9 +16,14 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
+    getIngestionSourceStatus,
+    getStructuredReport,
     RUNNING,
     SUCCESS,
+    SUCCEEDED_WITH_WARNINGS,
 } from '../utils';
+import { ExecutionRequestResult } from '../../../../types.generated';
+import { StructuredReport } from './reporting/StructuredReport';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -94,6 +102,19 @@ const DetailsContainer = styled.div<DetailsContainerProps>`
     `}
 `;
 
+const LinkButton = styled(Button)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: none;
+    color: ${colors.blue[500]};
+    display: inline-block;
+    &:hover {
+        background: none;
+    }
+`;
+
 const modalStyle = {
     top: 100,
 };
@@ -109,11 +130,14 @@ type DetailsContainerProps = {
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
+    saasProps?: {
+        onViewPool?: (poolId: string) => void;
+    };
 };
 
-export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -124,37 +148,49 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
-    const result = data?.executionRequest?.result?.status;
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
+    const result = data?.executionRequest?.result as Maybe<Partial<ExecutionRequestResult>>;
+    const status = getIngestionSourceStatus(result);
+
+    // SaaS only //
+    const executorInstanceId = result?.executorInstanceId;
+    const { data: executorResult } = useGetRemoteExecutorQuery({
+        variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
+    });
+    const poolId = executorResult?.getRemoteExecutor?.executorPoolId;
+    // End SaaS only //
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (result === RUNNING) refetch();
+            if (status === RUNNING) refetch();
         }, 2000);
 
         return () => clearInterval(interval);
     });
 
-    const ResultIcon = result && getExecutionRequestStatusIcon(result);
-    const resultColor = result && getExecutionRequestStatusDisplayColor(result);
-    const resultText = result && (
+    const ResultIcon = status && getExecutionRequestStatusIcon(status);
+    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
-            {getExecutionRequestStatusDisplayText(result)}
+            {getExecutionRequestStatusDisplayText(status)}
         </Typography.Text>
     );
+
+    const structuredReport = result && getStructuredReport(result);
+
     const resultSummaryText =
-        (result && <Typography.Text type="secondary">{getExecutionRequestSummaryText(result)}</Typography.Text>) ||
+        (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
-    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
         recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
 
     const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
     const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
@@ -167,21 +203,42 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
+                    <StyledTitle level={4}>Sync Details</StyledTitle>
                 </HeaderSection>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading execution details..." />}
-            {error && message.error('Failed to load execution details :(')}
+            {!data && loading && <Message type="loading" content="Loading sync details..." />}
+            {error && message.error('Failed to load sync details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {/* SaaS only */}
+                    <SubHeaderParagraph>
+                        Pool:{' '}
+                        <LinkButton
+                            disabled={!poolId}
+                            onClick={
+                                poolId
+                                    ? () => {
+                                          onClose();
+                                          saasProps?.onViewPool?.(poolId);
+                                      }
+                                    : undefined
+                            }
+                        >
+                            {poolId || 'Unknown'}
+                        </LinkButton>
+                        <br />
+                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
+                    </SubHeaderParagraph>
+                    {/* End SaaS only */}
+                    {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {result === SUCCESS && (
+                {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
                         {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
                     </IngestedAssetsSection>
@@ -190,7 +247,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <SectionHeader level={5}>Logs</SectionHeader>
                     <SectionSubHeader>
                         <SubHeaderParagraph type="secondary">
-                            View logs that were collected during the ingestion run.
+                            View logs that were collected during the sync.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
                             <DownloadOutlined />
@@ -213,7 +270,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                         <SectionHeader level={5}>Recipe</SectionHeader>
                         <SectionSubHeader>
                             <SubHeaderParagraph type="secondary">
-                                The recipe used for this ingestion run.
+                                The configurations used for this sync with the data source.
                             </SubHeaderParagraph>
                         </SectionSubHeader>
                         <DetailsContainer

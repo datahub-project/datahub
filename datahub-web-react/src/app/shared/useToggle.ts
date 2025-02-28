@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const NOOP = (_: boolean) => {};
 
@@ -32,6 +32,13 @@ const useToggle = ({ initialValue = false, closeDelay = 0, openDelay = 0, onTogg
         },
         [openDelay, onToggle],
     );
+
+    // below code only work when we have only one platform item and it will expand that platform item
+    useEffect(() => {
+        if (initialValue) {
+            setIsOpen(initialValue);
+        }
+    }, [initialValue, setIsOpen]);
 
     const toggle = () => {
         if (isOpen) {

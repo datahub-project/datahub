@@ -121,6 +121,32 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
 
 
 @freeze_time(FROZEN_TIME)
+def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_path):
+    test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
+
+    output_file_path = f"{tmp_path}/okta_mces_ingest_groups_users.json"
+
+    new_recipe = default_recipe(output_file_path)
+    new_recipe["source"]["config"]["ingest_users"] = False
+    new_recipe["source"]["config"]["ingest_groups"] = True
+    new_recipe["source"]["config"]["ingest_groups_users"] = True
+
+    run_ingest(
+        mock_datahub_graph=mock_datahub_graph,
+        mocked_functions_reference=partial(
+            _init_mock_okta_client, test_resources_dir=test_resources_dir
+        ),
+        recipe=new_recipe,
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file_path,
+        golden_path=f"{test_resources_dir}/okta_mces_golden_ingest_groups_users.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
 def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 

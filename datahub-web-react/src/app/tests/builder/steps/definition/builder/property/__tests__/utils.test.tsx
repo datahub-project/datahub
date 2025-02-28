@@ -1,7 +1,6 @@
 import { EntityType } from '../../../../../../../../types.generated';
 import { entityProperties } from '../types/properties';
-import { ValueInputType } from '../types/values';
-import { getPropertiesForEntityType, getPropertiesForEntityTypes, getValueOptions } from '../utils';
+import { getPropertiesForEntityTypes } from '../utils';
 
 describe('utils', () => {
     describe('getPropertiesForEntityTypes', () => {
@@ -26,22 +25,6 @@ describe('utils', () => {
             expect(res.length).toBeLessThan(
                 entityProperties.filter((obj) => obj.type === EntityType.Dashboard)[0].properties.length,
             );
-        });
-    });
-    describe('getValueOptions', () => {
-        it('returns correct input type for timestamp properties', () => {
-            expect(
-                getValueOptions(
-                    {
-                        property: '__firstSynchronized',
-                        operator: 'greater_than',
-                        values: ['1'],
-                    },
-                    getPropertiesForEntityType(EntityType.Dataset),
-                ),
-            ).toEqual({
-                inputType: ValueInputType.TIME_SELECT,
-            });
         });
     });
 });

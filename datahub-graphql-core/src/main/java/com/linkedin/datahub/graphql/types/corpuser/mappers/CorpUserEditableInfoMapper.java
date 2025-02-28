@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.types.corpuser.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataHubPersona;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -18,12 +20,14 @@ public class CorpUserEditableInfoMapper
   public static final CorpUserEditableInfoMapper INSTANCE = new CorpUserEditableInfoMapper();
 
   public static CorpUserEditableProperties map(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
-    return INSTANCE.apply(info);
+    return INSTANCE.apply(context, info);
   }
 
   @Override
   public CorpUserEditableProperties apply(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
     final CorpUserEditableProperties result = new CorpUserEditableProperties();
     result.setDisplayName(info.getDisplayName());

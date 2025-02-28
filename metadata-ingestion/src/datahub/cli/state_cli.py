@@ -34,4 +34,5 @@ def inspect(pipeline_name: str, platform: str) -> None:
         click.secho("No ingestion state found.", fg="red")
         exit(1)
 
+    logger.info(f"Found ingestion state with {len(checkpoint.state.urns)} URNs.")
     click.echo(json.dumps(checkpoint.state.urns, indent=2))

@@ -4,6 +4,9 @@ query getUserNotificationSettings {
         slackSettings {
             userHandle
         }
+        emailSettings {
+            email
+        }
     }
 }
 
@@ -12,6 +15,9 @@ query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
         sinkTypes
         slackSettings {
             channels
+        }
+        emailSettings {
+            email
         }
     }
 }
@@ -22,6 +28,9 @@ mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsIn
         slackSettings {
             userHandle
         }
+        emailSettings {
+            email
+        }
     }
 }
 
@@ -30,6 +39,9 @@ mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettings
         sinkTypes
         slackSettings {
             channels
+        }
+        emailSettings {
+            email
         }
     }
 }
@@ -40,6 +52,9 @@ query getGlobalSettings {
             slackSettings {
                 defaultChannelName
                 botToken
+            }
+            emailSettings {
+                defaultEmail
             }
         }
         notificationSettings {
@@ -58,6 +73,8 @@ query getGlobalSettings {
                 label
                 link
             }
+            customLogoUrl
+            customOrgName
         }
     }
 }
@@ -68,6 +85,9 @@ query getIntegrationSettings {
             slackSettings {
                 defaultChannelName
                 botToken
+            }
+            emailSettings {
+                defaultEmail
             }
         }
     }
@@ -129,4 +149,8 @@ mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
 
 mutation updateHelpLink($input: UpdateHelpLinkInput!) {
     updateHelpLink(input: $input)
+}
+
+mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
+    updateOrganizationDisplayPreferences(input: $input)
 }

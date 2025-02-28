@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Button, Menu, Dropdown, Typography } from 'antd';
+import { Button, Dropdown, Typography } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
 
 const CustomPaginationContainer = styled.div`
     display: flex;
@@ -60,27 +61,29 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
         onChange(version1, parseInt(key, 10));
     };
 
-    const menu1 = (
-        <Menu onClick={onVersion1Click} selectedKeys={[`${version1}`]}>
-            {[...Array(maxVersion)].map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <Menu.Item key={maxVersion - i}>
+    const items1 = [...Array(maxVersion)].map((_, i) => {
+        // eslint-disable-next-line react/no-array-index-key
+        return {
+            key: maxVersion - i,
+            label: (
+                <MenuItemStyle onClick={() => onVersion1Click({ key: maxVersion - i })}>
                     <Typography.Text>{i === 0 ? 'latest' : `version ${maxVersion + 1 - i}`}</Typography.Text>
-                </Menu.Item>
-            ))}
-        </Menu>
-    );
+                </MenuItemStyle>
+            ),
+        };
+    });
 
-    const menu2 = (
-        <Menu onClick={onVersion2Click} selectedKeys={[`${version2}`]}>
-            {[...Array(version1)].map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <Menu.Item key={version1 - i - 1}>
+    const items2 = [...Array(version1)].map((_, i) => {
+        // eslint-disable-next-line react/no-array-index-key
+        return {
+            key: version1 - i - 1,
+            label: (
+                <MenuItemStyle onClick={() => onVersion2Click({ key: version1 - i - 1 })}>
                     <Typography.Text>{`version ${version1 - i}`}</Typography.Text>
-                </Menu.Item>
-            ))}
-        </Menu>
-    );
+                </MenuItemStyle>
+            ),
+        };
+    });
 
     return (
         <CustomPaginationContainer>
@@ -92,13 +95,13 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
                 disabled={version1 >= maxVersion}
             />
             <DescriptionText>Comparing</DescriptionText>
-            <Dropdown overlay={menu1} trigger={['click']}>
+            <Dropdown menu={{ items: items1 }} trigger={['click']}>
                 <VersionText strong type="success">
                     {version1 === maxVersion ? 'latest' : `version ${version1 + 1}`}
                 </VersionText>
             </Dropdown>
             <DescriptionText>to</DescriptionText>
-            <Dropdown overlay={menu2} trigger={['click']}>
+            <Dropdown menu={{ items: items2 }} trigger={['click']}>
                 <VersionRightText strong type="success">{`version ${version2 + 1}`}</VersionRightText>
             </Dropdown>
             <NavButton

@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox, Empty, Table } from 'antd';
+import { Checkbox, Empty, Table, TableProps } from 'antd';
 import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
 import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
 import { ANTD_GRAY } from '../../../constants';
 import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from './acrylUtils';
 
-export const StyledTable = styled(Table)`
-    margin-left: -50px;
+type StyledTableProps = {
+    showSelect?: boolean;
+} & TableProps<any>;
+
+export const StyledTable = styled(Table)<StyledTableProps>`
+    ${(props) => !props.showSelect && `margin-left: -50px;`}
     max-width: none;
     overflow: inherit;
     height: inherit;
@@ -29,7 +34,7 @@ export const StyledTable = styled(Table)`
     && {
         .ant-table-tbody > tr > td {
             border: none;
-        }
+            ${(props) => props.showSelect && `padding: 16px 20px;`}
     }
     &&& .ant-table-cell {
         background-color: transparent;
@@ -44,7 +49,7 @@ export const StyledTable = styled(Table)`
     &&& .acryl-selected-assertions-table-row {
         background-color: ${ANTD_GRAY[4]};
     }
-` as typeof Table;
+`;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;
@@ -59,21 +64,21 @@ const AssertionSelectCheckbox = styled(Checkbox)`
 type Props = {
     assertions: Array<Assertion>;
     contract?: DataContract;
+    // required for enabling menu/quick actions
     showMenu?: boolean;
-    showSelect?: boolean;
-    selectedUrns?: string[];
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
+    refetch?: () => void;
+    // required for enabling selection
+    showSelect?: boolean;
+    selectedUrns?: string[];
     onSelect?: (assertionUrn: string) => void;
-    refetch: () => void;
 };
 
 /**
  * Acryl-specific list of assertions displaying their most recent run status, their human-readable
  * description, and platform.
- *
- * Currently this component supports rendering Dataset Assertions only.
  */
 export const AcrylAssertionsTable = ({
     assertions,
@@ -89,8 +94,11 @@ export const AcrylAssertionsTable = ({
 }: Props) => {
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-
     const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
+    const focusedAssertionEntity =
+        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+
     const canEditFocusAssertion = focusedAssertion
         ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
         : false;
@@ -124,7 +132,7 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
         monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity,
+            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [
@@ -136,19 +144,19 @@ export const AcrylAssertionsTable = ({
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 return (
                     <DetailsColumnWrapper>
-                        {showSelect && (
+                        {showSelect ? (
                             <AssertionSelectCheckbox
                                 checked={selected}
+                                onClick={(e) => e.stopPropagation()}
                                 onChange={() => onSelect?.(record.urn as string)}
                             />
-                        )}
+                        ) : undefined}
                         <DetailsColumn
                             assertion={record.assertion}
                             monitor={record.monitor}
                             contract={contract}
                             lastEvaluation={record.lastEvaluation}
                             onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
-                            refetch={refetch}
                         />
                     </DetailsColumnWrapper>
                 );
@@ -163,7 +171,7 @@ export const AcrylAssertionsTable = ({
                 const isSqlAssertion = record.type === AssertionType.Sql;
                 return (
                     <>
-                        {(showMenu && (
+                        {showMenu ? (
                             <ActionsColumn
                                 assertion={record.assertion}
                                 platform={record.platform}
@@ -175,8 +183,7 @@ export const AcrylAssertionsTable = ({
                                 lastEvaluationUrl={record.lastEvaluationUrl}
                                 refetch={refetch}
                             />
-                        )) ||
-                            undefined}
+                        ) : undefined}
                     </>
                 );
             },
@@ -186,6 +193,7 @@ export const AcrylAssertionsTable = ({
     return (
         <>
             <StyledTable
+                showSelect={showSelect}
                 rowClassName={(record) => {
                     return (
                         (record.urn === focusAssertionUrn && 'acryl-selected-assertions-table-row') ||
@@ -201,24 +209,26 @@ export const AcrylAssertionsTable = ({
                 onRow={(record) => {
                     return {
                         onClick: (_) => {
-                            setFocusAssertionUrn(record.urn);
+                            if (showSelect) {
+                                onSelect?.(record.urn as string);
+                            } else {
+                                setFocusAssertionUrn(record.urn);
+                            }
                         },
                     };
                 }}
                 showHeader={false}
                 pagination={false}
             />
-            {focusAssertionUrn && (
+            {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
-                    entity={entityData as Entity}
+                    entity={focusedAssertionEntity as Entity}
                     contract={contract}
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={() => {
-                        refetch();
-                    }}
+                    refetch={refetch}
                 />
             )}
         </>

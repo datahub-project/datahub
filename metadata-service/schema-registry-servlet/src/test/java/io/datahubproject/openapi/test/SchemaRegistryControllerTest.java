@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.test;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -73,7 +74,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     kafka.start();
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/api/");
+    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/api/");
   }
 
   @Autowired EventProducer _producer;
@@ -199,7 +200,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @KafkaListener(
       id = "test-mcp-consumer",
       topics = Topics.METADATA_CHANGE_PROPOSAL,
-      containerFactory = "kafkaEventConsumer",
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
       properties = {"auto.offset.reset:earliest"})
   public void receiveMCP(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
@@ -216,7 +217,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @KafkaListener(
       id = "test-mcl-consumer",
       topics = Topics.METADATA_CHANGE_LOG_VERSIONED,
-      containerFactory = "kafkaEventConsumer",
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
       properties = {"auto.offset.reset:earliest"})
   public void receiveMCL(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
@@ -232,7 +233,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @KafkaListener(
       id = "test-pe-consumer",
       topics = Topics.PLATFORM_EVENT,
-      containerFactory = "kafkaEventConsumer",
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
       properties = {"auto.offset.reset:earliest"})
   public void receivePE(ConsumerRecord<String, GenericRecord> consumerRecord) {
 

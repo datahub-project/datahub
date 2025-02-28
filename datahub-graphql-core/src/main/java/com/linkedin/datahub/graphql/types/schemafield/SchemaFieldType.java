@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
-import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -31,7 +30,13 @@ public class SchemaFieldType
     implements com.linkedin.datahub.graphql.types.EntityType<SchemaFieldEntity, String> {
 
   public static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME);
+      ImmutableSet.of(
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
+          BUSINESS_ATTRIBUTE_ASPECT,
+          DOCUMENTATION_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          LINEAGE_FEATURES_ASPECT_NAME);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
@@ -62,10 +67,10 @@ public class SchemaFieldType
       if (_featureFlags.isSchemaFieldEntityFetchEnabled()) {
         entities =
             _entityClient.batchGetV2(
+                context.getOperationContext(),
                 SCHEMA_FIELD_ENTITY_NAME,
                 new HashSet<>(schemaFieldUrns),
-                ASPECTS_TO_FETCH,
-                context.getAuthentication());
+                ASPECTS_TO_FETCH);
       }
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -87,7 +92,7 @@ public class SchemaFieldType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<SchemaFieldEntity>newResult()
-                          .data(SchemaFieldMapper.map(gmsResult))
+                          .data(SchemaFieldMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
 

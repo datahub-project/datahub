@@ -141,15 +141,15 @@
     "proposedDelta": null
   },
   {
-    "auditHeader":null,
-    "entityType":"incident",
-    "entityUrn": "urn:li:incident:test",
-    "changeType":"UPSERT",
-    "aspectName":"incidentInfo",
-    "aspect":{
-      "value":"{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
-      "contentType":"application/json"
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:test2",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   }
 ]

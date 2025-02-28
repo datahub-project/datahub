@@ -1,14 +1,13 @@
 import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Tag as AntTag, Tooltip, Typography, message } from 'antd';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import { Tag as AntTag, Typography, message } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
-
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
-import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
+import { ANTD_GRAY, EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import ProposalModal from '../../shared/tags/ProposalModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -16,6 +15,8 @@ import { DomainLink } from './DomainLink';
 import Tag from './tag/Tag';
 import Term from './term/Term';
 import AddTagTerm from './AddTagTerm';
+import { TermRibbon } from './term/TermContent';
+import { generateColorFromPalette } from '../../glossaryV2/colorUtils';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -56,9 +57,13 @@ const NoElementButton = styled.div`
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
-const TagTermWrapper = styled.div<{ showOneAndCount?: boolean }>`
+const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     display: flex;
-    flex-wrap: ${(props) => (!props.showOneAndCount ? 'wrap' : '')};
+    flex-wrap: ${(props) => (!props.$showOneAndCount ? 'wrap' : '')};
+    align-items: center;
+    row-gap: 4px;
+    column-gap: 8px;
+    max-width: 100%;
 `;
 
 const TagText = styled.span`
@@ -68,9 +73,36 @@ const TagText = styled.span`
     line-height: 8px;
 `;
 
-const ProposedTerm = styled(AntTag)`
-    opacity: 0.7;
-    border-style: dashed;
+const ProposedTermContainer = styled.div`
+    display: flex;
+    max-width: inherit;
+
+    .ant-tag.ant-tag {
+        border-radius: 5px;
+        border: 1px dashed #ccd1dd;
+    }
+`;
+
+export const ProposedTerm = styled(AntTag)`
+    margin: 0;
+    padding: 3px 8px;
+    font-size: 12px;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    position: relative;
+    overflow: hidden;
+    border: 1px dashed;
+    display: flex;
+    align-items: center;
+`;
+
+export const ProposedTag = styled(StyledTag)`
+    border: 1px dashed;
+`;
+
+const ProposedTermText = styled.span`
+    margin-left: 8px;
+    text-overflow: ellipsis;
+    overflow: hidden;
 `;
 
 const StyledPlusOutlined = styled(PlusOutlined)`
@@ -91,9 +123,7 @@ const Count = styled(Typography.Text)`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
-    margin-left: 3px;
     overflow: hidden;
-    width: 100%;
     white-space: nowrap;
 `;
 
@@ -138,8 +168,8 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
 
     const onCloseProposalDecisionModal = (e) => {
@@ -149,7 +179,7 @@ export default function TagTermGroup({
     };
 
     const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 message.success('Successfully accepted the proposal!');
             })
@@ -161,7 +191,7 @@ export default function TagTermGroup({
     };
 
     const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 message.info('Proposal declined.');
             })
@@ -192,24 +222,19 @@ export default function TagTermGroup({
 
     let renderedTags = 0;
     let renderedTerms = 0;
-    let renderTermsCount = false;
-    let renderTagsCount = false;
 
     return (
-        <TagTermWrapper showOneAndCount={showOneAndCount}>
+        <TagTermWrapper $showOneAndCount={showOneAndCount}>
             {domain && (
                 <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
-                renderedTags += 1;
                 renderedTerms += 1;
-                if (renderedTerms === 2) renderTermsCount = true;
-                if (showOneAndCount && renderTermsCount && renderedTerms === 2) {
-                    renderTermsCount = false;
+                if (showOneAndCount && renderedTerms === 2) {
                     return <Count>{`+${termsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTerms > 2) return null;
-                if (maxShow && renderedTags === maxShow + 1)
+                if (maxShow && renderedTerms === maxShow + 1)
                     return (
                         <TagText>
                             <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
@@ -219,7 +244,7 @@ export default function TagTermGroup({
                             </Highlight>
                         </TagText>
                     );
-                if (maxShow && renderedTags > maxShow) return null;
+                if (maxShow && renderedTerms > maxShow) return null;
 
                 return (
                     <Term
@@ -238,9 +263,7 @@ export default function TagTermGroup({
             })}
             {editableGlossaryTerms?.terms?.map((term) => {
                 renderedTerms += 1;
-                if (renderedTerms === 2) renderTermsCount = true;
-                if (showOneAndCount && renderTermsCount && renderedTerms === 2) {
-                    renderTermsCount = false;
+                if (showOneAndCount && renderedTerms === 2) {
                     return <Count>{`+${termsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTerms > 2) return null;
@@ -256,47 +279,59 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={term.context}
                     />
                 );
             })}
-            {proposedGlossaryTerms?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <ProposedTerm
-                        closable={false}
-                        data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(
-                            EntityType.GlossaryTerm,
-                            actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                        )}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={entityRegistry.getDisplayName(
-                                EntityType.GlossaryTerm,
-                                actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                            )}
-                        />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </ProposedTerm>
-                </Tooltip>
-            ))}
+            {proposedGlossaryTerms?.map((actionRequest) => {
+                const urn = actionRequest.params?.glossaryTermProposal?.glossaryTerm?.urn;
+                const parentNodes = actionRequest.params?.glossaryTermProposal?.glossaryTerm?.parentNodes;
+                const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+                const proposedTermColor = lastParentNode
+                    ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
+                    : (urn && generateColorFromPalette(urn)) || ANTD_GRAY[6];
+                return (
+                    <ProposedTermContainer>
+                        <ProposedTerm
+                            closable={false}
+                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowProposalDecisionModal(true);
+                            }}
+                        >
+                            <TermRibbon opacity={0.5} color={proposedTermColor} />
+                            <ProposedTermText>
+                                {entityRegistry.getDisplayName(
+                                    EntityType.GlossaryTerm,
+                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                )}
+                            </ProposedTermText>
+                            <ProposalModal
+                                actionRequest={actionRequest}
+                                showProposalDecisionModal={showProposalDecisionModal}
+                                onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                onProposalAcceptance={onProposalAcceptance}
+                                onProposalRejection={onProposalRejection}
+                                onActionRequestUpdate={onActionRequestUpdate}
+                                elementName={entityRegistry.getDisplayName(
+                                    EntityType.GlossaryTerm,
+                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                )}
+                            />
+                            <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
+                                <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                            </Tooltip>
+                        </ProposedTerm>
+                    </ProposedTermContainer>
+                );
+            })}
 
             {/* uneditable tags are provided by ingestion pipelines exclusively  */}
 
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
-                if (renderedTags === 2) renderTagsCount = true;
-                if (showOneAndCount && renderTagsCount && renderedTags === 2) {
-                    renderTagsCount = false;
+                if (showOneAndCount && renderedTags === 2) {
                     return <Count>{`+${tagsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTags > 2) return null;
@@ -324,9 +359,7 @@ export default function TagTermGroup({
             {/* editable tags may be provided by ingestion pipelines or the UI */}
             {editableTags?.tags?.map((tag) => {
                 renderedTags += 1;
-                if (renderedTags === 2) renderTagsCount = true;
-                if (showOneAndCount && renderTagsCount && renderedTags === 2) {
-                    renderTagsCount = false;
+                if (showOneAndCount && renderedTags === 2) {
                     return <Count>{`+${tagsLength - 1}`}</Count>;
                 }
                 if (showOneAndCount && renderedTags > 2) return null;
@@ -344,19 +377,22 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={tag.context}
                     />
                 );
             })}
             {proposedTags?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <StyledTag
-                        data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
-                        $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
-                        $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
+                <ProposedTag
+                    data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
+                    $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                    $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
+                    $showOneAndCount={showOneAndCount}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowProposalDecisionModal(true);
+                    }}
+                >
+                    <span>
                         {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
                         <ProposalModal
                             actionRequest={actionRequest}
@@ -367,9 +403,11 @@ export default function TagTermGroup({
                             onActionRequestUpdate={onActionRequestUpdate}
                             elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
                         />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </StyledTag>
-                </Tooltip>
+                        <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
+                            <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                        </Tooltip>
+                    </span>
+                </ProposedTag>
             ))}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <EmptyText type="secondary">{EMPTY_MESSAGES.tags.title}.</EmptyText>
@@ -409,6 +447,7 @@ export default function TagTermGroup({
                 showAddModal={showAddModal}
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
+                refetch={refetch}
             />
         </TagTermWrapper>
     );

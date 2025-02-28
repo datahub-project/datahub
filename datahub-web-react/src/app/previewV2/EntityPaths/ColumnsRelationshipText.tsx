@@ -3,12 +3,11 @@ import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { Entity, LineageDirection } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
 import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
 import DisplayedColumns from './DisplayedColumns';
+import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 const ColumnNameWrapper = styled.span<{ isBlack?: boolean }>`
-    font-family: 'Roboto Mono', monospace;
     font-weight: bold;
     ${(props) => props.isBlack && 'color: black;'}
 `;

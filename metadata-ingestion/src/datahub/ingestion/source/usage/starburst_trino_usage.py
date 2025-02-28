@@ -135,7 +135,7 @@ class TrinoUsageSource(Source):
         access_events = self._get_trino_history()
         # If the query results is empty, we don't want to proceed
         if not access_events:
-            return []
+            return
 
         joined_access_event = self._get_joined_access_event(access_events)
         aggregated_info = self._aggregate_access_events(joined_access_event)
@@ -191,6 +191,8 @@ class TrinoUsageSource(Source):
         if isinstance(v, str):
             isodate = parser.parse(v)  # compatible with Python 3.6+
             return isodate
+        if isinstance(v, datetime):
+            return v
 
     def _get_joined_access_event(self, events):
         joined_access_events = []
@@ -233,9 +235,9 @@ class TrinoUsageSource(Source):
     def _aggregate_access_events(
         self, events: List[TrinoJoinedAccessEvent]
     ) -> Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[TrinoTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+        datasets: Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]] = (
+            collections.defaultdict(dict)
+        )
 
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)

@@ -29,10 +29,16 @@ fragment relationshipFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...lineageNodeProperties
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...lineageNodeProperties
+                }
             }
         }
     }
@@ -41,5 +47,15 @@ fragment relationshipFields on EntityWithRelationships {
     }
     downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
         ...leafLineageResults
+    }
+}
+
+query getEntitiesNotes($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on EntityWithRelationships {
+            urn
+            type
+            ...notes
+        }
     }
 }

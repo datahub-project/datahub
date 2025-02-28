@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -34,10 +35,10 @@ public class ParentContainersResolver
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(CONTAINER_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(CONTAINER_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
@@ -46,9 +47,9 @@ public class ParentContainersResolver
         Urn containerUrn = container.getContainer();
         EntityResponse response =
             _entityClient.getV2(
-                containerUrn.getEntityType(), containerUrn, null, context.getAuthentication());
+                context.getOperationContext(), containerUrn.getEntityType(), containerUrn, null);
         if (response != null) {
-          Container mappedContainer = ContainerMapper.map(response);
+          Container mappedContainer = ContainerMapper.map(context, response);
           containers.add(mappedContainer);
           aggregateParentContainers(containers, mappedContainer.getUrn(), context);
         }
@@ -65,17 +66,22 @@ public class ParentContainersResolver
     final String urn = ((Entity) environment.getSource()).getUrn();
     final List<Container> containers = new ArrayList<>();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             aggregateParentContainers(containers, urn, context);
             final ParentContainersResult result = new ParentContainersResult();
-            result.setCount(containers.size());
-            result.setContainers(containers);
+
+            List<Container> viewable = new ArrayList<>(containers);
+
+            result.setCount(viewable.size());
+            result.setContainers(viewable);
             return result;
           } catch (DataHubGraphQLException e) {
             throw new RuntimeException("Failed to load all containers", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

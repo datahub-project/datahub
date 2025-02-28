@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Personal Access Tokens
+# Personal Access Tokens
 
 <FeatureAvailability/>
 
@@ -108,5 +108,5 @@ A PAT represents a user in DataHub, if that user does not have permissions for a
 
 Yes, although not through the UI correctly, you will have to use the [token management graphQL API](../api/graphql/token-management.md) and the user making the request must have `Manage All Access Tokens` permissions.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 

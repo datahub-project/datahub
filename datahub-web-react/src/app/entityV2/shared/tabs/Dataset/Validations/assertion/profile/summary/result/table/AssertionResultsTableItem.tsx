@@ -1,20 +1,16 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 
 import { Assertion, AssertionRunEvent } from '../../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../../constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../../../../../../shared/time/timeUtils';
 import { getFormattedTimeString } from '../timeline/utils';
-import {
-    ResultStatusType,
-    applyOpacityToHexColor,
-    getFormattedReasonText,
-    getFormattedResultText,
-} from '../../shared/resultUtils';
+import { ResultStatusType, getFormattedReasonText, getFormattedResultText } from '../../shared/resultMessageUtils';
 import { getResultColor } from '../../../../../assertionUtils';
 import { AssertionResultPopover } from '../../../shared/result/AssertionResultPopover';
+import { applyOpacityToHexColor } from '../../../../../../../../../../shared/styleUtils';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;

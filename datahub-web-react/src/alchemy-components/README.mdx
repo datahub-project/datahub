@@ -1,0 +1,73 @@
+# Alchemy Component Library
+
+This is a comprehensive library of accessible and reusable React components that streamlines the development of Acryl's applications and websites. The library offers a diverse range of components that can be easily combined to build complex user interfaces while adhering to accessibility best practices.
+
+### Component Usage
+
+It's easy to use the components availble in the library. Simply import the component and use it anywhere you're rendering React components.
+
+```tsx
+import { Button } from '@components';
+
+function YourComponent() {
+    return <Button>Click me!</Button>;
+}
+```
+
+In addition to the components themselves, you can also import their types:
+
+```tsx
+import type { ButtonProps } from '@components';
+```
+
+### Theme Usage
+
+This component library comes with a complete theme utility that pre-defines all of our styling atoms and makes them accessible at `@components/theme`.
+
+```tsx
+import { colors } from '@components/theme';
+
+function YourComponent() {
+	return (
+		<div style={{ bgColor: colors.green.400 }}>
+			This div has a green background!
+		</div>
+	)
+}
+```
+
+You can access the theme types at `@components/theme/types` and the theme config at `@components/theme/config`.
+
+### Writing Docs
+
+Our docs are generated using [Storybook](https://storybook.js.org/) and deployed to [Cloudfare](https://www.cloudflare.com/).
+
+-   Storybook config is located at `.storybook`
+-   Static doc files are located at `alchemy-components/.docs`
+-   Component stories are located in each component directory: <br/>`alchemy-components/components/Component/Component.stories.tsx`
+
+Storybook serves as our playground for developing components. You can start it locally:
+
+```bash
+yarn storybook
+```
+
+This launches the docs app at `localhost:6006` and enables everything you need to quickly develop and document components.
+
+### Contributing
+
+Building a component library is a collaboriate effort! We're aiming to provide a first-class experience, so here's a list of the standards we'll be looking for:
+
+-   Consitent prop and variant naming conventions: <br />
+    -- `variant` is used to define style types, such as `outline` or `filled`. <br />
+    -- `color` is used to define the components color, such as `violet` or `blue`. <br />
+    -- `size` is used to define the components size, such as `xs` or `4xl`. <br />
+    -- Booleans are prefixed with `is`: `isLoading` or `isDisabled`.
+-   All style props have a correseponding theme type, ie. `FontSizeOptions`.
+-   All components have an export of default props.
+-   Styles are defined using `style objects` instead of `tagged template literals`.
+-   Stories are organized into the correct directory .
+
+### FAQs
+
+-   **How are components being styled?** <br />Our components are built using [Styled Components](https://styled-components.com/) that dynamically generate styles based on variant selection.

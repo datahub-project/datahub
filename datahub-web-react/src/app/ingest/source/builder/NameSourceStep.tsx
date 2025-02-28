@@ -1,7 +1,10 @@
 import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
+import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector.saas';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -17,7 +20,7 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
+export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,
@@ -149,9 +152,14 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         }
     };
 
+    const handleBlur = (event: React.FocusEvent<HTMLInputElement>, setterFunction: (value: string) => void) => {
+        const trimmedValue = event.target.value.trim();
+        setterFunction(trimmedValue);
+    };
+
     return (
         <>
-            <Form layout="vertical">
+            <RequiredFieldForm layout="vertical">
                 <Form.Item
                     required
                     label={
@@ -161,26 +169,29 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     }
                     style={{ marginBottom: 8 }}
                 >
-                    <Typography.Paragraph>Give this ingestion source a name.</Typography.Paragraph>
+                    <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
                         placeholder="My Redshift Source #2"
                         value={state.name}
                         onChange={(event) => setName(event.target.value)}
+                        onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the executor id to route execution requests to. The built-in DataHub executor id
-                                is &apos;default&apos;. Do not change this unless you have configured a custom executor.
+                                Provide the id of the executor pool that should execute this ingestion recipe. This id
+                                is used to route execution requests of the recipe to the executor pool of the same id.
+                                The built-in DataHub executor pool id is &apos;default&apos;. Do not change this unless
+                                you have configured a remote or custom executor.
                             </Typography.Paragraph>
-                            <Input
-                                placeholder="default"
-                                value={state.config?.executorId || ''}
-                                onChange={(event) => setExecutorId(event.target.value)}
+                            <RemoteExecutorPoolSelector
+                                value={state.config?.executorId || (isEditing ? '' : undefined)}
+                                onChange={(newPoolId) => setExecutorId(newPoolId)}
+                                onBlur={(newPoolId) => setExecutorId(newPoolId)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
@@ -190,9 +201,10 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             <Input
                                 data-testid="cli-version-input"
                                 className="cli-version-input"
-                                placeholder="(e.g. 0.12.0)"
+                                placeholder="(e.g. 0.15.0)"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setVersion)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
@@ -213,6 +225,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
                                 value={retrieveExtraEnvs()}
                                 onChange={(event) => setExtraEnvs(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraEnvs)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
@@ -224,6 +237,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='["debug"]'
                                 value={retrieveExtraDataHubPlugins()}
                                 onChange={(event) => setExtraDataHubPlugins(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
@@ -235,11 +249,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='["sqlparse==0.4.3"]'
                                 value={retrieveExtraReqs()}
                                 onChange={(event) => setExtraReqs(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraReqs)}
                             />
                         </Form.Item>
                     </Collapse.Panel>
                 </Collapse>
-            </Form>
+            </RequiredFieldForm>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
@@ -250,13 +265,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     >
                         Save
                     </SaveButton>
-                    <Button
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
-                        onClick={() => onClickCreate(true)}
-                        type="primary"
-                    >
-                        Save & Run
-                    </Button>
+                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                        <Button
+                            disabled={!(state.name !== undefined && state.name.length > 0)}
+                            onClick={() => onClickCreate(true)}
+                            type="primary"
+                        >
+                            Save & Run
+                        </Button>
+                    </Tooltip>
                 </div>
             </ControlsContainer>
         </>

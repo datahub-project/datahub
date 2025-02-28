@@ -1,13 +1,19 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { Tooltip } from '@components';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
 
 const StyledInput = styled(Input)`
-    margin-bottom: 4px;
+    margin-bottom: 20px;
+`;
+
+const StyledText = styled(Typography.Text)`
+    display: block;
+    position: absolute;
+    bottom: 11.5rem;
 `;
 
 type PropsData = {
@@ -93,22 +99,17 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         onClose();
     };
 
-    // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#editUserButton',
-    });
-
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={visible}
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
+                    <Button type="primary" id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>
@@ -122,6 +123,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 onFieldsChange={() =>
                     setSaveButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
+                onKeyPress={(event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        onSaveChanges();
+                    }
+                }}
             >
                 <Form.Item
                     name="name"
@@ -231,17 +238,17 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                         disabled={readOnlyModeEnabled}
                     />
-                    <Typography.Text type="secondary">
-                        Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
-                        <a
-                            href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            here.
-                        </a>
-                    </Typography.Text>
                 </Form.Item>
+                <StyledText type="secondary">
+                    Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
+                    <a
+                        href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        here.
+                    </a>
+                </StyledText>
                 <Form.Item
                     name="phone"
                     label={<Typography.Text strong>Phone</Typography.Text>}

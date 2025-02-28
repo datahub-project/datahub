@@ -13,12 +13,17 @@ query getDomain($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         institutionalMemory {
             elements {
                 url
-                author {
-                    urn
-                    username
+                actor {
+                    ...resolvedActorFields
                 }
                 description
                 created {
@@ -30,10 +35,22 @@ query getDomain($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
         displayProperties {
             ...displayPropertiesFields
         }
         ...domainEntitiesFields
+        assetOrigin {
+            ...originFields
+        }
+        ...notes
     }
 }
 
@@ -96,15 +113,20 @@ query getDomainEntitySummary($urn: String!) {
             orFilters: [
                 {
                     and: [
-                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true },
+                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
                         { field: "domains", values: [$urn], value: $urn }
                     ]
                 }
             ]
+            searchFlags: { skipCache: true }
         }
     ) {
         facets {
             ...facetFields
         }
     }
+}
+
+mutation proposeDomain($input: ProposeDomainInput!) {
+    proposeDomain(input: $input)
 }

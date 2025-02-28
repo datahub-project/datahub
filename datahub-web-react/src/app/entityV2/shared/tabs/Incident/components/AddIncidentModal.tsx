@@ -1,30 +1,42 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
+import { useApolloClient } from '@apollo/client';
+import styled from 'styled-components';
+import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import { IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES } from '../incidentUtils';
+import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
+import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import { useUserContext } from '../../../../../context/useUserContext';
+
+const StyledEditor = styled(Editor)`
+    border: 1px solid ${ANTD_GRAY[4.5]};
+`;
 
 type AddIncidentProps = {
+    urn: string;
+    entityType: EntityType;
     visible: boolean;
     onClose?: () => void;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
 };
 
-export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps) => {
-    const { urn, entityType } = useEntityData();
-    const refetchEntity = useRefetch();
+export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }: AddIncidentProps) => {
+    const { user } = useUserContext();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;
     const [selectedIncidentType, setSelectedIncidentType] = useState<IncidentType>(IncidentType.Operational);
     const [isOtherTypeSelected, setIsOtherTypeSelected] = useState<boolean>(false);
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
 
+    const client = useApolloClient();
     const [form] = Form.useForm();
 
     const handleClose = () => {
         form.resetFields();
         setIsOtherTypeSelected(false);
+        setSelectedIncidentType(IncidentType.Operational);
         onClose?.();
     };
 
@@ -39,36 +51,66 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
     };
 
     const handleAddIncident = async (formData: any) => {
-        try {
-            await raiseIncidentMutation({
-                variables: {
-                    input: {
-                        type: selectedIncidentType,
-                        title: formData.title,
-                        description: formData.description,
-                        resourceUrn: urn,
-                        customType: formData.customType,
-                    },
+        raiseIncidentMutation({
+            variables: {
+                input: {
+                    type: selectedIncidentType,
+                    title: formData.title,
+                    description: formData.description,
+                    resourceUrn: urn,
+                    customType: formData.customType,
                 },
+            },
+        })
+            .then(({ data }) => {
+                const newIncident = {
+                    urn: data?.raiseIncident,
+                    type: EntityType.Incident,
+                    incidentType: selectedIncidentType,
+                    customType: formData.customType || null,
+                    title: formData.title,
+                    description: formData.description,
+                    startedAt: null,
+                    tags: null,
+                    status: {
+                        state: IncidentState.Active,
+                        message: null,
+                        lastUpdated: {
+                            __typename: 'AuditStamp',
+                            time: Date.now(),
+                            actor: user?.urn,
+                        },
+                    },
+                    source: {
+                        type: IncidentSourceType.Manual,
+                    },
+                    created: {
+                        time: Date.now(),
+                        actor: user?.urn,
+                    },
+                };
+                message.success({ content: 'Incident Added', duration: 2 });
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    entityType,
+                    entityUrn: urn,
+                    actionType: EntityActionType.AddIncident,
+                });
+                addActiveIncidentToCache(client, urn, newIncident, PAGE_SIZE);
+                handleClose();
+                setTimeout(() => {
+                    refetch?.();
+                }, 2000);
+            })
+            .catch((error) => {
+                console.error(error);
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to raise incident! An unexpected error occurred',
+                    permissionMessage:
+                        'Unauthorized to raise incident for this asset. Please contact your DataHub administrator.',
+                });
             });
-            message.success({ content: 'Incident Added', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                entityType,
-                entityUrn: urn,
-                actionType: EntityActionType.AddIncident,
-            });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to add incident: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        handleClose();
-        setTimeout(() => {
-            refetch?.();
-            refetchEntity?.();
-        }, 2000);
     };
 
     return (
@@ -78,12 +120,13 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                 visible={visible}
                 destroyOnClose
                 onCancel={handleClose}
+                width={600}
                 footer={[
                     <Button type="text" onClick={handleClose}>
                         Cancel
                     </Button>,
-                    <Button form="addIncidentForm" key="submit" htmlType="submit">
-                        Add
+                    <Button type="primary" form="addIncidentForm" key="submit" htmlType="submit">
+                        Raise
                     </Button>,
                 ]}
             >
@@ -115,7 +158,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                                 },
                             ]}
                         >
-                            <Input />
+                            <Input placeholder="Freshness" />
                         </Form.Item>
                     )}
                     <Form.Item
@@ -128,7 +171,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A title for this incident" />
+                        <Input placeholder="What went wrong?" />
                     </Form.Item>
                     <Form.Item
                         name="description"
@@ -140,7 +183,17 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A short description for this incident" />
+                        <StyledEditor
+                            doNotFocus
+                            className="add-incident-description"
+                            onKeyDown={(e) => {
+                                // Preventing the modal from closing when the Enter key is pressed
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }
+                            }}
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

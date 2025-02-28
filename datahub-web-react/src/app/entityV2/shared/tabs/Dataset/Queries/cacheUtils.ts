@@ -1,14 +1,17 @@
 import { ListQueriesDocument, ListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { QueryEntity } from '../../../../../../types.generated';
+import { QueryEntity, QuerySource } from '../../../../../../types.generated';
+import { getQueryEntitiesFilter } from './utils/filterQueries';
 
-export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, datasetUrn) => {
+export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, datasetUrn, siblingUrn) => {
+    const entityFilter = getQueryEntitiesFilter(datasetUrn, siblingUrn);
     const currData: ListQueriesQuery | null = client.readQuery({
         query: ListQueriesDocument,
         variables: {
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
     });
@@ -21,7 +24,8 @@ export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, dat
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
         data: {
@@ -35,7 +39,16 @@ export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, dat
     });
 };
 
-export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, client, page, pageSize, datasetUrn) => {
+export const updateListQueriesCache = (
+    urn: string,
+    newQuery: QueryEntity,
+    client,
+    page,
+    pageSize,
+    datasetUrn,
+    siblingUrn,
+) => {
+    const entityFilter = getQueryEntitiesFilter(datasetUrn, siblingUrn);
     // Read the data from our cache for this query.
     const currData: ListQueriesQuery | null = client.readQuery({
         query: ListQueriesDocument,
@@ -43,7 +56,8 @@ export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, clien
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
     });
@@ -72,7 +86,8 @@ export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, clien
             input: {
                 start: 0,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
         data: {
@@ -86,14 +101,16 @@ export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, clien
     });
 };
 
-export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn) => {
+export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn, siblingUrn) => {
+    const entityFilter = getQueryEntitiesFilter(datasetUrn, siblingUrn);
     const currData: ListQueriesQuery | null = client.readQuery({
         query: ListQueriesDocument,
         variables: {
             input: {
                 start: 0,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
     });
@@ -106,7 +123,8 @@ export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn) 
             input: {
                 start: 0,
                 count: pageSize,
-                datasetUrn,
+                orFilters: [{ and: [entityFilter] }],
+                source: QuerySource.Manual,
             },
         },
         data: {

@@ -1,26 +1,24 @@
 package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaEventProducerFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
-import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
+import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBuildersFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({
@@ -28,9 +26,8 @@ import org.springframework.context.annotation.Scope;
   SettingsProviderFactory.class,
   DataHubKafkaEventProducerFactory.class,
   KafkaHealthChecker.class,
-  SlackNotificationRecipientBuilderFactory.class
+  NotificationRecipientBuildersFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IncidentNotificationGeneratorFactory {
 
   @Autowired
@@ -46,24 +43,25 @@ public class IncidentNotificationGeneratorFactory {
   private SettingsProvider _settingsProvider;
 
   @Autowired
-  @Qualifier("slackNotificationRecipientBuilder")
-  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+  @Qualifier("notificationRecipientBuilders")
+  private NotificationRecipientBuilders _notificationRecipientBuilders;
 
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
   @Bean(name = "incidentNotificationGenerator")
-  @Scope("singleton")
   @Nonnull
-  protected IncidentNotificationGenerator getInstance(final SystemEntityClient systemEntityClient) {
+  protected IncidentNotificationGenerator getInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
     return new IncidentNotificationGenerator(
+        systemOpContext,
         _eventProducer,
         systemEntityClient,
         _graphClient,
         _settingsProvider,
-        systemEntityClient.getSystemAuthentication(),
-        _slackNotificationRecipientBuilder,
+        _notificationRecipientBuilders,
         _configProvider.getFeatureFlags());
   }
 }

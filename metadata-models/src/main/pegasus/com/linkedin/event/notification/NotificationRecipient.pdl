@@ -1,23 +1,49 @@
 namespace com.linkedin.event.notification
 
+import com.linkedin.common.Urn
+
 /**
  * The targeted recipient of a notification, either a specific User or a specific channel.
  */
 record NotificationRecipient {
   /**
-   * The type of a notification recipient.
+   * The type of a notification recipient, e.g. the channel type.
    */
   type: NotificationRecipientType
 
   /**
    * A custom notification recipient type. Required if recipient type is CUSTOM.
    */
-   customType: optional string
+  customType: optional string
 
   /**
-   * If type is USER or GROUP, the urn to send the notification to. Otherwise, a unique target id that the sink can pick up.
-   * Most often, a sink will require a recipient id. In some cases, a default recipient id will be used by the sink
-   * if one is not provided.
+   * A unique channel / target id that the sink can pick up.
+   * For slack sink, this will contain the channel or user id to send to.
+   * For email sink, this will contain the email address to send to.
    */
    id: optional string
+
+   /**
+    * The origin of the recipient notification, for tracking.
+    */
+   origin: optional enum NotificationRecipientOriginType {
+       /**
+        * The notification originated from a subscription.
+        */
+        SUBSCRIPTION,
+        /**
+        * The notification originated from a global change.
+        */
+        GLOBAL_NOTIFICATION
+   }
+
+   /**
+    * The URN of the actor associated with the recipient (personal or subscription related notifications).
+    */
+    actor: optional Urn
+
+   /**
+    * An optional display name to use when addressing the recipient. Available only for subscription or personal notifications.
+    */
+    displayName: optional string
 }

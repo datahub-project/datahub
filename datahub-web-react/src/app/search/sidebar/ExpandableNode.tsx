@@ -29,7 +29,7 @@ const ExpandableNode = ({ isOpen, header, body }: ExpandableNodeProps) => {
     );
 };
 
-ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; showBorder?: boolean }>`
+ExpandableNode.Header = styled.div<{ isOpen: boolean; $isSelected?: boolean; showBorder?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -41,10 +41,10 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
-ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
+ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
-        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+        border: 1px solid ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'transparent')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
         border-radius: 8px;
     }
 

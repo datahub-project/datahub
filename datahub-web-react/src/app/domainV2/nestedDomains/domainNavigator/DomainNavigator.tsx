@@ -9,16 +9,17 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 const NavigatorWrapper = styled.div`
     font-size: 14px;
     max-height: calc(100% - 65px);
-    padding: 10px 0px;
     overflow: auto;
 `;
 
 interface Props {
     domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
+    isCollapsed: boolean;
+    unhideSidebar?: () => void;
 }
 
-export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
+export default function DomainNavigator({ domainUrnToHide, isCollapsed, selectDomainOverride, unhideSidebar }: Props) {
     const { sortedDomains, error, loading } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
@@ -40,6 +41,8 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride 
                         numDomainChildren={domain.children?.total || 0}
                         domainUrnToHide={domainUrnToHide}
                         selectDomainOverride={selectDomainOverride}
+                        isCollapsed={isCollapsed}
+                        unhideSidebar={unhideSidebar}
                     />
                 ))}
         </NavigatorWrapper>

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyMatchFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
@@ -18,6 +19,7 @@ import com.linkedin.policy.PolicyMatchFilter;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Maps GraphQL {@link PolicyUpdateInput} to DataHub backend {@link DataHubPolicyInfo}. */
 public class PolicyUpdateInputInfoMapper
@@ -25,12 +27,14 @@ public class PolicyUpdateInputInfoMapper
 
   public static final PolicyUpdateInputInfoMapper INSTANCE = new PolicyUpdateInputInfoMapper();
 
-  public static DataHubPolicyInfo map(@Nonnull final PolicyUpdateInput policyInput) {
-    return INSTANCE.apply(policyInput);
+  public static DataHubPolicyInfo map(
+      @Nullable QueryContext context, @Nonnull final PolicyUpdateInput policyInput) {
+    return INSTANCE.apply(context, policyInput);
   }
 
   @Override
-  public DataHubPolicyInfo apply(@Nonnull final PolicyUpdateInput policyInput) {
+  public DataHubPolicyInfo apply(
+      @Nullable QueryContext queryContext, @Nonnull final PolicyUpdateInput policyInput) {
     final DataHubPolicyInfo result = new DataHubPolicyInfo();
     result.setDescription(policyInput.getDescription());
     result.setType(policyInput.getType().toString());

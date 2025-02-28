@@ -8,19 +8,19 @@ If you're looking to schedule DataHub ingestion using Airflow, see the guide on 
 
 The DataHub Airflow plugin supports:
 
-- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and more.
+- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, `BigQueryInsertJobOperator`, and more), `S3FileTransformOperator`, and more.
 - Airflow DAG and tasks, including properties, ownership, and tags.
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
 
-There's two actively supported implementations of the plugin, with different Airflow version support.
+There's two implementations of the plugin, with different Airflow version support.
 
-| Approach  | Airflow Version | Notes                                                                       |
-| --------- | --------------- | --------------------------------------------------------------------------- |
-| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+                                           |
-| Plugin v1 | 2.1+            | No automatic lineage extraction; may not extract lineage if the task fails. |
+| Approach  | Airflow Versions | Notes                                                                                   |
+| --------- | ---------------- | --------------------------------------------------------------------------------------- |
+| Plugin v2 | 2.3.4+           | Recommended. Requires Python 3.8+                                                       |
+| Plugin v1 | 2.3 - 2.8        | Deprecated. No automatic lineage extraction; may not extract lineage if the task fails. |
 
-If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
+If you're using Airflow older than 2.3, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
 <!-- TODO: Update the local Airflow guide and link to it here. -->
 <!-- If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). -->
@@ -29,7 +29,7 @@ If you're using Airflow older than 2.1, it's possible to use the v1 plugin with 
 
 ### Installation
 
-The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, use the v1 plugin instead.
+The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
@@ -44,6 +44,8 @@ Set up a DataHub connection in Airflow, either via command line or the Airflow U
 ```shell
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
+
+If you are using DataHub Cloud then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
 
 #### Airflow UI
 
@@ -67,10 +69,12 @@ enabled = True  # default
 | -------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                         |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                 |
-| cluster                    | prod                 | name of the airflow cluster                                                              |
+| cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance             |
 | capture_ownership_info     | true                 | Extract DAG ownership.                                                                   |
+| capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user             |
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |
+| materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                             |
 | enable_extractors          | true                 | Enable automatic lineage extraction.                                                     |
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
@@ -80,9 +84,10 @@ enabled = True  # default
 
 ### Installation
 
-The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
+The v1 plugin requires Airflow 2.3 - 2.8 and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
-If you're using Airflow 2.3+, we recommend using the v2 plugin instead. If you need to use the v1 plugin with Airflow 2.3+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
+Note that the v1 plugin is less featureful than the v2 plugin, and is overall not actively maintained.
+Since datahub v0.15.0, the v2 plugin has been the default. If you need to use the v1 plugin with `acryl-datahub-airflow-plugin` v0.15.0+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v1]'
@@ -127,15 +132,21 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 # etc.
 ```
 
-| Name                   | Default value        | Description                                                                                                                                                                            |
-| ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| enabled                | true                 | If the plugin should be enabled.                                                                                                                                                       |
-| conn_id                | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
-| cluster                | prod                 | name of the airflow cluster                                                                                                                                                            |
-| capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
-| capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
-| capture_executions     | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
-| graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
+| Name                       | Default value        | Description                                                                                                                                                                            |
+| -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
+| conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
+| cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
+| capture_ownership_info     | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
+| capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user.                                                                                                          |
+| capture_tags_info          | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
+| capture_executions         | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
+| materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                           |
+| render_templates           | true                 | If true, jinja-templated fields will be automatically rendered to improve the accuracy of SQL statement extraction.                                                                    |
+| datajob_url_link           | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
+|                            |
+| graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
+| dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
 
 #### Validate that the plugin is working
 
@@ -153,13 +164,14 @@ Only the v2 plugin supports automatic lineage extraction. If you're using the v1
 To automatically extract lineage information, the v2 plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
 As such, we support a superset of the default operators that Airflow/OpenLineage supports.
 
-The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
+The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](./sql_parsing.md), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
 
 Supported operators:
 
 - `SQLExecuteQueryOperator`, including any subclasses. Note that in newer versions of Airflow (generally Airflow 2.5+), most SQL operators inherit from this class.
 - `AthenaOperator` and `AWSAthenaOperator`
 - `BigQueryOperator` and `BigQueryExecuteQueryOperator`
+- `BigQueryInsertJobOperator` (incubating)
 - `MySqlOperator`
 - `PostgresOperator`
 - `RedshiftSQLOperator`
@@ -179,6 +191,10 @@ These operators are supported by OpenLineage, but we haven't tested them yet:
 
 There's also a few operators (e.g. BashOperator, PythonOperator) that have custom extractors, but those extractors don't generate lineage.
 -->
+
+Known limitations:
+
+- We do not fully support operators that run multiple SQL statements at once. In these cases, we'll only capture lineage from the first SQL statement.
 
 ## Manual Lineage Annotation
 
@@ -217,6 +233,69 @@ class DbtOperator(BaseOperator):
 ```
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
+
+### Custom Extractors
+
+Note: these are only supported in the v2 plugin.
+
+You can also create a custom extractor to extract lineage from any operator. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
+
+See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
+
+## Cleanup obsolete pipelines and tasks from Datahub
+
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the Datahub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+
+Following are the steps to cleanup them from the datahub:
+
+- create a DAG named `Datahub_Cleanup`, i.e.
+
+```python
+from datetime import datetime
+
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+from datahub_airflow_plugin.entities import Dataset, Urn
+
+with DAG(
+    "Datahub_Cleanup",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval=None,
+    catchup=False,
+) as dag:
+    task = BashOperator(
+        task_id="cleanup_obsolete_data",
+        dag=dag,
+        bash_command="echo 'cleaning up the obsolete data from datahub'",
+    )
+
+```
+
+- ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
+
+## Get all dataJobs associated with a dataFlow
+
+If you are looking to find all tasks (aka DataJobs) that belong to a specific pipeline (aka DataFlow), you can use the following GraphQL query:
+
+```graphql
+query {
+  dataFlow(urn: "urn:li:dataFlow:(airflow,db_etl,prod)") {
+    childJobs: relationships(
+      input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }
+    ) {
+      total
+      relationships {
+        entity {
+          ... on DataJob {
+            urn
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## Emit Lineage Directly
 
@@ -260,13 +339,45 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
+### Disabling the DataHub Plugin v2
+
+There are two ways to disable the DataHub Plugin v2:
+
+#### 1. Disable via Configuration
+
+Set the `datahub.enabled` configuration property to `False` in the `airflow.cfg` file and restart the Airflow environment to reload the configuration and disable the plugin.
+
+```ini title="airflow.cfg"
+[datahub]
+enabled = False
+```
+
+#### 2. Disable via Airflow Variable (Kill-Switch)
+
+If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Create and set the `datahub_airflow_plugin_disable_listener` Airflow variable to `true`. This ensures that the listener won't process anything.
+
+#### Command Line
+
+```shell
+airflow variables set datahub_airflow_plugin_disable_listener true
+```
+
+#### Airflow UI
+
+1. Go to Admin -> Variables.
+2. Click the "+" symbol to create a new variable.
+3. Set the key to `datahub_airflow_plugin_disable_listener` and the value to `true`.
+
+This will immediately disable the plugin without requiring a restart.
+
 ## Compatibility
 
-We no longer officially support Airflow <2.1. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
-Both of these options support Python 3.7+.
+We no longer officially support Airflow <2.3. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
+The first two options support Python 3.7+, and the last option supports Python 3.8+.
 
 - Airflow 1.10.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.9.1.0.
 - Airflow 2.0.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.11.0.1.
+- Airflow 2.2.x, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 0.14.1.5.
 
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. While the implementation is still in our codebase, it is deprecated and will be removed in a future release.
 Note that the lineage backend did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA.

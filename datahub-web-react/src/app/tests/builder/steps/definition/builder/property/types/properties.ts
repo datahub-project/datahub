@@ -3,20 +3,13 @@
  * which the UI deeply understands.
  */
 import { EntityType } from '../../../../../../../../types.generated';
+import { OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID, STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '../constants';
 import { SelectInputMode, ValueTypeId } from './values';
 
 /**
- * This file is a work in progress. Backend work is
- * still required to ensure that these simply properties
- * resolve to real values. For now, large blocks will be commented out
- * until the backend implements them.
- *
- * We also will be moving some of these fields into the server as "aliases" for
- * nested predicates or other fields.
- */
-
-/**
- * A single well-supported property.
+ * A single well-supported property. Note that this is a "frontend"
+ * property type. It is used for rendering the list of properties
+ * in the property select portion of the Metadata Tests experience.
  */
 export type Property = {
     id: string;
@@ -38,7 +31,7 @@ export type Property = {
  *          "If an asset has > 10 downstreams, then mark it as Heavy node"
  *          "Must have an owner of type Technical Owner"
  */
-const commonProps: Property[] = [
+export const commonProps: Property[] = [
     {
         id: 'urn',
         displayName: 'Urn',
@@ -156,6 +149,16 @@ const commonProps: Property[] = [
         },
     },
     {
+        id: 'browsePathsV2.path.urn',
+        displayName: 'Browse Path container',
+        description: 'A container in browse path of an asset.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.Container],
+            mode: SelectInputMode.SINGLE,
+        },
+    },
+    {
         id: 'container.container',
         displayName: 'Container',
         description: 'The parent container of the asset.',
@@ -218,10 +221,16 @@ const datasetProps: Property[] = [
         valueType: ValueTypeId.STRING,
     },
     {
-        id: 'schemaMetadata.fields.fieldPath',
-        displayName: 'Schema Field Paths (Column Paths)',
-        description: 'The set of paths associated with the schema fields (columns) of the dataset.',
-        valueType: ValueTypeId.STRING_LIST,
+        id: 'schemaFields',
+        displayName: 'Columns',
+        description: 'The set of columns / fields associated with the dataset.',
+        valueType: ValueTypeId.SCHEMA_FIELD_LIST,
+    },
+    {
+        id: 'schemaFields.length',
+        displayName: 'Number of Columns',
+        description: 'The number of columns / fields associated with the dataset.',
+        valueType: ValueTypeId.NUMBER,
     },
     {
         id: 'datasetMetrics',
@@ -334,6 +343,24 @@ const datasetProps: Property[] = [
                 valueType: ValueTypeId.EXISTS_LIST,
             },
         ],
+    },
+    // Simply serves as an entry point to defining a structured property reference.
+    // Once this property is selected, we'll transfer the user to the structured property predicate
+    // builder experience.
+    {
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match entities that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    // Simply serves as an entry point to defining a ownership type reference.
+    // Once this type is selected, we'll transfer the user to the ownership type predicate
+    // builder experience.
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match entities that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
     },
 ];
 

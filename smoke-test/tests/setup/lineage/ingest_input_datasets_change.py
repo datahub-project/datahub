@@ -5,13 +5,12 @@ from datahub.emitter.mce_builder import (
     make_data_job_urn_with_flow,
     make_dataset_urn,
 )
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
-
 from tests.setup.lineage.constants import (
     AIRFLOW_DATA_PLATFORM,
     BQ_DATA_PLATFORM,
@@ -116,13 +115,13 @@ AIRFLOW_BQ_ETL = Pipeline(
 )
 
 
-def ingest_input_datasets_change(emitter: DatahubRestEmitter) -> None:
+def ingest_input_datasets_change(graph_client: DataHubGraph) -> None:
     # Case 2. transactions_etl has one upstream originally (transactions), but later has both transactions and
     # user_profile.
-    emit_mcps(emitter, create_node(TRANSACTIONS_DATASET))
-    emit_mcps(emitter, create_node(USER_PROFILE_DATASET))
-    emit_mcps(emitter, create_node(AGGREGATED_TRANSACTIONS_DATASET))
-    emit_mcps(emitter, create_nodes_and_edges(AIRFLOW_BQ_ETL))
+    emit_mcps(graph_client, create_node(TRANSACTIONS_DATASET))
+    emit_mcps(graph_client, create_node(USER_PROFILE_DATASET))
+    emit_mcps(graph_client, create_node(AGGREGATED_TRANSACTIONS_DATASET))
+    emit_mcps(graph_client, create_nodes_and_edges(AIRFLOW_BQ_ETL))
 
 
 def get_input_datasets_change_urns() -> List[str]:

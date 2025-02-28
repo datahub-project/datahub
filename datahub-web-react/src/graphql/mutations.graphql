@@ -106,7 +106,7 @@ mutation raiseIncident($input: RaiseIncidentInput!) {
     raiseIncident(input: $input)
 }
 
-mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {
+mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
     updateIncidentStatus(urn: $urn, input: $input)
 }
 
@@ -140,8 +140,21 @@ mutation updateEmbed($input: UpdateEmbedInput!) {
     updateEmbed(input: $input)
 }
 
-mutation suggestDescription($urn: String!) {
-    suggestDescription(urn: $urn)
+mutation addBusinessAttribute($input: AddBusinessAttributeInput!) {
+    addBusinessAttribute(input: $input)
+}
+
+mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
+    removeBusinessAttribute(input: $input)
+}
+
+mutation inferDocumentation($urn: String!, $saveResult: Boolean) {
+    inferDocumentation(urn: $urn, saveResult: $saveResult) {
+        entityDescription
+        columnDescriptions {
+            jsonBlob
+        }
+    }
 }
 
 mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {

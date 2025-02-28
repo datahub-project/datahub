@@ -29,4 +29,15 @@ record SearchEntity {
   features: optional map[string, double]
 
   score: optional double
+
+  /**
+   * A list of the the restricted aspects on the entity.
+   * If the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.
+   */
+  restrictedAspects: optional array[string]
+
+   /**
+    * Extra fields from the search document based on what is requested in the search request
+    */
+   extraFields: optional map[string, string]
 }

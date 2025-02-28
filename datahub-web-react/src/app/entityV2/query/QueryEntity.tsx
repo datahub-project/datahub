@@ -2,21 +2,17 @@ import * as React from 'react';
 import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
 import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
 import { Entity, IconStyleType } from '../Entity';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import SidebarQueryLogicSection from '../shared/containers/profile/sidebar/Query/SidebarQueryLogicSection';
 import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
 import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import {
-    SidebarQueryInputsSection,
-    SidebarQueryOutputsSection,
-} from '../shared/containers/profile/sidebar/Query/SidebarQueryInputsOutputsSections';
-import SidebarOperationSection from '../shared/containers/profile/sidebar/Query/SidebarOperationSection';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
+import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.
@@ -51,6 +47,8 @@ export class QueryEntity implements Entity<Query> {
 
     getCollectionName = () => 'Queries';
 
+    useEntityQuery = useGetQueryQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -67,11 +65,9 @@ export class QueryEntity implements Entity<Query> {
                 sidebarSections={[
                     { component: SidebarQueryUpdatedAtSection },
                     { component: SidebarQueryDefinitionSection },
-                    { component: SidebarOperationSection },
                     { component: SidebarQueryLogicSection },
-                    { component: SidebarQueryInputsSection },
-                    { component: SidebarQueryOutputsSection },
                     { component: SidebarQueryDescriptionSection },
+                    { component: SidebarQueryOperationsSection },
                 ]}
                 sidebarTabs={[]}
                 getOverrideProperties={() => ({})}
@@ -86,10 +82,10 @@ export class QueryEntity implements Entity<Query> {
         };
     };
 
-    renderEmbeddedProfile = (_: string) => <span>hi</span>;
+    renderEmbeddedProfile = (_: string) => <></>;
 
     renderPreview = () => {
-        return <>hi</>;
+        return <></>;
     };
 
     renderSearch = () => {

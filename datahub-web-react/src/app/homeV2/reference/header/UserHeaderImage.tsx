@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import getAvatarColor from '../../../shared/avatar/getAvatarColor';
 
-const PreviewImage = styled.img`
+const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
     color: white;
     width: 100%;
     min-height: 240px;
@@ -10,24 +11,26 @@ const PreviewImage = styled.img`
     height: auto;
     object-fit: cover;
     background-color: transparent;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-    border: 2px solid #ffffff;
+    border-top-left-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    border-top-right-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
 `;
 
-const PreviewLetter = styled.div<{ color: string }>`
+const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.color};
     font-size: 52px;
     color: white;
     width: 100%;
-    min-height: 240px;
-    height: auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-    border: 2px solid #ffffff;
+    border-top-left-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    border-top-right-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
 `;
 
 type Props = {
@@ -36,12 +39,18 @@ type Props = {
 };
 
 export const UserHeaderImage = ({ photoUrl, displayName }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const hasPhoto = !!photoUrl;
     const firstLetter = displayName?.[0] || '';
     return (
         <>
-            {(hasPhoto && <PreviewImage src={photoUrl} alt={displayName} />) || (
-                <PreviewLetter color={getAvatarColor(displayName)}> {firstLetter} </PreviewLetter>
+            {(hasPhoto && (
+                <PreviewImage src={photoUrl} alt={displayName} $isShowNavBarRedesign={isShowNavBarRedesign} />
+            )) || (
+                <PreviewLetter color={getAvatarColor(displayName)} $isShowNavBarRedesign={isShowNavBarRedesign}>
+                    {' '}
+                    {firstLetter}{' '}
+                </PreviewLetter>
             )}
         </>
     );

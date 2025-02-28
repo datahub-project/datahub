@@ -26,10 +26,11 @@
                             "urn:li:chart:(superset,11)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -44,7 +45,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -72,10 +74,11 @@
                             "urn:li:chart:(superset,13)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -90,7 +93,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -114,8 +118,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -136,7 +140,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -160,8 +165,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -182,7 +187,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -206,8 +212,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -228,7 +234,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -252,8 +259,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -274,7 +281,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-test"
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

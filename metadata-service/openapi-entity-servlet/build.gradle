@@ -3,12 +3,15 @@ plugins {
   id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
   implementation project(':metadata-auth:auth-api')
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:openapi-servlet')
+  implementation project(':metadata-service:openapi-servlet:models')
   implementation project(':metadata-models')
 
   implementation externalDependency.servletApi

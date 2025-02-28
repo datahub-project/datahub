@@ -5,7 +5,11 @@ const mixpanelConfigs = analyticsConfig.mixpanel;
 const isEnabled: boolean = mixpanelConfigs || false;
 const token = isEnabled ? mixpanelConfigs.token : undefined;
 
+export const getMixpanelPlugin = (t: string) => {
+    return mixpanel({ token: t });
+};
+
 export default {
     isEnabled,
-    plugin: isEnabled && mixpanel({ token }),
+    plugin: isEnabled && getMixpanelPlugin(token),
 };

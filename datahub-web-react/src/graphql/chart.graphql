@@ -6,6 +6,9 @@ query getChart($urn: String!) {
         lastIngested
         tool
         chartId
+        share {
+            ...shareFields
+        }
         platform {
             ...platformFields
         }
@@ -27,12 +30,20 @@ query getChart($urn: String!) {
                 value
             }
         }
+        info {
+            created {
+                time
+            }
+        }
         query {
             rawQuery
             type
         }
         ownership {
             ...ownershipFields
+        }
+        documentation {
+            ...documentationFields
         }
         globalTags {
             ...globalTagsFields
@@ -108,12 +119,30 @@ query getChart($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        health {
+            ...entityHealth
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        forms {
+            ...formsFields
+        }
+        assetOrigin {
+            ...originFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }
 

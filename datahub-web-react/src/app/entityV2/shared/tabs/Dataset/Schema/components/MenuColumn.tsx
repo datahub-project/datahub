@@ -4,7 +4,7 @@ import { CopyOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Dropdown, Menu } from 'antd';
 import { MenuIcon } from '../../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRouteToTab } from '../../../../EntityContext';
+import { useEntityData, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
 import { SchemaField } from '../../../../../../../types.generated';
 import { generateSchemaFieldUrn } from '../../../Lineage/utils';
 

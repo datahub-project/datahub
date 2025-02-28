@@ -1,12 +1,14 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,
+    data,
     name,
     featureNamespace,
     description,
@@ -17,8 +19,10 @@ export const Preview = ({
     degree,
     paths,
     isOutputPort,
+    previewType,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     featureNamespace: string;
     description?: string | null;
@@ -29,6 +33,7 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -36,6 +41,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.MlprimaryKey, urn)}
             name={name}
             urn={urn}
+            data={data}
             description={description || ''}
             platform={
                 platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name) || featureNamespace
@@ -49,6 +55,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
+            previewType={previewType}
         />
     );
 };

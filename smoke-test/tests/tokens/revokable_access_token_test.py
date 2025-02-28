@@ -6,9 +6,12 @@ from tests.utils import (
     get_admin_credentials,
     get_frontend_url,
     login_as,
-    wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
+
+from .token_utils import listUsers, removeUser
+
+pytestmark = pytest.mark.no_cypress_suite1
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -16,19 +19,16 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 (admin_user, admin_pass) = get_admin_credentials()
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
+@pytest.fixture()
+def auth_exclude_filter():
+    return {
+        "field": "name",
+        "condition": "EQUAL",
+        "negated": True,
+        "values": ["Test Session Token"],
+    }
 
 
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope="class", autouse=True)
 def custom_user_setup():
     """Fixture to execute setup before and tear down after all tests are run"""
@@ -40,10 +40,10 @@ def custom_user_setup():
 
     # Test getting the invite token
     get_invite_token_json = {
-        "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
-            getInviteToken(input: $input){\n
-              inviteToken\n
-            }\n
+        "query": """query getInviteToken($input: GetInviteTokenInput!) {
+            getInviteToken(input: $input){
+              inviteToken
+            }
         }""",
         "variables": {"input": {}},
     }
@@ -105,13 +105,12 @@ def custom_user_setup():
     assert {"username": "user"} not in res_data["data"]["listUsers"]["users"]
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(autouse=True)
-def access_token_setup():
+def access_token_setup(auth_session, auth_exclude_filter):
     """Fixture to execute asserts before and after a test is run"""
     admin_session = login_as(admin_user, admin_pass)
 
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] == 0
@@ -120,52 +119,54 @@ def access_token_setup():
     yield
 
     # Clean up
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
 
-    # Sleep for eventual consistency
-    wait_for_writes_to_sync()
 
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
+def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
     admin_session = login_as(admin_user, admin_pass)
+    admin_user_urn = f"urn:li:corpuser:{admin_user}"
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using a super account, generate a token for itself.
-    res_data = generateAccessToken_v2(admin_session, f"urn:li:corpuser:{admin_user}")
+    res_data = generateAccessToken_v2(admin_session, admin_user_urn)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
-        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == admin_user_urn
     )
+    access_token = res_data["data"]["createAccessToken"]["accessToken"]
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
+    res_data = getAccessTokenMetadata(admin_session, access_token)
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["getAccessTokenMetadata"]
+    assert res_data["data"]["getAccessTokenMetadata"]["ownerUrn"] == admin_user_urn
+    assert res_data["data"]["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
+
     # Using a super account, list the previously created token.
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
     assert (
-        res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == admin_user_urn
     )
     assert (
-        res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == admin_user_urn
     )
 
     # Check that the super account can revoke tokens that it created
@@ -174,23 +175,20 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] is True
-    # Sleep for eventual consistency
-    wait_for_writes_to_sync()
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks):
+def test_admin_can_create_and_revoke_tokens_for_other_user(auth_exclude_filter):
     admin_session = login_as(admin_user, admin_pass)
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -211,7 +209,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     wait_for_writes_to_sync()
 
     # Using a super account, list the previously created tokens.
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -231,19 +229,16 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] is True
-    # Sleep for eventual consistency
-    wait_for_writes_to_sync()
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
+def test_non_admin_can_create_list_revoke_tokens(auth_exclude_filter):
     user_session = login_as("user", "user")
 
     # Normal user should be able to generate token for himself.
@@ -262,7 +257,11 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
 
     # User should be able to list his own token
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
+        user_session,
+        [
+            {"field": "ownerUrn", "values": ["urn:li:corpuser:user"]},
+            auth_exclude_filter,
+        ],
     )
     assert res_data
     assert res_data["data"]
@@ -284,12 +283,14 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] is True
-    # Sleep for eventual consistency
-    wait_for_writes_to_sync()
 
     # Using a normal account, check that all its tokens where removed.
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
+        user_session,
+        [
+            {"field": "ownerUrn", "values": ["urn:li:corpuser:user"]},
+            auth_exclude_filter,
+        ],
     )
     assert res_data
     assert res_data["data"]
@@ -297,12 +298,11 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
+def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
     admin_session = login_as(admin_user, admin_pass)
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session)
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -331,7 +331,11 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     user_session.cookies.clear()
     admin_session = login_as(admin_user, admin_pass)
     res_data = listAccessTokens(
-        admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
+        admin_session,
+        [
+            {"field": "ownerUrn", "values": ["urn:li:corpuser:user"]},
+            auth_exclude_filter,
+        ],
     )
     assert res_data
     assert res_data["data"]
@@ -355,14 +359,16 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] is True
-    # Sleep for eventual consistency
-    wait_for_writes_to_sync()
 
     # Using a normal account, check that all its tokens where removed.
     user_session.cookies.clear()
     user_session = login_as("user", "user")
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
+        user_session,
+        [
+            {"field": "ownerUrn", "values": ["urn:li:corpuser:user"]},
+            auth_exclude_filter,
+        ],
     )
     assert res_data
     assert res_data["data"]
@@ -372,7 +378,11 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     # Using the super account, check that all tokens where removed.
     admin_session = login_as(admin_user, admin_pass)
     res_data = listAccessTokens(
-        admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
+        admin_session,
+        [
+            {"field": "ownerUrn", "values": ["urn:li:corpuser:user"]},
+            auth_exclude_filter,
+        ],
     )
     assert res_data
     assert res_data["data"]
@@ -380,8 +390,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
+def test_non_admin_can_not_generate_tokens_for_others():
     user_session = login_as("user", "user")
     # Normal user should not be able to generate token for another user
     res_data = generateAccessToken_v2(user_session, f"urn:li:corpuser:{admin_user}")
@@ -396,17 +405,17 @@ def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
 def generateAccessToken_v2(session, actorUrn):
     # Create new token
     json = {
-        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {\n
-            createAccessToken(input: $input) {\n
-              accessToken\n
-              metadata {\n
-                id\n
-                actorUrn\n
-                ownerUrn\n
-                name\n
-                description\n
+        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+            createAccessToken(input: $input) {
+              accessToken
+              metadata {
+                id
+                actorUrn
+                ownerUrn
+                name
+                description
               }
-            }\n
+            }
         }""",
         "variables": {
             "input": {
@@ -423,29 +432,28 @@ def generateAccessToken_v2(session, actorUrn):
     return response.json()
 
 
-def listAccessTokens(session, filters=[]):
+def listAccessTokens(session, filters):
+    if filters is None:
+        filters = []
     # Get count of existing tokens
-    input = {
-        "start": "0",
-        "count": "20",
-    }
+    input = {"start": 0, "count": 20}
 
     if filters:
         input["filters"] = filters
 
     json = {
-        "query": """query listAccessTokens($input: ListAccessTokenInput!) {\n
-            listAccessTokens(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              tokens {\n
-                urn\n
-                id\n
-                actorUrn\n
-                ownerUrn\n
-              }\n
-            }\n
+        "query": """query listAccessTokens($input: ListAccessTokenInput!) {
+            listAccessTokens(input: $input) {
+              start
+              count
+              total
+              tokens {
+                urn
+                id
+                actorUrn
+                ownerUrn
+              }
+            }
         }""",
         "variables": {"input": input},
     }
@@ -458,7 +466,7 @@ def listAccessTokens(session, filters=[]):
 def revokeAccessToken(session, tokenId):
     # Revoke token
     json = {
-        "query": """mutation revokeAccessToken($tokenId: String!) {\n
+        "query": """mutation revokeAccessToken($tokenId: String!) {
             revokeAccessToken(tokenId: $tokenId)
         }""",
         "variables": {"tokenId": tokenId},
@@ -470,43 +478,19 @@ def revokeAccessToken(session, tokenId):
     return response.json()
 
 
-def removeUser(session, urn):
-    # Remove user
+def getAccessTokenMetadata(session, token):
     json = {
-        "query": """mutation removeUser($urn: String!) {\n
-            removeUser(urn: $urn)
-        }""",
-        "variables": {"urn": urn},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
-    return response.json()
-
-
-def listUsers(session):
-    input = {
-        "start": "0",
-        "count": "20",
-    }
-
-    # list users
-    json = {
-        "query": """query listUsers($input: ListUsersInput!) {\n
-            listUsers(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              users {\n
-                username\n
-              }
+        "query": """
+        query getAccessTokenMetadata($token: String!) {
+            getAccessTokenMetadata(token: $token) {
+                id
+                ownerUrn
+                actorUrn
             }
         }""",
-        "variables": {"input": input},
+        "variables": {"token": token},
     }
-
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
     response.raise_for_status()
+
     return response.json()

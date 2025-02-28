@@ -11,13 +11,14 @@ import {
     Monitor,
     VolumeAssertionInfo,
 } from '../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../steps/freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../steps/common/EvaluationScheduleBuilder';
 import { VolumeTypeBuilder } from '../steps/volume/VolumeTypeBuilder';
 import { VolumeParametersBuilder } from '../steps/volume/VolumeParametersBuilder';
-import { getSelectedVolumeTypeOption, getVolumeTypeInfo } from '../steps/volume/utils';
+import { getSelectedVolumeTypeOption } from '../steps/volume/utils';
 import { VolumeSourceTypeBuilder } from '../steps/volume/VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from '../steps/volume/VolumeFilterBuilder';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
+import { getVolumeTypeInfo } from '../../../utils';
 
 const Section = styled.div`
     display: flex;

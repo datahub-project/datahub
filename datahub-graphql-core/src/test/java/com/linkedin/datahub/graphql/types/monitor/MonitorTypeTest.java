@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.monitor;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -19,6 +20,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
@@ -26,6 +28,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,6 +55,8 @@ public class MonitorTypeTest {
   public void testBatchLoad() throws Exception {
 
     EntityClient client = Mockito.mock(EntityClient.class);
+    AssertionMonitorsConfiguration assertionMonitorsConfiguration =
+        Mockito.mock(AssertionMonitorsConfiguration.class);
 
     Urn monitorUrn1 = Urn.createFromString(TEST_MONITOR_URN);
     Urn monitorUrn2 = Urn.createFromString(TEST_MONITOR_URN_2);
@@ -65,10 +70,11 @@ public class MonitorTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_MONITOR_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(monitorUrn1, monitorUrn2))),
-                Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(
+                    com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 monitorUrn1,
@@ -78,7 +84,8 @@ public class MonitorTypeTest {
                     .setAspects(new EnvelopedAspectMap(monitor1Aspects))));
 
     com.linkedin.datahub.graphql.types.monitor.MonitorType type =
-        new com.linkedin.datahub.graphql.types.monitor.MonitorType(client);
+        new com.linkedin.datahub.graphql.types.monitor.MonitorType(
+            client, assertionMonitorsConfiguration);
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
@@ -88,10 +95,10 @@ public class MonitorTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.eq(Constants.MONITOR_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(monitorUrn1, monitorUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -109,15 +116,18 @@ public class MonitorTypeTest {
   @Test
   public void testBatchLoadClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AssertionMonitorsConfiguration assertionMonitorsConfiguration =
+        Mockito.mock(AssertionMonitorsConfiguration.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.anyString(),
             Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
     com.linkedin.datahub.graphql.types.monitor.MonitorType type =
-        new com.linkedin.datahub.graphql.types.monitor.MonitorType(mockClient);
+        new com.linkedin.datahub.graphql.types.monitor.MonitorType(
+            mockClient, assertionMonitorsConfiguration);
 
     // Execute Batch load
     QueryContext context = Mockito.mock(QueryContext.class);

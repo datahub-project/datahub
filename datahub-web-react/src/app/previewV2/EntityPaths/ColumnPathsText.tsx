@@ -1,13 +1,14 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
 import ColumnsRelationshipText from './ColumnsRelationshipText';
 import DisplayedColumns from './DisplayedColumns';
+import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 export const ResultText = styled.span`
+    white-space: nowrap;
     &:hover {
         border-bottom: 1px solid black;
         cursor: pointer;
@@ -16,6 +17,7 @@ export const ResultText = styled.span`
 
 const DescriptionWrapper = styled.span`
     color: ${ANTD_GRAY[8]};
+    white-space: nowrap;
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {
@@ -41,13 +43,14 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
 
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
 
+    if (!displayedColumns.length) return null;
+
     return (
         <>
             <DescriptionWrapper>
                 {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
-                {displayedColumns.length > 1 && 's'}
+                {displayedColumns.length > 1 && 's'}:&nbsp;
             </DescriptionWrapper>
-            : &nbsp;
             <ResultText onClick={openModal}>
                 <Tooltip
                     title={

@@ -112,7 +112,7 @@ export default function Tag({
                             removeTag(tag);
                         }}
                         fontSize={fontSize}
-                        highlightTag={highlightTag}
+                        $highlightTag={highlightTag}
                     >
                         <Highlight
                             style={{ marginLeft: 0, fontSize }}

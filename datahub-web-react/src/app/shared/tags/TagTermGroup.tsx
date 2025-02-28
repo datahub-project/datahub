@@ -1,7 +1,9 @@
-import { Tag as AntTag, Typography, Button, message, Tooltip } from 'antd';
+import { Tag as AntTag, Typography, Button, message } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -17,7 +19,7 @@ import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import analytics, { EntityActionType, EventType } from '../../analytics';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { DomainLink } from './DomainLink';
-import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
 import EditTagTermsModal from './AddTagsTermsModal';
 import StyledTerm from './term/StyledTerm';
@@ -93,8 +95,8 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
 
     const onCloseProposalDecisionModal = (e) => {
@@ -104,7 +106,7 @@ export default function TagTermGroup({
     };
 
     const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 if (entityUrn) {
                     analytics.event({
@@ -125,7 +127,7 @@ export default function TagTermGroup({
     };
 
     const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
             .then(() => {
                 if (entityUrn) {
                     analytics.event({
@@ -204,34 +206,34 @@ export default function TagTermGroup({
                 />
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <ProposedTerm
-                        closable={false}
-                        data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(
+                <ProposedTerm
+                    closable={false}
+                    data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
+                    onClick={() => {
+                        setShowProposalDecisionModal(true);
+                    }}
+                >
+                    <BookmarkSimple style={{ marginRight: '3%' }} />
+                    {entityRegistry.getDisplayName(
+                        EntityType.GlossaryTerm,
+                        actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                    )}
+                    <ProposalModal
+                        actionRequest={actionRequest}
+                        showProposalDecisionModal={showProposalDecisionModal}
+                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                        onProposalAcceptance={onProposalAcceptance}
+                        onProposalRejection={onProposalRejection}
+                        onActionRequestUpdate={onActionRequestUpdate}
+                        elementName={entityRegistry.getDisplayName(
                             EntityType.GlossaryTerm,
                             actionRequest.params?.glossaryTermProposal?.glossaryTerm,
                         )}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={entityRegistry.getDisplayName(
-                                EntityType.GlossaryTerm,
-                                actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                            )}
-                        />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </ProposedTerm>
-                </Tooltip>
+                    />
+                    <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
+                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                    </Tooltip>
+                </ProposedTerm>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -276,15 +278,15 @@ export default function TagTermGroup({
                 );
             })}
             {proposedTags?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <StyledTag
-                        data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
-                        $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
-                        $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
+                <StyledTag
+                    data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
+                    $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                    $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
+                    onClick={() => {
+                        setShowProposalDecisionModal(true);
+                    }}
+                >
+                    <span>
                         {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
                         <ProposalModal
                             actionRequest={actionRequest}
@@ -295,9 +297,11 @@ export default function TagTermGroup({
                             onActionRequestUpdate={onActionRequestUpdate}
                             elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
                         />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </StyledTag>
-                </Tooltip>
+                        <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
+                            <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                        </Tooltip>
+                    </span>
+                </StyledTag>
             ))}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
@@ -338,7 +342,7 @@ export default function TagTermGroup({
             {showAddModal && !!entityUrn && !!entityType && (
                 <EditTagTermsModal
                     type={addModalType}
-                    visible
+                    open
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);

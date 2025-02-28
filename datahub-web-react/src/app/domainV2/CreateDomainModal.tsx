@@ -5,7 +5,7 @@ import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
-import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
+import DomainParentSelect from '../entityV2/shared/EntityDropdown/DomainParentSelect';
 import { useIsNestedDomainsEnabled } from '../useAppConfig';
 import { useDomainsContext as useDomainsContextV2 } from './DomainsContext';
 
@@ -123,6 +123,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id="createDomainButton"
                         data-testid="create-domain-button"
                         onClick={onCreateDomain}

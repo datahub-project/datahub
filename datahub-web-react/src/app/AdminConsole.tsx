@@ -37,14 +37,15 @@ export const AdminConsole = (): JSX.Element => {
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
-    const showActionRequests = (isActionRequestsEnabled && me && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests =
+        (isActionRequestsEnabled && me && me?.platformPrivileges?.viewMetadataProposals) || false;
     const showAdminConsole = showAnalytics || showPolicyBuilder || showActionRequests;
 
     const onMenuItemClick = () => {

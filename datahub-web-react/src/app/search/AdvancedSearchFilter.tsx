@@ -21,22 +21,22 @@ type Props = {
     disabled?: boolean;
 };
 
-const FieldFilterSection = styled.span<{ isCompact: boolean }>`
+const FieldFilterSection = styled.span<{ $isCompact: boolean }>`
     color: ${ANTD_GRAY[9]};
-    padding: ${(props) => (props.isCompact ? '2px 4px' : '4px')};
+    padding: ${(props) => (props.$isCompact ? '2px 4px' : '4px')};
     display: flex;
     justify-content: space-between;
 
     ${(props) =>
-        props.isCompact &&
+        props.$isCompact &&
         `
         display: flex;
         align-items: center;
     `}
 `;
 
-const FieldFilterSelect = styled.span<{ isCompact: boolean }>`
-    padding-right: ${(props) => (props.isCompact ? '0' : '8px;')};
+const FieldFilterSelect = styled.span<{ $isCompact: boolean }>`
+    padding-right: ${(props) => (props.$isCompact ? '0' : '8px;')};
 `;
 
 const FilterFieldLabel = styled.span`
@@ -72,10 +72,10 @@ export const AdvancedSearchFilter = ({
                 onClick={() => {
                     setIsEditing(!isEditing);
                 }}
-                isCompact={isCompact}
+                $isCompact={isCompact}
             >
-                <FieldFilterSection isCompact={isCompact}>
-                    <FieldFilterSelect isCompact={isCompact}>
+                <FieldFilterSection $isCompact={isCompact}>
+                    <FieldFilterSelect $isCompact={isCompact}>
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                     </FieldFilterSelect>

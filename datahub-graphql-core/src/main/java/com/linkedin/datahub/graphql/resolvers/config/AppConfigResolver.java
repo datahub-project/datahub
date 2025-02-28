@@ -9,6 +9,8 @@ import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
 import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
+import com.linkedin.datahub.graphql.generated.ClassificationAutomations;
+import com.linkedin.datahub.graphql.generated.ClassificationConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -16,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
+import com.linkedin.datahub.graphql.generated.MixpanelConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
@@ -23,9 +26,11 @@ import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.TestsExecutionLimitConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -54,6 +59,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ViewsConfiguration _viewsConfiguration;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
+  private final ClassificationConfiguration _classificationConfiguration;
+  //  private final ClassificationAutomations _automations;
+  private final Integer _defaultLineageLastDaysFilter;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -68,7 +76,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
       final FeatureFlags featureFlags,
-      final ChromeExtensionConfiguration chromeExtensionConfiguration) {
+      final ChromeExtensionConfiguration chromeExtensionConfiguration,
+      final ClassificationConfiguration classificationConfiguration,
+      final Integer defaultLineageLastDaysFilter) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -82,6 +92,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _viewsConfiguration = viewsConfiguration;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
+    _classificationConfiguration = classificationConfiguration;
+    _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
   }
 
   @Override
@@ -96,6 +108,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final LineageConfig lineageConfig = new LineageConfig();
     lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
+    if (_defaultLineageLastDaysFilter != null) {
+      lineageConfig.setDefaultLastDaysFilter(_defaultLineageLastDaysFilter);
+    }
     appConfig.setLineageConfig(lineageConfig);
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
@@ -176,10 +191,25 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
     telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
+    telemetryConfig.setUserTrackingEnabled(_telemetryConfiguration.isUserTrackingEnabled());
+    telemetryConfig.setMixpanel(
+        new MixpanelConfig(
+            _telemetryConfiguration.getMixpanel().isEnabled(),
+            _telemetryConfiguration.getMixpanel().getToken()));
+    telemetryConfig.setGoogleAnalytics(
+        new com.linkedin.datahub.graphql.generated.GoogleAnalyticsConfig(
+            _telemetryConfiguration.getGoogleAnalytics().isEnabled(),
+            _telemetryConfiguration.getGoogleAnalytics().getMeasurementId()));
     appConfig.setTelemetryConfig(telemetryConfig);
 
     final TestsConfig testsConfig = new TestsConfig();
     testsConfig.setEnabled(_testsConfiguration.isEnabled());
+    TestsExecutionLimitConfig executionLimitConfig = new TestsExecutionLimitConfig();
+    executionLimitConfig.setElasticSearchExecutor(
+        _testsConfiguration.getHook().getHookExecutionLimit().getElasticSearchExecutor());
+    executionLimitConfig.setDefaultExecutor(
+        _testsConfiguration.getHook().getHookExecutionLimit().getDefaultExecutor());
+    testsConfig.setExecutionLimitConfig(executionLimitConfig);
     appConfig.setTestsConfig(testsConfig);
 
     final ViewsConfig viewsConfig = new ViewsConfig();
@@ -189,19 +219,50 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
             .setAssertionMonitorsEnabled(_featureFlags.isAssertionMonitorsEnabled())
+            .setSchemaAssertionMonitorsEnabled(_featureFlags.isSchemaAssertionMonitorsEnabled())
+            .setRunAssertionsEnabled(_featureFlags.isRunAssertionsEnabled())
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+            .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
             .setShowBrowseV2(_featureFlags.isShowBrowseV2())
             .setSubscriptionsEnabled(_featureFlags.isSubscriptionsEnabled())
+            .setSlackBotTokensConfigEnabled(_featureFlags.isSlackBotTokensConfigEnabled())
+            .setSlackBotTokensObfuscationEnabled(_featureFlags.isSlackBotTokensObfuscationEnabled())
             .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
             .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
+            .setErModelRelationshipFeatureEnabled(
+                _featureFlags.isErModelRelationshipFeatureEnabled())
             .setShowAccessManagement(_featureFlags.isShowAccessManagement())
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
-            .setThemeV2(_featureFlags.isThemeV2())
+            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+            .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
+            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
+            .setThemeV2Default(_featureFlags.isThemeV2Default())
+            .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
             .setLineageGraphV2(_featureFlags.isLineageGraphV2())
+            .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
+            .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
+            .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
+            .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
+            .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+            .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+            .setShowBulkFormByDefault(_featureFlags.isShowBulkFormByDefault())
+            .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
+            .setShowDatasetFeaturesSearchSortOptions(
+                _featureFlags.isShowDatasetFeaturesSearchSortOptions())
+            .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
+            .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
+            .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
+            .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
+            .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
+            .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -210,6 +271,16 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
     chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
     appConfig.setChromeExtensionConfig(chromeExtensionConfig);
+
+    // Classification Configuration
+    final ClassificationConfig classificationConfig = new ClassificationConfig();
+    final ClassificationAutomations automations = new ClassificationAutomations();
+    classificationConfig.setEnabled(_classificationConfiguration.isEnabled());
+    automations.setSnowflake(_classificationConfiguration.getAutomations().isSnowflake());
+    automations.setAiTermClassification(
+        _classificationConfiguration.getAutomations().isAiTermClassification());
+    classificationConfig.setAutomations(automations);
+    appConfig.setClassificationConfig(classificationConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }
@@ -287,6 +358,22 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.CORP_USER;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ER_MODEL_RELATIONSHIP_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.ER_MODEL_RELATIONSHIP;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.BUSINESS_ATTRIBUTE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.BUSINESS_ATTRIBUTE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_MODEL_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLMODEL;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE;
     } else {
       return null;
     }

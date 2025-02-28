@@ -14,9 +14,7 @@ const MainContent = styled.div`
 `;
 
 const StepsContainer = styled.div`
-    margin-right: 20px;
-    margin-left: 20px;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
 `;
 
 const StyledForm = styled(Form)`

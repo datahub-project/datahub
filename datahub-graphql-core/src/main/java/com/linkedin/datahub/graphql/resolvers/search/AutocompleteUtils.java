@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
@@ -7,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -32,18 +35,19 @@ public class AutocompleteUtils {
       DataFetchingEnvironment environment,
       @Nullable DataHubViewInfo view) {
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
+    final QueryContext context = environment.getContext();
 
     final List<CompletableFuture<AutoCompleteResultForEntity>> autoCompletesFuture =
         entities.stream()
             .map(
                 entity ->
-                    CompletableFuture.supplyAsync(
+                    GraphQLConcurrencyUtils.supplyAsync(
                         () -> {
                           final Filter filter =
                               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
                           final Filter finalFilter =
                               view != null
-                                  ? SearchUtils.combineFilters(
+                                  ? FilterUtils.combineFilters(
                                       filter, view.getDefinition().getFilter())
                                   : filter;
 
@@ -72,7 +76,9 @@ public class AutocompleteUtils {
                             return new AutoCompleteResultForEntity(
                                 entity.type(), Collections.emptyList(), Collections.emptyList());
                           }
-                        }))
+                        },
+                        AutocompleteUtils.class.getSimpleName(),
+                        "batchGetAutocompleteResults"))
             .collect(Collectors.toList());
     return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
         .thenApplyAsync(

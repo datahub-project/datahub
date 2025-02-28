@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
@@ -37,7 +38,7 @@ public class PropagateTermsStepTest {
     configureEntitySearchServiceMock(entitySearchService);
 
     PropagateTermsStep propagateTermsStep =
-        new PropagateTermsStep(entityService, entitySearchService);
+        new PropagateTermsStep(mock(OperationContext.class), entityService, entitySearchService);
 
     Function<UpgradeContext, UpgradeStepResult> fun = propagateTermsStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
@@ -90,12 +91,14 @@ public class PropagateTermsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     SearchEntity datasetSearchEntry2 = new SearchEntity();
@@ -108,16 +111,19 @@ public class PropagateTermsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(SCROLL_ID),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult2);
 
     Mockito.when(
             mockSearchService.filter(
+                Mockito.any(),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),

@@ -1,5 +1,5 @@
 # Dockerfiles specific to Acryl
-version: '3.8'
+version: "3.8"
 services:
   datahub-integrations-service:
     build:
@@ -10,19 +10,26 @@ services:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service:debug
     env_file:
       - ../datahub-integrations-service/.env
+    environment:
+      PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     volumes:
       - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src
       - ../datahub-integrations-service:/datahub-integrations-service
       # - ../datahub-actions:/datahub-actions
-  datahub-monitors-service:
+  datahub-executor-coordinator:
+    container_name: datahub-executor-coordinator
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor:debug
     build:
       context: ../
-      dockerfile: docker/datahub-monitors-service/Dockerfile
+      dockerfile: docker/datahub-executor/Dockerfile
       args:
         APP_ENV: dev
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-monitors-service:debug
     volumes:
-      - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
+      - ./datahub-executor/start.sh:/start_datahub_executor.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src
-      - ../datahub-monitors-service:/datahub-monitors-service
+      - ../datahub-executor:/datahub-executor
+    env_file:
+      - ./datahub-executor/env/docker.env
+    ports:
+      - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004

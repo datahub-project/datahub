@@ -2,38 +2,71 @@ package com.linkedin.datahub.upgrade.test;
 
 import static com.linkedin.datahub.upgrade.propagate.PropagateTerms.*;
 import static org.mockito.Mockito.*;
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.upgrade.UpgradeCliApplication;
+import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-public class EvaluateTestsStepTest {
+@ActiveProfiles("test")
+@SpringBootTest(
+    args = {"-u", "EvaluateTests"},
+    classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
+    properties = {"metadataTests.cacheRefreshIntervalSecs=0"})
+public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn CHART_URN1 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartOne)");
   private static final Urn CHART_URN2 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartTwo)");
   private static final String SCROLL_ID = "test123";
+  private static final List<SortCriterion> DEFAULT_SORT =
+      List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
+
+  @Autowired private TestEngine testEngine;
+
+  @Test
+  public void testInit() {
+    assertNotNull(testEngine);
+  }
 
   @Test
   public void testExecutable() {
@@ -42,10 +75,25 @@ public class EvaluateTestsStepTest {
     configureTestEngineMock(testEngine);
     configureEntitySearchServiceMock(entitySearchService);
     EntityClient entityClient = Mockito.mock(EntityClient.class);
-    Authentication authentication = Mockito.mock(Authentication.class);
+
+    OperationContext opContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     EvaluateTestsStep testStep =
-        new EvaluateTestsStep(entityClient, entitySearchService, testEngine, authentication);
+        new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
+
+    ExecutorService executorSpy =
+        spy(
+            new ThreadPoolExecutor(
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(1),
+                new ThreadPoolExecutor.CallerRunsPolicy()));
+    testStep.setOverrideExecutorService(executorSpy);
+
     Function<UpgradeContext, UpgradeStepResult> fun = testStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
     UpgradeReport report = new DefaultUpgradeReport();
@@ -85,6 +133,7 @@ public class EvaluateTestsStepTest {
     // make sure fetched two batches of charts
     assertTrue(report.lines().contains("Fetching batch 1 of chart entities"));
     assertTrue(report.lines().contains("Fetching batch 2 of chart entities"));
+    verify(executorSpy, times(3)).submit(any(Callable.class));
   }
 
   private static void configureTestEngineMock(final TestEngine mockTestEngine) {
@@ -92,16 +141,26 @@ public class EvaluateTestsStepTest {
         .thenReturn(Set.of(Constants.DATASET_ENTITY_NAME, Constants.CHART_ENTITY_NAME));
 
     for (Urn urn : List.of(DATASET_URN, CHART_URN1, CHART_URN2)) {
-      Mockito.when(mockTestEngine.evaluateTests(Set.of(urn), TestEngine.EvaluationMode.DEFAULT))
+      Mockito.when(
+              mockTestEngine.evaluateTests(
+                  any(OperationContext.class),
+                  eq(Set.of(urn)),
+                  eq(TestEngine.EvaluationMode.DEFAULT)))
           .thenReturn(Map.of(urn, new TestResults()));
     }
+
+    Mockito.when(mockTestEngine.getTestsConfiguration())
+        .thenReturn(TestsConfiguration.builder().build());
   }
 
   private static void configureUpgradeCtxMock(
       final UpgradeContext mockUpgradeContext, UpgradeReport report) {
     Mockito.when(mockUpgradeContext.report()).thenReturn(report);
     Mockito.when(mockUpgradeContext.parsedArgs())
-        .thenReturn(Map.of("BATCH_SIZE", Optional.of("1")));
+        .thenReturn(
+            Map.of(
+                "batchSize", Optional.of("1"),
+                "batchDelayMs", Optional.of("5")));
   }
 
   private static void configureEntitySearchServiceMock(
@@ -116,12 +175,14 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     SearchEntity chartOneSearchEntry = new SearchEntity();
@@ -134,12 +195,14 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(chartOneScrollResult);
 
     SearchEntity chartTwoSearchEntry = new SearchEntity();
@@ -152,12 +215,14 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(SCROLL_ID),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(chartTwoScrollResult);
   }
 }

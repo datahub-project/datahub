@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,6 +18,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -80,7 +81,9 @@ public class SystemMonitorsResolverTest {
     // Create resolver
     MonitorService mockService = initMockService();
     EntityClient mockClient = initMockClient(true);
-    Mockito.doThrow(RuntimeException.class).when(mockService).getMonitorInfo(Mockito.any());
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .getMonitorInfo(any(OperationContext.class), Mockito.any());
 
     SystemMonitorsResolver resolver = new SystemMonitorsResolver(mockService, mockClient);
 
@@ -96,7 +99,7 @@ public class SystemMonitorsResolverTest {
   private MonitorService initMockService() throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
 
-    Mockito.when(service.getMonitorInfo(Mockito.eq(TEST_MONITOR_URN)))
+    Mockito.when(service.getMonitorInfo(any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN)))
         .thenReturn(TEST_MONITOR_INFO);
 
     return service;
@@ -105,10 +108,10 @@ public class SystemMonitorsResolverTest {
   private EntityClient initMockClient(boolean exists) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
     if (exists) {
-      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+      Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(TEST_ENTITY_URN)))
           .thenReturn(true);
     } else {
-      Mockito.when(client.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+      Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(TEST_ENTITY_URN)))
           .thenReturn(false);
     }
     return client;

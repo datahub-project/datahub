@@ -3,11 +3,11 @@ import TabItem from '@theme/TabItem';
 
 # DataHub Quickstart Guide
 
-:::tip Managed DataHub
+:::tip DataHub Cloud
 
 This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with Managed DataHub](./managed-datahub/welcome-acryl.md)**
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io) provides a fully managed, premium version of DataHub. <br />
+**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
 
 :::
 
@@ -48,15 +48,6 @@ If you see `command not found`, try running cli commands like `python3 -m datahu
 Note that DataHub CLI does not support Python 2.x.
 
 :::
-
-</TabItem>
-<TabItem value="poetry" label="poetry">
-
-```bash
-poetry add acryl-datahub
-poetry shell
-datahub version
-```
 
 </TabItem>
 </Tabs>

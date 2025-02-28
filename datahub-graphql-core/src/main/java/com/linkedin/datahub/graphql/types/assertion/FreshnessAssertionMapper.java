@@ -1,16 +1,19 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
 import com.linkedin.data.template.GetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleType;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionType;
 import com.linkedin.datahub.graphql.generated.FreshnessCronSchedule;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
+import javax.annotation.Nullable;
 
 public class FreshnessAssertionMapper extends AssertionMapper {
 
   public static FreshnessAssertionInfo mapFreshnessAssertionInfo(
+      @Nullable final QueryContext context,
       final com.linkedin.assertion.FreshnessAssertionInfo gmsFreshnessAssertionInfo) {
     FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
     freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
@@ -22,7 +25,7 @@ public class FreshnessAssertionMapper extends AssertionMapper {
     }
     if (gmsFreshnessAssertionInfo.hasFilter()) {
       freshnessAssertionInfo.setFilter(
-          DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
+          DatasetFilterMapper.map(context, gmsFreshnessAssertionInfo.getFilter()));
     }
     return freshnessAssertionInfo;
   }

@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Tooltip, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { CronSchedule } from '../../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';

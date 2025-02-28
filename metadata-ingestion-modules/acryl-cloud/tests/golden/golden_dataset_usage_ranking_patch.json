@@ -1,0 +1,507 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_0,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 393
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 393
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 92
+            },
+            {
+                "op": "add",
+                "path": "/queryCountRankLast30Days",
+                "value": 1
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 63
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/writeCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/topUsersLast30Days",
+                "value": [
+                    "urn:li:corpuser:user0",
+                    "urn:li:corpuser:user4",
+                    "urn:li:corpuser:user3",
+                    "urn:li:corpuser:user2",
+                    "urn:li:corpuser:user1"
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 3.5
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 3.6
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 12.6
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 199
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 199
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 72
+            },
+            {
+                "op": "add",
+                "path": "/queryCountRankLast30Days",
+                "value": 2
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 63
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/writeCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/topUsersLast30Days",
+                "value": [
+                    "urn:li:corpuser:user4",
+                    "urn:li:corpuser:user1",
+                    "urn:li:corpuser:user0",
+                    "urn:li:corpuser:user2",
+                    "urn:li:corpuser:user3"
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 2.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 3.6
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 7.2
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_3,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 90
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 90
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 44
+            },
+            {
+                "op": "add",
+                "path": "/queryCountRankLast30Days",
+                "value": 3
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 63
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/writeCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/topUsersLast30Days",
+                "value": [
+                    "urn:li:corpuser:user0",
+                    "urn:li:corpuser:user1",
+                    "urn:li:corpuser:user3",
+                    "urn:li:corpuser:user2",
+                    "urn:li:corpuser:user4"
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 0.91
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.3
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.183
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_2,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 52
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 52
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 29
+            },
+            {
+                "op": "add",
+                "path": "/queryCountRankLast30Days",
+                "value": 4
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 63
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/writeCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/topUsersLast30Days",
+                "value": [
+                    "urn:li:corpuser:user4",
+                    "urn:li:corpuser:user1",
+                    "urn:li:corpuser:user0",
+                    "urn:li:corpuser:user3",
+                    "urn:li:corpuser:user2"
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 0.7
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.3
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 0.9099999999999999
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_4,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 37
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 37
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 21
+            },
+            {
+                "op": "add",
+                "path": "/queryCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 63
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/writeCountRankLast30Days",
+                "value": 5
+            },
+            {
+                "op": "add",
+                "path": "/topUsersLast30Days",
+                "value": [
+                    "urn:li:corpuser:user4",
+                    "urn:li:corpuser:user1",
+                    "urn:li:corpuser:user2",
+                    "urn:li:corpuser:user3",
+                    "urn:li:corpuser:user0"
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 0.7
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.3
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 0.9099999999999999
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-czc6i4",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

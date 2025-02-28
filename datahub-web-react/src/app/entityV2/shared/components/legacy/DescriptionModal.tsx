@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
+import InferDocsPanel from '../inferredDocs/InferDocsPanel';
+import { useMutationUrn } from '../../../../entity/shared/EntityContext';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -19,33 +21,49 @@ const StyledViewer = styled(Editor)`
     }
 `;
 
+const OriginalDocumentation = styled(Form.Item)`
+    margin-bottom: 12px;
+`;
+
 type Props = {
     title: string;
-    description?: string | undefined;
-    original?: string | undefined;
+    fieldPath?: string;
+    description?: string;
+    original?: string;
+    propagatedDescription?: string;
+    inferredDescription?: string;
     onClose: () => void;
     onSubmit: (description: string) => void;
     onPropose?: (description: string) => void;
     isAddDesc?: boolean;
     showPropose?: boolean;
+    inferOnMount?: boolean;
+    isEmbeddedProfile?: boolean;
 };
 
 export default function UpdateDescriptionModal({
     title,
     description,
+    fieldPath,
     original,
+    propagatedDescription,
+    inferredDescription,
     onClose,
     onSubmit,
     onPropose,
     isAddDesc,
     showPropose,
+    inferOnMount,
+    isEmbeddedProfile,
 }: Props) {
+    const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
+    const [editorKey, setEditorKey] = useState(0);
 
     return (
         <Modal
             title={title}
-            visible
+            open
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
@@ -58,23 +76,47 @@ export default function UpdateDescriptionModal({
                         </Button>
                     )}
                     <Button
+                        type="primary"
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
-                        Update
+                        Publish
                     </Button>
                 </>
             }
         >
             <Form layout="vertical">
-                <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
-                </Form.Item>
                 {!isAddDesc && description && original && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
-                    </Form.Item>
+                    </OriginalDocumentation>
+                )}
+                {!isAddDesc && description && propagatedDescription && (
+                    <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
+                        <StyledViewer content={propagatedDescription || ''} readOnly />
+                    </OriginalDocumentation>
+                )}
+                {!isAddDesc && description && inferredDescription && (
+                    <OriginalDocumentation label={<FormLabel>AI Generated:</FormLabel>}>
+                        <StyledViewer content={inferredDescription || ''} readOnly />
+                    </OriginalDocumentation>
+                )}
+                <Form.Item>
+                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
+                </Form.Item>
+
+                {(fieldPath || isEmbeddedProfile) && (
+                    <InferDocsPanel
+                        urn={urn}
+                        forColumnPath={fieldPath}
+                        inferOnMount={inferOnMount}
+                        onInsertDescription={(desc) => {
+                            setDesc(updatedDesc + desc);
+                            setEditorKey((key) => key + 1);
+                        }}
+                        surface="schema-docs-editor"
+                    />
                 )}
             </Form>
         </Modal>

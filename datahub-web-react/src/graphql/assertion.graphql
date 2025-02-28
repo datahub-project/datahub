@@ -1,8 +1,191 @@
+#import "./assertion_monitor_shared.graphql"
+
+fragment assertionInfo on AssertionInfo {
+    type
+    description
+    lastUpdated {
+        time
+        actor
+    }
+    datasetAssertion {
+        datasetUrn
+        scope
+        aggregation
+        operator
+        parameters {
+            value {
+                value
+                type
+            }
+            minValue {
+                value
+                type
+            }
+            maxValue {
+                value
+                type
+            }
+        }
+        fields {
+            urn
+            path
+        }
+        nativeType
+        nativeParameters {
+            key
+            value
+        }
+        logic
+    }
+    freshnessAssertion {
+        type
+        entityUrn
+        schedule {
+            type
+            cron {
+                cron
+                timezone
+            }
+            fixedInterval {
+                unit
+                multiple
+            }
+        }
+        filter {
+            type
+            sql
+        }
+    }
+    sqlAssertion {
+        type
+        entityUrn
+        statement
+        changeType
+        operator
+        parameters {
+            ...assertionStdParametersDetails
+        }
+    }
+    fieldAssertion {
+        type
+        entityUrn
+        filter {
+            type
+            sql
+        }
+        fieldValuesAssertion {
+            field {
+                path
+                type
+                nativeType
+            }
+            transform {
+                type
+            }
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            failThreshold {
+                type
+                value
+            }
+            excludeNulls
+        }
+        fieldMetricAssertion {
+            field {
+                path
+                type
+                nativeType
+            }
+            metric
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+    }
+    volumeAssertion {
+        type
+        entityUrn
+        filter {
+            type
+            sql
+        }
+        rowCountTotal {
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+        rowCountChange {
+            type
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+        incrementingSegmentRowCountTotal {
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            segment {
+                ...incrementingSegmentSpecDetails
+            }
+        }
+        incrementingSegmentRowCountChange {
+            type
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            segment {
+                ...incrementingSegmentSpecDetails
+            }
+        }
+    }
+    schemaAssertion {
+        entityUrn
+        compatibility
+        fields {
+            path
+            type
+            nativeType
+        }
+        schema {
+            fields {
+                fieldPath
+                type
+                nativeDataType
+            }
+        }
+    }
+    customAssertion {
+        type
+        entityUrn
+        field {
+            urn
+            path
+        }
+        logic
+    }
+    source {
+        type
+        created {
+            time
+            actor
+        }
+    }
+    externalUrl
+}
+
 fragment assertionDetails on Assertion {
     urn
     type
     platform {
         urn
+        name
         properties {
             displayName
             logoUrl
@@ -16,159 +199,10 @@ fragment assertionDetails on Assertion {
         ...dataPlatformInstanceFields
     }
     info {
-        type
-        description
-        datasetAssertion {
-            datasetUrn
-            scope
-            aggregation
-            operator
-            parameters {
-                value {
-                    value
-                    type
-                }
-                minValue {
-                    value
-                    type
-                }
-                maxValue {
-                    value
-                    type
-                }
-            }
-            fields {
-                urn
-                path
-            }
-            nativeType
-            nativeParameters {
-                key
-                value
-            }
-            logic
-        }
-        freshnessAssertion {
-            type
-            entityUrn
-            schedule {
-                type
-                cron {
-                    cron
-                    timezone
-                }
-                fixedInterval {
-                    unit
-                    multiple
-                }
-            }
-            filter {
-                type
-                sql
-            }
-        }
-        sqlAssertion {
-            type
-            entityUrn
-            statement
-            changeType
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-        }
-        fieldAssertion {
-            type
-            entityUrn
-            filter {
-                type
-                sql
-            }
-            fieldValuesAssertion {
-                field {
-                    path
-                    type
-                    nativeType
-                }
-                transform {
-                    type
-                }
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                failThreshold {
-                    type
-                    value
-                }
-                excludeNulls
-            }
-            fieldMetricAssertion {
-                field {
-                    path
-                    type
-                    nativeType
-                }
-                metric
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-        }
-        volumeAssertion {
-            type
-            entityUrn
-            filter {
-                type
-                sql
-            }
-            rowCountTotal {
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-            rowCountChange {
-                type
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-            incrementingSegmentRowCountTotal {
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                segment {
-                    ...incrementingSegmentSpecDetails
-                }
-            }
-            incrementingSegmentRowCountChange {
-                type
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                segment {
-                    ...incrementingSegmentSpecDetails
-                }
-            }
-        }
-        schemaAssertion {
-            entityUrn
-            schema {
-                fields {
-                    fieldPath
-                    type
-                    nativeDataType
-                }
-            }
-        }
-        source {
-            type
-        }
+        ...assertionInfo
+    }
+    inferenceDetails {
+        generatedAt
     }
     actions {
         onSuccess {
@@ -176,6 +210,48 @@ fragment assertionDetails on Assertion {
         }
         onFailure {
             type
+        }
+    }
+    tags {
+        ...globalTagsFields
+    }
+}
+
+fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
+    field {
+        path
+        type
+        nativeType
+    }
+    transformer {
+        type
+        nativeType
+    }
+}
+
+fragment assertionStdParametersDetails on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
+    }
+}
+
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
         }
     }
 }
@@ -225,12 +301,24 @@ fragment assertionResultDetails on AssertionResult {
             value
         }
     }
+    # acryl only
+    assertion {
+        ...assertionInfo
+    }
+    parameters {
+        ...assertionEvaluationParameters
+    }
+    assertionInferenceDetails {
+        generatedAt
+    }
 }
 
 fragment assertionRunEventDetails on AssertionRunEvent {
     timestampMillis
+    lastObservedMillis
     assertionUrn
     status
+    runId
     runtimeContext {
         key
         value
@@ -260,7 +348,22 @@ mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
 
-mutation upsertDatasetFreshnessAssertionMonitor($assertionUrn: String, $input: UpsertDatasetFreshnessAssertionMonitorInput!) {
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+}
+
+mutation upsertDatasetFreshnessAssertionMonitor(
+    $assertionUrn: String
+    $input: UpsertDatasetFreshnessAssertionMonitorInput!
+) {
     upsertDatasetFreshnessAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
@@ -284,8 +387,14 @@ mutation upsertDatasetFieldAssertionMonitor($assertionUrn: String, $input: Upser
     }
 }
 
-mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
-    updateAssertionActions(urn: $urn, input: $input) {
+mutation upsertDatasetSchemaAssertionMonitor($assertionUrn: String, $input: UpsertDatasetSchemaAssertionMonitorInput!) {
+    upsertDatasetSchemaAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
+        ...assertionDetails
+    }
+}
+
+mutation updateAssertionMetadata($urn: String!, $input: UpdateAssertionMetadataInput!) {
+    updateAssertionMetadata(urn: $urn, input: $input) {
         ...assertionDetails
     }
 }
@@ -293,5 +402,18 @@ mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
 mutation testAssertion($input: TestAssertionInput!) {
     testAssertion(input: $input) {
         ...assertionResultDetails
+    }
+}
+
+mutation runAssertion($urn: String!, $saveResult: Boolean, $async: Boolean) {
+    runAssertion(urn: $urn, saveResult: $saveResult, async: $async) {
+        ...assertionResultDetails
+    }
+}
+
+query getAssertionWithRunEvents($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithRunEvents
     }
 }

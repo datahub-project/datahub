@@ -3,12 +3,12 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import OutputIcon from '@mui/icons-material/Output';
 import styled from 'styled-components';
 import { useListDataProductAssetsLazyQuery, useListDataProductAssetsQuery } from '../../../graphql/search.generated';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import { SummaryTabHeaderTitle } from '../shared/summary/HeaderComponents';
 import { HorizontalList } from '../shared/summary/ListComponents';
 import { SCREEN_WIDTH_BREAK_POINT } from './constants';
 import { Card } from '../../sharedV2/cards/components';
-import AddOutputPortCard from './AddOutputPortCard';
+// import AddOutputPortCard from './AddOutputPortCard';
 import { StyledHeaderWrapper } from './AssetsSections';
 import { SearchResult } from '../../../types.generated';
 import { ANTD_GRAY } from '../shared/constants';
@@ -82,7 +82,7 @@ export const OutputPortsSection = () => {
         }
     }, [additionalData, additionalResults, hasFetchedNewData]);
 
-    if (!data) return null;
+    if (!data || !finalResults?.length) return null;
 
     return (
         <OutputPortsWrapper>
@@ -104,7 +104,8 @@ export const OutputPortsSection = () => {
                         Load more
                     </LoadMoreButton>
                 )}
-                <AddOutputPortCard />
+                {/* KEEPING THIS COMMENTED UNTIL DESIGN IS READY FOR OUTPUT PORT */}
+                {/* <AddOutputPortCard /> */}
             </StyledHorizontalList>
         </OutputPortsWrapper>
     );

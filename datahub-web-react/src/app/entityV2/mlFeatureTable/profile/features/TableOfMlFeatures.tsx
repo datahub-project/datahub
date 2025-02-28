@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 
 import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
 import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import { useRefetch } from '../../../shared/EntityContext';
+import { useRefetch } from '../../../../entity/shared/EntityContext';
 import TagTermGroup from '../../../../sharedV2/tags/TagTermGroup';
 import SchemaDescriptionField from '../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { useUpdateDescriptionMutation } from '../../../../../graphql/mutations.generated';

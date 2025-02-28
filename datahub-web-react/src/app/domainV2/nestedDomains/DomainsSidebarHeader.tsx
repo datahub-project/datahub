@@ -1,58 +1,56 @@
 import { useApolloClient } from '@apollo/client';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusCircleOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import DomainsTitle from './DomainsTitle';
-import { PageRoutes } from '../../../conf/Global';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
-import { useDomainsContext as useDomainsContextV2 }  from '../DomainsContext';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
-const HeaderWrapper = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
-    padding: 16px;
+const Wrapper = styled.div`
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    width: 100%;
 `;
 
 const StyledButton = styled(Button)`
+    padding: 0px 8px;
+    border: none;
     box-shadow: none;
-    border-color: ${ANTD_GRAY_V2[6]};
+    color: inherit;
+    font-size: inherit;
 `;
 
-const StyledLink = styled(Link)`
-    color: inherit;
-
-    &:hover {
-        color: inherit;
-    }
+const DomainTitle = styled.div`
+    font-size: 16px;
+    font-weight: bold;
+    color: #374066;
 `;
 
 export default function DomainsSidebarHeader() {
-    const { setParentDomainsToUpdate } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
 
     return (
-        <HeaderWrapper>
-            <StyledLink to={`${PageRoutes.DOMAINS}`}>
-                <DomainsTitle />
-            </StyledLink>
-            <StyledButton icon={<PlusOutlined />} onClick={() => setIsCreatingDomain(true)} />
+        <Wrapper>
+            <DomainTitle>Domains</DomainTitle>
+            <Tooltip showArrow={false} title="Create new Domain" placement="right">
+                <StyledButton onClick={() => setIsCreatingDomain(true)}>
+                    <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
+                </StyledButton>
+            </Tooltip>
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}
                     onCreate={(urn, id, name, description, parentDomain) => {
                         updateListDomainsCache(client, urn, id, name, description, parentDomain);
-                        if (parentDomain) setParentDomainsToUpdate([parentDomain]);
                     }}
                 />
             )}
-        </HeaderWrapper>
+        </Wrapper>
     );
 }

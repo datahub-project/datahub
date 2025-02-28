@@ -3,7 +3,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from itertools import groupby
 from typing import (
     Any,
     Dict,
@@ -17,13 +16,13 @@ from typing import (
 )
 
 # This import verifies that the dependencies are available.
-import teradatasqlalchemy  # noqa: F401
 import teradatasqlalchemy.types as custom_types
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
@@ -45,7 +44,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -53,12 +52,14 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
-from datahub.metadata._schema_classes import SchemaMetadataClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.utilities.groupby import groupby_unsorted
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -81,6 +82,9 @@ register_custom_type(custom_types.MBR, BytesTypeClass)
 register_custom_type(custom_types.GEOMETRY, BytesTypeClass)
 register_custom_type(custom_types.TDUDT, BytesTypeClass)
 register_custom_type(custom_types.XML, BytesTypeClass)
+register_custom_type(custom_types.PERIOD_TIME, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_DATE, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 
 
 @dataclass
@@ -283,7 +287,7 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
 
     # TODO: Check if there's a better way
     fk_dicts = list()
-    for constraint_info, constraint_cols in groupby(res, grouper):
+    for constraint_info, constraint_cols in groupby_unsorted(res, grouper):
         fk_dict = {
             "name": str(constraint_info["name"]),
             "constrained_columns": list(),
@@ -327,7 +331,7 @@ def optimized_get_view_definition(
 
 
 @dataclass
-class TeradataReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
+class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport):
     num_queries_parsed: int = 0
     num_view_ddl_parsed: int = 0
     num_table_parse_failures: int = 0
@@ -458,7 +462,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
 
     LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
-    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
+    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.QryLogV
     """.strip()
 
     QUERY_TEXT_QUERY: str = """
@@ -469,8 +473,8 @@ class TeradataSource(TwoTierSQLAlchemySource):
         DefaultDatabase as default_database,
         s.SqlTextInfo as "query_text",
         s.SqlRowNo as "row_no"
-    FROM "DBC".DBQLogTbl as l
-    JOIN "DBC".DBQLSqlTbl as s on s.QueryID = l.QueryID
+    FROM "DBC".QryLogV as l
+    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
     WHERE
         l.ErrorCode = 0
         AND l.statementtype not in (
@@ -499,7 +503,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
-    t.DatabaseName,
+    t.DataBaseName,
     t.TableName as name,
     t.CommentString as description,
     CASE t.TableKind
@@ -514,8 +518,8 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText
-FROM dbc.Tables t
-WHERE DatabaseName NOT IN (
+FROM dbc.TablesV t
+WHERE DataBaseName NOT IN (
                 'All',
                 'Crashdumps',
                 'Default',
@@ -561,7 +565,7 @@ WHERE DatabaseName NOT IN (
                 'dbc'
 )
 AND t.TableKind in ('T', 'V', 'Q', 'O')
-ORDER by DatabaseName, TableName;
+ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
@@ -573,9 +577,9 @@ ORDER by DatabaseName, TableName;
         self.graph: Optional[DataHubGraph] = ctx.graph
 
         self.builder: SqlParsingBuilder = SqlParsingBuilder(
-            usage_config=self.config.usage
-            if self.config.include_usage_statistics
-            else None,
+            usage_config=(
+                self.config.usage if self.config.include_usage_statistics else None
+            ),
             generate_lineage=True,
             generate_usage_statistics=self.config.include_usage_statistics,
             generate_operations=self.config.usage.include_operational_stats,
@@ -596,7 +600,12 @@ ORDER by DatabaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
-                lambda self, connection, table_name, schema=None, use_qvci=self.config.use_qvci, **kw: optimized_get_columns(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                use_qvci=self.config.use_qvci,
+                **kw: optimized_get_columns(
                     self,
                     connection,
                     table_name,
@@ -610,7 +619,11 @@ ORDER by DatabaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_pk_constraint",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_pk_constraint(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_pk_constraint(
                     self, connection, table_name, schema, **kw
                 ),
             )
@@ -618,7 +631,11 @@ ORDER by DatabaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_foreign_keys",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_foreign_keys(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_foreign_keys(
                     self, connection, table_name, schema, **kw
                 ),
             )
@@ -631,13 +648,14 @@ ORDER by DatabaseName, TableName;
                 ),
             )
 
-            setattr(  # noqa: B010
-                TeradataDialect,
-                "get_view_definition",
-                lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-                    self, connection, view_name, schema, tables_cache=tables_cache, **kw
-                ),
-            )
+            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
+            # setattr(
+            #   TeradataDialect,
+            #    "get_view_definition",
+            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
+            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
+            #    ),
+            # )
 
             setattr(  # noqa: B010
                 TeradataDialect,
@@ -660,6 +678,16 @@ ORDER by DatabaseName, TableName;
             )
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
+
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add Teradata-specific default options"""
+        super()._add_default_options(sql_config)
+        if sql_config.is_profiling_enabled():
+            # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
+            # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
+            # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
+            # https://github.com/Teradata/sqlalchemy-teradata/issues/96
+            sql_config.options.setdefault("poolclass", QueuePool)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -688,6 +716,7 @@ ORDER by DatabaseName, TableName;
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url()
+
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
@@ -717,7 +746,7 @@ ORDER by DatabaseName, TableName;
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
-    def cached_loop_tables(  # noqa: C901
+    def cached_loop_tables(
         self,
         inspector: Inspector,
         schema: str,
@@ -753,7 +782,7 @@ ORDER by DatabaseName, TableName;
                 break
         return description, properties, location
 
-    def cached_loop_views(  # noqa: C901
+    def cached_loop_views(
         self,
         inspector: Inspector,
         schema: str,
@@ -775,16 +804,18 @@ ORDER by DatabaseName, TableName;
         engine = self.get_metadata_engine()
         for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
             table = TeradataTable(
-                database=entry.DatabaseName.strip(),
+                database=entry.DataBaseName.strip(),
                 name=entry.name.strip(),
                 description=entry.description.strip() if entry.description else None,
                 object_type=entry.object_type,
                 create_timestamp=entry.CreateTimeStamp,
                 last_alter_name=entry.LastAlterName,
                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                request_text=entry.RequestText.strip()
-                if entry.object_type == "View" and entry.RequestText
-                else None,
+                request_text=(
+                    entry.RequestText.strip()
+                    if entry.object_type == "View" and entry.RequestText
+                    else None
+                ),
             )
             if table.database not in self._tables_cache:
                 self._tables_cache[table.database] = []
@@ -836,9 +867,9 @@ ORDER by DatabaseName, TableName;
             sql=query.replace("(NOT CASESPECIFIC)", ""),
             schema_resolver=self.schema_resolver,
             default_db=None,
-            default_schema=default_database
-            if default_database
-            else self.config.default_db,
+            default_schema=(
+                default_database if default_database else self.config.default_db
+            ),
         )
         if result.debug_info.table_error:
             logger.debug(
@@ -872,7 +903,7 @@ ORDER by DatabaseName, TableName;
 
         urns = self.schema_resolver.get_urns()
         if self.config.include_table_lineage or self.config.include_usage_statistics:
-            self.report.report_ingestion_stage_start("audit log extraction")
-            yield from self.get_audit_log_mcps(urns=urns)
+            with self.report.new_stage("Audit log extraction"):
+                yield from self.get_audit_log_mcps(urns=urns)
 
         yield from self.builder.gen_workunits()

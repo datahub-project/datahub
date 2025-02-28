@@ -8,7 +8,7 @@ on:
 
 jobs:
   remove-old-artifacts:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     timeout-minutes: 10
 
     steps:

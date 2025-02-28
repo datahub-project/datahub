@@ -1,0 +1,260 @@
+plugins {
+  id("com.palantir.git-version") apply false
+}
+apply plugin: 'java-library'
+apply plugin: 'com.gradleup.shadow'
+apply plugin: 'signing'
+apply plugin: 'io.codearte.nexus-staging'
+apply plugin: 'maven-publish'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
+apply from: '../versioning.gradle'
+
+jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+
+//to rename artifacts for publish
+project.archivesBaseName = 'acryl-spark-lineage'
+
+//mark implementaion dependencies which needs to excluded along with transitive dependencies from shadowjar
+//functionality is exactly same as "implementation"
+configurations {
+  provided
+  implementation.extendsFrom provided
+}
+
+dependencies {
+  constraints {
+    provided(externalDependency.hadoopMapreduceClient) {
+      because 'Needed for tie breaking of guava version need for spark and wiremock'
+    }
+    provided(externalDependency.hadoopCommon) {
+      because 'required for org.apache.hadoop.util.StopWatch'
+    }
+    provided(externalDependency.commonsIo) {
+      because 'required for org.apache.commons.io.Charsets that is used internally'
+    }
+  }
+
+  provided(externalDependency.sparkSql)
+  provided(externalDependency.sparkHive)
+  implementation 'org.slf4j:slf4j-log4j12:2.0.7'
+  implementation externalDependency.httpClient
+  implementation externalDependency.logbackClassicJava8
+  implementation externalDependency.typesafeConfig
+  implementation externalDependency.commonsLang
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  implementation externalDependency.typesafeConfig
+  implementation externalDependency.json
+
+  implementation project(':metadata-integration:java:openlineage-converter')
+
+  implementation project(path: ':metadata-integration:java:datahub-client')
+  implementation project(path: ':metadata-integration:java:openlineage-converter')
+
+  //implementation "io.acryl:datahub-client:0.10.2"
+  implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
+  compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
+  compileOnly("org.apache.spark:spark-sql_2.12:3.1.3") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
+  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
+
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+
+  // Tests need a concrete log4j available. Providing it here
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+  testImplementation 'org.slf4j:slf4j-log4j12:2.0.7'
+
+  testImplementation(externalDependency.postgresql) {
+    exclude group: "com.fasterxml.jackson.core"
+  }
+
+  testImplementation externalDependency.mockito
+
+  testImplementation(externalDependency.mockServer) {
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+  testImplementation(externalDependency.mockServerClient) {
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+
+  testImplementation(externalDependency.testContainersPostgresql)
+}
+
+tasks.register('checkShadowJar', Exec) {
+  commandLine 'sh', '-c', 'scripts/check_jar.sh'
+}
+
+shadowJar {
+  zip64 = true
+  archiveClassifier = ''
+  mergeServiceFiles()
+  project.configurations.implementation.canBeResolved = true
+  configurations = [project.configurations.implementation]
+
+  def exclude_modules = project
+      .configurations
+      .provided
+      .resolvedConfiguration
+      .getLenientConfiguration()
+      .getAllModuleDependencies()
+      .collect {
+        it.name
+      }
+  dependencies {
+
+    exclude(dependency {
+      exclude_modules.contains(it.name)
+    })
+    exclude(dependency("org.slf4j::"))
+    exclude("org/apache/commons/logging/**")
+  }
+
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
+
+  // prevent jni conflict with spark
+  exclude '**/libzstd-jni.*'
+  exclude '**/com_github_luben_zstd_*'
+
+  relocate 'avro.com', 'io.acryl.shaded.avro.com'
+  relocate 'org.json', 'io.acryl.shaded.org.json'
+  relocate 'com.github', 'io.acryl.shaded.com.github'
+  relocate 'avroutil1', 'io.acryl.shaded.avroutil1'
+  relocate 'com.sun.activation', 'io.acryl.shaded.com.sun.activation'
+  relocate 'com.sun.codemodel', 'io.acryl.shaded.com.sun.codemodel'
+  relocate 'com.sun.mail', 'io.acryl.shaded.com.sun.mail'
+  //
+  relocate 'org.apache.hc', 'io.acryl.shaded.http'
+  relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.codec'
+  relocate 'org.apache.commons.compress', 'io.acryl.shaded.org.apache.commons.compress'
+  relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
+  relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
+  relocate 'com.typesafe', 'io.acryl.shaded.com.typesafe'
+  relocate 'io.opentracing', 'io.acryl.shaded.io.opentracing'
+  relocate 'io.netty', 'io.acryl.shaded.io.netty'
+  relocate 'ch.randelshofer', 'io.acryl.shaded.ch.randelshofer'
+  relocate 'ch.qos', 'io.acryl.shaded.ch.qos'
+  relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
+  relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
+  relocate 'org.yaml', 'io.acryl.shaded.org.yaml' // Required for shading snakeyaml
+  relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
+  relocate 'javassist', 'io.acryl.shaded.javassist'
+  relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
+  //relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
+  //relocate 'antlr', 'io.acryl.shaded.antlr'
+  relocate 'com.google.common', 'io.acryl.shaded.com.google.common'
+  relocate 'org.reflections', 'io.acryl.shaded.org.reflections'
+  relocate 'st4hidden', 'io.acryl.shaded.st4hidden'
+  relocate 'org.stringtemplate', 'io.acryl.shaded.org.stringtemplate'
+  relocate 'org.abego.treelayout', 'io.acryl.shaded.treelayout'
+  relocate 'javax.annotation', 'io.acryl.shaded.javax.annotation'
+  relocate 'com.github.benmanes.caffeine', 'io.acryl.shaded.com.github.benmanes.caffeine'
+  relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
+  relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
+  relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+
+}
+
+checkShadowJar {
+  dependsOn shadowJar
+}
+
+
+test {
+  forkEvery = 1
+  useJUnit()
+}
+
+assemble {
+  dependsOn shadowJar
+}
+
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart']) {
+  environment "RUN_QUICKSTART", "false"
+  commandLine "spark-smoke-test/smoke.sh"
+}
+
+task sourcesJar(type: Jar) {
+  archiveClassifier = 'sources'
+  from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+  archiveClassifier = 'javadoc'
+  from javadoc.destinationDir
+}
+
+publishing {
+  publications {
+    shadow(MavenPublication) { publication ->
+      project.shadow.component(publication)
+      pom {
+        name = 'Acryl Spark Lineage'
+        group = 'io.acryl'
+        artifactId = 'acryl-spark-lineage'
+        description = 'Library to push data lineage from spark to datahub'
+        url = 'https://datahubproject.io'
+        artifacts = [shadowJar, javadocJar, sourcesJar]
+
+        scm {
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
+        }
+
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+
+        developers {
+          developer {
+            id = 'datahub'
+            name = 'Datahub'
+            email = 'datahub@acryl.io'
+          }
+        }
+      }
+    }
+  }
+
+  repositories {
+    maven {
+      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def ossrhUsername = System.getenv('RELEASE_USERNAME')
+      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      credentials {
+        username ossrhUsername
+        password ossrhPassword
+      }
+      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+    }
+  }
+}
+
+signing {
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
+}
+
+nexusStaging {
+  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("NEXUS_USERNAME")
+  password = System.getenv("NEXUS_PASSWORD")
+}

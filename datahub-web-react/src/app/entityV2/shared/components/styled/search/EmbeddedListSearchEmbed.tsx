@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ApolloError } from '@apollo/client';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
@@ -32,6 +34,11 @@ type Props = {
         searchResults: DownloadSearchResults | undefined | null;
         refetch: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | undefined | null>;
     };
+    useGetSearchCountResult?: (params: GetSearchResultsParams) => {
+        total: number | undefined;
+        loading: boolean;
+        error?: ApolloError;
+    };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
@@ -50,6 +57,7 @@ export const EmbeddedListSearchEmbed = ({
     skipCache,
     useGetSearchResults,
     useGetDownloadSearchResults,
+    useGetSearchCountResult,
     shouldRefetch,
     resetShouldRefetch,
     applyView,
@@ -61,6 +69,8 @@ export const EmbeddedListSearchEmbed = ({
     const [unionType, setUnionType] = useState(UnionType.AND);
 
     const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
+    const selectedSortOption = useSelectedSortOption();
+    const sortInput = useSortInput(selectedSortOption);
 
     const onChangeQuery = (q: string) => {
         setQuery(q);
@@ -96,9 +106,11 @@ export const EmbeddedListSearchEmbed = ({
             useGetSearchResults={useGetSearchResults}
             useGetDownloadSearchResults={useGetDownloadSearchResults}
             shouldRefetch={shouldRefetch}
+            useGetSearchCountResult={useGetSearchCountResult}
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
             showFilterBar={showFilterBar}
+            sort={sortInput?.sortCriterion}
         />
     );
 };

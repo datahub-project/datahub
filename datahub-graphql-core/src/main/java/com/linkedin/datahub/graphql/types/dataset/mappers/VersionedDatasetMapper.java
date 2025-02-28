@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
@@ -10,6 +11,8 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
@@ -38,6 +41,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -50,12 +54,14 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
 
   public static final VersionedDatasetMapper INSTANCE = new VersionedDatasetMapper();
 
-  public static VersionedDataset map(@Nonnull final EntityResponse dataset) {
-    return INSTANCE.apply(dataset);
+  public static VersionedDataset map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse dataset) {
+    return INSTANCE.apply(context, dataset);
   }
 
   @Override
-  public VersionedDataset apply(@Nonnull final EntityResponse entityResponse) {
+  public VersionedDataset apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     VersionedDataset result = new VersionedDataset();
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityResponse.getUrn().toString());
@@ -72,12 +78,14 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     mappingHelper.mapToResult(
         DATASET_DEPRECATION_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(dataMap))));
+            dataset.setDeprecation(
+                DatasetDeprecationMapper.map(context, new DatasetDeprecation(dataMap))));
     mappingHelper.mapToResult(
         SCHEMA_METADATA_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setSchema(
-                SchemaMapper.map(new SchemaMetadata(dataMap), schemaSystemMetadata, entityUrn)));
+                SchemaMapper.map(
+                    context, new SchemaMetadata(dataMap), schemaSystemMetadata, entityUrn)));
     mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
@@ -85,35 +93,42 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            dataset.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
-        (dataset, dataMap) -> dataset.setStatus(StatusMapper.map(new Status(dataMap))));
+        (dataset, dataMap) -> dataset.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
-        (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
+        (dataset, dataMap) -> mapGlobalTags(context, dataset, dataMap, entityUrn));
     mappingHelper.mapToResult(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setEditableSchemaMetadata(
-                EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap), entityUrn)));
+                EditableSchemaMetadataMapper.map(
+                    context, new EditableSchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setGlossaryTerms(
-                GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        context, CONTAINER_ASPECT_NAME, VersionedDatasetMapper::mapContainers);
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, VersionedDatasetMapper::mapDomains);
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+            dataset.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
 
-    return mappingHelper.getResult();
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), VersionedDataset.class);
+    } else {
+      return mappingHelper.getResult();
+    }
   }
 
   private SystemMetadata getSystemMetadata(EnvelopedAspectMap aspectMap, String aspectName) {
@@ -174,14 +189,20 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     dataset.setViewProperties(graphqlProperties);
   }
 
-  private void mapGlobalTags(
-      @Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+  private static void mapGlobalTags(
+      @Nullable final QueryContext context,
+      @Nonnull VersionedDataset dataset,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-        GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
+        GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     dataset.setTags(globalTags);
   }
 
-  private void mapContainers(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
+  private static void mapContainers(
+      @Nullable final QueryContext context,
+      @Nonnull VersionedDataset dataset,
+      @Nonnull DataMap dataMap) {
     final com.linkedin.container.Container gmsContainer =
         new com.linkedin.container.Container(dataMap);
     dataset.setContainer(
@@ -191,9 +212,12 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
             .build());
   }
 
-  private void mapDomains(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
+  private static void mapDomains(
+      @Nullable final QueryContext context,
+      @Nonnull VersionedDataset dataset,
+      @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     // Currently we only take the first domain if it exists.
-    dataset.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
+    dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
   }
 }

@@ -16,9 +16,10 @@ const StyledLinkOutlined = styled(LinkOutlined)`
 
 type Props = {
     assertion: Assertion;
+    isExpandedView?: boolean;
 };
 
-export const CopyLinkAction = ({ assertion }: Props) => {
+export const CopyLinkAction = ({ assertion, isExpandedView = false }: Props) => {
     const onCopyLink = useAssertionURNCopyLink(assertion.urn);
     return (
         <ActionItem
@@ -26,6 +27,8 @@ export const CopyLinkAction = ({ assertion }: Props) => {
             tip="Copy link to this assertion"
             icon={<StyledLinkOutlined />}
             onClick={onCopyLink}
+            isExpandedView={isExpandedView}
+            actionName="Copy link"
         />
     );
 };

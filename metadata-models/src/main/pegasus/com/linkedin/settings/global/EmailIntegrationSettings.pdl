@@ -1,0 +1,13 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Email integration settings. Enabled by default and only disable-able via the application configs.
+ */
+record EmailIntegrationSettings {
+  /**
+   * The default email address to use for global notifications.
+   */
+  defaultEmail: optional string
+}

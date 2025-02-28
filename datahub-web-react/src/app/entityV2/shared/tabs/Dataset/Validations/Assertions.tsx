@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { Assertion, AssertionResultType } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
 import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.

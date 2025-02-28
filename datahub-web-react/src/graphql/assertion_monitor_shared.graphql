@@ -1,0 +1,31 @@
+fragment assertionEvaluationParameters on AssertionEvaluationParameters {
+    type
+    datasetFreshnessParameters {
+        sourceType
+        auditLog {
+            operationTypes
+            userName
+        }
+        field {
+            type
+            nativeType
+            path
+            kind
+        }
+    }
+    datasetVolumeParameters {
+        sourceType
+    }
+    datasetFieldParameters {
+        sourceType
+        changedRowsField {
+            type
+            nativeType
+            path
+            kind
+        }
+    }
+    datasetSchemaParameters {
+        sourceType
+    }
+}

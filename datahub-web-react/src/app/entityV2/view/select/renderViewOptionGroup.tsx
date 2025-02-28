@@ -55,6 +55,7 @@ export const renderViewOptionGroup = ({
                 onClickEdit={() => onClickEditView(view)}
                 onClickPreview={() => onClickPreviewView(view)}
                 onClickClear={onClickClear}
+                selectView={() => onSelectView(view.urn)}
             />
         </div>
     ));

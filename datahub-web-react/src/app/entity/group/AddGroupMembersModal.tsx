@@ -10,14 +10,14 @@ import { OwnerLabel } from '../../shared/OwnerLabel';
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     onSubmit: () => void;
 };
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
-        height: 36px;
+        height: 'auto';
     }
 `;
 
@@ -29,14 +29,14 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
+export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const searchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData } = useGetRecommendations([EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
@@ -134,7 +134,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     return (
         <Modal
             title="Add group members"
-            visible={visible}
+            open={open}
             onCancel={onModalClose}
             footer={
                 <>

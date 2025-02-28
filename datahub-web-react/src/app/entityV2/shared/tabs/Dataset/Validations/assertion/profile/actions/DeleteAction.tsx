@@ -20,10 +20,12 @@ type Props = {
     assertion: Assertion;
     monitor?: Monitor;
     canEdit: boolean;
-    refetch: () => void;
+    // Should be defined if canEdit
+    refetch?: () => void;
+    isExpandedView?: boolean;
 };
 
-export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
+export const DeleteAction = ({ assertion, monitor, canEdit, refetch, isExpandedView = false }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
     const [deleteMonitorMutation] = useDeleteMonitorMutation();
 
@@ -62,7 +64,7 @@ export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) =>
                 message.error({ content: `Failed to remove assertion. An unknown error occurred`, duration: 3 });
             }
         }
-        refetch();
+        refetch?.();
     };
 
     const onDeleteAssertion = () => {
@@ -89,6 +91,8 @@ export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) =>
             disabled={!canEdit}
             onClick={onDeleteAssertion}
             icon={<StyledDeleteOutlined />}
+            isExpandedView={isExpandedView}
+            actionName="Delete"
         />
     );
 };

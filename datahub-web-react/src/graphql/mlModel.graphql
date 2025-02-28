@@ -1,5 +1,7 @@
 query getMLModel($urn: String!) {
     mlModel(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLModel
         features: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             start
@@ -18,14 +20,56 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        trainedBy: relationships(input: { types: ["TrainedBy"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on DataProcessInstance {
+                        urn
+                        name
+                        type
+                        ...dataProcessInstanceFields
+                    }
+                }
+            }
+        }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        properties {
+            created {
+                time
+            }
+            date
+        }
+        forms {
+            ...formsFields
+        }
+        ...entityProfileVersionProperties
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        ...notes
     }
 }

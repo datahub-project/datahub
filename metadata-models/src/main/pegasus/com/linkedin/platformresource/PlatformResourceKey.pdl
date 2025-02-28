@@ -1,0 +1,28 @@
+namespace com.linkedin.platformresource
+
+/**
+ * Key for a Platform Resource.
+ * Platform Resources are assets that are not part of the core data model.
+ * They are stored in DataHub primarily to help with application-specific
+ * use-cases that are not sufficiently generalized to move into the core data model.
+ * For instance, if we want to persist & retrieve additional user profile data 
+ * from auxiliary integrations such as Slack or Microsoft Teams for resolving details later.
+ */
+@Aspect = {
+  "name": "platformResourceKey"
+}
+record PlatformResourceKey {
+  /**
+   * A unique id for this entity.
+   * There are no constraints on the format of this id, but most implementations
+   * will choose to use a UUID.
+   * This id should be globally unique for the entire DataHub instance and
+     uniquely identify the resource that is being stored, so most
+     implementations
+   * will combine logical attributes like platform name, platform instance,
+   * platform-specific-id and the resource type to create the unique id.
+   * e.g. slack:slack-instance:slack-user-id:user-info 
+   * or guid(slack, slack-instance, slack-user-id, user-info) etc.
+   */
+  id: string
+}

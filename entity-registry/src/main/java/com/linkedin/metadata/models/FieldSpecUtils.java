@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.Null;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.annotation.TraverserContext;
@@ -22,10 +23,15 @@ public class FieldSpecUtils {
     return lastComponent;
   }
 
-  public static Map<String, Object> getResolvedProperties(final DataSchema schema) {
-    return !schema.getResolvedProperties().isEmpty()
-        ? schema.getResolvedProperties()
-        : schema.getProperties();
+  public static Map<String, Object> getResolvedProperties(
+      final DataSchema schema, Map<String, Object> fallback) {
+    if (!schema.getResolvedProperties().isEmpty()) {
+      return schema.getResolvedProperties();
+    } else if (!schema.getProperties().isEmpty()) {
+      return schema.getProperties();
+    } else {
+      return fallback;
+    }
   }
 
   public static Optional<PathSpec> getPathSpecWithAspectName(TraverserContext context) {
@@ -43,5 +49,9 @@ public class FieldSpecUtils {
                 .add(aspectName)
                 .addAll(context.getSchemaPathSpec())
                 .build()));
+  }
+
+  public static boolean isNullAnnotation(Object annotationObj) {
+    return annotationObj == null || annotationObj instanceof Null;
   }
 }

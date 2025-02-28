@@ -280,7 +280,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings.scope || 'openid email profile'}
+                                                value={oidcSettings.scope ?? 'openid email profile'}
                                                 placeholder="openid email profile"
                                                 onChange={(e) =>
                                                     setOidcSettings({
@@ -296,8 +296,8 @@ export const OidcIntegration = () => {
                                     >
                                         <Typography.Text type="secondary">
                                             Which authentication method to use to pass credentials (clientId and
-                                            clientSecret) to the token endpoint. Defaults to{' '}
-                                            <b> client_secret_basic</b>.
+                                            clientSecret) to the token endpoint. Defaults to <b> client_secret_basic</b>
+                                            .
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput

@@ -23,14 +23,17 @@ export const NavigationWrapper = styled.div<{ isHidden: boolean }>`
     display: flex;
     flex-wrap: nowrap;
     ${(props) => props.isHidden && 'opacity: 0;'}
+    align-items: center;
 `;
 
-export const ArrowLeft = styled(ArrowLeftOutlined)`
+export const ArrowLeft = styled(ArrowLeftOutlined)<{ $shouldHide?: boolean }>`
     margin-right: 24px;
     cursor: pointer;
+    ${(props) => props.$shouldHide && 'visibility: hidden;'}
 `;
 
-export const ArrowRight = styled(ArrowRightOutlined)`
+export const ArrowRight = styled(ArrowRightOutlined)<{ $shouldHide?: boolean }>`
     margin-left: 24px;
     cursor: pointer;
+    ${(props) => props.$shouldHide && 'visibility: hidden;'}
 `;

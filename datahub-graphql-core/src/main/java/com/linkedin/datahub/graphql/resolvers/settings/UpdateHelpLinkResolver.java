@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_GLOBAL_SETTINGS;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateHelpLinkInput;
 import com.linkedin.metadata.service.SettingsService;
@@ -34,15 +36,15 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
     final UpdateHelpLinkInput input =
         bindArgument(environment.getArgument("input"), UpdateHelpLinkInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canManageGlobalSettings(context)) {
+          if (!AuthUtil.isAuthorized(context.getOperationContext(), MANAGE_GLOBAL_SETTINGS)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
           try {
             final GlobalSettingsInfo maybeGlobalSettings =
-                _settingsService.getGlobalSettings(context.getAuthentication());
+                _settingsService.getGlobalSettings(context.getOperationContext());
 
             final GlobalSettingsInfo newGlobalSettings =
                 maybeGlobalSettings != null ? maybeGlobalSettings : new GlobalSettingsInfo();
@@ -57,12 +59,14 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
             newGlobalSettings.setVisual(newGlobalVisualSettings);
 
             // Finally, write back to GMS.
-            _settingsService.updateGlobalSettings(newGlobalSettings, context.getAuthentication());
+            _settingsService.updateGlobalSettings(context.getOperationContext(), newGlobalSettings);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to update help link! %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateVisualSettings(

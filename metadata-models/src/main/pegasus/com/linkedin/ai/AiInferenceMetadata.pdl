@@ -1,0 +1,30 @@
+namespace com.linkedin.ai
+
+/**
+ * AI Inference Metadata of various types.
+ */
+@Aspect = {
+  "name": "aiInferenceMetadata"
+}
+record AiInferenceMetadata {
+  /**
+   * Information about a glossary terms inference.
+   */
+  glossaryTermsInference: optional record GlossaryTermsInferenceMetadata {
+      /**
+       * Timestamp of the last inference in milliseconds.
+       */
+      @Searchable = {
+        "fieldName": "glossaryTermsLastInferredAt"
+      }
+      lastInferredAt: long
+
+      /**
+       * Monotonically incrementing version number. Once bumped, will re-trigger a new inference.
+       */
+      @Searchable = {
+        "fieldName": "glossaryTermsVersion"
+      }
+      version: long
+  }
+}

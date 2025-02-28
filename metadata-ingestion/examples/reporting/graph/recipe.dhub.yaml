@@ -1,0 +1,7 @@
+source:
+  type: datahub-reporting-extract-graph
+  config:
+    extract_graph_store:
+      dataset_name: "graph_raw"
+      dataset_urn: "urn:li:dataset:(urn:li:dataPlatform:acryl,reporting.extract.graph_raw,PROD)"
+      bucket_prefix: "s3://reporting-experiments/graph_raw"

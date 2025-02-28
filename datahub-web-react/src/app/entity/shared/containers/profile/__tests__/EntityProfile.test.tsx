@@ -1,24 +1,24 @@
-import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import React from 'react';
 import { mocks } from '../../../../../../Mocks';
-import { EntityProfile } from '../EntityProfile';
 import {
+    GetDatasetQuery,
     useGetDatasetQuery,
     useUpdateDatasetMutation,
-    GetDatasetQuery,
 } from '../../../../../../graphql/dataset.generated';
 import { EntityType } from '../../../../../../types.generated';
+import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
 import QueriesTab from '../../../tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../../../tabs/Dataset/Schema/SchemaTab';
 import StatsTab from '../../../tabs/Dataset/Stats/StatsTab';
 import { DocumentationTab } from '../../../tabs/Documentation/DocumentationTab';
 import { LineageTab } from '../../../tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../../../tabs/Properties/PropertiesTab';
+import { EntityProfile } from '../EntityProfile';
+import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection';
 import { SidebarStatsSection } from '../sidebar/Dataset/StatsSidebarSection';
 import { SidebarOwnerSection } from '../sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 
 describe('EntityProfile', () => {
@@ -51,8 +51,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                                        ((dataset?.dataset as any)?.upstreamLineage?.entities?.length || 0) > 0 ||
+                                        ((dataset?.dataset as any)?.downstreamLineage?.entities?.length || 0) > 0,
                                 },
                             },
                             {
@@ -70,7 +70,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -84,7 +85,8 @@ describe('EntityProfile', () => {
                                 component: SidebarStatsSection,
                                 display: {
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -136,8 +138,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                                        ((dataset?.dataset as any)?.upstreamLineage?.entities?.length || 0) > 0 ||
+                                        ((dataset?.dataset as any)?.downstreamLineage?.entities?.length || 0) > 0,
                                 },
                             },
                             {
@@ -155,7 +157,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -169,7 +172,8 @@ describe('EntityProfile', () => {
                                 component: SidebarStatsSection,
                                 display: {
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -220,8 +224,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                                        ((dataset?.dataset as any)?.upstreamLineage?.entities?.length || 0) > 0 ||
+                                        ((dataset?.dataset as any)?.downstreamLineage?.entities?.length || 0) > 0,
                                 },
                             },
                             {
@@ -239,7 +243,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     enabled: (_, _1) => true,
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -253,7 +258,8 @@ describe('EntityProfile', () => {
                                 component: SidebarStatsSection,
                                 display: {
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -314,12 +320,6 @@ describe('EntityProfile', () => {
                             {
                                 name: 'Lineage',
                                 component: LineageTab,
-                                display: {
-                                    visible: (_, _1) => true,
-                                    enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
-                                },
                             },
                             {
                                 name: 'Queries',
@@ -336,7 +336,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     enabled: (_, _1) => true,
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -350,7 +351,8 @@ describe('EntityProfile', () => {
                                 component: SidebarStatsSection,
                                 display: {
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -401,8 +403,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     visible: (_, _1) => true,
                                     enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                                        ((dataset?.dataset as any)?.upstreamLineage?.entities?.length || 0) > 0 ||
+                                        ((dataset?.dataset as any)?.downstreamLineage?.entities?.length || 0) > 0,
                                 },
                             },
                             {
@@ -420,7 +422,8 @@ describe('EntityProfile', () => {
                                 display: {
                                     enabled: (_, _1) => true,
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },
@@ -434,7 +437,8 @@ describe('EntityProfile', () => {
                                 component: SidebarStatsSection,
                                 display: {
                                     visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                                         (dataset?.dataset?.usageStats?.buckets?.length && true) ||
                                         false,
                                 },

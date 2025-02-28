@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -52,7 +53,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     final Urn parentDomain =
         input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateDomains(context)) {
             throw new AuthorizationException(
@@ -68,13 +69,13 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             key.setId(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Domain already exists!");
             }
 
             if (parentDomain != null
-                && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+                && !_entityClient.exists(context.getOperationContext(), parentDomain)) {
               throw new IllegalArgumentException("Parent Domain does not exist!");
             }
 
@@ -97,7 +98,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
             String domainUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             OwnerUtils.addCreatorAsOwner(
                 context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;
@@ -115,7 +116,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
                     input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DomainProperties mapDomainProperties(

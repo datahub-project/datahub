@@ -23,29 +23,8 @@ public class UrnUtils {
   @Nonnull
   public static DatasetUrn toDatasetUrn(
       @Nonnull String platformName, @Nonnull String datasetName, @Nonnull String origin) {
-    return new DatasetUrn(new DataPlatformUrn(platformName), datasetName, toFabricType(origin));
-  }
-
-  /**
-   * Convert fabric String to FabricType
-   *
-   * @param fabric PROD, CORP, EI, DEV, LIT, PRIME
-   * @return FabricType
-   */
-  @Nonnull
-  public static FabricType toFabricType(@Nonnull String fabric) {
-    switch (fabric.toUpperCase()) {
-      case "PROD":
-        return FabricType.PROD;
-      case "CORP":
-        return FabricType.CORP;
-      case "EI":
-        return FabricType.EI;
-      case "DEV":
-        return FabricType.DEV;
-      default:
-        throw new IllegalArgumentException("Unsupported Fabric Type: " + fabric);
-    }
+    return new DatasetUrn(
+        new DataPlatformUrn(platformName), datasetName, FabricType.valueOf(origin.toUpperCase()));
   }
 
   public static Urn getUrn(String urnStr) {

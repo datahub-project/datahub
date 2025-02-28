@@ -3,12 +3,13 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserAppearanceSettings;
@@ -17,6 +18,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -37,71 +40,72 @@ public class SettingsService extends BaseService {
           .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
 
   public SettingsService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**
    * Returns the settings for a particular user, or null if they do not exist yet.
    *
-   * @param userUrn the urn of the user to fetch settings for
-   * @param authentication the current authentication
+   * @param opContext operation's context
+   * @param user the urn of the user to fetch settings for
    * @return an instance of {@link CorpUserSettings} for the specified user, or null if none exists.
    */
   @Nullable
   public CorpUserSettings getCorpUserSettings(
-      @Nonnull final Urn userUrn, @Nonnull final Authentication authentication) {
-    Objects.requireNonNull(userUrn, "userUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+      @Nonnull OperationContext opContext, @Nonnull final Urn user) {
+    Objects.requireNonNull(user, "user must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
-      if (!entityClient.exists(userUrn, authentication)) {
-        throw new RuntimeException(String.format("User %s does not exist", userUrn));
+      if (!entityClient.exists(opContext, user)) {
+        throw new RuntimeException(String.format("User %s does not exist", user));
       }
 
       EntityResponse response =
           this.entityClient.getV2(
+              opContext,
               CORP_USER_ENTITY_NAME,
-              userUrn,
-              ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME),
-              authentication);
+              user,
+              ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
         return new CorpUserSettings(
             getDataMapFromEntityResponse(response, CORP_USER_SETTINGS_ASPECT_NAME));
       }
-      // No aspect found
+      // No aspect found.
       return null;
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to get CorpUserSettings for user with urn %s", userUrn), e);
+          String.format("Failed to get CorpUserSettings for user with urn %s", user), e);
     }
   }
 
   /**
    * Returns the settings for a particular group, or null if they do not exist yet.
    *
+   * @param opContext operation's context
    * @param groupUrn the urn of the grouo to fetch settings for
-   * @param authentication the current authentication
    * @return an instance of {@link CorpGroupSettings} for the specified group or null if none
    *     exists.
    */
   @Nullable
   public CorpGroupSettings getCorpGroupSettings(
-      @Nonnull final Urn groupUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn groupUrn) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     try {
-      if (!entityClient.exists(groupUrn, authentication)) {
+      if (!entityClient.exists(opContext, groupUrn)) {
         throw new RuntimeException(String.format("Group %s does not exist", groupUrn));
       }
 
       final EntityResponse response =
           this.entityClient.getV2(
+              opContext,
               CORP_GROUP_ENTITY_NAME,
               groupUrn,
-              ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME)) {
         return new CorpGroupSettings(
@@ -121,28 +125,29 @@ public class SettingsService extends BaseService {
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
    * class have already authorized the operation.
    *
-   * @param userUrn the urn of the user
-   * @param authentication the current authentication
+   * @param opContext operation's context
+   * @param user the urn of the user
+   * @param newSettings the new settings to apply
    */
   public void updateCorpUserSettings(
-      @Nonnull final Urn userUrn,
-      @Nonnull final CorpUserSettings newSettings,
-      @Nonnull final Authentication authentication) {
-    Objects.requireNonNull(userUrn, "userUrn must not be null");
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn user,
+      @Nonnull final CorpUserSettings newSettings) {
+    Objects.requireNonNull(user, "userUrn must not be null");
     Objects.requireNonNull(newSettings, "newSettings must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
-      if (!entityClient.exists(userUrn, authentication)) {
-        throw new RuntimeException(String.format("User %s does not exist", userUrn));
+      if (!entityClient.exists(opContext, user)) {
+        throw new RuntimeException(String.format("User %s does not exist", user));
       }
 
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
-              userUrn, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(proposal, authentication, true);
+              user, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
+      this.entityClient.ingestProposal(opContext, proposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to update CorpUserSettings for user with urn %s", userUrn), e);
+          String.format("Failed to update CorpUserSettings for user with urn %s", user), e);
     }
   }
 
@@ -152,25 +157,26 @@ public class SettingsService extends BaseService {
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
    * class have already authorized the operation.
    *
+   * @param opContext operation's context
    * @param groupUrn the urn of the group
-   * @param authentication the current authentication
+   * @param newSettings the new settings to apply
    */
   public void updateCorpGroupSettings(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
-      @Nonnull final CorpGroupSettings newSettings,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final CorpGroupSettings newSettings) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(newSettings, "newSettings must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     try {
-      if (!entityClient.exists(groupUrn, authentication)) {
+      if (!entityClient.exists(opContext, groupUrn)) {
         throw new RuntimeException(String.format("Group %s does not exist", groupUrn));
       }
 
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               groupUrn, CORP_GROUP_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(proposal, authentication, true);
+      this.entityClient.ingestProposal(opContext, proposal, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update CorpGroupSettings for group with urn %s", groupUrn), e);
@@ -180,10 +186,6 @@ public class SettingsService extends BaseService {
   @Nonnull
   public SlackNotificationSettings createSlackNotificationSettings(
       @Nullable String userHandle, @Nullable List<String> channels) {
-    if (userHandle == null && channels == null) {
-      throw new RuntimeException("User handle and channels cannot both be null");
-    }
-
     final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();
     if (userHandle != null) {
       slackNotificationSettings.setUserHandle(userHandle);
@@ -194,21 +196,28 @@ public class SettingsService extends BaseService {
     return slackNotificationSettings;
   }
 
+  @Nonnull
+  public EmailNotificationSettings createEmailNotificationSettings(@Nonnull final String email) {
+    final EmailNotificationSettings emailNotificationSettings = new EmailNotificationSettings();
+    emailNotificationSettings.setEmail(email);
+    return emailNotificationSettings;
+  }
+
   /**
    * Returns the Global Settings. They are expected to exist.
    *
-   * @param authentication the current authentication
+   * @param opContext operation's context
    * @return an instance of {@link GlobalSettingsInfo}, or null if none exists.
    */
-  public GlobalSettingsInfo getGlobalSettings(@Nonnull final Authentication authentication) {
-    Objects.requireNonNull(authentication, "authentication must not be null");
+  public GlobalSettingsInfo getGlobalSettings(@Nonnull OperationContext opContext) {
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       EntityResponse response =
           this.entityClient.getV2(
+              opContext,
               GLOBAL_SETTINGS_ENTITY_NAME,
               GLOBAL_SETTINGS_URN,
-              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)) {
         return new GlobalSettingsInfo(
@@ -235,18 +244,18 @@ public class SettingsService extends BaseService {
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
    * class have already authorized the operation.
    *
+   * @param opContext operation's context
    * @param newSettings the new value for the global settings.
-   * @param authentication the current authentication
    */
   public void updateGlobalSettings(
-      @Nonnull final GlobalSettingsInfo newSettings, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final GlobalSettingsInfo newSettings) {
     Objects.requireNonNull(newSettings, "newSettings must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(proposal, authentication, false);
+      this.entityClient.ingestProposal(opContext, proposal, false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to update Global settings", e);
     }

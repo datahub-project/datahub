@@ -5,7 +5,6 @@ import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -44,7 +44,8 @@ public class HealthCheckController {
   }
 
   @GetMapping(path = "/check/ready", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Boolean> getCombinedHealthCheck(String... checks) {
+  public ResponseEntity<Boolean> getCombinedHealthCheck(
+      @RequestParam(name = "checks", defaultValue = "elasticsearch") List<String> checks) {
     return ResponseEntity.status(getCombinedDebug(checks).getStatusCode())
         .body(getCombinedDebug(checks).getStatusCode().is2xxSuccessful());
   }
@@ -58,15 +59,14 @@ public class HealthCheckController {
    *     and 500 if one or more components are not healthy.
    */
   @GetMapping(path = "/debug/ready", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedDebug(String... checks) {
+  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedDebug(
+      @RequestParam(name = "checks", defaultValue = "elasticsearch") List<String> checks) {
     Map<String, Supplier<ResponseEntity<String>>> healthChecks = new HashMap<>();
     healthChecks.put("elasticsearch", this::getElasticDebugWithCache);
     // Add new components here
 
     List<String> componentsToCheck =
-        checks != null && checks.length > 0
-            ? Arrays.asList(checks)
-            : new ArrayList<>(healthChecks.keySet());
+        checks != null && !checks.isEmpty() ? checks : new ArrayList<>(healthChecks.keySet());
 
     Map<String, ResponseEntity<String>> componentHealth = new HashMap<>();
     for (String check : componentsToCheck) {

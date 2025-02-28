@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CaveatsAndRecommendations;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class CaveatsAndRecommendationsMapper
@@ -12,16 +14,18 @@ public class CaveatsAndRecommendationsMapper
       new CaveatsAndRecommendationsMapper();
 
   public static CaveatsAndRecommendations map(
+      @Nullable QueryContext context,
       @NonNull com.linkedin.ml.metadata.CaveatsAndRecommendations caveatsAndRecommendations) {
-    return INSTANCE.apply(caveatsAndRecommendations);
+    return INSTANCE.apply(context, caveatsAndRecommendations);
   }
 
   @Override
   public CaveatsAndRecommendations apply(
+      @Nullable QueryContext context,
       com.linkedin.ml.metadata.CaveatsAndRecommendations caveatsAndRecommendations) {
     final CaveatsAndRecommendations result = new CaveatsAndRecommendations();
     if (caveatsAndRecommendations.getCaveats() != null) {
-      result.setCaveats(CaveatsDetailsMapper.map(caveatsAndRecommendations.getCaveats()));
+      result.setCaveats(CaveatsDetailsMapper.map(context, caveatsAndRecommendations.getCaveats()));
     }
     if (caveatsAndRecommendations.getRecommendations() != null) {
       result.setRecommendations(caveatsAndRecommendations.getRecommendations());

@@ -1,6 +1,8 @@
-import { EntityType, SearchResult } from '../../types.generated';
+import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
+import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
-import { GenericEntityProperties } from './shared/types';
+import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
 
 export enum PreviewType {
     /**
@@ -23,6 +25,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {
@@ -94,6 +100,11 @@ export enum EntityCapabilityType {
     LINEAGE,
 }
 
+export interface EntityMenuActions {
+    onDelete?: () => void;
+    onEdit?: () => void;
+}
+
 /**
  * Base interface used for authoring DataHub Entities on the client side.
  *
@@ -153,7 +164,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
-    renderPreview: (type: PreviewType, data: T) => JSX.Element;
+    renderPreview: (type: PreviewType, data: T, actions?: EntityMenuActions) => JSX.Element;
 
     /**
      * Renders a search result
@@ -180,9 +191,15 @@ export interface Entity<T> {
     displayName: (data: T) => string;
 
     /**
+     * Returns the created time for the entity
+     *
+     */
+    createdTime?: (data: T) => number | undefined | null;
+
+    /**
      * Returns generic entity properties for the entity
      */
-    getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
+    getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;
 
     /**
      * Returns the supported features for the entity
@@ -199,6 +216,35 @@ export interface Entity<T> {
      */
     renderEmbeddedProfile?: (urn: string) => JSX.Element;
 
-    // TODO: Consider removing... currently unused
-    renderSummaryRows?: (data: T) => JSX.Element | undefined;
+    /**
+     * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
+     */
+    getSidebarSections?: () => EntitySidebarSection[];
+
+    /**
+     * Returns the entity profile sidebar tabs for an entity type.
+     */
+    getSidebarTabs?: () => EntitySidebarTab[];
+
+    /**
+     * Get the query necessary for refetching data on an entity profile page
+     */
+    useEntityQuery?: (
+        baseOptions: QueryHookOptions<
+            any,
+            Exact<{
+                urn: string;
+            }>
+        >,
+    ) => QueryResult<
+        any,
+        Exact<{
+            urn: string;
+        }>
+    >;
+
+    /**
+     * Returns the url to be navigated to when clicked on Cards
+     */
+    getCustomCardUrlPath?: () => string | undefined;
 }

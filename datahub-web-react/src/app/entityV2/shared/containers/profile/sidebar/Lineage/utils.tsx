@@ -66,7 +66,9 @@ const getLineageCountsByEntityType = (aggregations: AggregationMetadata[]): Map<
 };
 
 const getLineageCountsByType = (results: SearchAcrossLineageResults) => {
-    const entityTypeAggregations = results.facets?.find((facet) => facet.field === '_entityType');
+    const entityTypeAggregations = results.facets?.find(
+        (facet) => facet.field === '_entityType' || facet.field === 'entity',
+    );
     const entityTypeTotals =
         (entityTypeAggregations && getLineageCountsByEntityType(entityTypeAggregations.aggregations)) || new Map();
     const subTypeAggregations = results.facets?.find((facet) => facet.field === '_entityType␞typeNames');
@@ -111,9 +113,7 @@ export const getRelatedEntitySummary = (
                         {type.count}{' '}
                         {pluralize(
                             type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) as any)
-                                : type.type,
+                            type.isEntityType ? entityRegistry.getEntityName(type.type as EntityType) ?? '' : type.type,
                         ).toLocaleLowerCase()}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
@@ -121,8 +121,4 @@ export const getRelatedEntitySummary = (
             })}
         </>
     );
-};
-
-export const navigateToLineageGraph = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Lineage`);
 };

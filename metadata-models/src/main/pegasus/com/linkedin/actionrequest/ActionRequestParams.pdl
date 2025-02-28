@@ -13,23 +13,30 @@ import com.linkedin.datacontract.DataQualityContract
 record ActionRequestParams {
   /**
    * An optional set of information specific to term proposals.
+   * TODO: Add validation that ensures that glossaryTerm or glossaryTerms field is provided, but not both.
    */
-  glossaryTermProposal: optional record GlossaryTermProposal {
-    /**
-     * The urn of the glossary term being proposed.
-     */
-    glossaryTerm: Urn
-  }
+  glossaryTermProposal: optional GlossaryTermProposal
 
   /**
    * An optional set of information specific to tag proposals.
+   * TODO: Add validation that ensures that tag or tagUrns field is provided, but not both.
    */
-  tagProposal: optional record TagProposal {
-    /**
-     * The urn of the tag being proposed.
-     */
-    tag: Urn
-  }
+  tagProposal: optional TagProposal
+
+  /**
+   * An optional set of information specific to domain proposals.
+   */
+  domainProposal: optional DomainProposal
+
+  /**
+   * An optional set of information specific to ownership proposals.
+   */
+  ownerProposal: optional OwnerProposal
+
+  /**
+   * An optional set of information specific to structured property proposals.
+   */
+  structuredPropertyProposal: optional StructuredPropertyProposal
 
   /**
    * An optional set of information specific to proposals for creating new Glossary Terms.

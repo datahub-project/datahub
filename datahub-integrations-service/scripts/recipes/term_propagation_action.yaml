@@ -1,0 +1,17 @@
+name: term_propagation_action
+# source:
+#   type: kafka
+#   config:
+#     connection:
+#       bootstrap: localhost:9092
+#       schema_registry_url: http://localhost:8080/schema-registry/api/
+# datahub:
+#   server: "http://localhost:8080"
+action:
+  type: datahub_integrations.propagation.term.term_propagation_action.TermPropagationAction
+  config:
+    target_terms:
+      - urn:li:glossaryTerm:DataClassification.Confidential
+      - urn:li:glossaryTerm:DataClassification.HighlyConfidential
+      - urn:li:glossaryTerm:DataClassification.Internal
+      - urn:li:glossaryTerm:DataClassification.Public

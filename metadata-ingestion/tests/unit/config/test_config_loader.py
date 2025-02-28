@@ -10,6 +10,7 @@ import yaml
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.config_loader import (
+    EnvResolver,
     list_referenced_env_variables,
     load_config_file,
 )
@@ -52,7 +53,7 @@ from datahub.configuration.config_loader import (
                 "VAR1": "stuff1",
                 "VAR2": "stuff2",
             },
-            set(["VAR1", "UNSET_VAR3", "VAR2"]),
+            {"VAR1", "UNSET_VAR3", "VAR2"},
         ),
         (
             "tests/unit/config/complex_variable_expansion.yml",
@@ -107,22 +108,20 @@ from datahub.configuration.config_loader import (
                 "VAR10": "stuff10",
                 "VAR11": "stuff11",
             },
-            set(
-                [
-                    "VAR1",
-                    "VAR2",
-                    "VAR3",
-                    "VAR4",
-                    "VAR5",
-                    "VAR6",
-                    "VAR7",
-                    "VAR8",
-                    "VAR9",
-                    "VAR10",
-                    # VAR11 is escaped and hence not referenced
-                    "VARNONEXISTENT",
-                ]
-            ),
+            {
+                "VAR1",
+                "VAR2",
+                "VAR3",
+                "VAR4",
+                "VAR5",
+                "VAR6",
+                "VAR7",
+                "VAR8",
+                "VAR9",
+                "VAR10",
+                # VAR11 is escaped and hence not referenced
+                "VARNONEXISTENT",
+            },
         ),
     ],
 )
@@ -138,6 +137,28 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
         assert loaded_config == golden_config
 
         # TODO check referenced env vars
+
+
+def test_load_strict_env_syntax() -> None:
+    config = {
+        "foo": "${BAR}",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
+    assert EnvResolver.list_referenced_variables(
+        config,
+        strict_env_syntax=True,
+    ) == {"BAR"}
+
+    assert EnvResolver(
+        environ={
+            "BAR": "bar",
+        }
+    ).resolve(config) == {
+        "foo": "bar",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
 
 
 @pytest.mark.parametrize(

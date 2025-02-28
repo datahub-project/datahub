@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.view;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewDefinition;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilter;
@@ -32,12 +33,14 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   private static final String KEYWORD_FILTER_SUFFIX = ".keyword";
   public static final DataHubViewMapper INSTANCE = new DataHubViewMapper();
 
-  public static DataHubView map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataHubView map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public DataHubView apply(@Nonnull final EntityResponse entityResponse) {
+  public DataHubView apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataHubView result = new DataHubView();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATAHUB_VIEW);

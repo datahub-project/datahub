@@ -1,13 +1,15 @@
 import React from 'react';
-import { FireTwoTone } from '@ant-design/icons';
-import { buildMostUsersFilters, buildMostUsersSort } from './useGetMostUsers';
-import { SearchListInsightCard } from './SearchListInsightCard';
 import { EntityType } from '../../../../../../../../types.generated';
+import { SearchListInsightCard } from './SearchListInsightCard';
+import { buildMostUsersFilters, buildMostUsersSort } from './useGetMostUsers';
+
+export const MOST_USERS_ID = 'MostUsers';
 
 export const MostUsersCard = () => {
     return (
         <SearchListInsightCard
-            icon={<FireTwoTone twoToneColor="orange" />}
+            id={MOST_USERS_ID}
+            tip="Tables with the most unique users in the past month"
             types={[EntityType.Dataset]}
             title="Most Popular Tables"
             filters={buildMostUsersFilters()}

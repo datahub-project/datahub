@@ -1,0 +1,90 @@
+namespace com.linkedin.ermodelrelation
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with a ERModelRelationship
+ */
+@Aspect = {
+  "name": "erModelRelationshipProperties"
+}
+record ERModelRelationshipProperties includes CustomProperties {
+
+  /**
+   * Name of the ERModelRelation
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+  * First dataset in the erModelRelationship (no directionality)
+  */
+   @Relationship = {
+     "name": "ermodelrelationA",
+     "entityTypes": [ "dataset" ]
+   }
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  source: Urn
+
+  /**
+  * Second dataset in the erModelRelationship (no directionality)
+  */
+   @Relationship = {
+     "name": "ermodelrelationB",
+     "entityTypes": [ "dataset" ]
+   }
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  destination: Urn
+
+
+  /**
+   * ERModelRelationFieldMapping (in future we can make it an array)
+   */
+  relationshipFieldMappings: array [RelationshipFieldMapping]
+
+  /**
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional AuditStamp
+
+  /**
+   * Cardinality of the relationship
+   */
+  cardinality: enum ERModelRelationshipCardinality {
+   ONE_ONE
+   ONE_N
+   N_ONE
+   N_N
+  } = "N_N"
+}

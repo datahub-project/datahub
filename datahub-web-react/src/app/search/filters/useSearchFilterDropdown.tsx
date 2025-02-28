@@ -39,8 +39,9 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         useMemo(() => [filter.field], [filter.field]),
     );
     const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
-    const [autoCompleteResults, setAutoCompleteResults] =
-        useState<GetAutoCompleteMultipleResultsQuery | undefined>(undefined);
+    const [autoCompleteResults, setAutoCompleteResults] = useState<GetAutoCompleteMultipleResultsQuery | undefined>(
+        undefined,
+    );
     const [getAutoCompleteResults] = useGetAutoCompleteMultipleResultsLazyQuery({
         onCompleted: (result) => setAutoCompleteResults(result),
     });
@@ -80,6 +81,15 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         setIsMenuOpen(false);
     }
 
+    function manuallyUpdateFilters(newFilters: FacetFilterInput[]) {
+        // remove any filters that are in newFilters to overwrite them
+        const filtersNotInNewFilters = activeFilters.filter(
+            (f) => !newFilters.find((newFilter) => newFilter.field === f.field),
+        );
+        onChangeFilters([...filtersNotInNewFilters, ...newFilters]);
+        setIsMenuOpen(false);
+    }
+
     function updateSearchQuery(newQuery: string) {
         setSearchQuery(newQuery);
         if (newQuery && FACETS_TO_ENTITY_TYPES[filter.field]) {
@@ -106,7 +116,13 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     );
     // filter out any aggregations with a count of 0 unless it's already selected and in activeFilters
     const finalAggregations = filterEmptyAggregations(combinedAggregations, activeFilters);
-    const filterOptions = getFilterOptions(filter.field, finalAggregations, selectedFilterOptions, autoCompleteResults)
+    const filterOptions = getFilterOptions(
+        filter.field,
+        finalAggregations,
+        selectedFilterOptions,
+        autoCompleteResults,
+        filter.entity,
+    )
         .map((filterOption) =>
             mapFilterOption({ filterOption, entityRegistry, selectedFilterOptions, setSelectedFilterOptions }),
         )
@@ -121,5 +137,6 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         areFiltersLoading: loading,
         searchQuery,
         updateSearchQuery,
+        manuallyUpdateFilters,
     };
 }

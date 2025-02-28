@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.pac4j.oidc.client.OidcClient;
-import org.json.JSONObject;
 
 public class OidcConfigurationTest {
 
@@ -322,23 +322,34 @@ public class OidcConfigurationTest {
 
   @Test
   public void readPreferredJwsAlgorithmPropagationFromConfig() {
-    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "HS256").toString();
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().toString();
     CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
     OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
     oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
     OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-    assertEquals("RS256", ((OidcClient) oidcProvider.client()).getConfiguration().getPreferredJwsAlgorithm().toString());
+    assertEquals(
+        "RS256",
+        ((OidcClient) oidcProvider.client())
+            .getConfiguration()
+            .getPreferredJwsAlgorithm()
+            .toString());
   }
 
   @Test
   public void readPreferredJwsAlgorithmPropagationFromJSON() {
-    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "Unused").put(PREFERRED_JWS_ALGORITHM_2, "HS256").toString();
+    final String SSO_SETTINGS_JSON_STR =
+        new JSONObject().put(PREFERRED_JWS_ALGORITHM, "HS256").toString();
     CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
     OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
     oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
     OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-    assertEquals("HS256", ((OidcClient) oidcProvider.client()).getConfiguration().getPreferredJwsAlgorithm().toString());
+    assertEquals(
+        "HS256",
+        ((OidcClient) oidcProvider.client())
+            .getConfiguration()
+            .getPreferredJwsAlgorithm()
+            .toString());
   }
 }

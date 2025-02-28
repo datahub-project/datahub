@@ -246,8 +246,8 @@ def create_user_policy(user_urn, privileges, session):
         "variables": {
             "input": {
                 "type": "PLATFORM",
-                "name": "Policy Name",
-                "description": "Policy Description",
+                "name": "Test Policy Name",
+                "description": "Test Policy Description",
                 "state": "ACTIVE",
                 "resources": {"filter": {"criteria": []}},
                 "privileges": privileges,
@@ -288,3 +288,69 @@ def remove_policy(urn, session):
     assert res_data["data"]
     assert res_data["data"]["deletePolicy"]
     assert res_data["data"]["deletePolicy"] == urn
+
+
+def clear_polices(session):
+    list_policy_json = {
+        "query": """query listPolicies($input: ListPoliciesInput!) {
+                      listPolicies(input: $input) {
+                        start
+                        count
+                        total
+                        policies {
+                          urn
+                          editable
+                          name
+                          description
+                          __typename
+                        }
+                        __typename
+                      }
+                    }""",
+        "variables": {
+            "input": {
+                "count": 100,
+                "start": 0,
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "state",
+                                "values": ["ACTIVE"],
+                                "condition": "EQUAL",
+                            },
+                            {
+                                "field": "editable",
+                                "values": ["true"],
+                                "condition": "EQUAL",
+                            },
+                        ]
+                    }
+                ],
+            }
+        },
+    }
+
+    response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=list_policy_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listPolicies"]
+    for policy in res_data["data"]["listPolicies"]["policies"]:
+        if "test" in policy["name"].lower() or "test" in policy["description"].lower():
+            remove_policy(policy["urn"], session)
+
+
+def remove_secret(session, urn):
+    remove_secret = {
+        "query": """mutation deleteSecret($urn: String!) {\n
+            deleteSecret(urn: $urn)\n}""",
+        "variables": {"urn": urn},
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
+    response.raise_for_status()

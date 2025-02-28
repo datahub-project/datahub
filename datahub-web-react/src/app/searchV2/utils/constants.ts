@@ -20,7 +20,7 @@ export const DATA_PRODUCT_FILTER_NAME = 'dataProduct';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
-export const DATA_PLATFORM_INSTANCE_FILTER_NAME = 'dataPlatformInstance';
+export const DATA_PLATFORM_INSTANCE_FILTER_NAME = 'platformInstance';
 export const FIELD_TAGS_FILTER_NAME = 'fieldTags';
 export const EDITED_FIELD_TAGS_FILTER_NAME = 'editedFieldTags';
 export const FIELD_GLOSSARY_TERMS_FILTER_NAME = 'fieldGlossaryTerms';
@@ -36,6 +36,17 @@ export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const CHART_TYPE_FILTER_NAME = 'type';
+export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
+export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
+export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
+export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
+export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
+export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
+export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
+export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
+export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
+export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
+export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -100,10 +111,12 @@ export const FIELD_TO_LABEL = {
     origin: 'Environment',
     degree: 'Degree',
     '_entityType␞typeNames': 'Type',
-    dataPlatformInstance: 'Platform Instance',
+    platformInstance: 'Platform Instance',
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
+    [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
+    [STRUCTURED_PROPERTIES_FILTER_NAME]: 'Structured Property',
 };
 
 export const ADVANCED_SEARCH_ONLY_FILTERS = [

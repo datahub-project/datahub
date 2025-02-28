@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
@@ -7,7 +7,7 @@ import { AssertionGroup } from './acrylTypes';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AcrylDatasetAssertionsList } from './AcrylAssertionsList';
 import { StyledTable } from '../../../components/styled/StyledTable';
-import { useExpandRowBasedOnAssertionUrn } from './assertion/builder/hooks';
+import { useExpandedRowKeys } from './assertion/builder/hooks';
 
 const StyledStyledTable = styled(StyledTable)`
     &&&& {
@@ -42,10 +42,15 @@ export const AssertionGroupTable = ({
     canEditSqlAssertions,
     refetch,
 }: Props) => {
-    const [expandedRowKeys, setExpandedRowKeys] = useState<string[] | undefined>(undefined);
+    const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(groups);
 
-    // To handle assertion URN parameter logic for expanding rows
-    useExpandRowBasedOnAssertionUrn(groups, setExpandedRowKeys);
+    const onAssertionExpand = (expanded, record) => {
+        if (expanded) {
+            setExpandedRowKeys((prevKeys) => [...prevKeys, record.name]);
+        } else {
+            setExpandedRowKeys((prevKeys) => prevKeys.filter((key) => key !== record.name));
+        }
+    };
 
     const columns = [
         {
@@ -65,9 +70,9 @@ export const AssertionGroupTable = ({
             locale={{
                 emptyText: <Empty description="No Assertions Found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
-            defaultExpandAllRows
             expandable={{
                 expandedRowKeys,
+                onExpand: onAssertionExpand,
                 expandedRowRender: (group, _index, _indent, _expanded) => {
                     return (
                         <AcrylDatasetAssertionsList
@@ -87,7 +92,6 @@ export const AssertionGroupTable = ({
                         <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
                     ),
                 expandRowByClick: true,
-                defaultExpandAllRows: true,
             }}
             pagination={false}
         />

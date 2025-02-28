@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionAction;
@@ -37,6 +37,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -121,14 +122,14 @@ public class CreateDatasetAssertionResolverTest {
     // Validate that we created the assertion
     Mockito.verify(mockService, Mockito.times(1))
         .createDatasetAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getDataset()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getScope()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getFields()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getAggregation()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getOperator()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getParameters()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_ASSERTION_ACTIONS));
   }
 
   @Test
@@ -146,7 +147,7 @@ public class CreateDatasetAssertionResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -156,14 +157,14 @@ public class CreateDatasetAssertionResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createDatasetAssertion(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
 
     CreateDatasetAssertionResolver resolver = new CreateDatasetAssertionResolver(mockService);
 
@@ -180,19 +181,19 @@ public class CreateDatasetAssertionResolverTest {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
             service.createDatasetAssertion(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(
             service.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(

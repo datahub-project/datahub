@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { EntityType } from '../../../types.generated';
 import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
@@ -15,6 +17,12 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const {
+        filter: { formFilter },
+        isInFormContext,
+        shouldRefetch,
+        setShouldRefetch,
+    } = useEntityFormContext();
 
     const {
         data: newData,
@@ -24,7 +32,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         refetch,
     } = useAggregateAcrossEntitiesQuery({
         skip,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: isInFormContext ? 'no-cache' : 'cache-first',
         variables: {
             input: {
                 ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters || [] }),
@@ -34,7 +42,9 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
                 query: excludeFilters ? '*' : sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
+                    skipCache: isInFormContext,
                 },
+                formFilter,
             },
         },
     });
@@ -42,6 +52,13 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
     const retry = () => {
         if (refetch) refetch();
     };
+
+    useEffect(() => {
+        if (shouldRefetch) {
+            refetch?.();
+            setShouldRefetch(false);
+        }
+    }, [shouldRefetch, refetch, setShouldRefetch]);
 
     // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
     const data = error ? null : newData ?? previousData;
@@ -51,7 +68,11 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
         ?.aggregations.filter((aggregation) => {
             const type = aggregation.value as EntityType;
-            return registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
+            return (
+                registry.getEntity(type).isBrowseEnabled() &&
+                !GLOSSARY_ENTITY_TYPES.includes(type) &&
+                EntityType.BusinessAttribute !== type
+            );
         })
         .sort((a, b) => {
             const nameA = registry.getCollectionName(a.value as EntityType);

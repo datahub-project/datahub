@@ -16,6 +16,7 @@ source:
     #include_tables: true
     #include_views: true
     #include_table_lineage: true
+    #extract_policy_tags_from_catalog: true
     #start_time: 2021-12-15T20:08:23.091Z
     #end_time: 2023-12-15T20:08:23.091Z
     #profiling:
@@ -40,6 +41,23 @@ source:
     #  deny:
     #  - "*.*.*"
     #storage_project_id: project-id-1234567
+    ## Lineage with GCS Source
+    # include_column_lineage_with_gcs: true/false
+    # gcs_lineage_config:
+    #   path_specs:
+    #     - include: "gs://my-bucket/foo/tests/bar.avro"
+    #     - include: "gs://my-bucket/foo/tests/*.*"
+    #     - include: "gs://my-bucket/foo/tests/{table}/*.avro"
+    #     - include: "gs://my-bucket/foo/tests/{table}/*/*.avro"
+    #     - include: "gs://my-bucket/foo/tests/{table}/*.*"
+    #     - include: "gs://my-bucket/{dept}/tests/{table}/*.avro"
+    #     - include: "gs://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro"
+    #     - include: "gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro"
+    #     - include: "gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+    #     - include: "gs://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+    #     - include: "gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+    # strip_urls: false
+
 
 ## see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

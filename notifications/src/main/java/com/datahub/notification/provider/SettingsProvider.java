@@ -2,32 +2,25 @@ package com.datahub.notification.provider;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.settings.global.GlobalSettingsInfo;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+@Getter
 @Slf4j
 public class SettingsProvider {
 
-  protected final EntityClient _entityClient;
-  protected final Authentication _systemAuthentication;
-  protected Supplier<GlobalSettingsInfo> _globalSettingsSupplier;
+  protected final SystemEntityClient systemEntityClient;
 
-  public SettingsProvider(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    _entityClient = entityClient;
-    _systemAuthentication = systemAuthentication;
-    // Only refetch settings every 1 minutes.
-    _globalSettingsSupplier =
-        Suppliers.memoizeWithExpiration(this::getLatestSettings, 1, TimeUnit.MINUTES);
+  public SettingsProvider(@Nonnull final SystemEntityClient entityClient) {
+    // cached 1 minute per application.yaml entityClient cache
+    systemEntityClient = entityClient;
   }
 
   /**
@@ -38,19 +31,15 @@ public class SettingsProvider {
    *
    * @throws {@link RuntimeException} if Global Settings are unable to be fetched.
    */
-  public GlobalSettingsInfo getGlobalSettings() {
-    return _globalSettingsSupplier.get();
-  }
-
-  private GlobalSettingsInfo getLatestSettings() {
+  @Nullable
+  public GlobalSettingsInfo getGlobalSettings(@Nonnull OperationContext opContext) {
     try {
-      log.debug("Refreshing global settings...");
       final EntityResponse response =
-          _entityClient.getV2(
+          systemEntityClient.getV2(
+              opContext,
               GLOBAL_SETTINGS_ENTITY_NAME,
               GLOBAL_SETTINGS_URN,
-              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
-              _systemAuthentication);
+              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME));
 
       // If there's no global settings, log and return null for now. Could be that bootstrap steps
       // have not yet completed.

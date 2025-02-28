@@ -7,7 +7,7 @@
     file: examples/structured_properties/click_event.avsc
     fields:
       - id: ip
-      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
+      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),[version=2.0].[type=ClickEvent].[type=string].ip)
         structured_properties: # structured properties for schema fields/columns go here
           io.acryl.dataManagement.deprecationDate: "2023-01-01"
           io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com

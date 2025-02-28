@@ -12,9 +12,13 @@ export type Props = {
     showDelete?: boolean;
     showEdit?: boolean;
     showDetails?: boolean;
+    showHeader?: boolean;
+    isAllowedToEdit?: boolean;
+    isEditable?: boolean;
     onDeleted?: () => void;
     onEdited?: (query) => void;
     index?: number;
+    isCompact?: boolean;
 };
 
 export default function Query({
@@ -26,9 +30,13 @@ export default function Query({
     showDelete,
     showEdit,
     showDetails = true,
+    showHeader = true,
+    isAllowedToEdit,
+    isEditable,
     onDeleted,
     onEdited,
     index,
+    isCompact,
 }: Props) {
     const [showQueryModal, setShowQueryModal] = useState(false);
     const [showEditQueryModal, setShowEditQueryModal] = useState(false);
@@ -39,7 +47,7 @@ export default function Query({
     };
 
     return (
-        <>
+        <React.Fragment key={index}>
             <QueryCard
                 urn={urn}
                 query={query}
@@ -49,17 +57,23 @@ export default function Query({
                 showEdit={showEdit}
                 showDelete={showDelete}
                 showDetails={showDetails}
+                showHeader={showHeader}
                 onClickEdit={() => setShowEditQueryModal(true)}
                 onClickExpand={() => setShowQueryModal(true)}
                 onDeleted={onDeleted}
                 index={index}
+                isCompact={isCompact}
             />
             {showQueryModal && (
                 <QueryModal
+                    urn={urn}
                     query={query}
                     title={title}
                     description={description}
                     onClose={() => setShowQueryModal(false)}
+                    onEditSubmitted={onEditSubmitted}
+                    isAllowedToEdit={isAllowedToEdit}
+                    isEditable={isEditable}
                     showDetails={showDetails}
                 />
             )}
@@ -70,6 +84,6 @@ export default function Query({
                     onClose={() => setShowEditQueryModal(false)}
                 />
             )}
-        </>
+        </React.Fragment>
     );
 }

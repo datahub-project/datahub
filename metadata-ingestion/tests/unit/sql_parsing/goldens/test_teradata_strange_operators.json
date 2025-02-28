@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "f32a0697f19afcbf7261385518fc404ac477496c82115f63cfddda8790160731",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:teradata,dbc.table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:teradata,dbc.table2,PROD)"
@@ -42,5 +44,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT col1, col2 FROM dbc.table1 WHERE col1 = ? EXCEPT SELECT col1, col2 FROM dbc.table2"
+    }
 }

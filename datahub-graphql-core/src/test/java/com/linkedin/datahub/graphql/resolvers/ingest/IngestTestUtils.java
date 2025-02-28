@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
@@ -21,6 +25,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.secret.DataHubSecretValue;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 
 public class IngestTestUtils {
@@ -36,13 +41,9 @@ public class IngestTestUtils {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(result);
-
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
     return mockContext;
   }
 
@@ -50,13 +51,9 @@ public class IngestTestUtils {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(result);
-
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
     return mockContext;
   }
 
@@ -90,7 +87,7 @@ public class IngestTestUtils {
                 "recipe", "my-custom-recipe",
                 "version", "0.8.18")));
     input.setTask("RUN_INGEST");
-    input.setExecutorId("default");
+    input.setExecutorId(DEFAULT_EXECUTOR_ID);
     input.setRequestedAt(0L);
     input.setSource(
         new ExecutionRequestSource()

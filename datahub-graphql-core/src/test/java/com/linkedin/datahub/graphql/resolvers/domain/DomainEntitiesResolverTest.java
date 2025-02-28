@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -23,7 +26,9 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
@@ -32,24 +37,22 @@ import org.testng.annotations.Test;
 public class DomainEntitiesResolverTest {
 
   private static final DomainEntitiesInput TEST_INPUT =
-      new DomainEntitiesInput(null, 0, 20, Collections.emptyList());
+      new DomainEntitiesInput(null, 0, 20, Collections.emptyList(), null);
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ViewService mockViewService = Mockito.mock(ViewService.class);
 
     final String childUrn = "urn:li:dataset:(test,test,test)";
     final String domainUrn = "urn:li:domain:test-domain";
 
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("domains.keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue(domainUrn);
+    final Criterion filterCriterion = buildCriterion("domains.keyword", Condition.EQUAL, domainUrn);
 
     Mockito.when(
             mockClient.searchAcrossEntities(
+                any(),
                 Mockito.eq(
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)
@@ -64,9 +67,9 @@ public class DomainEntitiesResolverTest {
                                         new CriterionArray(ImmutableList.of(filterCriterion)))))),
                 Mockito.eq(0),
                 Mockito.eq(20),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -79,11 +82,12 @@ public class DomainEntitiesResolverTest {
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
 
-    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient, mockViewService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

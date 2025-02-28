@@ -1,4 +1,5 @@
-import { Divider, message, Space, Button, Typography, Row, Col, Tooltip } from 'antd';
+import { Divider, message, Space, Button, Typography, Row, Col } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
@@ -21,7 +22,6 @@ import {
 } from '../shared/SidebarStyledComponents';
 import GroupMembersSideBarSection from './GroupMembersSideBarSection';
 import { useUserContext } from '../../context/useUserContext';
-import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
 import StripMarkdownText, { removeMarkdown } from '../shared/components/styled/StripMarkdownText';
 import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
 import EditGroupDescriptionModal from './EditGroupDescriptionModal';
@@ -158,22 +158,6 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     const { url } = useRouteMatch();
     const history = useHistory();
 
-    const {  updateTitle } = useBrowserTitle();
-    
-    useEffect(()=>{
-        // You can use the title and updateTitle function here
-        // For example, updating the title when the component mounts
-        if(name){
-            updateTitle(`Group | ${name}`);
-        }
-        // // Don't forget to clean up the title when the component unmounts
-        return () => {
-            if(name){ // added to condition for rerendering issue
-                updateTitle('');
-            }
-        };
-    }, [name, updateTitle]);
-
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
     const me = useUserContext();
@@ -216,6 +200,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         urn,
         email,
         slack,
+        photoUrl,
     };
 
     // About Text save
@@ -366,7 +351,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
             </SideBar>
             {/* Modal */}
             <GroupEditModal
-                visible={editGroupModal}
+                open={editGroupModal}
                 onClose={() => showEditGroupModal(false)}
                 onSave={() => {
                     refetch();

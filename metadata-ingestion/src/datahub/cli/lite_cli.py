@@ -12,8 +12,8 @@ from click_default_group import DefaultGroup
 from datahub.cli.config_utils import (
     DATAHUB_ROOT_FOLDER,
     DatahubConfig,
-    get_client_config,
-    persist_datahub_config,
+    get_raw_client_config,
+    persist_raw_datahub_config,
 )
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -45,7 +45,7 @@ class LiteCliConfig(DatahubConfig):
 
 
 def get_lite_config() -> LiteLocalConfig:
-    client_config_dict = get_client_config(as_dict=True)
+    client_config_dict = get_raw_client_config()
     lite_config = LiteCliConfig.parse_obj(client_config_dict)
     return lite_config.lite
 
@@ -84,10 +84,14 @@ class CompleteablePath(click.ParamType):
         try:
             completions = lite.ls(path)
             return [
-                CompletionItem(browseable.auto_complete.suggested_path, type="plain")
-                if browseable.auto_complete
-                else CompletionItem(
-                    f"{incomplete}/{browseable.name}".replace("//", "/")
+                (
+                    CompletionItem(
+                        browseable.auto_complete.suggested_path, type="plain"
+                    )
+                    if browseable.auto_complete
+                    else CompletionItem(
+                        f"{incomplete}/{browseable.name}".replace("//", "/")
+                    )
                 )
                 for browseable in completions
                 if not browseable.leaf
@@ -172,7 +176,7 @@ def get(
             )
         )
     end_time = time.time()
-    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+    logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
 
 
 @lite.command()
@@ -224,7 +228,7 @@ def ls(path: Optional[str]) -> None:
     try:
         browseables = lite.ls(path)
         end_time = time.time()
-        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+        logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]
@@ -240,12 +244,16 @@ def ls(path: Optional[str]) -> None:
             for browseable in [b for b in browseables if b.auto_complete is None]:
                 click.secho(
                     browseable.name,
-                    fg="white"
-                    if browseable.leaf
-                    else "green"
-                    if browseable.id.startswith("urn:")
-                    and not browseable.id.startswith("urn:li:systemNode")
-                    else "cyan",
+                    fg=(
+                        "white"
+                        if browseable.leaf
+                        else (
+                            "green"
+                            if browseable.id.startswith("urn:")
+                            and not browseable.id.startswith("urn:li:systemNode")
+                            else "cyan"
+                        )
+                    ),
                 )
     except PathNotFoundException:
         click.echo(f"Path not found: {path}")
@@ -309,10 +317,10 @@ def search(
 
 
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
-    cli_config = get_client_config(as_dict=True)
+    cli_config = get_raw_client_config()
     assert isinstance(cli_config, dict)
     cli_config["lite"] = lite_config.dict()
-    persist_datahub_config(cli_config)
+    persist_raw_datahub_config(cli_config)
 
 
 @lite.command(context_settings=dict(allow_extra_args=True))

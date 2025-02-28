@@ -1,7 +1,7 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
-
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply plugin: 'pegasus'
 
 configurations {
@@ -16,7 +16,7 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     implementation project(':metadata-service:auth-config')
-    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-io')
     implementation project(':ingestion-scheduler')
     implementation project(':metadata-utils')
@@ -30,6 +30,7 @@ dependencies {
     implementation project(':notifications')
     implementation project(':metadata-dao-impl:kafka-producer')
     implementation externalDependency.opentelemetryAnnotations
+    implementation project(':metadata-service:openapi-servlet:models')
 
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.kafkaAvroSerde
@@ -37,7 +38,8 @@ dependencies {
     implementation externalDependency.neo4jJavaDriver
 
     implementation externalDependency.springKafka
-    implementation externalDependency.springActuator
+    implementation externalDependency.annotationApi
+    implementation externalDependency.opentelemetrySdkTrace
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

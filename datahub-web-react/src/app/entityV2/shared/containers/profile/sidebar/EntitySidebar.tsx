@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
+import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 const Container = styled.div`
     padding: 0px 18px 18px 18px;
@@ -13,7 +14,7 @@ const Content = styled.div`
     & > div {
         padding-top: 12px;
         padding-bottom: 12px;
-        &:not(.top-section):not(:last-child) {
+        &:not(:last-child) {
             border-bottom: 1px dashed;
             border-color: rgba(0, 0, 0, 0.3);
         }
@@ -42,7 +43,7 @@ export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderT
     const baseEntity = useBaseEntity<T>();
 
     return (
-        <Container>
+        <Container id={ENTITY_PROFILE_V2_SIDEBAR_ID}>
             {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
             <Content>
                 {sidebarSections?.map((section) => {

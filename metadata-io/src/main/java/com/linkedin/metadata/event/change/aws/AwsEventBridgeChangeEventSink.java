@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -19,9 +20,13 @@ import software.amazon.awssdk.services.eventbridge.model.PutEventsRequest;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsRequestEntry;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResultEntry;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 /**
- * An implementation of {@link EntityChangeEventSink} that sinks change events to AWS event bridge.
+ * An implementation of {@link EntityChangeEventSink} that sinks change events to AWS EventBridge.
  *
  * <p>This sink requires the following configs:
  *
@@ -36,10 +41,13 @@ import software.amazon.awssdk.services.eventbridge.model.PutEventsResultEntry;
 @Slf4j
 public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
 
+  private static final String AWS_ROLE_SESSION_NAME = "acryl-datahub-eventbridge-sink";
   private static final String AWS_REGION_PARAM = "region";
   private static final String AWS_EVENT_BUS_PARAM = "eventBus";
   private static final String AWS_ACCESS_KEY_ID_PARAM = "accessKeyId";
   private static final String AWS_SECRET_ACCESS_KEY_PARAM = "secretAccessKey";
+  private static final String AWS_EVENT_BRIDGE_ASSUME_ROLE_ARN = "assumeRoleArn";
+  private static final String AWS_EVENT_BRIDGE_EXTERNAL_ID = "externalId";
   private EventBridgeClient client;
   private String eventBus;
 
@@ -50,7 +58,7 @@ public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
           Objects.requireNonNull((String) cfg.getStaticConfig().get(AWS_EVENT_BUS_PARAM));
       final String region =
           Objects.requireNonNull((String) cfg.getStaticConfig().get(AWS_REGION_PARAM));
-      final AwsCredentialsProvider provider = getAwsProvider(cfg.getStaticConfig());
+      final AwsCredentialsProvider provider = getAwsCredentialsProvider(cfg.getStaticConfig());
       this.client =
           EventBridgeClient.builder()
               .region(Region.of(region))
@@ -83,24 +91,55 @@ public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
 
     for (PutEventsResultEntry resultEntry : result.entries()) {
       if (resultEntry.eventId() != null) {
-        log.info("Successfully sinked event to event bridge. Event id: {}", resultEntry.eventId());
+        log.info("Successfully sinked event to EventBridge. Event id: {}", resultEntry.eventId());
       } else {
         throw new RuntimeException(
             String.format(
-                "Failed to produce event to AWS event bridge! error code: %s",
-                resultEntry.errorCode()));
+                "Failed to produce event to EventBridge! Error code: %s", resultEntry.errorCode()));
       }
     }
   }
 
-  private AwsCredentialsProvider getAwsProvider(final Map<String, Object> staticConfig) {
+  private AwsCredentialsProvider getAwsCredentialsProvider(final Map<String, Object> staticConfig) {
+    AwsCredentialsProvider baseCredentials;
+
     if (staticConfig.containsKey(AWS_ACCESS_KEY_ID_PARAM)
         && staticConfig.containsKey(AWS_SECRET_ACCESS_KEY_PARAM)) {
-      return StaticCredentialsProvider.create(
-          AwsBasicCredentials.create(
-              (String) staticConfig.get(AWS_ACCESS_KEY_ID_PARAM),
-              (String) staticConfig.get(AWS_SECRET_ACCESS_KEY_PARAM)));
+      baseCredentials =
+          StaticCredentialsProvider.create(
+              AwsBasicCredentials.create(
+                  (String) staticConfig.get(AWS_ACCESS_KEY_ID_PARAM),
+                  (String) staticConfig.get(AWS_SECRET_ACCESS_KEY_PARAM)));
+    } else {
+      baseCredentials = DefaultCredentialsProvider.create();
     }
-    return DefaultCredentialsProvider.create();
+
+    final String roleArn = (String) staticConfig.get(AWS_EVENT_BRIDGE_ASSUME_ROLE_ARN);
+    if (StringUtils.isBlank(roleArn)) {
+      return baseCredentials;
+    }
+
+    /**
+     * If a role to be assumed is configured, the "base" credentials are used to authenticate with
+     * STS and perform the role assumption. StsAssumeRoleCredentialsProvider periodically sends
+     * AssumeRoleRequest to STS to maintain/refresh the temporary session/credentials.
+     */
+    StsClientBuilder stsClientBuilder =
+        StsClient.builder()
+            .credentialsProvider(baseCredentials)
+            .region(Region.of((String) staticConfig.get(AWS_REGION_PARAM)));
+
+    AssumeRoleRequest.Builder assumeRoleBuilder =
+        AssumeRoleRequest.builder().roleArn(roleArn).roleSessionName(AWS_ROLE_SESSION_NAME);
+
+    final String externalId = (String) staticConfig.get(AWS_EVENT_BRIDGE_EXTERNAL_ID);
+    if (StringUtils.isNotBlank(externalId)) {
+      assumeRoleBuilder.externalId(externalId);
+    }
+
+    return StsAssumeRoleCredentialsProvider.builder()
+        .stsClient(stsClientBuilder.build())
+        .refreshRequest(assumeRoleBuilder.build())
+        .build();
   }
 }

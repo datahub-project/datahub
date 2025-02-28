@@ -1,0 +1,35 @@
+source:
+  type: datahub-gc
+  config:
+    # Whether to run the recipe in dry-run mode or not
+    dry_run: false
+    # Cleanup expired tokens
+    cleanup_expired_tokens: true
+    # Whether to truncate elasticsearch indices or not which can be safely truncated
+    truncate_indices: true
+
+    # Cleanup DataProcess Instances
+    dataprocess_cleanup:
+      retention_days: 10
+      # Delete empty Data Jobs (if no DataProcessInstance associated with the DataJob)
+      delete_empty_data_jobs: true
+      # Delete empty Data Flow (if no DataJob associated with the DataFlow)
+      delete_empty_data_flows: true
+      # Whether to hard delete entities or soft delete them
+      hard_delete_entities: false
+      # Keep the last n dataprocess instances
+      keep_last_n: 5
+    soft_deleted_entities_cleanup:
+      # Delete soft deleted entities which were deleted 10 days ago
+      retention_days: 10
+    execution_request_cleanup:
+      # Minimum number of execution requests to keep, per ingestion source
+      keep_history_min_count: 10
+      # Maximum number of execution requests to keep, per ingestion source
+      keep_history_max_count: 1000
+      # Maximum number of days to keep execution requests for, per ingestion source
+      keep_history_max_days: 30
+      # Number of records per read operation
+      batch_read_size: 100
+      # Global switch for this cleanup task 
+      enabled: true

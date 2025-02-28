@@ -38,4 +38,11 @@ record SystemMetadata {
   * Additional properties
   */
   properties: optional map[string, string]
+
+  /**
+  * Aspect version
+  *    Initial implementation will use the aspect version's number, however stored as
+  *    a string in the case where a different aspect versioning scheme is later adopted.
+  */
+  version: optional string
 }

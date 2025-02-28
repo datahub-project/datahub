@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -189,7 +190,7 @@ public class EntitySpecBuilderTest {
         testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 12);
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 18);
     assertEquals(
         "customProperties",
         testEntityInfo
@@ -354,7 +355,13 @@ public class EntitySpecBuilderTest {
             .get(new PathSpec("removed").toString())
             .getSearchableAnnotation()
             .getFieldType());
-
+    assertEquals(
+        SearchableAnnotation.FieldType.MAP_ARRAY,
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .get(new PathSpec("mapArrayField").toString())
+            .getSearchableAnnotation()
+            .getFieldType());
     // Assert on Relationship Fields
     assertEquals(4, testEntityInfo.getRelationshipFieldSpecs().size());
     assertEquals(
@@ -381,6 +388,15 @@ public class EntitySpecBuilderTest {
             .getRelationshipFieldSpecMap()
             .get(new PathSpec("nestedRecordArrayField", "*", "nestedArrayForeignKey").toString())
             .getRelationshipName());
+    // Ensure that overridden to null fields are not present.
+    assertFalse(
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .containsKey(new PathSpec("nestedRecordField", "nestedFieldToBeRemoved").toString()));
+    assertFalse(
+        testEntityInfo
+            .getRelationshipFieldSpecMap()
+            .containsKey(new PathSpec("nestedRecordField", "nestedFieldToBeRemoved").toString()));
   }
 
   private void validateSearchFeatures(final AspectSpec searchFeaturesAspectSpec) {

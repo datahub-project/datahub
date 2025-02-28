@@ -11,6 +11,7 @@ source:
     include_models: true
     include_view_lineage: true
     include_projection_lineage: true
+    include_view_column_lineage: true
 
 
 sink:

@@ -24,6 +24,11 @@ extend type Query {
   Requires the 'Manage Global Views' Platform Privilege.
   """
   globalViewsSettings: GlobalViewsSettings
+
+    """
+    Fetch the global settings related to the docs propagation feature.
+    """
+    docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -40,10 +45,21 @@ extend type Mutation {
   updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
 
   """
+  Update the doc propagation settings.
+  """
+  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
+
+  """
   Update the help link displayed in the help dropdown in the header of the UI.
   Requires the 'Manage Global Settings' Platform Privilege.
   """
   updateHelpLink(input: UpdateHelpLinkInput!): Boolean!
+
+  """
+  Update the Organization Display Preferences in the UI.
+  Requires the 'Manage Organization Display Preferences' Platform Privilege.
+  """
+  updateOrganizationDisplayPreferences(input: UpdateOrganizationDisplayPreferencesInput!): Boolean!
 }
 
 """
@@ -116,6 +132,11 @@ type PlatformPrivileges {
   manageTokens: Boolean!
 
   """
+  Whether the user is able to view Tests
+  """
+  viewTests: Boolean!
+
+  """
   Whether the user is able to manage Tests
   """
   manageTests: Boolean!
@@ -159,6 +180,41 @@ type PlatformPrivileges {
   Whether the user can create and delete posts pinned to the home page.
   """
   manageGlobalAnnouncements: Boolean!
+
+  """
+  Whether the user can create Business Attributes.
+  """
+  createBusinessAttributes: Boolean!
+
+  """
+  Whether the user can manage Business Attributes.
+  """
+  manageBusinessAttributes: Boolean!
+
+  """
+  Whether the user can create, edit, and delete structured properties.
+  """
+  manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can create, edit, and assign documentation forms.
+  """
+  manageDocumentationForms: Boolean!
+
+  """
+  Whether the user can view the manage documentation forms page.
+  """
+  viewDocumentationFormsPage: Boolean!
+
+  """
+  Whether the user can manage Organization Display Preferences
+  """
+  manageOrganizationDisplayPreferences: Boolean!
 }
 
 """
@@ -232,6 +288,11 @@ type AppConfig {
   Configuration related to the DataHub Chrome Extension
   """
   chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configurations for Classification
+  """
+  classificationConfig: ClassificationConfig!
 }
 
 """
@@ -324,6 +385,45 @@ type TelemetryConfig {
   Env variable for whether or not third party logging should be enabled for this instance
   """
   enableThirdPartyLogging: Boolean
+
+  """
+  Env variable for whether or not user tracking is enabled in the product (using external tool like hotjar)
+  """
+  userTrackingEnabled: Boolean
+
+  """
+  Mixpanel-specific configurations
+  """
+  mixpanel: MixpanelConfig
+
+  """
+  Google Analytics-specific Configurations
+  """
+  googleAnalytics: GoogleAnalyticsConfig
+}
+
+type MixpanelConfig {
+  """
+  Whether Mixpanel tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Mixpanel project token
+  """
+  token: String
+}
+
+type GoogleAnalyticsConfig {
+  """
+  Whether Google Analytics tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Google Analytics measurement ID
+  """
+  measurementId: String
 }
 
 """
@@ -334,6 +434,13 @@ type LineageConfig {
   Whether the backend support impact analysis feature
   """
   supportsImpactAnalysis: Boolean!
+
+  """
+  A default time filter when viewing lineage. This will be a number representing the
+  number of days from present that we filter lineage on by default. ie. "7" here would mean
+  we default filter for lineage to be "Last 7 Days." Empty defaults to "All Time."
+  """
+  defaultLastDaysFilter: Int
 }
 
 """
@@ -451,6 +558,26 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+
+  """
+  Configurations related to the asset count limit we can run on tests either manually or in hooks
+  """
+  executionLimitConfig: TestsExecutionLimitConfig!
+}
+
+"""
+Configurations related to the asset count limit we can run on tests either manually or in hooks
+"""
+type TestsExecutionLimitConfig {
+  """
+  The execution limit on the elastic search executor
+  """
+  elasticSearchExecutor: Int!
+
+  """
+  The execution limit on the default executor
+  """
+  defaultExecutor: Int!
 }
 
 """
@@ -486,6 +613,11 @@ type GlobalIntegrationSettings {
   Slack-related settings.
   """
   slackSettings: SlackIntegrationSettings
+
+  """
+  Email-related settings.
+  """
+  emailSettings: EmailIntegrationSettings
 }
 
 """
@@ -502,6 +634,16 @@ type SlackIntegrationSettings {
   Deprecated! Use connection entity instead.
   """
   botToken: String
+}
+
+"""
+Email integration settings.
+"""
+type EmailIntegrationSettings {
+  """
+  A default email to send global notifications to.
+  """
+  defaultEmail: String
 }
 
 """
@@ -728,6 +870,16 @@ type GlobalVisualSettings {
   The configurable help button shown in the UI
   """
   helpLink: HelpLink
+
+  """
+  The Url for a custom logo to display in the UI
+  """
+  customLogoUrl: String
+
+  """
+  A customized name for organization display preferences
+  """
+  customOrgName: String
 }
 
 """
@@ -774,9 +926,14 @@ Input required to update Integration Settings.
 """
 input UpdateGlobalIntegrationSettingsInput {
   """
-  Input required to update Slack Integration Settings
+  Input required to update Slack Integration Settings. If not provided, existing settings will remain.
   """
   slackSettings: UpdateSlackIntegrationSettingsInput
+
+  """
+  Input required to update Email Integration Settings. If not provided, existing settings will remain.
+  """
+  emailSettings: UpdateEmailIntegrationSettingsInput
 }
 
 """
@@ -793,6 +950,16 @@ input UpdateSlackIntegrationSettingsInput {
   Deprecated! Use upsertConnection to create slack connections instead.
   """
   botToken: String
+}
+
+"""
+Input required to update Email settings.
+"""
+input UpdateEmailIntegrationSettingsInput {
+  """
+  A default email to send global notifications to
+  """
+  defaultEmail: String
 }
 
 """
@@ -960,6 +1127,16 @@ type FeatureFlagsConfig {
   assertionMonitorsEnabled: Boolean!
 
   """
+  SaaS only -- Whether to allow on-demand run of native assertions in the UI.
+  """
+  runAssertionsEnabled: Boolean!
+
+  """
+  SaaS only -- Whether Schema Assertion Monitors are enabled.
+  """
+  schemaAssertionMonitorsEnabled: Boolean!
+
+  """
   SaaS only -- Whether the Dataset health dashboard is enabled.
   """
   datasetHealthDashboardEnabled: Boolean!
@@ -985,9 +1162,13 @@ type FeatureFlagsConfig {
   lineageGraphV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
   """
   showAcrylInfo: Boolean!
+  """
+  Whether ERModelRelationship Tables Feature should be shown.
+  """
+  erModelRelationshipFeatureEnabled: Boolean!
 
   """
   Whether we should show AccessManagement tab in the datahub UI.
@@ -1006,9 +1187,19 @@ type FeatureFlagsConfig {
   nestedDomainsEnabled: Boolean!
 
   """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
+
+  """
   Whether data contracts should be enabled
   """
   dataContractsEnabled: Boolean!
+
+  """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
 
   """
   Whether AI-powered documentation should be enabled
@@ -1016,10 +1207,132 @@ type FeatureFlagsConfig {
   documentationAiEnabled: Boolean!
 
   """
-  Globally enables the V2 Acryl theme, which includes improvements in home page, search, and entity profiles.
-  Note that this would override any personal settings. Only available as part of Acryl.
+  Allows the V2 theme to be turned on.
+  Includes new UX for home page, search, entity profiles, and lineage.
+  If false, then the V2 experience will be unavailable even if themeV2Default or themeV2Toggleable are true.
   """
-  themeV2: Boolean!
+  themeV2Enabled: Boolean!
+
+  """
+  Sets the default theme to V2.
+  If `themeV2Toggleable` is set, then users can toggle between V1 and V2.
+  If not, then the default is the only option.
+  """
+  themeV2Default: Boolean!
+
+  """
+  Allows the V2 theme to be toggled by users.
+  """
+  themeV2Toggleable: Boolean!
+
+  """
+  Whether the metadata sharing feature between instances is enabled
+  """
+  metadataShareEnabled: Boolean!
+
+  """
+  Enables the documentation forms feature for filling out metadata and tracking analytics
+  """
+  documentationFormsEnabled: Boolean!
+
+  """
+  Enables email notifications
+  """
+  emailNotificationsEnabled: Boolean!
+
+  """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensConfigEnabled: Boolean!
+
+  """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensObfuscationEnabled: Boolean!
+
+  """
+  Enables the form creation workflow feature on the documentation page
+  """
+  formCreationEnabled: Boolean!
+
+  """
+  Enables links to schema field-level lineage on lineage explorer.
+  """
+  schemaFieldCLLEnabled: Boolean!
+
+  """
+  If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  """
+  showSeparateSiblings: Boolean!
+
+  """
+  If turned on, show the manage structured properties tab in the govern dropdown
+  """
+  showManageStructuredProperties: Boolean!
+
+  """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, hides DBT Sources from lineage by:
+  i) Hiding the source in the lineage graph, if it has no downstreams
+  ii) Swapping to the source's sibling urn on V2 lineage graph
+  iii) Representing source sibling as a merged node, with both icons on graph and combined version in sidebar
+  """
+  hideDbtSourceInLineage: Boolean!
+
+  """
+  If turned on, the bulk form by question view will be shown by default from the task center
+  """
+  showBulkFormByDefault: Boolean!
+
+  """
+  If turned on, schema field lineage will always fetch ghost entities and present them as real
+  """
+  schemaFieldLineageIgnoreStatus: Boolean!
+
+  """
+  Enables showing sort by row count, query count, update count, size in bytes.
+  """
+  showDatasetFeaturesSearchSortOptions: Boolean!
+
+  """
+  If turned on, show the newly designed nav bar in the V2 experience
+  """
+  showNavBarRedesign: Boolean!
+
+  """
+  If turned on, we display auto complete results. Otherwise, do not.
+  """
+  showAutoCompleteResults: Boolean!
+
+  """
+  If turned on, show the tab in the Compliance Form center to get to forms analytics
+  """
+  showFormAnalytics: Boolean!
+
+  """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
+  If turned on, request minimal required slack permissions
+  """
+  requestMinimalSlackPermissions: Boolean!
+
+  """
+  If turned on, show the re-designed Proposals page in Task Center
+  """
+  showTaskCenterRedesign: Boolean!
+
+
+  """
+  If enabled, use general propagations framework over specialized propagations actions.
+  """
+  usePropagationsFramework: Boolean!
 }
 
 """
@@ -1045,6 +1358,25 @@ type GlobalViewsSettings {
 }
 
 """
+Input required to update doc propagation settings.
+"""
+input UpdateDocPropagationSettingsInput {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the doc propagation feature
+"""
+type DocPropagationSettings {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+"""
 Configurations related to DataHub Chrome extension
 """
 type ChromeExtensionConfig {
@@ -1057,6 +1389,35 @@ type ChromeExtensionConfig {
   Whether lineage is enabled
   """
   lineageEnabled: Boolean!
+}
+
+"""
+Configurations related to Classification Automation
+"""
+type ClassificationAutomations {
+  """
+  Show or hide the snowflake tag propagation automation
+  """
+  snowflake: Boolean!
+  """
+  Show or hide the snowflake ai glossary term automation
+  """
+  aiTermClassification: Boolean!
+}
+
+"""
+Configurations related to Classification
+"""
+type ClassificationConfig {
+  """
+  Whether the Classification Center is senabled
+  """
+  enabled: Boolean!
+
+  """
+  Individual automation settings
+  """
+  automations: ClassificationAutomations!
 }
 
 """
@@ -1079,3 +1440,17 @@ input UpdateHelpLinkInput {
   link: String
 }
 
+"""
+Input required to update the help link displayed in the UI
+"""
+input UpdateOrganizationDisplayPreferencesInput {
+  """
+  The customized organization name
+  """
+  customOrgName: String
+
+  """
+  The url of the customized logo url
+  """
+  customLogoUrl: String
+}

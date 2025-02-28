@@ -18,13 +18,13 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -87,7 +87,7 @@ public class ListActionRequestsResolver
               // their groups.
               actorUrn = Urn.createFromString(context.getActorUrn());
               AssignedUrns groupAndRoleUrns =
-                  getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+                  getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
               groupUrns = groupAndRoleUrns.getGroupUrns();
               roleUrns = groupAndRoleUrns.getRoleUrns();
             } else {
@@ -100,7 +100,7 @@ public class ListActionRequestsResolver
               } else {
                 actorUrn = assigneeUrn;
                 AssignedUrns groupAndRoleUrns =
-                    getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
                 groupUrns = groupAndRoleUrns.getGroupUrns();
                 roleUrns = groupAndRoleUrns.getRoleUrns();
               }
@@ -117,17 +117,20 @@ public class ListActionRequestsResolver
                     startTimestampMillis,
                     endTimestampMillis);
 
-            final SortCriterion sortCriterion =
-                new SortCriterion().setField(CREATED_FIELD_NAME).setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(CREATED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     ACTION_REQUEST_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> entityUrns =
                 searchResult.getEntities().stream()
@@ -135,7 +138,7 @@ public class ListActionRequestsResolver
                     .collect(Collectors.toList());
 
             final Map<Urn, Entity> entityMap =
-                _entityClient.batchGet(new HashSet<>(entityUrns), context.getAuthentication());
+                _entityClient.batchGet(context.getOperationContext(), new HashSet<>(entityUrns));
 
             final List<Entity> entities = new ArrayList<>();
             entityUrns.forEach((urn) -> entities.add(entityMap.get(urn)));
@@ -144,7 +147,7 @@ public class ListActionRequestsResolver
             result.setStart(searchResult.getFrom());
             result.setCount(searchResult.getPageSize());
             result.setTotal(searchResult.getNumEntities());
-            result.setActionRequests(ActionRequestUtils.mapActionRequests(entities));
+            result.setActionRequests(ActionRequestUtils.mapActionRequests(context, entities));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list action requests", e);
@@ -192,11 +195,9 @@ public class ListActionRequestsResolver
       final @Nullable Long endTimestampMillis) {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
-    final Criterion userCriterion = new Criterion();
-    userCriterion.setField(ASSIGNED_USERS_FIELD_NAME + ".keyword");
-    userCriterion.setValue(userUrn.toString());
-    userCriterion.setCondition(Condition.EQUAL);
-    andCriterion.add(userCriterion);
+    andCriterion.add(
+        CriterionUtils.buildCriterion(
+            ASSIGNED_USERS_FIELD_NAME + ".keyword", Condition.EQUAL, userUrn.toString()));
     if (status != null) {
       andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
     }
@@ -228,11 +229,9 @@ public class ListActionRequestsResolver
     for (Urn groupUrn : groupUrns) {
       final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
       final CriterionArray andCriterion = new CriterionArray();
-      final Criterion groupUrnCriterion = new Criterion();
-      groupUrnCriterion.setField(ASSIGNED_GROUPS_FIELD_NAME + ".keyword");
-      groupUrnCriterion.setValue(groupUrn.toString());
-      groupUrnCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(groupUrnCriterion);
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_GROUPS_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
       if (status != null) {
         andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
       }
@@ -265,11 +264,9 @@ public class ListActionRequestsResolver
     for (Urn groupUrn : roleUrns) {
       final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
       final CriterionArray andCriterion = new CriterionArray();
-      final Criterion roleUrnCriterion = new Criterion();
-      roleUrnCriterion.setField(ASSIGNED_ROLES_FIELD_NAME + ".keyword");
-      roleUrnCriterion.setValue(groupUrn.toString());
-      roleUrnCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(roleUrnCriterion);
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_ROLES_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
       if (status != null) {
         andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
       }

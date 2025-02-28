@@ -1,0 +1,31 @@
+namespace com.linkedin.common
+
+/**
+ * Aspect used for keeping track of metadata sharing info
+ */
+@Aspect = {
+  "name": "share"
+}
+record Share {
+
+  /**
+   * The last share result for each destination that this entity has been shared with
+   */
+  @Searchable = {
+    "/*/destination": {
+      "fieldName": "shareDestinations",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasShareDestinations",
+      "queryByDefault": false,
+    }
+  }
+  lastShareResults: array[ShareResult]
+
+  /**
+   * The last unshare result for each destination that this entity was
+   * previously shared with. A successfully unshared destination should not
+   * appear in the lastShareResults field.
+   */
+  lastUnshareResults: optional array[ShareResult]
+
+}

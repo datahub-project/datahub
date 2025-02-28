@@ -16,7 +16,7 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
-    "boostScore": 5.0,
+    "boostScore": 1.0,
     "queryByDefault": "true"
   }
   fieldPath: SchemaFieldPath
@@ -46,12 +46,15 @@ record SchemaField {
    * Label of the field. Provides a more human-readable name for the field than field path. Some sources will
    * provide this metadata but not all sources have the concept of a label. If just one string is associated with
    * a field in a source, that is most likely a description.
+   *
+   * Note that this field is deprecated and is not surfaced in the UI.
    */
   @Searchable = {
     "fieldName": "fieldLabels",
     "fieldType": "TEXT",
     "boostScore": 0.2
   }
+  @Deprecated
   label: optional string
 
   /**
@@ -93,7 +96,22 @@ record SchemaField {
       "fieldName": "fieldTags",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/tags/*/attribution/time": {
+        "fieldName": "fieldTagAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/tags/*/attribution/actor": {
+        "fieldName": "fieldTagAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/tags/*/attribution/source": {
+        "fieldName": "fieldTagAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   globalTags: optional GlobalTags
 
@@ -111,7 +129,22 @@ record SchemaField {
       "fieldName": "fieldGlossaryTerms",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/terms/*/attribution/time": {
+        "fieldName": "fieldTermAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/terms/*/attribution/actor": {
+        "fieldName": "fieldTermAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/terms/*/attribution/source": {
+        "fieldName": "fieldTermAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   glossaryTerms: optional GlossaryTerms
 
@@ -123,6 +156,8 @@ record SchemaField {
 
   /**
    * For Datasets which are partitioned, this determines the partitioning key.
+   * Note that multiple columns can be part of a partitioning key, but currently we do not support
+   * rendering the ordered partitioning key.
    */
   isPartitioningKey: optional boolean
 

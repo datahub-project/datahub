@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useGetDatasetContractQuery } from '../../../../../../../graphql/contract.generated';
+import {
+    useGetContractProposalsQuery,
+    useGetDatasetContractQuery,
+} from '../../../../../../../graphql/contract.generated';
 import { DataContractState } from '../../../../../../../types.generated';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { DataContractProposal } from './proposal/DataContractProposal';
 import { DataContractSummary } from './DataContractSummary';
 import { DataQualityContractSummary } from './DataQualityContractSummary';
@@ -11,6 +14,8 @@ import { FreshnessContractSummary } from './FreshnessContractSummary';
 import { DataContractBuilderModal } from './builder/DataContractBuilderModal';
 import { createBuilderState } from './builder/utils';
 import { getAssertionsSummary } from '../acrylUtils';
+import { DataContractEmptyState } from '../../../../../../entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
+import { useIsActiveProposal } from '../utils';
 
 const Container = styled.div`
     display: flex;
@@ -35,6 +40,12 @@ export const DataContractTab = () => {
             urn,
         },
     });
+
+    const { data: dataContractProposalData } = useGetContractProposalsQuery({
+        variables: {
+            urn,
+        },
+    });
     const [showContractBuilder, setShowContractBuilder] = useState(false);
 
     const contract = data?.dataset?.contract;
@@ -55,6 +66,8 @@ export const DataContractTab = () => {
     const hasDataQualityContract = dataQualityContracts && dataQualityContracts?.length;
     const showLeftColumn = hasFreshnessContract || hasSchemaContract || undefined;
 
+    const isActiveProposal = useIsActiveProposal(dataContractProposalData);
+
     const onContractUpdate = () => {
         if (contract) {
             // Contract exists, just refetch.
@@ -68,7 +81,7 @@ export const DataContractTab = () => {
 
     return (
         <>
-            {(data?.dataset?.contract && (
+            {data?.dataset?.contract && (
                 <>
                     <DataContractSummary
                         state={contractState}
@@ -86,25 +99,36 @@ export const DataContractTab = () => {
                                 )) ||
                                     undefined}
                                 {(hasSchemaContract && (
-                                    <LeftColumn>
-                                        <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
-                                    </LeftColumn>
+                                    <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
                                 )) ||
                                     undefined}
                             </LeftColumn>
                         )}
                         <RightColumn>
-                            {(hasDataQualityContract && (
+                            {hasDataQualityContract ? (
                                 <DataQualityContractSummary
                                     contracts={dataQualityContracts as any}
                                     showAction={false}
                                 />
-                            )) ||
-                                undefined}
+                            ) : undefined}
                         </RightColumn>
                     </Container>
                 </>
-            )) || <DataContractProposal refetch={refetch} showContractBuilder={() => setShowContractBuilder(true)} entityUrn={urn} entityType={entityType}/>}
+            )}
+            <>
+                {!data?.dataset?.contract &&
+                    (isActiveProposal ? (
+                        <DataContractProposal
+                            refetch={refetch}
+                            showContractBuilder={() => setShowContractBuilder(true)}
+                            entityUrn={urn}
+                            entityType={entityType}
+                        />
+                    ) : (
+                        <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />
+                    ))}
+            </>
+
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}

@@ -27,21 +27,17 @@ entities:
     keyAspect: chartKey
     aspects:
       - domains
+  - name: incident
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+      - status
   - name: assertion
     keyAspect: assertionKey
     aspects:
       - assertionInfo
       - assertionRunEvent
       - status
-  - name: incident
-    keyAspect: incidentKey
-    aspects:
-      - incidentInfo
-      - status
-  - name: monitor
-    keyAspect: monitorKey
-    aspects:
-      - monitorInfo
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey

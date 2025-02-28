@@ -59,6 +59,11 @@ input ListSubscriptionsInput {
     (Optional) The maximum number of results to be returned. Defaults to 10.
     """
     count: Int
+
+    """
+    (Optional) The urn of the actor that owns the subscription.
+    """
+    actorUrn: String
 }
 
 input GetEntitySubscriptionSummaryInput {
@@ -76,7 +81,17 @@ input GetEntitySubscriptionSummaryInput {
     """
     The number of example groups to display in the summary. Defaults to 5.
     """
-    numExampleGroups: Int
+    numExampleGroups: Int @deprecated(reason: "Use `numSubscribedGroups`")
+
+    """
+    The number of subscribed users to display in the summary. Defaults to 50.
+    """
+    numSubscribedUsers: Int
+
+    """
+    The number of subscribed groups to display in the summary. Defaults to 5.
+    """
+    numSubscribedGroups: Int
 }
 
 type GetSubscriptionResult {
@@ -128,6 +143,11 @@ input CreateSubscriptionInput {
     (Optional) Group urn. Only used for group subscriptions.
     """
     groupUrn: String
+
+    """
+    (Optional) User urn to subscribe as. Must be an admin with 'Manage User Subscriptions' privilege
+    """
+    userUrn: String
 }
 
 input UpdateSubscriptionInput {
@@ -157,6 +177,19 @@ input EntityChangeDetailsInput {
     The change type that will trigger a notification for this subscription
     """
     entityChangeType: EntityChangeType!
+    
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilterInput
+}
+
+input EntityChangeDetailsFilterInput {
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 input SubscriptionNotificationConfigInput {
@@ -221,6 +254,19 @@ type EntityChangeDetails {
     The change type that will trigger a notification for this subscription
     """
     entityChangeType: EntityChangeType!
+
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilter
+}
+
+type EntityChangeDetailsFilter {
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 enum SubscriptionType {
@@ -255,6 +301,7 @@ enum EntityChangeType {
     """
     ASSERTION_PASSED
     ASSERTION_FAILED
+    ASSERTION_ERROR
 
     """
     Incident status changes.
@@ -337,5 +384,15 @@ type EntitySubscriptionSummary {
     """
     Some of the groups that have subscriptions for the entity. Default count is 5.
     """
-    exampleGroups: [CorpGroup!]!
+    exampleGroups: [CorpGroup!]! @deprecated(reason: "Use `subscribedGroups`")
+
+    """
+    Some of the groups that have subscriptions for the entity. Default count is 5.
+    """
+    subscribedGroups: [CorpGroup!]!
+
+    """
+    Some of the users that have subscriptions for the entity. Default count is 150.
+    """
+    subscribedUsers: [CorpUser!]!
 }

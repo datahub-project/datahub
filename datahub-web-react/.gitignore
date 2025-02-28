@@ -28,3 +28,4 @@ yarn-error.log*
 # gql codegen
 *.generated.ts
 /.vscode
+*storybook.log

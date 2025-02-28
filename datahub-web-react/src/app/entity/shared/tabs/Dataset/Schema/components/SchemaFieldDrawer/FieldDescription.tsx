@@ -5,18 +5,21 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { SectionHeader, StyledDivider } from './components';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
+import {
+    EditableSchemaFieldInfo,
+    EntityType,
+    SchemaField,
+    SubResourceType,
+} from '../../../../../../../../types.generated';
+import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
+import PropagationDetails from '../../../../../propagation/PropagationDetails';
 import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { useSchemaRefetch } from '../../SchemaContext';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-
-const DescriptionWrapper = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
+import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
 
 const EditIcon = styled(Button)`
     border: none;
@@ -25,9 +28,21 @@ const EditIcon = styled(Button)`
     width: 20px;
 `;
 
+const DescriptionWrapper = styled.div`
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    justify-content: space-between;
+`;
+
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+}
+const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return PROPOSAL_ENTITY_TYPES.includes(entityType);
 }
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
@@ -35,6 +50,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityType } = useEntityData();
@@ -76,14 +92,35 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         },
     });
 
-    const displayedDescription = editableFieldInfo?.description || expandedField.description;
+    const { schemaFieldEntity, description } = expandedField;
+    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
+        schemaFieldEntity,
+        editableFieldInfo,
+        defaultDescription: description,
+    });
+
+    const baDescription =
+        expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+            ?.description;
+    const baUrn = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.urn;
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return (
         <>
             <DescriptionWrapper>
                 <div>
                     <SectionHeader>Description</SectionHeader>
-                    <DescriptionSection description={displayedDescription || ''} isExpandable />
+                    <DescriptionWrapper>
+                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                        {!!displayedDescription && (
+                            <DescriptionSection
+                                description={displayedDescription || ''}
+                                baDescription={baDescription || ''}
+                                baUrn={baUrn || ''}
+                                isExpandable
+                            />
+                        )}
+                    </DescriptionWrapper>
                 </div>
                 {isSchemaEditable && (
                     <EditIcon
@@ -98,6 +135,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         description={displayedDescription || ''}
                         original={expandedField.description || ''}
                         onClose={() => setIsModalVisible(false)}
+                        showPropose={shouldShowProposeButton}
                         onSubmit={(updatedDescription: string) => {
                             message.loading({ content: 'Updating...' });
                             updateDescription(generateMutationVariables(updatedDescription))
@@ -105,6 +143,14 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 .catch(onFailMutation);
                             setIsModalVisible(false);
                         }}
+                        onPropose={(updatedDescription) => {
+                            message.loading({ content: 'Updating...' });
+                            proposeUpdateDescription(generateMutationVariables(updatedDescription))
+                                .then(onSuccessfulMutation)
+                                .catch(onFailMutation);
+                            setIsModalVisible(false);
+                        }}
+                        propagatedDescription={propagatedDescription || ''}
                         isAddDesc={!displayedDescription}
                     />
                 )}

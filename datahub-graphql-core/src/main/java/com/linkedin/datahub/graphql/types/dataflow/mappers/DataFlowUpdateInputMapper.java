@@ -7,6 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataFlowUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -18,19 +19,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataFlowUpdateInputMapper
     implements InputModelMapper<DataFlowUpdateInput, Collection<MetadataChangeProposal>, Urn> {
   public static final DataFlowUpdateInputMapper INSTANCE = new DataFlowUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final DataFlowUpdateInput dataFlowUpdateInput, @Nonnull final Urn actor) {
-    return INSTANCE.apply(dataFlowUpdateInput, actor);
+      @Nullable final QueryContext context,
+      @Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
+      @Nonnull final Urn actor) {
+    return INSTANCE.apply(context, dataFlowUpdateInput, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
-      @Nonnull final DataFlowUpdateInput dataFlowUpdateInput, @Nonnull final Urn actor) {
+      @Nullable final QueryContext context,
+      @Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
+      @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actor, SetMode.IGNORE_NULL);
@@ -40,7 +46,7 @@ public class DataFlowUpdateInputMapper
     if (dataFlowUpdateInput.getOwnership() != null) {
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor),
+              OwnershipUpdateMapper.map(context, dataFlowUpdateInput.getOwnership(), actor),
               OWNERSHIP_ASPECT_NAME));
     }
 
@@ -50,13 +56,13 @@ public class DataFlowUpdateInputMapper
         globalTags.setTags(
             new TagAssociationArray(
                 dataFlowUpdateInput.getGlobalTags().getTags().stream()
-                    .map(TagAssociationUpdateMapper::map)
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
                     .collect(Collectors.toList())));
       } else {
         globalTags.setTags(
             new TagAssociationArray(
                 dataFlowUpdateInput.getTags().getTags().stream()
-                    .map(TagAssociationUpdateMapper::map)
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
                     .collect(Collectors.toList())));
       }
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));

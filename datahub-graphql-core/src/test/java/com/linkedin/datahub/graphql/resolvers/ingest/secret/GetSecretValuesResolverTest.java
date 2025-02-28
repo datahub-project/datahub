@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -16,10 +16,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.HashSet;
 import java.util.List;
 import org.mockito.Mockito;
@@ -45,10 +45,10 @@ public class GetSecretValuesResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN))),
-                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 TEST_SECRET_URN,
@@ -92,8 +92,7 @@ public class GetSecretValuesResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
   }
 
   @Test
@@ -102,8 +101,7 @@ public class GetSecretValuesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     SecretService mockSecretService = Mockito.mock(SecretService.class);
     GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
 

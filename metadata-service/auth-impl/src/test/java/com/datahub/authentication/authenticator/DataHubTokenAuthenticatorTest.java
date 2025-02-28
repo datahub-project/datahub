@@ -8,7 +8,9 @@ import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.TOKEN_VERSION_CLAIM_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
@@ -24,10 +26,10 @@ import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -38,9 +40,23 @@ public class DataHubTokenAuthenticatorTest {
   private static final String TEST_SIGNING_KEY = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=";
   private static final String TEST_SALT = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI93=";
 
-  final EntityService mockService = Mockito.mock(EntityService.class);
+  final EntityService mockService = mock(EntityService.class);
   final StatefulTokenService statefulTokenService =
-      new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALT);
+      new StatefulTokenService(
+          testOperationContext(), TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALT);
+
+  private static OperationContext testOperationContext() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    final ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            DataHubTokenAuthenticatorTest.class
+                .getClassLoader()
+                .getResourceAsStream("test-entity-registry.yaml"));
+
+    return TestOperationContexts.systemContextNoSearchAuthorization(configEntityRegistry);
+  }
 
   @Test
   public void testInit() {
@@ -140,20 +156,8 @@ public class DataHubTokenAuthenticatorTest {
 
   @Test
   public void testAuthenticateSuccess() throws Exception {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-    final ConfigEntityRegistry configEntityRegistry =
-        new ConfigEntityRegistry(
-            DataHubTokenAuthenticatorTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-entity-registry.yaml"));
-    final AspectSpec keyAspectSpec =
-        configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
-    Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME)))
-        .thenReturn(keyAspectSpec);
-    Mockito.when(mockService.exists(Mockito.any(Urn.class), eq(true))).thenReturn(true);
-    Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
+    Mockito.when(mockService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenReturn(true);
 
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
     authenticator.init(

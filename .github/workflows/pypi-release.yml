@@ -5,12 +5,12 @@ on:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Compute Tag
         id: tag
         run: |
@@ -21,12 +21,12 @@ jobs:
           echo "::set-output name=tag::$TAG"
   push_to_pypi:
     name: Build and push python package to PyPI (private)
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9.9'
     - name: Install dependencies

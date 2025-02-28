@@ -1,0 +1,115 @@
+.col {
+  padding: 0 2rem;
+}
+
+
+.link {
+  &:hover {
+    text-decoration: none;
+    opacity: 0.8;
+  }
+}
+
+.bgSection {
+  background-color: #F5F5F5 !important;
+}
+
+.weeklyDemoSection {
+  width: 100%;
+  padding: 80px 0;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  background-color: #1890ff;
+  div {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 400;
+    opacity: .9;
+  }
+  a {
+    cursor: pointer;
+    color: white;
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+}
+
+.hero {
+  .button {
+    margin: 0rem 1rem 2rem 1rem;
+  }
+
+  .hero__title {
+    font-size: 3rem;
+    text-align: left;
+  }
+
+  .hero__secondtitle {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+
+  .hero__subtitle {
+    margin-bottom: 2rem;
+    font-size: 1.75rem;
+    line-height: 2.5rem;
+    margin-left: 0;
+    text-align: left;
+  }
+
+
+.productTourButton {
+  background-color: transparent;
+  border: 0;
+  color: #1990FF !important;
+}
+
+
+}
+
+.hero__cta {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.bookButton {
+  display: none;
+}
+
+
+@media screen and (max-width: 999px) {
+  .bookButton, .productTourButton {
+    display: block;
+    width: 100%;
+    margin-left: 0!important;
+  }
+
+  .productTourButton {
+    text-align: center!important;
+  }
+
+
+  .hideOnMobile {
+    display: none;
+  }
+
+  .formContainer {
+    display: none; 
+  }
+  .hero__title, .hero__subtitle {
+    text-align: center!important;
+  }
+}
+
+@media screen  and (min-width: 1000px){
+  .productTourButton {
+    padding-left: 0!important;
+    margin-left: 0!important;
+  }
+}

@@ -43,7 +43,7 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                 <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
             </Form.Item>
-            <DataProductAdvancedOption builderState={builderState} updateBuilderState={updateBuilderState}/>
+            <DataProductAdvancedOption builderState={builderState} updateBuilderState={updateBuilderState} />
         </Form>
     );
 }

@@ -1,0 +1,64 @@
+name: Storybook Preview
+on:
+  push:
+    branches:
+      - master
+      - acryl-main
+    paths: 
+      - 'datahub-web-react/acryl-components/**'
+      - 'datahub-web-react/.storybook/**'
+      - '.github/workflows/storybook-cloudflare-pages.yml'
+  pull_request:
+    branches:
+      - "**"
+    paths: 
+      - 'datahub-web-react/acryl-components/**'
+      - 'datahub-web-react/.storybook/**'
+      - '.github/workflows/storybook-cloudflare-pages.yml'
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: depot-ubuntu-22.04-small
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
+
+  deploy:
+    runs-on: depot-ubuntu-22.04
+    permissions:
+      contents: read
+      deployments: write
+    timeout-minutes: 30
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Build Storybook
+        run: |
+          ./gradlew :datahub-web-react:yarnBuildStoryBook
+      - name: Publish
+        uses: cloudflare/pages-action@1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: acryl-component-library
+          workingDirectory: datahub-web-react
+          directory: storybook-static
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

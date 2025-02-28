@@ -9,6 +9,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         editableProperties {
+            name
             description
         }
         platformNativeType
@@ -38,6 +39,9 @@ fragment entityPreview on Entity {
         ...entityDataProduct
         deprecation {
             ...deprecationFields
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on CorpUser {
@@ -107,6 +111,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         urn
@@ -148,6 +155,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on DataFlow {
         urn
@@ -181,6 +191,9 @@ fragment entityPreview on Entity {
         ...entityDataProduct
         deprecation {
             ...deprecationFields
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on DataJob {
@@ -216,6 +229,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on GlossaryTerm {
         name
@@ -232,6 +248,9 @@ fragment entityPreview on Entity {
                 value
             }
         }
+        parentNodes {
+            ...parentNodesFields
+        }
         deprecation {
             ...deprecationFields
         }
@@ -240,6 +259,9 @@ fragment entityPreview on Entity {
         properties {
             name
             description
+        }
+        parentNodes {
+            ...parentNodesFields
         }
     }
     ... on MLFeatureTable {
@@ -332,5 +354,10 @@ fragment entityPreview on Entity {
     }
     ... on Container {
         ...entityContainer
+    }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
     }
 }

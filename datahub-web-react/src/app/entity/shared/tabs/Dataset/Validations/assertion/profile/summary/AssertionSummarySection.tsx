@@ -16,14 +16,14 @@ const Title = styled.div`
 `;
 
 type Props = {
-    title: string;
+    title?: string;
     children: React.ReactNode;
 };
 
 export const AssertionSummarySection = ({ title, children }: Props) => {
     return (
         <>
-            <Title>{title}</Title>
+            {title ? <Title>{title}</Title> : null}
             {children}
         </>
     );

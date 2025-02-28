@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -23,7 +25,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
@@ -88,6 +89,7 @@ public class CreateViewResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .createView(
+            any(),
             Mockito.eq(com.linkedin.view.DataHubViewType.PERSONAL),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
@@ -106,29 +108,17 @@ public class CreateViewResolverTest {
                                             .setAnd(
                                                 new CriterionArray(
                                                     ImmutableList.of(
-                                                        new Criterion()
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setField("test1.keyword")
-                                                            .setValue(
-                                                                "value1") // Unfortunate --- For
-                                                            // backwards compat.
-                                                            .setValues(
-                                                                new StringArray(
-                                                                    ImmutableList.of(
-                                                                        "value1", "value2")))
-                                                            .setNegated(false),
-                                                        new Criterion()
-                                                            .setCondition(Condition.IN)
-                                                            .setField("test2.keyword")
-                                                            .setValue(
-                                                                "value1") // Unfortunate --- For
-                                                            // backwards compat.
-                                                            .setValues(
-                                                                new StringArray(
-                                                                    ImmutableList.of(
-                                                                        "value1", "value2")))
-                                                            .setNegated(true))))))))),
-            Mockito.any(Authentication.class),
+                                                        buildCriterion(
+                                                            "test1",
+                                                            Condition.EQUAL,
+                                                            "value1",
+                                                            "value2"),
+                                                        buildCriterion(
+                                                            "test2",
+                                                            Condition.IN,
+                                                            true,
+                                                            "value1",
+                                                            "value2"))))))))),
             Mockito.anyLong());
   }
 
@@ -146,8 +136,7 @@ public class CreateViewResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -157,12 +146,7 @@ public class CreateViewResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createView(
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class),
-            Mockito.anyLong());
+            any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyLong());
 
     CreateViewResolver resolver = new CreateViewResolver(mockService);
 
@@ -179,11 +163,11 @@ public class CreateViewResolverTest {
     ViewService service = Mockito.mock(ViewService.class);
     Mockito.when(
             service.createView(
+                any(),
                 Mockito.eq(com.linkedin.view.DataHubViewType.PERSONAL),
                 Mockito.eq(TEST_INPUT.getName()),
                 Mockito.eq(TEST_INPUT.getDescription()),
                 Mockito.any(),
-                Mockito.any(Authentication.class),
                 Mockito.anyLong()))
         .thenReturn(TEST_VIEW_URN);
     return service;

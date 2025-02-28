@@ -5,13 +5,13 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
 import com.linkedin.datahub.graphql.types.role.mappers.DataHubRoleMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,46 +48,48 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // First, get all role Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     DATAHUB_ROLE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             // Then, get and hydrate all users.
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     DATAHUB_ROLE_ENTITY_NAME,
                     new HashSet<>(
                         gmsResult.getEntities().stream()
                             .map(SearchEntity::getEntity)
                             .collect(Collectors.toList())),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             final ListRolesResult result = new ListRolesResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
-            result.setRoles(mapEntitiesToRoles(entities.values()));
+            result.setRoles(mapEntitiesToRoles(context, entities.values()));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list roles", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
+  private static List<DataHubRole> mapEntitiesToRoles(
+      @Nullable QueryContext context, final Collection<EntityResponse> entities) {
     return entities.stream()
-        .map(DataHubRoleMapper::map)
+        .map(e -> DataHubRoleMapper.map(context, e))
         .sorted(Comparator.comparing(DataHubRole::getName))
         .collect(Collectors.toList());
   }

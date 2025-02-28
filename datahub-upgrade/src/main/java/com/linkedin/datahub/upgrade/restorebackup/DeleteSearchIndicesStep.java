@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Function;
@@ -50,9 +51,9 @@ public class DeleteSearchIndicesStep implements UpgradeStep {
         context
             .report()
             .addLine(String.format("Failed to delete content of search indices: %s", e.toString()));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

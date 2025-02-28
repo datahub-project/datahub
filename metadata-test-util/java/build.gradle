@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+}
+
+group = 'io.datahubproject.test'
+
+archivesBaseName = 'datahub-test-util'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':entity-registry')
+    implementation externalDependency.ebean
+    implementation externalDependency.jakartaAnnotations
+    implementation externalDependency.h2
+
+    implementation externalDependency.neo4jHarness
+    implementation (externalDependency.neo4jApocCore) {
+        exclude group: 'org.yaml', module: 'snakeyaml'
+    }
+    implementation (externalDependency.neo4jApocCommon) {
+        exclude group: 'org.yaml', module: 'snakeyaml'
+    }
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.logbackClassic
+
+}
+
+test {
+    useTestNG()
+}

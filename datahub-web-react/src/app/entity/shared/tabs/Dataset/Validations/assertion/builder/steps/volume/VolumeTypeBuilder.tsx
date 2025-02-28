@@ -11,12 +11,12 @@ import {
 import {
     VolumeTypeOptionEnum,
     getDefaultVolumeParameters,
-    getPropertyFromVolumeType,
     getSelectedVolumeTypeOption,
     getVolumeTypeCategory,
     getVolumeTypeOption,
     getVolumeTypeOptions,
 } from './utils';
+import { getPropertyFromVolumeType } from '../../../../utils';
 
 const Container = styled.div`
     margin: 16px 0 24px;
@@ -65,7 +65,7 @@ export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled }: P
 
     return (
         <Container>
-            <Typography.Title level={5}>Fail when table row count</Typography.Title>
+            <Typography.Title level={5}>Pass when table row count</Typography.Title>
             <Form.Item
                 initialValue={selectedType}
                 name="volume-type"

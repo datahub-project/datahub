@@ -36,7 +36,7 @@ export default function constructFetchedNode(
     }
     const newConstructionPath = [...constructionPath, urn];
 
-    const fetchedNode = fetchedEntities[urn];
+    const fetchedNode = fetchedEntities.get(urn);
 
     if (constructedNodes[urn]) {
         return constructedNodes[urn];
@@ -53,7 +53,7 @@ export default function constructFetchedNode(
             subtype: fetchedNode.subtype,
             icon: fetchedNode.icon,
             unexploredChildren:
-                fetchedNode?.[childrenKey]?.filter((childUrn) => !(childUrn.entity.urn in fetchedEntities)).length || 0,
+                fetchedNode?.[childrenKey]?.filter((childUrn) => !fetchedEntities.has(childUrn.entity.urn)).length || 0,
             countercurrentChildrenUrns:
                 fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren']?.map(
                     (child) => child.entity.urn,
@@ -68,6 +68,7 @@ export default function constructFetchedNode(
             upstreamRelationships: fetchedNode?.upstreamRelationships || [],
             downstreamRelationships: fetchedNode?.downstreamRelationships || [],
             health: fetchedNode?.health,
+            structuredProperties: fetchedNode?.structuredProperties,
         };
 
         // eslint-disable-next-line no-param-reassign
@@ -88,7 +89,7 @@ export default function constructFetchedNode(
                     );
                 })
                 ?.filter((child) => {
-                    const childEntity = fetchedEntities[child?.urn || ''];
+                    const childEntity = fetchedEntities.get(child?.urn || '');
                     const parentChildren = fetchedNode[childrenKey];
                     return shouldIncludeChildEntity(direction, parentChildren, childEntity, fetchedNode);
                 })

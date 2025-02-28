@@ -1,8 +1,46 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
+        urn
+        type
         ...dataProductFields
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        ...notes
+    }
+}
+
+query getDataProductsList($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ... on DataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                        numAssets
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
         }
     }
 }
@@ -17,6 +55,9 @@ fragment dataProductFields on DataProduct {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 

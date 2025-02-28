@@ -21,10 +21,20 @@ record GlobalSettingsInfo {
    * SSO integrations between DataHub and identity providers
    */
   sso: optional SsoSettings
+
   /**
    * Settings related to the Views Feature
    */
    views: optional GlobalViewsSettings
+
+  /**
+   * Settings related to the documentation propagation feature
+   */
+   docPropagation: optional DocPropagationFeatureSettings = {
+        "enabled": true
+        "columnPropagationEnabled": true
+   }
+
 
   /**
    * Global settings related to the UI and what's displayed in the app

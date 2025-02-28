@@ -1,5 +1,3 @@
-import logging
-import sys
 from typing import Any, Dict
 from unittest import mock
 
@@ -58,19 +56,26 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "status_code": 200,
             "json": admin_datasets_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups": {
+        "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     }
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -220,6 +225,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
+                        "type": "Workspace",
                         "state": "Active",
                         "datasets": [
                             {
@@ -283,7 +289,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "name": "job-history",
                                         "source": [
                                             {
-                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
                                             }
                                         ],
                                         "datasourceUsages": [
@@ -391,6 +397,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             {
                                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
                             }
@@ -422,6 +429,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
                         "name": "SalesMarketing",
+                        "reportType": "PowerBIReport",
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
@@ -436,6 +444,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                 "name": "SalesMarketing",
+                "reportType": "PowerBIReport",
                 "description": "Acryl sales marketing report",
                 "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                 "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
@@ -472,12 +481,6 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
         )
 
 
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
-
-
 def mock_msal_cca(*args, **kwargs):
     class MsalClient:
         def acquire_token_for_client(self, *args, **kwargs):
@@ -509,14 +512,13 @@ def default_source_config():
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "enable_advance_lineage_sql_construct": False,
     }
 
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)
@@ -555,8 +557,6 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 def test_most_config_and_modified_since(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)

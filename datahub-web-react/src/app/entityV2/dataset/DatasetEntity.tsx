@@ -7,21 +7,21 @@ import {
     FundOutlined,
     LayoutOutlined,
     PartitionOutlined,
-    SyncOutlined,
-    TableOutlined,
     UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
-import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
+import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
@@ -32,33 +32,51 @@ import SidebarDatasetHeaderSection from '../shared/containers/profile/sidebar/Da
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarCompactSchemaSection } from '../shared/containers/profile/sidebar/SidebarCompactSchemaSection';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDatasetPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import ColumnTabNameHeader from '../shared/tabs/Entity/ColumnTabNameHeader';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties, TabContextType } from '../shared/types';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, getDatasetLastUpdatedMs, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import StatsTabWrapper from '../shared/tabs/Dataset/Stats/StatsTabWrapper';
 
 const SUBTYPES = {
     VIEW: 'view',
 };
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.RAISE_INCIDENT,
+    EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.LINK_VERSION,
+]);
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -68,21 +86,24 @@ export class DatasetEntity implements Entity<Dataset> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <TableOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TableOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
-        if (styleType === IconStyleType.SVG) {
             return (
-                <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
+                <ViewComfyOutlinedIcon
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                />
             );
         }
 
+        if (styleType === IconStyleType.SVG) {
+            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" />;
+        }
+
         return (
-            <TableOutlined
+            <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
@@ -110,6 +131,8 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
+    useEntityQuery = useGetDatasetQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -117,15 +140,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                    EntityMenuItems.RAISE_INCIDENT,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             subHeader={{
                 component: DatasetStatsSummarySubHeader,
             }}
@@ -134,6 +149,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Columns',
                     component: SchemaTab,
                     icon: LayoutOutlined,
+                    getDynamicName: ColumnTabNameHeader,
                 },
                 {
                     name: 'View Definition',
@@ -141,11 +157,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: CodeOutlined,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            dataset?.dataset?.subTypes?.typeNames
+                            !!dataset?.dataset?.viewProperties?.logic ||
+                            !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()) || false,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },
                 {
@@ -168,6 +184,18 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: PartitionOutlined,
                 },
                 {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                    icon: UnorderedListOutlined,
+                    getDynamicName: (_, dataset: GetDatasetQuery, loading) => {
+                        const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
+                        const structuredPropertiesCount =
+                            dataset?.dataset?.structuredProperties?.properties?.length || 0;
+                        const propertiesCount = customPropertiesCount + structuredPropertiesCount;
+                        return <TabNameWithCount name="Properties" count={propertiesCount} loading={loading} />;
+                    },
+                },
+                {
                     name: 'Queries',
                     component: QueriesTab,
                     icon: ConsoleSqlOutlined,
@@ -178,35 +206,45 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Stats',
-                    component: StatsTab,
+                    component: StatsTabWrapper,
                     icon: FundOutlined,
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                            (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
                             (dataset?.dataset?.operations?.length || 0) > 0,
                     },
                 },
                 {
-                    name: 'Validation',
+                    name: 'Quality',
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                     icon: CheckCircleOutlined,
                 },
                 {
-                    name: 'Operations',
+                    name: 'Governance',
+                    icon: () => (
+                        <span
+                            style={{
+                                marginRight: 6,
+                                verticalAlign: '-0.2em',
+                            }}
+                        >
+                            <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                        </span>
+                    ),
+                    component: GovernanceTab,
+                },
+                {
+                    name: 'Runs', // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
-                    icon: SyncOutlined,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                     },
                 },
@@ -223,6 +261,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
+                    getDynamicName: (_, dataset, loading) => {
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -231,47 +273,27 @@ export class DatasetEntity implements Entity<Dataset> {
     );
 
     getSidebarSections = () => [
-        {
-            component: SidebarDatasetHeaderSection,
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarLineageSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
+        { component: SidebarEntityHeader },
+        { component: SidebarDatasetHeaderSection },
+        { component: SidebarAboutSection },
+        { component: SidebarNotesSection },
+        { component: SidebarLineageSection },
+        { component: SidebarOwnerSection },
+        { component: SidebarDomainSection },
+        { component: DataProductSection },
+        { component: SidebarTagsSection },
+        { component: SidebarGlossaryTermsSection },
         {
             component: SidebarSiblingsSection,
             display: {
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.siblingsSearch?.total,
             },
         },
-        {
-            component: SidebarTagsSection,
-        },
-        {
-            component: SidebarGlossaryTermsSection,
-        },
-        {
-            component: SidebarCompactSchemaSection,
-            display: {
-                visible: (_, __, contextType) =>
-                    contextType === TabContextType.SEARCH_SIDEBAR || contextType === TabContextType.LINEAGE_SIDEBAR,
-            },
-        },
-        // TODO: Add back once entity-level recommendations are complete.
+        { component: SidebarDatasetViewDefinitionSection },
+        { component: SidebarQueryOperationsSection },
+        { component: SidebarStructuredProperties },
+        { component: StatusSection },
+        { component: SharingAssetSection },
         // {
         //    component: SidebarRecommendationsSection,
         // },
@@ -283,6 +305,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
         {
             name: 'Columns',
@@ -301,7 +326,19 @@ export class DatasetEntity implements Entity<Dataset> {
         },
     ];
 
-    getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
+    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
+        // Lineage query must include platform and typeNames on dataset and its sibling
+        return (
+            !!flags?.hideDbtSourceInLineage &&
+            dataset?.platform?.urn === DBT_URN &&
+            !!dataset?.subTypes?.typeNames?.includes(SubType.DbtSource)
+        );
+    }
+
+    getOverridePropertiesFromEntity = (
+        dataset?: Dataset | null,
+        flags?: FeatureFlagsConfig,
+    ): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
 
@@ -309,19 +346,39 @@ export class DatasetEntity implements Entity<Dataset> {
             ...dataset?.properties,
             qualifiedName: dataset?.properties?.qualifiedName || this.displayName(dataset),
         };
+
+        const firstSibling = dataset?.siblingsSearch?.searchResults?.[0]?.entity as Dataset | undefined;
+        const isReplacedBySibling = this.#shouldMergeInLineage(dataset, flags);
+        const isSiblingHidden = this.#shouldMergeInLineage(firstSibling, flags);
+
+        const lineageUrn = isReplacedBySibling ? firstSibling?.urn : undefined;
+        let lineageSiblingIcon: string | undefined;
+        if (isReplacedBySibling) {
+            // Swap lineage urn and show as merged with sibling, extra icon is the original entity icon
+            lineageSiblingIcon = dataset?.platform?.properties?.logoUrl ?? undefined;
+        } else if (isSiblingHidden) {
+            // Same lineage urn but show as merged with sibling, extra icon is the sibling's icon
+            lineageSiblingIcon = firstSibling?.platform?.properties?.logoUrl ?? undefined;
+        }
         return {
             name: dataset && this.displayName(dataset),
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,
+            lineageUrn,
+            lineageSiblingIcon,
         };
     };
 
-    renderPreview = (_: PreviewType, data: Dataset) => {
+    renderPreview = (previewType: PreviewType, data: Dataset) => {
         const genericProperties = this.getGenericEntityProperties(data);
+        const platformNames = genericProperties?.siblingPlatforms?.map(
+            (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
+        );
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || data.name}
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
@@ -329,7 +386,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
                 }
+                platformNames={platformNames}
                 platformLogo={data.platform.properties?.logoUrl}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
@@ -340,16 +399,17 @@ export class DatasetEntity implements Entity<Dataset> {
                 externalUrl={data.properties?.externalUrl}
                 health={data.health}
                 tier={
-                    (isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDatasetPopularityTier(
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -357,23 +417,25 @@ export class DatasetEntity implements Entity<Dataset> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
-
-        console.log(data);
+        const platformNames = genericProperties?.siblingPlatforms?.map(
+            (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
+        );
 
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    platformNames?.[0] ||
+                    data?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.platform?.name)
                 }
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
-                platformNames={genericProperties?.siblingPlatforms?.map(
-                    (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-                )}
+                platformNames={platformNames}
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
@@ -390,24 +452,25 @@ export class DatasetEntity implements Entity<Dataset> {
                 statsSummary={data.statsSummary}
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
-                lastUpdatedMs={
-                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
-                }
+                lastUpdatedMs={getDatasetLastUpdatedMs(
+                    (data as any).properties,
+                    (data as any).lastOperation?.length && (data as any).lastOperation[0],
+                )}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 tier={
-                    (isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDatasetPopularityTier(
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -430,6 +493,7 @@ export class DatasetEntity implements Entity<Dataset> {
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             health: entity?.health || undefined,
+            deprecation: entity?.deprecation,
         };
     };
 
@@ -437,15 +501,20 @@ export class DatasetEntity implements Entity<Dataset> {
         return data?.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: Dataset) => {
+        return data?.properties?.created;
+    };
+
     platformLogoUrl = (data: Dataset) => {
         return data.platform.properties?.logoUrl || undefined;
     };
 
-    getGenericEntityProperties = (data: Dataset) => {
+    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlagsConfig) => {
         return getDataForEntityType({
             data,
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
+            flags,
         });
     };
 
@@ -472,45 +541,4 @@ export class DatasetEntity implements Entity<Dataset> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
-
-    renderSummaryRows = (dataset?: Dataset | null): JSX.Element | undefined => {
-        const entityRegistry = useEntityRegistry();
-        const isTableauDataSource =
-            dataset?.subTypes?.typeNames?.includes(SubType.TableauPublishedDataSource) ||
-            dataset?.subTypes?.typeNames?.includes(SubType.TableauEmbeddedDataSource);
-
-        const { data } = useGetEntityLineageQuery({
-            skip: !dataset?.urn || !isTableauDataSource,
-            variables: {
-                urn: dataset?.urn || '',
-                showColumns: false,
-                excludeDownstream: true,
-            },
-            fetchPolicy: 'cache-first',
-        });
-
-        if (isTableauDataSource && data?.entity) {
-            const parents = entityRegistry.getLineageVizConfig(data.entity.type, data.entity)?.upstreamChildren;
-            const parent = parents?.[0];
-            if (parent) {
-                const parentProperties = entityRegistry.getGenericEntityProperties(parent?.type, parent?.entity);
-                const platformIcon = parentProperties?.platform?.properties?.logoUrl;
-                const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, parentProperties?.platform);
-                const name = entityRegistry.getDisplayName(parent?.type, parent?.entity);
-                return (
-                    <>
-                        Connects to: <br />
-                        {platformIcon && <img src={platformIcon} alt={platformName} />}
-                        {name}
-                        {parents?.length > 1 && (
-                            <>
-                                <br /> and {parents.length - 1} more
-                            </>
-                        )}
-                    </>
-                );
-            }
-        }
-        return undefined;
-    };
 }

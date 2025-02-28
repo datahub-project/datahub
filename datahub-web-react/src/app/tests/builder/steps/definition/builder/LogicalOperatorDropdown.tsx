@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Dropdown, Menu, Typography, Tooltip } from 'antd';
+import { Dropdown, Menu, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { DownOutlined } from '@ant-design/icons';
 import { LogicalOperatorType } from './types';
 import { getOperatorDisplayName } from './utils';

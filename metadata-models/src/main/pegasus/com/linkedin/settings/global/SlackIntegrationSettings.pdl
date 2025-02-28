@@ -9,6 +9,7 @@ record SlackIntegrationSettings {
   /**
    * Whether the slack integration is enabled or not.
    * Deprecated! This is no longer used in favor of using the connections abstraction.
+   * If a connection is present, then this is enabled.
    */
   @deprecated
   enabled: boolean = true

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Divider, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { useListPostsQuery } from '../../graphql/post.generated';
 import { Post, PostContentType } from '../../types.generated';
 import { PostTextCard } from '../search/PostTextCard';
@@ -47,6 +48,7 @@ export const HomePagePosts = () => {
             input: {
                 start: 0,
                 count: 10,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: 'cache-first',

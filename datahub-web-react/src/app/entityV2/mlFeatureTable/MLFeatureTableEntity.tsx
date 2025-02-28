@@ -1,26 +1,33 @@
-import * as React from 'react';
 import { DotChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
+import * as React from 'react';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
+import { EntityType, MlFeatureTable, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
-import Sources from './profile/Sources';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct, isOutputPort } from '../shared/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { Preview } from './preview/Preview';
+import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
+import Sources from './profile/Sources';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -70,6 +77,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return {};
     };
 
+    useEntityQuery = useGetMlFeatureTableQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -77,7 +86,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             entityType={EntityType.MlfeatureTable}
             useEntityQuery={useGetMlFeatureTableQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Features',
@@ -91,33 +100,51 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -128,17 +155,20 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlFeatureTable) => {
+    renderPreview = (previewType: PreviewType, data: MlFeatureTable) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };
@@ -149,6 +179,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 description={data.description || ''}
                 owners={data.ownership?.owners}
@@ -159,6 +190,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -170,6 +202,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             type: EntityType.MlfeatureTable,
             icon: entity.platform.properties?.logoUrl || undefined,
             platform: entity.platform,
+            deprecation: entity?.deprecation,
         };
     };
 

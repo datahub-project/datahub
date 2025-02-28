@@ -2,13 +2,13 @@ package com.linkedin.metadata.timeline;
 
 import static org.mockito.Mockito.mock;
 
-import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -37,14 +37,8 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
   }
 
   /**

@@ -23,6 +23,11 @@ input ListRecommendationsInput {
   Max number of modules to return
   """
   limit: Int
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
 }
 
 """

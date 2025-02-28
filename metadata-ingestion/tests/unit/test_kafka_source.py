@@ -10,6 +10,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     OwnerType,
     make_dataplatform_instance_urn,
@@ -20,9 +21,10 @@ from datahub.emitter.mce_builder import (
     make_owner_urn,
     make_ownership_aspect_from_urn_list,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.kafka import KafkaSource, KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -37,11 +39,13 @@ from datahub.metadata.schema_classes import (
 
 @pytest.fixture
 def mock_admin_client():
-    with patch("datahub.ingestion.source.kafka.AdminClient", autospec=True) as mock:
+    with patch(
+        "datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True
+    ) as mock:
         yield mock
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_configuration(mock_kafka):
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource(
@@ -52,7 +56,7 @@ def test_kafka_source_configuration(mock_kafka):
     assert mock_kafka.call_count == 1
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -73,7 +77,7 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     assert len(workunits) == 4
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -107,7 +111,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     assert len(workunits) == 4
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM_INSTANCE = "kafka_cluster"
     PLATFORM = "kafka"
@@ -159,7 +163,7 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
     assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_aspects[0].paths
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
@@ -203,7 +207,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     assert f"/prod/{PLATFORM}" in browse_path_aspects[0].paths
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_close(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     ctx = PipelineContext(run_id="test")
@@ -222,7 +226,7 @@ def test_close(mock_kafka, mock_admin_client):
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
@@ -326,6 +330,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             "topic2-key": "test.acryl.Topic2Key",
             "topic2-value": "test.acryl.Topic2Value",
         },
+        "ingest_schemas_as_entities": True,
     }
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(source_config, ctx)
@@ -333,7 +338,9 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
 
     mock_kafka_consumer.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    assert len(workunits) == 8
+    # Along with with 4 topics(3 with schema and 1 schemaless) which constitutes to 8 workunits,
+    #   there will be 6 schemas (1 key and 1 value schema for 3 topics) which constitutes to 12 workunits
+    assert len(workunits) == 20
     i: int = -1
     for wu in workunits:
         assert isinstance(wu, MetadataWorkUnit)
@@ -342,6 +349,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         mce: MetadataChangeEvent = wu.metadata
         i += 1
 
+        # Only topic (named schema_less_topic) does not have schema metadata but other workunits (that are created
+        #   for schema) will have corresponding SchemaMetadata aspect
         if i < len(topic_subject_schema_map.keys()):
             # First 3 workunits (topics) must have schemaMetadata aspect
             assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
@@ -379,11 +388,18 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             )
             # Make sure we have 2 fields, one from the key schema & one from the value schema.
             assert len(schemaMetadataAspect.fields) == 2
-        else:
+        elif i == len(topic_subject_schema_map.keys()):
             # Last topic('schema_less_topic') has no schema defined in the registry.
             # The schemaMetadata aspect should not be present for this.
             for aspect in mce.proposedSnapshot.aspects:
                 assert not isinstance(aspect, SchemaMetadataClass)
+        else:
+            # Last 2 workunits (schemas) must have schemaMetadata aspect
+            assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
+            schemaMetadataAspectObj: SchemaMetadataClass = mce.proposedSnapshot.aspects[
+                1
+            ]
+            assert isinstance(schemaMetadataAspectObj.platformSchema, KafkaSchemaClass)
 
 
 @pytest.mark.parametrize(
@@ -403,7 +419,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_ignore_warnings_on_schema_type(
     mock_kafka_consumer,
     mock_schema_registry_client,
@@ -463,7 +479,6 @@ def test_kafka_ignore_warnings_on_schema_type(
     kafka_source = KafkaSource.create(source_config, ctx)
 
     workunits = list(kafka_source.get_workunits())
-
     assert len(workunits) == 2
     if ignore_warnings_on_schema_type:
         assert not kafka_source.report.warnings
@@ -471,8 +486,8 @@ def test_kafka_ignore_warnings_on_schema_type(
         assert kafka_source.report.warnings
 
 
-@patch("datahub.ingestion.source.kafka.AdminClient", autospec=True)
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_admin_client_init_error(
     mock_kafka, mock_kafka_admin_client
 ):
@@ -501,8 +516,8 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
     assert len(workunits) == 2
 
 
-@patch("datahub.ingestion.source.kafka.AdminClient", autospec=True)
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_describe_configs_error(
     mock_kafka, mock_kafka_admin_client
 ):
@@ -538,7 +553,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_topic_meta_mappings(
     mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
@@ -607,6 +622,7 @@ def test_kafka_source_topic_meta_mappings(
     kafka_source = KafkaSource.create(
         {
             "connection": {"bootstrap": "localhost:9092"},
+            "ingest_schemas_as_entities": True,
             "meta_mapping": {
                 "owner": {
                     "match": "^@(.*)",
@@ -642,8 +658,10 @@ def test_kafka_source_topic_meta_mappings(
         },
         ctx,
     )
+    # Along with with 1 topics(and 5 meta mapping) it constitutes to 6 workunits,
+    #   there will be 2 schemas which constitutes to 4 workunits (1 mce and 1 mcp each)
     workunits = [w for w in kafka_source.get_workunits()]
-    assert len(workunits) == 4
+    assert len(workunits) == 10
     mce = workunits[0].metadata
     assert isinstance(mce, MetadataChangeEvent)
 
@@ -676,3 +694,69 @@ def test_kafka_source_topic_meta_mappings(
             "urn:li:glossaryTerm:double_meta_property",
         ]
     )
+    assert isinstance(workunits[1].metadata, MetadataChangeProposalWrapper)
+    mce = workunits[2].metadata
+    assert isinstance(mce, MetadataChangeEvent)
+    assert isinstance(workunits[3].metadata, MetadataChangeProposalWrapper)
+
+    mce = workunits[4].metadata
+    assert isinstance(mce, MetadataChangeEvent)
+    ownership_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, OwnershipClass)
+    ][0]
+    assert ownership_aspect == make_ownership_aspect_from_urn_list(
+        [
+            make_owner_urn("charles", OwnerType.USER),
+            make_owner_urn("jdoe.last@gmail.com", OwnerType.USER),
+        ],
+        "SERVICE",
+    )
+
+    tags_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, GlobalTagsClass)
+    ][0]
+    assert tags_aspect == make_global_tag_aspect_with_tag_list(
+        ["has_pii_test", "int_meta_property"]
+    )
+
+    terms_aspect = [
+        asp
+        for asp in mce.proposedSnapshot.aspects
+        if isinstance(asp, GlossaryTermsClass)
+    ][0]
+    assert terms_aspect == make_glossary_terms_aspect_from_urn_list(
+        [
+            "urn:li:glossaryTerm:Finance_test",
+            "urn:li:glossaryTerm:double_meta_property",
+        ]
+    )
+
+    assert isinstance(workunits[5].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[6].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[7].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[8].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[9].metadata, MetadataChangeProposalWrapper)
+    assert workunits[6].metadata.aspectName == "glossaryTermKey"
+    assert workunits[7].metadata.aspectName == "glossaryTermKey"
+    assert workunits[8].metadata.aspectName == "tagKey"
+    assert workunits[9].metadata.aspectName == "tagKey"
+
+
+def test_kafka_source_oauth_cb_configuration():
+    with pytest.raises(
+        ConfigurationError,
+        match=(
+            "oauth_cb must be a string representing python function reference "
+            "in the format <python-module>:<function-name>."
+        ),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {
+                        "oauth_cb": test_kafka_ignore_warnings_on_schema_type
+                    },
+                }
+            }
+        )

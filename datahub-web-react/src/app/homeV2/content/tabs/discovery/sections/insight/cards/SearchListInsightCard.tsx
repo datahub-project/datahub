@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { InsightCard } from '../shared/InsightCard';
 import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
 import { EmbeddedListSearchModal } from '../../../../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -9,7 +9,11 @@ import { EntityType, SortCriterion } from '../../../../../../../../types.generat
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
 import { useGetSearchAssets } from './useGetSearchAssets';
 import { useRegisterInsight } from '../InsightStatusProvider';
-import { InsightLoadingCard } from './InsightLoadingCard';
+import { useUserContext } from '../../../../../../../context/useUserContext';
+import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
+import InsightCardSkeleton from '../shared/InsightCardSkeleton';
+
+export const INSIGHT_CARD_MIN_WIDTH = 340;
 
 const Header = styled.div`
     display: flex;
@@ -38,14 +42,17 @@ const ShowAll = styled.div`
     color: ${ANTD_GRAY[8]};
     font-size: 12px;
     font-weight: 700;
+
     :hover {
         cursor: pointer;
         text-decoration: underline;
     }
+
     white-space: nowrap;
 `;
 
 type Props = {
+    id: string;
     title: React.ReactNode;
     icon?: React.ReactNode;
     tip?: React.ReactNode;
@@ -56,35 +63,46 @@ type Props = {
     sort?: SortCriterion;
 };
 
-export const SearchListInsightCard = ({ title, icon, tip, query, types, filters, sort, empty }: Props) => {
-    const { assets, loading } = useGetSearchAssets(types, query, filters, sort);
+export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filters, sort, empty }: Props) => {
+    const [loaded, setLoaded] = useState(false);
+    const { localState } = useUserContext();
+    const { selectedViewUrn } = localState;
+    const { assets, loading } = useGetSearchAssets(types, query, filters, sort, selectedViewUrn);
     const [showModal, setShowModal] = useState(false);
+    const { isUserInitializing } = useContext(OnboardingContext);
+
+    useEffect(() => {
+        if (!loading && assets && !loaded) {
+            setLoaded(true);
+        }
+    }, [loaded, loading, assets, setLoaded]);
 
     // Register the insight module with parent component.
-    useRegisterInsight(title, !!assets?.length);
+    const isPresent = useMemo(() => (loaded ? !!assets?.length : undefined), [assets, loaded]);
+    useRegisterInsight(id, isPresent);
 
-    if (!assets) {
+    if (loading || isUserInitializing) {
+        return <InsightCardSkeleton />;
+    }
+
+    if (!assets.length) {
         return null;
     }
 
     return (
         <>
-            {(loading && <InsightLoadingCard />) || null}
-            {(!loading && assets.length && (
-                <InsightCard minWidth={340} maxWidth={500}>
-                    <Header>
-                        <Tooltip title={tip} showArrow={false} placement="top">
-                            <Title>
-                                {icon && <Icon>{icon}</Icon>}
-                                {title}
-                            </Title>
-                        </Tooltip>
-                        <ShowAll onClick={() => setShowModal(true)}>view all</ShowAll>
-                    </Header>
-                    <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
-                </InsightCard>
-            )) ||
-                null}
+            <InsightCard id={id} minWidth={INSIGHT_CARD_MIN_WIDTH} maxWidth={500}>
+                <Header>
+                    <Tooltip title={tip} showArrow={false} placement="top">
+                        <Title>
+                            {icon && <Icon>{icon}</Icon>}
+                            {title}
+                        </Title>
+                    </Tooltip>
+                    <ShowAll onClick={() => setShowModal(true)}>View all</ShowAll>
+                </Header>
+                <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
+            </InsightCard>
             {showModal && (
                 <EmbeddedListSearchModal
                     title={title}
@@ -92,6 +110,7 @@ export const SearchListInsightCard = ({ title, icon, tip, query, types, filters,
                     fixedFilters={filters}
                     onClose={() => setShowModal(false)}
                     sort={sort}
+                    entityTypes={types}
                 />
             )}
         </>

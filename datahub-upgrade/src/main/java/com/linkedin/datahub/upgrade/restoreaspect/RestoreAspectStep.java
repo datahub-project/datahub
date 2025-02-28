@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade.restoreaspect;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -11,14 +10,17 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.EbeanAspectBackup
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.ParquetReaderWrapper;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,19 +31,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 
 public class RestoreAspectStep implements UpgradeStep {
 
   private final EntityService<?> _entityService;
-  private final EntityRegistry _entityRegistry;
+  private final OperationContext systemOperationContext;
   private final ExecutorService _fileReaderThreadPool;
 
   private static final int DEFAULT_THREAD_POOL = 4;
 
   public RestoreAspectStep(
-      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
     _entityService = entityService;
-    _entityRegistry = entityRegistry;
+    this.systemOperationContext = systemOperationContext;
     String poolSize = System.getenv(RestoreIndices.READER_POOL_SIZE);
     int intPoolSize;
     try {
@@ -80,7 +83,7 @@ public class RestoreAspectStep implements UpgradeStep {
             .report()
             .addLine(
                 "Missing required arguments. This upgrade requires URN, ASPECT_NAME, BACKUP_S3_BUCKET, BACKUP_S3_PATH");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       Optional<String> s3Region = context.parsedArgs().get(S3BackupReader.S3_REGION);
@@ -92,28 +95,35 @@ public class RestoreAspectStep implements UpgradeStep {
         final ParquetReaderWrapper readerRef = reader;
         futureList.add(
             _fileReaderThreadPool.submit(
-                () -> readerExecutable(readerRef, context, urnToRestore, aspectToRestore)));
+                () ->
+                    readerExecutable(
+                        systemOperationContext,
+                        readerRef,
+                        context,
+                        urnToRestore,
+                        aspectToRestore)));
       }
 
       for (Future<UpgradeStepResult> future : futureList) {
         try {
           UpgradeStepResult stepResult = future.get();
-          if (UpgradeStepResult.Result.FAILED.equals(stepResult.result())) {
+          if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
             return stepResult;
           }
         } catch (InterruptedException | ExecutionException e) {
           context.report().addLine("Interrupted during read, unable to finish execution.");
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         } finally {
           _fileReaderThreadPool.shutdown();
         }
       }
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
   private UpgradeStepResult readerExecutable(
+      @Nonnull OperationContext opContext,
       ParquetReaderWrapper reader,
       UpgradeContext context,
       Optional<String> urnToRestore,
@@ -131,7 +141,7 @@ public class RestoreAspectStep implements UpgradeStep {
                 String.format(
                     "Failed to bind Urn with value %s into Urn object: %s",
                     aspect.getKey().getUrn(), e));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       final String aspectName = aspect.getKey().getAspect();
@@ -143,20 +153,21 @@ public class RestoreAspectStep implements UpgradeStep {
         final String entityName = urn.getEntityType();
         final EntitySpec entitySpec;
         try {
-          entitySpec = _entityRegistry.getEntitySpec(entityName);
+          entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(entityName);
         } catch (Exception e) {
           context
               .report()
               .addLine(
                   String.format(
                       "Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
         // 3. Create record from json aspect
-        final RecordTemplate aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        final SystemAspect systemAspectRecord =
+            EntityUtils.toSystemAspectFromEbeanAspects(
+                    opContext.getRetrieverContext(), List.of(aspect))
+                .get(0);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
@@ -169,7 +180,7 @@ public class RestoreAspectStep implements UpgradeStep {
                   String.format(
                       "Failed to find aspect spec with name %s associated with entity named %s: %s",
                       aspectName, entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
         // 5. Write the row back using the EntityService
@@ -182,20 +193,20 @@ public class RestoreAspectStep implements UpgradeStep {
 
         boolean emitMae = aspect.getKey().getVersion() == 0L;
 
-        List<MCPUpsertBatchItem> items =
+        List<ChangeMCP> items =
             List.of(
-                MCPUpsertBatchItem.builder()
+                ChangeItemImpl.builder()
                     .urn(urn)
                     .aspectName(aspectName)
-                    .recordTemplate(aspectRecord)
+                    .recordTemplate(systemAspectRecord.getRecordTemplate())
                     .auditStamp(toAuditStamp(aspect))
-                    .build(_entityService));
+                    .build(opContext.getAspectRetriever()));
 
         _entityService.ingestAspects(
-            AspectsBatchImpl.builder().items(items).build(), emitMae, true);
+            opContext, AspectsBatchImpl.builder().items(items).build(), emitMae, true);
       }
     }
-    return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 
   private AuditStamp toAuditStamp(final EbeanAspectV2 aspect) {

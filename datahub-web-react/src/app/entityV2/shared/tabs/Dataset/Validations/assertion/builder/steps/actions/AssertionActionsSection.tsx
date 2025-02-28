@@ -18,13 +18,13 @@ const StyledCheckbox = styled(Checkbox)`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
-    editing?: boolean;
+    disabled?: boolean;
 };
 
 /**
  * Form for editing the actions that are taken on success or failure of an Assertion
  */
-export const AssertionActionsSection = ({ state, updateState, editing = true }: Props) => {
+export const AssertionActionsSection = ({ state, updateState, disabled = false }: Props) => {
     const raiseIncidents = state?.assertion?.actions?.onFailure?.some(
         (action) => action.type === AssertionActionType.RaiseIncident,
     );
@@ -33,11 +33,11 @@ export const AssertionActionsSection = ({ state, updateState, editing = true }: 
     );
 
     return (
-        <>
+        <div style={{ marginTop: 16, marginBottom: 24 }}>
             <Section>
                 <Typography.Title level={5}>If this assertion fails...</Typography.Title>
                 <StyledCheckbox
-                    disabled={!editing}
+                    disabled={disabled}
                     checked={raiseIncidents}
                     onChange={(e) => updateState(toggleRaiseIncidentState(state, e.target.checked as boolean))}
                 >
@@ -47,13 +47,13 @@ export const AssertionActionsSection = ({ state, updateState, editing = true }: 
             <Section>
                 <Typography.Title level={5}>If this assertion passes...</Typography.Title>
                 <StyledCheckbox
-                    disabled={!editing}
+                    disabled={disabled}
                     checked={resolveIncidents}
                     onChange={(e) => updateState(toggleResolveIncidentState(state, e.target.checked as boolean))}
                 >
                     Auto-resolve active incident
                 </StyledCheckbox>
             </Section>
-        </>
+        </div>
     );
 };

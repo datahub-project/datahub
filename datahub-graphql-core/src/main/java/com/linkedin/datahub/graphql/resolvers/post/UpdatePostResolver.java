@@ -8,6 +8,7 @@ import com.linkedin.common.Media;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PostContentType;
 import com.linkedin.datahub.graphql.generated.PostType;
@@ -58,13 +59,16 @@ public class UpdatePostResolver implements DataFetcher<CompletableFuture<Boolean
     PostContent postContent =
         postService.mapPostContent(contentType.toString(), title, description, link, media);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            return postService.updatePost(postUrn, type.toString(), postContent, authentication);
+            return postService.updatePost(
+                context.getOperationContext(), postUrn, type.toString(), postContent);
           } catch (Exception e) {
             throw new GraphQLException("Failed to update or edit post", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

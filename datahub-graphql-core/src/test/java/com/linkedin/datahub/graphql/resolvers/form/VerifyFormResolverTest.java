@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -44,9 +44,10 @@ public class VerifyFormResolverTest {
     // Validate that we called verify on the service
     Mockito.verify(mockFormService, Mockito.times(1))
         .verifyFormForEntity(
+            any(),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(null));
   }
 
   @Test
@@ -64,7 +65,7 @@ public class VerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // Validate that we do not call verify on the service
     Mockito.verify(mockFormService, Mockito.times(0))
-        .verifyFormForEntity(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+        .verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   @Test
@@ -82,7 +83,7 @@ public class VerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // Validate that we do call verifyFormForEntity but an error is thrown
     Mockito.verify(mockFormService, Mockito.times(1))
-        .verifyFormForEntity(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+        .verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   private FormService initMockFormService(
@@ -90,22 +91,16 @@ public class VerifyFormResolverTest {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
             service.isFormAssignedToUser(
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
         .thenReturn(isFormAssignedToUser);
 
     if (shouldVerify) {
       Mockito.when(
-              service.verifyFormForEntity(
-                  Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+              service.verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenReturn(true);
     } else {
       Mockito.when(
-              service.verifyFormForEntity(
-                  Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+              service.verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenThrow(new RuntimeException());
     }
 
@@ -114,8 +109,7 @@ public class VerifyFormResolverTest {
 
   private GroupService initMockGroupService() throws Exception {
     GroupService service = Mockito.mock(GroupService.class);
-    Mockito.when(service.getGroupsForUser(Mockito.any(), Mockito.any(Authentication.class)))
-        .thenReturn(new ArrayList<>());
+    Mockito.when(service.getGroupsForUser(any(), Mockito.any())).thenReturn(new ArrayList<>());
 
     return service;
   }

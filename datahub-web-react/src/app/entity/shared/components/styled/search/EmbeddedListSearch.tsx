@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
+import useSortInput from '@src/app/search/sorting/useSortInput';
 import {
     EntityType,
     FacetFilterInput,
@@ -106,6 +108,8 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    onLineageClick?: () => void;
+    isLineageTab?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -134,6 +138,8 @@ export const EmbeddedListSearch = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
+    onLineageClick,
+    isLineageTab = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -143,7 +149,6 @@ export const EmbeddedListSearch = ({
         unionType,
         filters,
     };
-
     const finalFilters =
         (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
 
@@ -151,6 +156,9 @@ export const EmbeddedListSearch = ({
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+
+    const { selectedSortOption } = useSearchContext();
+    const sortInput = useSortInput(selectedSortOption);
 
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
@@ -179,6 +187,7 @@ export const EmbeddedListSearch = ({
         count: numResultsPerPage,
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
+        sortInput,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -190,6 +199,12 @@ export const EmbeddedListSearch = ({
         },
         fetchPolicy: 'cache-first',
     });
+
+    const [serverError, setServerError] = useState<any>(undefined);
+
+    useEffect(() => {
+        setServerError(error);
+    }, [error]);
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
@@ -282,9 +297,18 @@ export const EmbeddedListSearch = ({
         });
     }
 
+    const isServerOverloadError = [503, 500, 504].includes(serverError?.networkError?.response?.status);
+
+    const onClickLessHops = () => {
+        setServerError(undefined);
+        onChangeFilters(defaultFilters);
+    };
+
+    const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
+
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {!isLineageTab ? error && <ErrorMessage /> : serverError && !isServerOverloadError && <ErrorMessage />}
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
@@ -296,6 +320,7 @@ export const EmbeddedListSearch = ({
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
+                setSelectedEntities={setSelectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}
@@ -303,6 +328,10 @@ export const EmbeddedListSearch = ({
             />
             <EmbeddedListSearchResults
                 unionType={unionType}
+                isServerOverloadError={isServerOverloadError}
+                onClickLessHops={onClickLessHops}
+                onLineageClick={onLineageClick}
+                isLineageTab={isLineageTab}
                 loading={loading}
                 searchResponse={data}
                 filters={finalFacets}

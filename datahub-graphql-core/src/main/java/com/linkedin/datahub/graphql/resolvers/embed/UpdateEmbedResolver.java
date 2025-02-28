@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateEmbedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -38,24 +40,29 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
         bindArgument(environment.getArgument("input"), UpdateEmbedInput.class);
     final Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(entityUrn, environment.getContext())) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          validateUpdateEmbedInput(input, _entityService);
+          validateUpdateEmbedInput(context.getOperationContext(), input, _entityService);
           try {
             final Embed embed =
                 (Embed)
                     EntityUtils.getAspectFromEntity(
-                        entityUrn.toString(), EMBED_ASPECT_NAME, _entityService, new Embed());
+                        context.getOperationContext(),
+                        entityUrn.toString(),
+                        EMBED_ASPECT_NAME,
+                        _entityService,
+                        new Embed());
 
             updateEmbed(embed, input);
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(entityUrn, EMBED_ASPECT_NAME, embed);
             _entityService.ingestProposal(
+                context.getOperationContext(),
                 proposal,
                 new AuditStamp()
                     .setActor(UrnUtils.getUrn(context.getActorUrn()))
@@ -68,7 +75,9 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
                     "Failed to update Embed for to resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -81,8 +90,10 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
    * @param entityService an instance of {@link EntityService} used to validate the input.
    */
   private static void validateUpdateEmbedInput(
-      @Nonnull final UpdateEmbedInput input, @Nonnull final EntityService entityService) {
-    if (!entityService.exists(UrnUtils.getUrn(input.getUrn()), true)) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final UpdateEmbedInput input,
+      @Nonnull final EntityService entityService) {
+    if (!entityService.exists(opContext, UrnUtils.getUrn(input.getUrn()), true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update embed for entity with urn %s. Entity does not exist!",

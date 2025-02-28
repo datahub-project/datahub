@@ -26,7 +26,7 @@ export const DomainsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your domains"
                 tip="Domains that you are an owner of"

@@ -1,15 +1,22 @@
 import React from 'react';
+import styled from 'styled-components';
 import { EntitySidebarSections } from './EntitySidebar';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
+import SidebarFormInfoWrapper from './FormInfo/SidebarFormInfoWrapper';
+import { useIsDocumentationFormsEnabled } from '../../../../../useAppConfig';
 
 const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,
 };
 
+const SidebarFormContentWrapper = styled.div`
+    padding: 0px 20px;
+`;
+
 interface Props {
     properties?: {
         sections: EntitySidebarSection[];
-        setIsFormModalVisible: (visible: boolean) => void;
+        setIsFormModalVisible?: (visible: boolean) => void;
     };
     contextType: TabContextType;
     renderType: TabRenderType;
@@ -30,8 +37,15 @@ export default function EntitySidebarSectionsTab({ properties, contextType, rend
         display: { ...DEFAULT_SIDEBAR_SECTION, ...sidebarSection.display },
     }));
 
+    const documentationFormsEnabled = useIsDocumentationFormsEnabled();
+
     return (
         <>
+            {documentationFormsEnabled && (
+                <SidebarFormContentWrapper>
+                    <SidebarFormInfoWrapper />
+                </SidebarFormContentWrapper>
+            )}
             <EntitySidebarSections
                 renderType={renderType}
                 contextType={contextType}

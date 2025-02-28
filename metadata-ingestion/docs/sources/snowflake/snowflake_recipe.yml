@@ -4,6 +4,9 @@ source:
     # This option is recommended to be used to ingest all lineage
     ignore_start_time_lineage: true
 
+    # This flag tells the snowflake ingestion to use the more advanced query parsing. This will become the default eventually.
+    use_queries_v2: true
+
     # Coordinates
     account_id: "abc48144"
     warehouse: "COMPUTE_WH"

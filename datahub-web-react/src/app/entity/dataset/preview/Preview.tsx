@@ -19,7 +19,7 @@ import {
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 
 export const Preview = ({
@@ -52,6 +52,8 @@ export const Preview = ({
     health,
     degree,
     paths,
+    previewType,
+    onClick,
 }: {
     urn: string;
     name: string;
@@ -82,6 +84,8 @@ export const Preview = ({
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
+    previewType?: PreviewType;
+    onClick?: (any: any) => any;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -125,6 +129,8 @@ export const Preview = ({
             health={health || undefined}
             degree={degree}
             paths={paths}
+            previewType={previewType}
+            onClick={onClick}
         />
     );
 };

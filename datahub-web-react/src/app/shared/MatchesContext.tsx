@@ -5,6 +5,7 @@ export enum PreviewSection {
     OWNERS = 'owners',
     GLOSSARY_TERMS = 'glossaryTerms',
     TAGS = 'tags',
+    COLUMN_PATHS = 'columnPaths',
 }
 
 interface MatchesContextProps {

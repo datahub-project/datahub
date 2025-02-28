@@ -1,51 +1,83 @@
+import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Divider } from 'antd';
-import PlatformContent from './PlatformContent';
-import { EntityHealth } from './EntityHealth';
-import EntityName from './EntityName';
-import { DeprecationPill } from '../../../components/styled/DeprecationPill';
-import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
-import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
-import EntityPlatformLoadingSection from './EntityPlatformLoadingSection';
-import IconColorPicker from './IconPicker/IconColorPicker';
-import { EntitySubHeaderSection } from '../../../types';
-import { DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
-import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
+import {
+    Container,
+    DataPlatform,
+    DisplayProperties,
+    Domain,
+    EntityType,
+    Post,
+} from '../../../../../../types.generated';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
+import ContextPath from '../../../../../previewV2/ContextPath';
+import HealthIcon from '../../../../../previewV2/HealthIcon';
+import NotesIcon from '../../../../../previewV2/NotesIcon';
+import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityBackButton } from '../sidebar/EntityBackButton';
+import { IconStyleType } from '../../../../Entity';
 import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
+import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
+import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
+import { EntityBackButton } from '../sidebar/EntityBackButton';
+import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
+import EntityName from './EntityName';
+import { GlossaryPreviewCardDecoration } from './GlossaryPreviewCardDecoration';
+import IconColorPicker from './IconPicker/IconColorPicker';
+import ContainerIcon from './PlatformContent/ContainerIcon';
+import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
+import StructuredPropertyBadge from './StructuredPropertyBadge';
+import { getDisplayedEntityType, getEntityPlatforms } from './utils';
 
 export const TitleWrapper = styled.div`
     display: flex;
     justify-content: start;
     align-items: center;
     padding: 0px 0px 0px 0px;
+
     .ant-typography-edit-content {
         padding-top: 7px;
         margin-left: 15px;
     }
 `;
+const EntityDetailsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+`;
+
+const TitleRow = styled(HeaderRow)`
+    font-size: 16px;
+`;
 
 export const Row = styled.div`
-    padding: 12px 24px;
+    padding: 18px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-`;
-
-export const PlatformRow = styled(Row)`
-    padding: 0px 24px 12px 24px;
+    position: relative;
+    overflow: hidden;
 `;
 
 export const LeftColumn = styled.div`
     flex: 1;
-    width: 70%;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: left;
+    align-items: start;
+    flex-grow: 1;
+    flex-shrink: 1;
 `;
 
 export const RightColumn = styled.div`
@@ -59,6 +91,7 @@ export const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    max-width: 100%;
 `;
 
 export const StyledDivider = styled(Divider)`
@@ -68,9 +101,8 @@ export const StyledDivider = styled(Divider)`
     }
 `;
 
-// TODO: Fix the styles here to avoid requiring this.
-const SubHeader = styled.div`
-    padding: 0px 24px 8px 24px;
+const HeaderIconsWrapper = styled.span`
+    margin-right: 8px;
 `;
 
 export type Props = {
@@ -78,7 +110,7 @@ export type Props = {
     entityType: EntityType;
     entityUrl: string;
     loading: boolean;
-    entityData?: any;
+    entityData: GenericEntityProperties | null;
     refetch: () => void;
     headerActionItems?: Set<EntityActionItem>;
     headerDropdownItems?: Set<EntityMenuItems>;
@@ -89,18 +121,6 @@ export type Props = {
     displayProperties?: DisplayProperties;
 };
 
-// returns book icon for glossary term, otherwise returns default icon for entity type
-export const getDefaultIconForEntityType = (entityType: EntityType): string => {
-    switch (entityType) {
-        case EntityType.GlossaryNode:
-            return 'Book';
-        case EntityType.Domain:
-            return 'Workspaces';
-        default:
-            return '';
-    }
-};
-
 export const DefaultEntityHeader = ({
     urn,
     entityType,
@@ -108,8 +128,8 @@ export const DefaultEntityHeader = ({
     loading,
     entityData,
     refetch,
-    headerActionItems,
     headerDropdownItems,
+    headerActionItems, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     showEditName,
     isColorEditable,
@@ -119,19 +139,44 @@ export const DefaultEntityHeader = ({
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
 
+    const { contentRef, isContentTruncated } = useContentTruncation(entityData);
+    const typeIcon =
+        entityType === EntityType.Container ? (
+            <ContainerIcon container={entityData as Container} />
+        ) : (
+            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
+        );
+
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const { platform, platforms } = getEntityPlatforms(entityType, entityData);
+
+    const contextPath = getContextPath(entityData);
     return (
         <>
             <Row>
+                {!loading && (entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
+                    <GlossaryPreviewCardDecoration
+                        urn={urn}
+                        entityData={entityData}
+                        displayProperties={displayProperties}
+                    />
+                )}
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (
                         <>
                             <TitleWrapper>
+                                <HeaderIconsWrapper>
+                                    <PlatformHeaderIcons
+                                        platform={platform as DataPlatform}
+                                        platforms={platforms as DataPlatform[]}
+                                    />
+                                </HeaderIconsWrapper>
                                 {(isIconEditable || isColorEditable) && (
                                     <div
                                         style={{
                                             cursor: 'pointer',
-                                            marginRight: 8,
+                                            marginRight: 12,
                                         }}
                                     >
                                         <DomainColoredIcon
@@ -149,16 +194,47 @@ export const DefaultEntityHeader = ({
                                         icon={displayProperties?.icon?.name}
                                     />
                                 )}
-                                <EntityName isNameEditable={showEditName} />
-                                {entityData?.deprecation?.deprecated && (
-                                    <DeprecationPill
-                                        urn={urn}
-                                        deprecation={entityData?.deprecation}
-                                        showUndeprecate
-                                        refetch={refetch}
-                                    />
-                                )}
-                                {entityData?.health && <EntityHealth health={entityData.health} baseUrl={entityUrl} />}
+                                <EntityDetailsContainer>
+                                    <TitleRow>
+                                        <EntityName isNameEditable={showEditName} />
+                                        {!!entityData?.notes?.total && (
+                                            <NotesIcon
+                                                notes={entityData?.notes?.relationships?.map((r) => r.entity as Post)}
+                                            />
+                                        )}
+                                        {entityData?.deprecation?.deprecated && (
+                                            <DeprecationIcon
+                                                urn={urn}
+                                                deprecation={entityData?.deprecation}
+                                                showUndeprecate
+                                                refetch={refetch}
+                                                showText={false}
+                                            />
+                                        )}
+                                        {entityData?.health && (
+                                            <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
+                                        )}
+                                        <StructuredPropertyBadge
+                                            structuredProperties={entityData?.structuredProperties}
+                                        />
+                                        <VersioningBadge
+                                            versionProperties={entityData?.versionProperties ?? undefined}
+                                            showPopover
+                                        />
+                                    </TitleRow>
+                                    <HeaderRow>
+                                        <ContextPath
+                                            instanceId={entityData?.dataPlatformInstance?.instanceId}
+                                            typeIcon={typeIcon}
+                                            type={displayedEntityType}
+                                            entityType={entityType}
+                                            browsePaths={entityData?.browsePathV2}
+                                            parentEntities={contextPath}
+                                            contentRef={contentRef}
+                                            isContentTruncated={isContentTruncated}
+                                        />
+                                    </HeaderRow>
+                                </EntityDetailsContainer>
                             </TitleWrapper>
                         </>
                     )}
@@ -172,12 +248,6 @@ export const DefaultEntityHeader = ({
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>
-            <PlatformRow>{(loading && <EntityPlatformLoadingSection />) || <PlatformContent />}</PlatformRow>
-            {!!subHeader && (
-                <SubHeader>
-                    <subHeader.component />
-                </SubHeader>
-            )}
         </>
     );
 };

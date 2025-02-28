@@ -1,0 +1,202 @@
+fragment processInstanceRelationshipResults on EntityRelationshipsResult {
+    start
+    count
+    total
+    relationships {
+        type
+        direction
+        entity {
+            urn
+            type
+            ... on Dataset {
+                name
+                properties {
+                    name
+                    description
+                    qualifiedName
+                }
+                editableProperties {
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                subTypes {
+                    typeNames
+                }
+                status {
+                    removed
+                }
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+                deprecation {
+                    ...deprecationFields
+                }
+                dataPlatformInstance {
+                    ...dataPlatformInstanceFields
+                }
+                subTypes {
+                    typeNames
+                }
+                editableProperties {
+                    description
+                }
+                status {
+                    removed
+                }
+            }
+        }
+    }
+}
+
+fragment dataProcessInstanceFields on DataProcessInstance {
+    urn
+    type
+    exists
+    status {
+        removed
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    container {
+        ...entityContainer
+    }
+    subTypes {
+        typeNames
+    }
+    properties {
+        name
+        created {
+            time
+            actor
+        }
+        customProperties {
+            key
+            value
+        }
+    }
+    mlTrainingRunProperties {
+        id
+        outputUrls
+        trainingMetrics {
+            name
+            description
+            value
+        }
+        hyperParams {
+            name
+            description
+            value
+        }
+    }
+    optionalPlatform: platform {
+        ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+        status
+        attempt
+        result {
+            resultType
+            nativeResultType
+        }
+        timestampMillis
+        durationMillis
+    }
+    parentTemplate {
+        urn
+        type
+        # TODO: Clean up fields below; support DataFlow
+        ... on Dataset {
+            name
+            properties {
+                name
+                description
+                qualifiedName
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+            status {
+                removed
+            }
+        }
+        ... on DataJob {
+            urn
+            type
+            dataFlow {
+                ...nonRecursiveDataFlowFields
+            }
+            jobId
+            properties {
+                name
+                description
+                externalUrl
+                customProperties {
+                    key
+                    value
+                }
+            }
+            deprecation {
+                ...deprecationFields
+            }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+            subTypes {
+                typeNames
+            }
+            editableProperties {
+                description
+            }
+            status {
+                removed
+            }
+        }
+    }
+}
+
+query getDataProcessInstance($urn: String!) {
+    dataProcessInstance(urn: $urn) {
+        ...dataProcessInstanceFields
+        relationships(
+            input: { types: ["InstanceOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 50 }
+        ) {
+            ...processInstanceRelationshipResults
+        }
+        state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+            status
+            attempt
+            result {
+                resultType
+                nativeResultType
+            }
+            timestampMillis
+            durationMillis
+        }
+    }
+}

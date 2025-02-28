@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
   private final ConfigurationProvider _configurationProvider;
 
   public MigrateAssertionsSummaryStep(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       AssertionService assertionService,
       TimeseriesAspectService timeseriesAspectService,
@@ -63,7 +64,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext opContext) throws Exception {
 
     int batch = 1;
 
@@ -72,12 +73,14 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     do {
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              opContext,
               Collections.singletonList(Constants.ASSERTION_ENTITY_NAME),
               null,
               null,
               BATCH_SIZE,
               nextScrollId,
-              _configurationProvider.getElasticSearch().getScroll().getTimeout());
+              _configurationProvider.getElasticSearch().getScroll().getTimeout(),
+              null);
       nextScrollId = scrollResult.getScrollId();
 
       List<Urn> assertionsInBatch =
@@ -86,7 +89,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
               .collect(Collectors.toList());
 
       try {
-        batchAddAssertionsSummary(assertionsInBatch);
+        batchAddAssertionsSummary(opContext, assertionsInBatch);
       } catch (Exception e) {
         log.error("Error while processing batch {} of assertions", batch, e);
       }
@@ -94,15 +97,17 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     } while (nextScrollId != null);
   }
 
-  private void batchAddAssertionsSummary(@Nonnull final List<Urn> assertionUrns) {
+  private void batchAddAssertionsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> assertionUrns) {
     for (Urn assertionUrn : assertionUrns) {
-      updateAssertionsSummary(assertionUrn);
+      updateAssertionsSummary(opContext, assertionUrn);
     }
   }
 
-  private void updateAssertionsSummary(@Nonnull final Urn assertionUrn) {
+  private void updateAssertionsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     // 1. Fetch assertion info to get the dataset urn
-    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(opContext, assertionUrn);
 
     if (assertionInfo == null) {
       log.warn(
@@ -125,6 +130,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     // 2. get most recent assertion run event
     List<EnvelopedAspect> mostRecentRunEvents =
         _timeseriesAspectService.getAspectValues(
+            opContext,
             assertionUrn,
             Constants.ASSERTION_ENTITY_NAME,
             Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
@@ -145,7 +151,8 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
               runEvent.get().getAspect().getContentType(),
               AssertionRunEvent.class);
       if (assertionRunEvent.hasResult()) {
-        addAssertionToSummary(datasetUrn, assertionUrn, assertionInfo, assertionRunEvent);
+        addAssertionToSummary(
+            opContext, datasetUrn, assertionUrn, assertionInfo, assertionRunEvent);
       }
     }
   }
@@ -155,12 +162,13 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
    * for entity by active and resolved assertions.
    */
   private void addAssertionToSummary(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionInfo info,
       @Nonnull final AssertionRunEvent event) {
     // 1. Fetch the latest assertion summary for the entity
-    AssertionsSummary summary = getAssertionsSummary(entityUrn);
+    AssertionsSummary summary = getAssertionsSummary(opContext, entityUrn);
     AssertionResult result = event.getResult();
     AssertionSummaryDetails details = buildAssertionSummaryDetails(assertionUrn, info, event);
 
@@ -183,12 +191,14 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     }
 
     // 3. Emit the change back!
-    updateAssertionSummary(entityUrn, summary);
+    updateAssertionSummary(opContext, entityUrn, summary);
   }
 
   @Nonnull
-  private AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {
-    AssertionsSummary maybeAssertionsSummary = _assertionService.getAssertionsSummary(entityUrn);
+  private AssertionsSummary getAssertionsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    AssertionsSummary maybeAssertionsSummary =
+        _assertionService.getAssertionsSummary(opContext, entityUrn);
     return maybeAssertionsSummary == null ? new AssertionsSummary() : maybeAssertionsSummary;
   }
 
@@ -209,9 +219,11 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
 
   /** Updates the assertions summary for a given entity */
   private void updateAssertionSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final AssertionsSummary newSummary) {
     try {
-      _assertionService.updateAssertionsSummary(entityUrn, newSummary);
+      _assertionService.updateAssertionsSummary(opContext, entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
           String.format(

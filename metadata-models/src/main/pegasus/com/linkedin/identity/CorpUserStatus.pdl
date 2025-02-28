@@ -20,5 +20,11 @@ record CorpUserStatus {
   /**
    * Audit stamp containing who last modified the status and when.
    */
+  @Searchable = {
+    "/time": {
+        "fieldName": "statusLastModifiedAt",
+        "fieldType": "COUNT"
+      }
+  }
   lastModified: AuditStamp
 }

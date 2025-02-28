@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
@@ -43,7 +44,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
 
-      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
+      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(context, input);
       info.setLastUpdatedTimestamp(System.currentTimeMillis());
 
       if (policyUrn.isPresent()) {
@@ -65,11 +66,11 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
                 key, POLICY_ENTITY_NAME, POLICY_INFO_ASPECT_NAME, info);
       }
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               String urn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()
@@ -80,7 +81,9 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

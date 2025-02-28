@@ -99,7 +99,7 @@ List of Data Platforms
 - Tableau
 - Vertica
 
-Reference : [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json)
+Reference : [data_platforms.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml)
 
 </details>
 

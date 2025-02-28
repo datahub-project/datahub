@@ -4,40 +4,40 @@ import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import {
-    Assertion,
-    AssertionResult,
-    AssertionResultType,
-    AssertionRunEvent,
-} from '../../../../../../../../../../types.generated';
-import { AssertionDescription } from '../../summary/AssertionDescription';
+import { Assertion, AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../types.generated';
 import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
 import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
-import { toReadableLocalDateTimeString } from '../timeUtils';
-import { ResultStatusType, getDetailedErrorMessage, getFormattedReasonText } from '../../summary/shared/resultUtils';
+import { toReadableLocalDateTimeString } from '../utils';
+import {
+    ResultStatusType,
+    getDetailedErrorMessage,
+    getFormattedExpectedResultText,
+    getFormattedReasonText,
+} from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
     margin-bottom: 4px;
 `;
 
-const Title = styled.div`
-    flex: 1;
-    font-size: 16px;
-    font-weight: 600;
-    overflow: hidden;
-    > div {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-    margin-right: 20px;
-`;
+// NOTE: removed the title for now as the assertion's current title may not accurately describe the assertion that ran at this point in history
+// const Title = styled.div`
+//     flex: 1;
+//     font-size: 16px;
+//     font-weight: 600;
+//     overflow: hidden;
+//     > div {
+//         overflow: hidden;
+//         white-space: nowrap;
+//         text-overflow: ellipsis;
+//     }
+//     margin-right: 20px;
+// `;
 
 const Actions = styled.div`
     display: flex;
@@ -46,10 +46,27 @@ const Actions = styled.div`
     gap: 8px;
 `;
 
+const TimestampContainer = styled.div`
+    gap: 5px;
+    display: flex;
+    flex-direction: column;
+`;
+
 const LastResultsRow = styled.div`
-    color: ${ANTD_GRAY[7]};
+    font-size: 14px;
     display: flex;
     align-items: center;
+    font-weight: 500;
+`;
+const LastRunRow = styled.div`
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    color: ${ANTD_GRAY[7]};
+    .anticon-clock-circle {
+        font-size: 10px;
+    }
 `;
 
 const ReasonRow = styled.div``;
@@ -100,15 +117,16 @@ export const AssertionResultPopoverContent = ({
 }: Props) => {
     // Last run time
     const timestamp = run && new Date(run?.timestampMillis);
+    const reportedTimestamp = run && run?.lastObservedMillis;
 
     // Reason
-    const result = run?.result as AssertionResult;
-    const reasonText = (run && getFormattedReasonText(assertion, run)) || undefined;
+    const result = run?.result ? run.result! : undefined;
+    const reasonText = run ? getFormattedReasonText(assertion, run) : undefined;
     const hasReason = !!reasonText;
 
     // Context
-    const hasContext = false;
-    const expectedText = undefined; // TODO For us.
+    const expectedText = run ? getFormattedExpectedResultText(assertion, run) : undefined;
+    const hasContext = !!expectedText;
 
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
@@ -116,14 +134,26 @@ export const AssertionResultPopoverContent = ({
 
     // Platform
     const isExternal = isExternalAssertion(assertion);
-    const hasExternalPlatform = isExternal && assertion.platform;
+    const hasPlatform = !!assertion.platform;
 
     return (
         <>
             <HeaderRow>
-                <Title>
-                    <AssertionDescription assertion={assertion} />
-                </Title>
+                <TimestampContainer>
+                    {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
+                    <LastResultsRow>
+                        {(timestamp && (
+                            <>
+                                <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                            </>
+                        )) || <>No results yet</>}
+                    </LastResultsRow>
+                    {reportedTimestamp && (
+                        <LastRunRow>
+                            Reported {reportedTimestamp && toReadableLocalDateTimeString(reportedTimestamp)}
+                        </LastRunRow>
+                    )}
+                </TimestampContainer>
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (
@@ -132,13 +162,6 @@ export const AssertionResultPopoverContent = ({
                         undefined}
                 </Actions>
             </HeaderRow>
-            <LastResultsRow>
-                {(timestamp && (
-                    <>
-                        <StyledClockCircleOutlined /> Evaluated {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
-                    </>
-                )) || <>No results yet</>}
-            </LastResultsRow>
             {hasReason && (
                 <>
                     <ThinDivider />
@@ -175,14 +198,32 @@ export const AssertionResultPopoverContent = ({
                     </ContextRow>
                 </>
             )}
-            {hasExternalPlatform && (
+            {isExternal ? (
                 <>
-                    <ThinDivider />
-                    <PlatformRow>
-                        <ProviderSummarySection assertion={assertion} showDivider={false} />
-                    </PlatformRow>
+                    {/* Show the native results if it's an external platform, so the customers can see things like 'result' that they've emitted into DH */}
+                    {result?.nativeResults?.length
+                        ? [
+                              <ThinDivider />,
+                              <PlatformRow>
+                                  {result.nativeResults.map((entry) => (
+                                      <div>
+                                          <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
+                                      </div>
+                                  ))}
+                              </PlatformRow>,
+                          ]
+                        : null}
+                    {hasPlatform && (
+                        <>
+                            {/* Show the external platform details */}
+                            <ThinDivider />
+                            <PlatformRow>
+                                <ProviderSummarySection assertion={assertion} showDivider={false} />
+                            </PlatformRow>
+                        </>
+                    )}
                 </>
-            )}
+            ) : null}
         </>
     );
 };

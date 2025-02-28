@@ -1,0 +1,59 @@
+[
+{
+  "event_type": "MetadataChangeLogEvent_v1",
+  "event": {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+      "value": "{\"auditStamp\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1721773373172},\"terms\":[{\"urn\":\"urn:li:glossaryTerm:a30484c3-3a68-468f-8902-08e019e3437d\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 0,
+      "runId": "no-run-id-provided",
+      "lastRunId": "no-run-id-provided",
+      "properties": {
+        "appSource": "ui"
+      }
+    },
+    "created": {
+      "time": 1721773373175,
+      "actor": "urn:li:corpuser:admin"
+    }
+  },
+  "meta": {
+    "kafka": {
+      "topic": "MetadataChangeLog_Versioned_v1",
+      "offset": 1673,
+      "partition": 0
+    }
+  }
+},
+{
+  "event_type": "EntityChangeEvent_v1",
+  "event": {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+    "category": "GLOSSARY_TERM",
+    "operation": "ADD",
+    "modifier": "urn:li:glossaryTerm:a30484c3-3a68-468f-8902-08e019e3437d",
+    "auditStamp": {
+      "time": 1721773373175,
+      "actor": "urn:li:corpuser:admin"
+    },
+    "version": 0,
+    "parameters": {
+      "termUrn": "urn:li:glossaryTerm:a30484c3-3a68-468f-8902-08e019e3437d"
+    }
+  },
+  "meta": {
+    "kafka": {
+      "topic": "PlatformEvent_v1",
+      "offset": 791,
+      "partition": 0
+    }
+  }
+}
+]

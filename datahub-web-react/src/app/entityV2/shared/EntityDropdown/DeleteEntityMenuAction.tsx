@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Redirect } from 'react-router';
 import { useUserContext } from '../../../context/useUserContext';
 import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from './utils';
@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 
 interface Props {
@@ -30,6 +30,8 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
         options?.hideDeleteMessage,
         options?.skipDeleteWait,
     );
+
+    if (!entityData) return null;
 
     /**
      * A default path to redirect to if the entity is deleted.

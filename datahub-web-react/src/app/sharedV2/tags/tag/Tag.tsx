@@ -2,7 +2,7 @@ import { message, Modal } from 'antd';
 import styled from 'styled-components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useRemoveTagMutation } from '../../../../graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '../../../../types.generated';
 import { StyledTag } from '../../../entityV2/shared/components/styled/StyledTag';
@@ -10,16 +10,32 @@ import { HoverEntityTooltip } from '../../../recommendations/renderer/component/
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { TagProfileDrawer } from '../../../shared/tags/TagProfileDrawer';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
 
-const TagLink = styled.span<{ showOneAndCount?: boolean }>`
-    display: inline-block;
-    margin-bottom: 4px;
+const TagLink = styled.span<{ $showOneAndCount?: boolean; $shouldNotAddBottomMargin?: boolean }>`
+    display: flex;
+    cursor: pointer;
+    margin-bottom: ${(props) => `${props.$shouldNotAddBottomMargin ? '0px' : '4px'}`};
+    max-width: inherit;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
-            width: 70%;
-            max-width: max-content;
+           max-width: 200px;
         `}
+`;
+
+const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
+    padding-left: 4px;
+    padding-right: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: ${(props) => (props.maxWidth ? `${props.maxWidth}px` : '120px')};
+    }
 `;
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
@@ -35,6 +51,14 @@ interface Props {
     refetch?: () => Promise<any>;
     fontSize?: number;
     showOneAndCount?: boolean;
+    context?: string | null;
+    maxWidth?: number;
+    tagStyle?: React.CSSProperties;
+    options?: {
+        shouldNotOpenDrawerOnClick?: boolean;
+        shouldNotAddBottomMargin?: boolean;
+        shouldShowEllipses?: boolean;
+    };
 }
 
 export default function Tag({
@@ -48,13 +72,19 @@ export default function Tag({
     refetch,
     fontSize,
     showOneAndCount,
+    context,
+    maxWidth,
+    tagStyle,
+    options,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
     const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
+    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -71,8 +101,8 @@ export default function Tag({
         const tagToRemove = tagAssociationToRemove.tag;
         onOpenModal?.();
         Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.name} tag?`,
+            title: `Do you want to remove ${displayName} tag?`,
+            content: `Are you sure you want to remove the ${displayName} tag?`,
             onOk() {
                 if (tagAssociationToRemove.associatedUrn || entityUrn) {
                     removeTagMutation({
@@ -104,15 +134,23 @@ export default function Tag({
         });
     };
 
-    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
-
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag}>
-                <TagLink data-testid={`tag-${displayName}`} showOneAndCount={showOneAndCount}>
+            <HoverEntityTooltip entity={tag.tag} width={250}>
+                <TagLink
+                    data-testid={`tag-${displayName}`}
+                    $showOneAndCount={showOneAndCount}
+                    $shouldNotAddBottomMargin={options?.shouldNotAddBottomMargin}
+                >
                     <StyledTag
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                        onClick={() => {
+                            if (isEmbeddedProfile) {
+                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                            } else if (!options?.shouldNotOpenDrawerOnClick) {
+                                showTagProfileDrawer(tag?.tag?.urn);
+                            }
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', ...tagStyle }}
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove && !readOnly}
@@ -121,16 +159,25 @@ export default function Tag({
                             removeTag(tag);
                         }}
                         fontSize={fontSize}
-                        highlightTag={highlightTag}
-                        showOneAndCount={showOneAndCount}
+                        $highlightTag={highlightTag}
+                        $showOneAndCount={showOneAndCount}
                     >
                         <Highlight
-                            style={{ marginLeft: 0, fontSize }}
+                            style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
                             matchStyle={highlightMatchStyle}
                             search={highlightText}
                         >
-                            {displayName}
+                            {options?.shouldShowEllipses ? (
+                                <DisplayNameContainer maxWidth={maxWidth}>
+                                    <span className="test-mini-preview-class">{displayName}</span>
+                                </DisplayNameContainer>
+                            ) : (
+                                <DisplayNameContainer maxWidth={maxWidth}>
+                                    <span>{displayName}</span>
+                                </DisplayNameContainer>
+                            )}
                         </Highlight>
+                        <LabelPropagationDetails entityType={EntityType.Tag} context={context} />
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>

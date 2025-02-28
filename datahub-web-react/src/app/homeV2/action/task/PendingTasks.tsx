@@ -1,11 +1,17 @@
-import React from 'react';
+import { CloseOutlined, FileDoneOutlined } from '@ant-design/icons';
+import React, { useContext, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { FileDoneOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useGetPendingDocumentationRequests } from './useGetPendingDocumentationRequests';
-import { useGetPendingDocumentationProposals } from './useGetPendingDocumentationProposals';
 import { PendingProposals } from './PendingProposals';
 import { PendingRequests } from './PendingRequests';
+import { useUserContext } from '../../../context/useUserContext';
+import { useIsDocumentationFormsEnabled } from '../../../useAppConfig';
+import { V2_HOME_PAGE_PENDING_TASKS_ID } from '../../../onboarding/configV2/HomePageOnboardingConfig';
+import { PendingTasksSkeleton } from './PendingTasksSkeleton';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
+import useShouldHidePendingTasks from './useShouldHidePendingTasks';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -13,13 +19,14 @@ const Card = styled.div`
     background-color: #ffffff;
     overflow: hidden;
     padding: 16px 20px 20px 20px;
+    width: 380px;
 `;
 
 const Header = styled.div`
     display: flex;
     align-items: center;
-    justify-content: start;
-    margin: 8px 0px 20px 0px;
+    justify-content: space-between;
+    margin: 8px 0px 12px 0px;
 `;
 
 const Title = styled.div`
@@ -45,33 +52,74 @@ const Section = styled.div`
     gap: 8px;
 `;
 
-export const PendingTasks = () => {
-    const { count: documentationRequestCount, loading: documentationRequestsLoading } =
-        useGetPendingDocumentationRequests();
-    const { count: documentationProposalCount, loading: documentationProposalsLoading } =
-        useGetPendingDocumentationProposals();
+const CloseButton = styled(Button)`
+    margin: 0px;
+    padding: 2px;
+`;
 
-    if (!documentationRequestCount && !documentationProposalCount) {
-        // Confirm that we want to hide the module when you don't have pending tasks.
+const StyledCloseOutlined = styled(CloseOutlined)`
+    color: ${ANTD_GRAY[8]};
+    font-size: 12px;
+`;
+
+type Props = {
+    setHasPendingTasks?: (value: boolean) => void;
+};
+
+export const PendingTasks = ({ setHasPendingTasks }: Props) => {
+    const {
+        state: { notificationsCount, proposalCount, unfinishedTaskCount },
+        loaded,
+    } = useUserContext();
+    const { isUserInitializing } = useContext(OnboardingContext);
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
+    const hidePendingTasks = useShouldHidePendingTasks();
+    const hideTransformations = hidePendingTasks[0];
+
+    const isCardShouldBeHidden = useMemo(() => {
+        // Don't show the card if there are no pending tasks
+        if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return true;
+        // Don't show if forms are disabled and there are no proposals
+        if (!isDocumentationFormsEnabled && !proposalCount) return true;
+
+        return false;
+    }, [unfinishedTaskCount, isDocumentationFormsEnabled, proposalCount]);
+
+    useEffect(() => {
+        setHasPendingTasks?.(isCardShouldBeHidden && hideTransformations);
+    }, [setHasPendingTasks, isCardShouldBeHidden, hideTransformations]);
+
+    if (hidePendingTasks) {
         return null;
     }
 
+    if (isUserInitializing || !loaded) {
+        return (
+            <Card>
+                <PendingTasksSkeleton />
+            </Card>
+        );
+    }
+
+    if (isCardShouldBeHidden) return null;
+
     return (
-        <Card>
+        <Card id={V2_HOME_PAGE_PENDING_TASKS_ID}>
             <Header>
                 <Title>
                     <Icon /> Pending tasks
                 </Title>
+                <Tooltip placement="left" showArrow={false} title="Hide pending tasks">
+                    <CloseButton type="text">
+                        <StyledCloseOutlined />
+                    </CloseButton>
+                </Tooltip>
             </Header>
             <Section>
-                {(documentationProposalCount && (
-                    <PendingProposals count={documentationProposalCount} loading={documentationProposalsLoading} />
-                )) ||
-                    null}
-                {(documentationRequestCount && (
-                    <PendingRequests count={documentationRequestCount} loading={documentationRequestsLoading} />
-                )) ||
-                    null}
+                {proposalCount > 0 && <PendingProposals count={proposalCount} />}
+                {notificationsCount > 0 && isDocumentationFormsEnabled && (
+                    <PendingRequests count={notificationsCount} />
+                )}
             </Section>
         </Card>
     );

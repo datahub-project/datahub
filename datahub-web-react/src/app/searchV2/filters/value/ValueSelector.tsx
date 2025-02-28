@@ -1,6 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { FacetFilterInput } from '@src/types.generated';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import ValueMenu from './ValueMenu';
 
@@ -10,10 +11,19 @@ interface Props {
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
     children?: any;
-    alignRight?: boolean;
+    className?: string;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
-export default function ValueSelector({ field, values, defaultOptions, onChangeValues, children, alignRight }: Props) {
+export default function ValueSelector({
+    field,
+    values,
+    defaultOptions,
+    onChangeValues,
+    children,
+    className,
+    manuallyUpdateFilters,
+}: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const onUpdateValues = (newValues: FilterValue[]) => {
@@ -21,8 +31,14 @@ export default function ValueSelector({ field, values, defaultOptions, onChangeV
         onChangeValues(newValues);
     };
 
+    const onManuallyUpdateFilters = (newValues: FacetFilterInput[]) => {
+        setIsMenuOpen(false);
+        manuallyUpdateFilters?.(newValues);
+    };
+
     return (
         <Dropdown
+            key={field.field}
             trigger={['click']}
             open={isMenuOpen}
             onOpenChange={setIsMenuOpen}
@@ -34,7 +50,8 @@ export default function ValueSelector({ field, values, defaultOptions, onChangeV
                     onChangeValues={onUpdateValues}
                     visible={isMenuOpen}
                     includeCount
-                    alignRight={alignRight}
+                    className={className}
+                    manuallyUpdateFilters={onManuallyUpdateFilters}
                 />
             )}
         >

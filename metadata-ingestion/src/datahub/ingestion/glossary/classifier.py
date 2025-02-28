@@ -39,7 +39,7 @@ class ClassificationConfig(ConfigModel):
 
     max_workers: int = Field(
         default=(os.cpu_count() or 4),
-        description="Number of worker threads to use for classification. Set to 1 to disable.",
+        description="Number of worker processes to use for classification. Set to 1 to disable.",
     )
 
     table_pattern: AllowDenyPattern = Field(

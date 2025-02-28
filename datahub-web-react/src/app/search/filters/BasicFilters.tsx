@@ -10,6 +10,11 @@ import {
     UnionType,
     LEGACY_ENTITY_FILTER_NAME,
     BROWSE_PATH_V2_FILTER_NAME,
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
 } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
@@ -25,6 +30,9 @@ import {
 } from '../../onboarding/config/SearchOnboardingConfig';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
+import { FormView, useEntityFormContext } from '../../entity/shared/entityForm/EntityFormContext';
+import FormPromptFilter from './FormPromptFilter';
+import FormResponsesActiveFilters from './FormResponsesActiveFilters';
 import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
@@ -56,6 +64,12 @@ const FILTERS_TO_REMOVE = [
     ENTITY_INDEX_FILTER_NAME,
     BROWSE_PATH_V2_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    // remove form-related filters for bulk form search and browse experience
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
 ];
 
 interface Props {
@@ -75,6 +89,11 @@ export default function BasicFilters({
     onClearFilters,
     showAdvancedFilters,
 }: Props) {
+    const {
+        isInFormContext,
+        filter: { formResponsesFilters },
+        form: { formView },
+    } = useEntityFormContext();
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
@@ -84,16 +103,20 @@ export default function BasicFilters({
         .filter((f) => !FILTERS_TO_REMOVE.includes(f.field))
         .sort((facetA, facetB) => sortFacets(facetA, facetB, SORTED_FILTERS));
     // if there will only be one filter in the "More Filters" dropdown, show that filter instead
-    const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
-    const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
-    const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
+    const numVisibleFilterDropdowns = isInFormContext ? NUM_VISIBLE_FILTER_DROPDOWNS - 1 : NUM_VISIBLE_FILTER_DROPDOWNS;
+    const shouldShowMoreDropdown = filters && filters.length > numVisibleFilterDropdowns + 1;
+    const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, numVisibleFilterDropdowns) : filters;
+    const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(numVisibleFilterDropdowns) : [];
     const filterRendererRegistry = useFilterRendererRegistry();
+    const isShowingLoadingSection = loading && !visibleFilters?.length;
+    const isShowingFormPromptFilter = isInFormContext && formView !== FormView.BULK_VERIFY && !isShowingLoadingSection;
 
     return (
         <span id={SEARCH_RESULTS_FILTERS_ID}>
             <FlexSpacer>
                 <FlexWrapper>
-                    {loading && !visibleFilters?.length && <BasicFiltersLoadingSection />}
+                    {isShowingFormPromptFilter && <FormPromptFilter />}
+                    {isShowingLoadingSection && <BasicFiltersLoadingSection />}
                     {visibleFilters?.map((filter) => {
                         return filterRendererRegistry.hasRenderer(filter.field) ? (
                             filterRendererRegistry.render(filter.field, {
@@ -131,11 +154,12 @@ export default function BasicFilters({
                     </TextButton>
                 </FilterButtonsWrapper>
             </FlexSpacer>
-            {activeFilters.length > 0 && (
+            {(activeFilters.length > 0 || (!!formResponsesFilters?.length && isShowingFormPromptFilter)) && (
                 <>
                     <StyledDivider />
                     <FlexSpacer>
                         <FlexWrapper>
+                            {isShowingFormPromptFilter && <FormResponsesActiveFilters />}
                             {activeFilters.map((activeFilter) => (
                                 <ActiveFilter
                                     key={activeFilter.field}

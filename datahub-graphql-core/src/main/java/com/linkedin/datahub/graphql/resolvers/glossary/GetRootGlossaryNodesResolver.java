@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryEntitiesInput;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryNodesResult;
@@ -14,7 +16,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
@@ -42,7 +43,7 @@ public class GetRootGlossaryNodesResolver
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetRootGlossaryEntitiesInput input =
               bindArgument(environment.getArgument("input"), GetRootGlossaryEntitiesInput.class);
@@ -53,12 +54,12 @@ public class GetRootGlossaryNodesResolver
             final Filter filter = buildGlossaryEntitiesFilter();
             final SearchResult gmsNodesResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.GLOSSARY_NODE_ENTITY_NAME,
                     filter,
                     null,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> glossaryNodeUrns =
                 gmsNodesResult.getEntities().stream()
@@ -75,17 +76,15 @@ public class GetRootGlossaryNodesResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve root glossary nodes from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildGlossaryEntitiesFilter() {
     CriterionArray array =
         new CriterionArray(
-            ImmutableList.of(
-                new Criterion()
-                    .setField("hasParentNode")
-                    .setValue("false")
-                    .setCondition(Condition.EQUAL)));
+            ImmutableList.of(buildCriterion("hasParentNode", Condition.EQUAL, "false")));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));

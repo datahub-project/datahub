@@ -1,7 +1,7 @@
 import { MockedProvider } from '@apollo/client/testing';
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
-import EntityContext from '../../EntityContext';
+import { EntityContext } from '../../EntityContext';
 import { mockEntityDataWithFieldPrompts, mockEntityData } from '../mocks';
 import { EntityType } from '../../../../../types.generated';
 import Form from '../Form';
@@ -29,6 +29,12 @@ describe('Form', () => {
                             urn: '',
                             entityType: EntityType.Dataset,
                             entityData: mockEntityDataWithFieldPrompts,
+                            baseEntity: {},
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: false,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <Form formUrn="urn:li:form:1" />
@@ -50,6 +56,12 @@ describe('Form', () => {
                             urn: '',
                             entityType: EntityType.Dataset,
                             entityData: mockEntityData,
+                            baseEntity: {},
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: false,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <Form formUrn="urn:li:form:3" />

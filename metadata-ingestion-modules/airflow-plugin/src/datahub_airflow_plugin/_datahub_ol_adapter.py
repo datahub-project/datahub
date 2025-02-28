@@ -1,14 +1,14 @@
 import logging
 
-import datahub.emitter.mce_builder as builder
 from openlineage.client.run import Dataset as OpenLineageDataset
+
+import datahub.emitter.mce_builder as builder
 
 logger = logging.getLogger(__name__)
 
 
 OL_SCHEME_TWEAKS = {
     "sqlserver": "mssql",
-    "trino": "presto",
     "awsathena": "athena",
 }
 

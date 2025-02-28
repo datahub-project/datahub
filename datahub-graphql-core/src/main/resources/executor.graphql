@@ -1,0 +1,111 @@
+extend type Query {
+  """
+  List signal requests available for a list of urns
+  """
+  listSignalRequests(input: ListSignalRequestsInput!): ListSignalRequestsResult
+
+  """
+  List configurations related to the remote executor
+  """
+  listExecutorConfigs: ListExecutorConfigsResult
+}
+
+"""
+Input arguments for listing Signal Requests
+"""
+input ListSignalRequestsInput {
+  """
+  Optional Facet filters to apply to the result set
+  """
+  urns: [String!]
+}
+
+"""
+Results returned when listing Signal Requests
+"""
+type ListSignalRequestsResult {
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Signal Requests themselves
+  """
+  signalRequests: [SignalRequest!]
+}
+
+"""
+A Signal Request
+"""
+type SignalRequest {
+  """
+  The execId of the execution request this signal is associated with
+  """
+  execId: String!
+
+  """
+  The executor pool id associated with this execution request
+  """
+  executorId: String!
+
+  """
+  The signal sent
+  """
+  signal: String!
+}
+
+"""
+Results returned when listing SQS Credentials
+"""
+type ListExecutorConfigsResult {
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The configs for each executor
+  """
+  executorConfigs: [ExecutorConfigs!]!
+}
+
+"""
+Executor configurations
+"""
+type ExecutorConfigs {
+  """
+  The executor pool id that this queue is configured for
+  """
+  executorId: String!
+
+  """
+  The AWS Region
+  """
+  region: String!
+
+  """
+  The queue URL
+  """
+  queueUrl: String!
+
+  """
+  The AWS Access Key
+  """
+  accessKeyId: String!
+
+  """
+  The AWS Secret Key
+  """
+  secretKeyId: String!
+
+  """
+  The AWS Secret Key
+  """
+  sessionToken: String!
+
+  """
+  The expiration for this set of credentials
+  """
+  expiration: String!
+}

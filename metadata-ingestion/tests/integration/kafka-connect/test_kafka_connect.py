@@ -2,11 +2,14 @@ import subprocess
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
+import jpype
+import jpype.imports
 import pytest
 import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -88,9 +91,7 @@ def test_resources_dir(pytestconfig):
 def loaded_kafka_connect(kafka_connect_runner):
     # # Setup mongo cluster
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating MySQL source with no transformations , only topic prefix
@@ -167,7 +168,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
                             "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
+                            "connection.url": "jdbc:mysql://foo:datahub@test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
                         }
                     }
                     """,
@@ -298,9 +299,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
 
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating S3 Sink source
@@ -336,6 +335,30 @@ def loaded_kafka_connect(kafka_connect_runner):
     )
     r.raise_for_status()
     assert r.status_code == 201
+
+    # Creating BigQuery sink connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "bigquery-sink-connector",
+            "config": {
+                "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                "autoCreateTables": "true",
+                "transforms.TableNameTransformation.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.TableNameTransformation.replacement": "my_dest_table_name",
+                "topics": "kafka-topic-name",
+                "transforms.TableNameTransformation.regex": ".*",
+                "transforms": "TableNameTransformation",
+                "name": "bigquery-sink-connector",
+                "project": "my-gcp-project",
+                "defaultDataset": "mybqdataset",
+                "datasets": "kafka-topic-name=mybqdataset"
+            }
+        }
+        """,
+    )
+    assert r.status_code == 201  # Created
 
     # Give time for connectors to process the table data
     kafka_connect_runner.wait_until_responsive(
@@ -419,7 +442,17 @@ def test_kafka_connect_ingest_stateful(
                         "provider": "env",
                         "path_key": "MYSQL_CONNECTION_URL",
                         "value": "jdbc:mysql://test_mysql:3306/librarydb",
-                    }
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_PORT",
+                        "value": "3306",
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_DB",
+                        "value": "librarydb",
+                    },
                 ],
                 "stateful_ingestion": {
                     "enabled": True,
@@ -452,9 +485,9 @@ def test_kafka_connect_ingest_stateful(
             "mysql_source1",
             "mysql_source2",
         ]
-        pipeline_run1_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_name}"
+        )
         pipeline_run1 = Pipeline.create(pipeline_run1_config)
         pipeline_run1.run()
         pipeline_run1.raise_from_status()
@@ -476,14 +509,16 @@ def test_kafka_connect_ingest_stateful(
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
+            base_pipeline_config  # type: ignore
+        )
         # Set the special properties for this run
         pipeline_run1_config["source"]["config"]["connector_patterns"]["allow"] = [
             "mysql_source1",
         ]
-        pipeline_run2_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_deleted_name}"
+        pipeline_run2_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_deleted_name}"
+        )
         pipeline_run2 = Pipeline.create(pipeline_run2_config)
         pipeline_run2.run()
         pipeline_run2.raise_from_status()
@@ -592,7 +627,9 @@ def test_kafka_connect_snowflake_sink_ingest(
         "http://localhost:28083/connectors/snowflake_sink1/topics": {
             "method": "GET",
             "status_code": 200,
-            "json": {"snowflake_sink1": {"topics": ["topic1", "_topic+2"]}},
+            "json": {
+                "snowflake_sink1": {"topics": ["topic1", "_topic+2", "extra_old_topic"]}
+            },
         },
     }
 
@@ -631,3 +668,82 @@ def test_kafka_connect_snowflake_sink_ingest(
         output_path=tmp_path / "kafka_connect_snowflake_sink_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_bigquery_sink_ingest(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_bigquery_sink_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir / "kafka_connect_bigquery_sink_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+def test_filter_stale_topics_topics_list():
+    """
+    Test case for filter_stale_topics method when sink_config has 'topics' key.
+    """
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "topic3", "topic4"]
+    sink_config = {"topics": "topic1,topic3,topic5"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the expected result
+    expected_result = ["topic1", "topic3"]
+    assert result == expected_result, f"Expected {expected_result}, but got {result}"
+
+
+def test_filter_stale_topics_regex_filtering():
+    """
+    Test filter_stale_topics when using topics.regex for filtering.
+    """
+    if not jpype.isJVMStarted():
+        jpype.startJVM()
+
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "other_topic", "test_topic"]
+    sink_config = {"topics.regex": "topic.*"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the result matches the expected filtered topics
+    assert result == ["topic1", "topic2"]
+
+
+def test_filter_stale_topics_no_topics_config():
+    """
+    Test filter_stale_topics when using neither topics.regex not topics
+    Ideally, this will never happen for kafka-connect sink connector
+    """
+
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "other_topic", "test_topic"]
+    sink_config = {"X": "Y"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the result matches the expected filtered topics
+    assert result == processed_topics

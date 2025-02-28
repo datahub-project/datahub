@@ -1,21 +1,26 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
 import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
+import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
+import com.linkedin.datahub.graphql.generated.ActionRequestOrigin;
 import com.linkedin.datahub.graphql.generated.ActionRequestParams;
 import com.linkedin.datahub.graphql.generated.ActionRequestResourceProperties;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
@@ -30,19 +35,28 @@ import com.linkedin.datahub.graphql.generated.CreateGlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.DataContractProposalOperationType;
 import com.linkedin.datahub.graphql.generated.DataContractProposalParams;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.InferenceMetadata;
+import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnerProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyProposalParams;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnerMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -58,15 +72,22 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
@@ -78,7 +99,8 @@ public class ActionRequestUtils {
   private static final String SUBRESOURCE_FIELD_NAME = "subResource";
   private static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
-  public static ActionRequest mapActionRequest(final ActionRequestSnapshot snapshot) {
+  public static ActionRequest mapActionRequest(
+      @Nullable QueryContext context, final ActionRequestSnapshot snapshot) {
     final ActionRequest actionRequest = new ActionRequest();
     actionRequest.setUrn(snapshot.getUrn().toString());
     for (ActionRequestAspect aspect : snapshot.getAspects()) {
@@ -109,7 +131,7 @@ public class ActionRequestUtils {
           // documented explicitly somewhere.
           try {
             Urn resourceUrn = Urn.createFromString(actionRequestInfo.getResource());
-            actionRequest.setEntity(UrnToEntityMapper.map(resourceUrn));
+            actionRequest.setEntity(UrnToEntityMapper.map(context, resourceUrn));
           } catch (URISyntaxException e) {
             throw new RuntimeException(
                 String.format(
@@ -129,7 +151,23 @@ public class ActionRequestUtils {
         actionRequest.setCreated(createdStamp);
 
         if (actionRequestInfo.hasParams()) {
-          actionRequest.setParams(mapParams(actionRequestInfo.getParams()));
+          actionRequest.setParams(
+              mapParams(
+                  context,
+                  actionRequestInfo.getParams(),
+                  actionRequestInfo.hasResource()
+                      ? UrnUtils.getUrn(actionRequestInfo.getResource())
+                      : null));
+        }
+
+        if (actionRequestInfo.hasOrigin()) {
+          actionRequest.setOrigin(
+              ActionRequestOrigin.valueOf(actionRequestInfo.getOrigin().toString()));
+        }
+
+        if (actionRequestInfo.hasInferenceMetadata()) {
+          actionRequest.setInferenceMetadata(
+              mapInferenceMetadata(actionRequestInfo.getInferenceMetadata()));
         }
 
       } else if (aspect.isActionRequestStatus()) {
@@ -153,10 +191,11 @@ public class ActionRequestUtils {
   }
 
   public static ActionRequest mapRejectedActionRequest(
+      @Nullable QueryContext context,
       final ActionRequestSnapshot snapshot,
       final EntityService entityService,
       final @Nullable ActionRequestType type) {
-    final ActionRequest rejectedActionRequest = mapActionRequest(snapshot);
+    final ActionRequest rejectedActionRequest = mapActionRequest(context, snapshot);
 
     if (rejectedActionRequest.getEntity() != null) {
       ActionRequestResourceProperties resourceProperties = new ActionRequestResourceProperties();
@@ -169,6 +208,7 @@ public class ActionRequestUtils {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
               (EditableSchemaMetadata)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                       entityService,
@@ -180,6 +220,7 @@ public class ActionRequestUtils {
                 new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
                 editableSchemaMetadataMapper.apply(
+                    context,
                     editableSchemaMetadataAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -201,6 +242,7 @@ public class ActionRequestUtils {
           com.linkedin.common.GlossaryTerms glossaryTermsAspect =
               (GlossaryTerms)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       GLOSSARY_TERMS_ASPECT_NAME,
                       entityService,
@@ -210,6 +252,7 @@ public class ActionRequestUtils {
             GlossaryTermsMapper glossaryTermsMapper = new GlossaryTermsMapper();
             com.linkedin.datahub.graphql.generated.GlossaryTerms glossaryTerms =
                 glossaryTermsMapper.apply(
+                    context,
                     glossaryTermsAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -224,6 +267,7 @@ public class ActionRequestUtils {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
               (EditableSchemaMetadata)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                       entityService,
@@ -235,6 +279,7 @@ public class ActionRequestUtils {
                 new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
                 editableSchemaMetadataMapper.apply(
+                    context,
                     editableSchemaMetadataAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -255,6 +300,7 @@ public class ActionRequestUtils {
           com.linkedin.common.GlobalTags globalTagsAspect =
               (GlobalTags)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       GLOBAL_TAGS_ASPECT_NAME,
                       entityService,
@@ -264,7 +310,9 @@ public class ActionRequestUtils {
             GlobalTagsMapper globalTagsMapper = new GlobalTagsMapper();
             com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
                 globalTagsMapper.apply(
-                    globalTagsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
+                    context,
+                    globalTagsAspect,
+                    UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setTags(globalTags);
           }
@@ -277,7 +325,9 @@ public class ActionRequestUtils {
   }
 
   public static ActionRequestParams mapParams(
-      final com.linkedin.actionrequest.ActionRequestParams params) {
+      @Nullable final QueryContext context,
+      final com.linkedin.actionrequest.ActionRequestParams params,
+      @Nullable final Urn entityUrn) {
     final ActionRequestParams result = new ActionRequestParams();
     if (params.hasGlossaryTermProposal()) {
       result.setGlossaryTermProposal(mapGlossaryTermProposal(params.getGlossaryTermProposal()));
@@ -300,23 +350,66 @@ public class ActionRequestUtils {
     if (params.hasDataContractProposal()) {
       result.setDataContractProposal(mapDataContractProposal(params.getDataContractProposal()));
     }
+    if (params.hasStructuredPropertyProposal() && entityUrn != null) {
+      result.setStructuredPropertyProposal(
+          mapStructuredPropertyProposal(
+              context, params.getStructuredPropertyProposal(), entityUrn));
+    }
+    if (params.hasDomainProposal()) {
+      result.setDomainProposal(mapDomainProposal(params.getDomainProposal()));
+    }
+    if (params.hasOwnerProposal()) {
+      result.setOwnerProposal(mapOwnerProposal(context, params.getOwnerProposal(), entityUrn));
+    }
     return result;
   }
 
   public static GlossaryTermProposalParams mapGlossaryTermProposal(
       final GlossaryTermProposal proposal) {
     final GlossaryTermProposalParams params = new GlossaryTermProposalParams();
-    final GlossaryTerm emptyTerm = new GlossaryTerm();
-    emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
-    params.setGlossaryTerm(emptyTerm);
+
+    if (proposal.hasGlossaryTerm()) {
+      // Map legacy "term" field.
+      final GlossaryTerm emptyTerm = new GlossaryTerm();
+      emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
+      params.setGlossaryTerm(emptyTerm);
+    }
+
+    if (proposal.hasGlossaryTerms()) {
+      // Map new "terms" field.
+      final List<GlossaryTerm> emptyTerms = new ArrayList<>();
+      for (Urn term : proposal.getGlossaryTerms()) {
+        final GlossaryTerm emptyGlossaryTerm = new GlossaryTerm();
+        emptyGlossaryTerm.setUrn(term.toString());
+        emptyTerms.add(emptyGlossaryTerm);
+      }
+      params.setGlossaryTerms(emptyTerms);
+    }
+
     return params;
   }
 
   public static TagProposalParams mapTagProposal(final TagProposal proposal) {
     final TagProposalParams params = new TagProposalParams();
     final Tag emptyTag = new Tag();
-    emptyTag.setUrn(proposal.getTag().toString());
-    params.setTag(emptyTag);
+
+    // Map legacy "tag" field.
+    if (proposal.hasTag()) {
+      emptyTag.setUrn(proposal.getTag().toString());
+      params.setTag(emptyTag);
+    }
+
+    if (proposal.hasTags()) {
+      // Map new "tags" field.
+      final List<Tag> emptyTags = new ArrayList<>();
+      for (Urn tag : proposal.getTags()) {
+        final Tag emptyTagProposal = new Tag();
+        emptyTagProposal.setUrn(tag.toString());
+        emptyTags.add(emptyTagProposal);
+      }
+      params.setTags(emptyTags);
+    }
+
     return params;
   }
 
@@ -389,79 +482,179 @@ public class ActionRequestUtils {
     return params;
   }
 
+  public static StructuredPropertyProposalParams mapStructuredPropertyProposal(
+      final QueryContext context, final StructuredPropertyProposal proposal, final Urn entityUrn) {
+    final StructuredPropertyProposalParams propertyProposalParams =
+        new StructuredPropertyProposalParams();
+    final List<StructuredPropertiesEntry> actualPropertyProposals = new ArrayList<>();
+    for (final StructuredPropertyValueAssignment entry : proposal.getStructuredPropertyValues()) {
+      final StructuredPropertiesEntry propertyProposal =
+          StructuredPropertiesMapper.INSTANCE.mapStructuredProperty(context, entry, entityUrn);
+      actualPropertyProposals.add(propertyProposal);
+    }
+    propertyProposalParams.setStructuredProperties(actualPropertyProposals);
+    return propertyProposalParams;
+  }
+
+  public static DomainProposalParams mapDomainProposal(final DomainProposal proposal) {
+    final DomainProposalParams domainProposalParams = new DomainProposalParams();
+    if (proposal.hasDomains() && proposal.getDomains().size() > 0) {
+      // Extract the first domain for proposal
+      final Urn domainUrn = proposal.getDomains().get(0);
+      final Domain partialDomain = new Domain();
+      partialDomain.setUrn(domainUrn.toString());
+      domainProposalParams.setDomain(partialDomain);
+    }
+    return domainProposalParams;
+  }
+
+  public static OwnerProposalParams mapOwnerProposal(
+      final QueryContext context, final OwnerProposal proposal, final Urn entityUrn) {
+    final OwnerProposalParams ownerProposalParams = new OwnerProposalParams();
+    if (proposal.hasOwners()) {
+      List<Owner> owners = new ArrayList<>();
+      for (com.linkedin.common.Owner owner : proposal.getOwners()) {
+        Owner proposedOwner = OwnerMapper.map(context, owner, entityUrn);
+        owners.add(proposedOwner);
+      }
+      ownerProposalParams.setOwners(owners);
+    }
+    return ownerProposalParams;
+  }
+
   public static Criterion createStatusCriterion(ActionRequestStatus status) {
-    final Criterion statusCriterion = new Criterion();
-    statusCriterion.setField(STATUS_FIELD_NAME);
-    statusCriterion.setValue(status.toString());
-    statusCriterion.setCondition(Condition.EQUAL);
-    return statusCriterion;
+    return CriterionUtils.buildCriterion(STATUS_FIELD_NAME, Condition.EQUAL, status.toString());
   }
 
   public static Criterion createTypeCriterion(ActionRequestType type) {
-    final Criterion typeCriterion = new Criterion();
-    typeCriterion.setField(TYPE_FIELD_NAME);
-    typeCriterion.setValue(type.toString());
-    typeCriterion.setCondition(Condition.EQUAL);
-    return typeCriterion;
+    return CriterionUtils.buildCriterion(TYPE_FIELD_NAME, Condition.EQUAL, type.toString());
   }
 
   public static Criterion createResultCriterion(ActionRequestResult result) {
-    final Criterion resultCriterion = new Criterion();
-    resultCriterion.setField(RESULT_FIELD_NAME);
-    resultCriterion.setValue(result.toString());
-    resultCriterion.setCondition(Condition.EQUAL);
-    return resultCriterion;
+    return CriterionUtils.buildCriterion(RESULT_FIELD_NAME, Condition.EQUAL, result.toString());
   }
 
   public static Criterion createResourceCriterion(String targetUrn) {
-    final Criterion resourceCriterion = new Criterion();
-    resourceCriterion.setField(RESOURCE_FIELD_NAME);
-    resourceCriterion.setValue(targetUrn);
-    resourceCriterion.setCondition(Condition.EQUAL);
-    return resourceCriterion;
+    return CriterionUtils.buildCriterion(RESOURCE_FIELD_NAME, Condition.EQUAL, targetUrn);
   }
 
   public static Criterion createSubResourceCriterion(String subResource) {
-    final Criterion subResourceCriterion = new Criterion();
-    subResourceCriterion.setField(SUBRESOURCE_FIELD_NAME);
-    subResourceCriterion.setValue(subResource);
-    subResourceCriterion.setCondition(Condition.EQUAL);
-    return subResourceCriterion;
+    return CriterionUtils.buildCriterion(SUBRESOURCE_FIELD_NAME, Condition.EQUAL, subResource);
   }
 
   public static Criterion createStartTimestampCriterion(Long startTimestampMillis) {
-    final Criterion startTimestampCriterion = new Criterion();
-    startTimestampCriterion.setField(LAST_MODIFIED_FIELD_NAME);
-    startTimestampCriterion.setValue(startTimestampMillis.toString());
-    startTimestampCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
-    return startTimestampCriterion;
+    return CriterionUtils.buildCriterion(
+        LAST_MODIFIED_FIELD_NAME,
+        Condition.GREATER_THAN_OR_EQUAL_TO,
+        startTimestampMillis.toString());
   }
 
-  public static Criterion createEndTimestampCriterion(Long startTimestampMillis) {
-    final Criterion endTimestampCriterion = new Criterion();
-    endTimestampCriterion.setField(LAST_MODIFIED_FIELD_NAME);
-    endTimestampCriterion.setValue(startTimestampMillis.toString());
-    endTimestampCriterion.setCondition(Condition.LESS_THAN_OR_EQUAL_TO);
-    return endTimestampCriterion;
+  public static Criterion createEndTimestampCriterion(Long endTimestampMillis) {
+    return CriterionUtils.buildCriterion(
+        LAST_MODIFIED_FIELD_NAME, Condition.LESS_THAN_OR_EQUAL_TO, endTimestampMillis.toString());
   }
 
-  public static List<ActionRequest> mapActionRequests(final Collection<Entity> entities) {
+  public static List<ActionRequest> mapActionRequests(
+      @Nullable final QueryContext context, final Collection<Entity> entities) {
     final List<ActionRequest> results = new ArrayList<>();
     for (final Entity entity : entities) {
-      final ActionRequestSnapshot snapshot = entity.getValue().getActionRequestSnapshot();
-      results.add(ActionRequestUtils.mapActionRequest(snapshot));
+      actionsRequestSnapshotCanView(context, entity.getValue().getActionRequestSnapshot())
+          .ifPresent(
+              snapshot -> results.add(ActionRequestUtils.mapActionRequest(context, snapshot)));
     }
     return results;
   }
 
+  private static Optional<ActionRequestSnapshot> actionsRequestSnapshotCanView(
+      @Nullable final QueryContext context, ActionRequestSnapshot snapshot) {
+    if (context != null) {
+      if (snapshot.getAspects().stream()
+          .filter(ActionRequestAspect::isActionRequestInfo)
+          .map(ActionRequestAspect::getActionRequestInfo)
+          .filter(ActionRequestInfo::hasResource)
+          .flatMap(
+              info -> {
+                // extracting urns
+                final Urn resourceUrn = UrnUtils.getUrn(info.getResource());
+
+                final List<Urn> termUrns =
+                    info.hasParams() && info.getParams().hasGlossaryTermProposal()
+                        ? ActionRequestUtils.extractTermsFromTermProposal(
+                            info.getParams().getGlossaryTermProposal())
+                        : Collections.emptyList();
+
+                final List<Urn> tagUrns =
+                    info.hasParams() && info.getParams().hasTagProposal()
+                        ? ActionRequestUtils.extractTagsFromTagProposal(
+                            info.getParams().getTagProposal())
+                        : Collections.emptyList();
+
+                final List<Urn> propertyUrns =
+                    info.hasParams() && info.getParams().hasStructuredPropertyProposal()
+                        ? ActionRequestUtils.extractPropertiesFromStructuredPropertyProposal(
+                            info.getParams().getStructuredPropertyProposal())
+                        : Collections.emptyList();
+
+                return Stream.concat(
+                    Stream.concat(Stream.of(resourceUrn), propertyUrns.stream()),
+                    Stream.concat(termUrns.stream(), tagUrns.stream()));
+              })
+          .filter(Objects::nonNull)
+          .anyMatch(optUrn -> !canView(context.getOperationContext(), optUrn))) {
+
+        // return empty if contains reference to restricted urn
+        return Optional.empty();
+      }
+    }
+
+    return Optional.of(snapshot);
+  }
+
+  private static List<Urn> extractTagsFromTagProposal(TagProposal tagProposal) {
+    if (tagProposal.hasTags() && tagProposal.getTags().size() > 0) {
+      return tagProposal.getTags();
+    } else if (tagProposal.hasTag()) {
+      return ImmutableList.of(tagProposal.getTag());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
+  }
+
+  private static List<Urn> extractTermsFromTermProposal(GlossaryTermProposal termProposal) {
+    if (termProposal.hasGlossaryTerms() && termProposal.getGlossaryTerms().size() > 0) {
+      return termProposal.getGlossaryTerms();
+    } else if (termProposal.hasGlossaryTerm()) {
+      return ImmutableList.of(termProposal.getGlossaryTerm());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
+  }
+
+  private static List<Urn> extractPropertiesFromStructuredPropertyProposal(
+      StructuredPropertyProposal structuredPropertyProposal) {
+    if (structuredPropertyProposal.hasStructuredPropertyValues()
+        && structuredPropertyProposal.getStructuredPropertyValues().size() > 0) {
+      return structuredPropertyProposal.getStructuredPropertyValues().stream()
+          .map(StructuredPropertyValueAssignment::getPropertyUrn)
+          .collect(Collectors.toList());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
+  }
+
   public static List<ActionRequest> mapRejectedActionRequests(
+      @Nullable final QueryContext context,
       final Collection<Entity> entities,
       final EntityService entityService,
       final @Nullable ActionRequestType type) {
     final List<ActionRequest> results = new ArrayList<>();
     for (final Entity entity : entities) {
       final ActionRequestSnapshot snapshot = entity.getValue().getActionRequestSnapshot();
-      results.add(ActionRequestUtils.mapRejectedActionRequest(snapshot, entityService, type));
+      results.add(
+          ActionRequestUtils.mapRejectedActionRequest(context, snapshot, entityService, type));
     }
     return results.stream()
         .sorted(Comparator.comparing(actionRequest -> actionRequest.getLastModified().getTime()))
@@ -469,13 +662,14 @@ public class ActionRequestUtils {
   }
 
   public static AssignedUrns getGroupAndRoleUrns(
-      final Urn actor, final Authentication authentication, EntityClient entityClient)
+      @Nonnull OperationContext opContext, final Urn actor, EntityClient entityClient)
       throws Exception {
     List<Urn> groupUrns = new ArrayList<>();
     List<Urn> roleUrns = new ArrayList<>();
     try {
       final EntityResponse response =
-          entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
+          entityClient.getV2(opContext, CORP_USER_ENTITY_NAME, actor, null);
+
       final EnvelopedAspectMap aspects = response.getAspects();
 
       if (aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME) != null) {
@@ -530,6 +724,17 @@ public class ActionRequestUtils {
     final Assertion partialAssertion = new Assertion();
     partialAssertion.setUrn(qualityContract.getAssertion().toString());
     result.setAssertion(partialAssertion);
+    return result;
+  }
+
+  private static InferenceMetadata mapInferenceMetadata(
+      final com.linkedin.ai.InferenceMetadata inferenceMetadata) {
+    final InferenceMetadata result = new InferenceMetadata();
+    result.setVersion(inferenceMetadata.getVersion());
+    result.setLastInferredAt(inferenceMetadata.getLastInferredAt());
+    if (inferenceMetadata.hasConfidenceLevel()) {
+      result.setConfidenceLevel(inferenceMetadata.getConfidenceLevel());
+    }
     return result;
   }
 

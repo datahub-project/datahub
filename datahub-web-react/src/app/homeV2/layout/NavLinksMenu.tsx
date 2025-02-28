@@ -1,42 +1,30 @@
-import * as React from 'react';
-import styled from 'styled-components/macro';
-import {
-    ApiOutlined,
-    BarChartOutlined,
-    InboxOutlined,
-    BookOutlined,
-    SettingOutlined,
-    FileDoneOutlined,
-    SolutionOutlined,
-    EyeOutlined,
-    DatabaseOutlined,
-} from '@ant-design/icons';
-import { Link } from 'react-router-dom';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig } from '../../useAppConfig';
-import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useUserContext } from '../../context/useUserContext';
-import { PageRoutes } from '../../../conf/Global';
-import DomainIcon from '../../domain/DomainIcon';
-import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
-import HelpDropdown from '../../shared/admin/HelpDropdown';
+import React, { useState } from 'react';
+import styled, { useTheme } from 'styled-components/macro';
 
-const LinkWrapper = styled.span`
-    margin-right: 0px;
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    flex-direction: column;
-    margin-bottom: 20px;
-`;
+import { Tooltip } from '@components';
+import { Link } from 'react-router-dom';
+
+import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';
+import { useUserContext } from '../../context/useUserContext';
+import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
+import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
+import { useAppConfig } from '../../useAppConfig';
+
+import AnalyticsMenuIcon from '../../../images/analyticsMenuIcon.svg?react';
+import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
+import HelpMenuIcon from '../../../images/help-icon.svg?react';
+import InboxMenuIcon from '../../../images/inboxMenuIcon.svg?react';
+import IngestionMenuIcon from '../../../images/ingestionMenuIcon.svg?react';
+import ObserveMenuIcon from '../../../images/observeMenuIcon.svg?react';
+import SettingsMenuIcon from '../../../images/settingsMenuIcon.svg?react';
+import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
+import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
+import CustomNavLink from './CustomNavLink';
+import { NavMenuItem, NavSubMenuItem } from './types';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
-    white-space: nowrap;
     transition: opacity 0.5s;
-    span > * {
-        color: #fff;
-    }
 
     ${(props) =>
         props.areLinksHidden &&
@@ -46,32 +34,63 @@ const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     `}
 `;
 
-const MenuItem = styled(Menu.Item)`
-    font-size: 12px;
-    font-weight: bold;
-    max-width: 400px;
-`;
-
-const NavTitleContainer = styled.span`
+const LinkWrapper = styled.span`
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: left;
-    padding: 2px;
+    justify-content: center;
+    border-radius: 47px;
+    height: 52px;
+    width: 52px;
+    line-height: 0;
+    box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0);
+    transition: all 200ms ease;
+    color: #f9fafc;
+
+    &:hover {
+        cursor: pointer;
+        background-color: #4b39bc;
+        box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    & svg {
+        width: 24px;
+        height: 24px;
+        fill: #f9fafc;
+    }
 `;
 
-const NavTitleText = styled.span`
-    margin-left: 6px;
+// Use to position the submenu
+const SubMenu = styled.div`
+    position: absolute;
+    top: 3px;
+    left: 50px;
+    width: 220px;
+    padding-left: 10px;
 `;
 
-const NavTitleDescription = styled.div`
-    font-size: 12px;
-    font-weight: normal;
+// Used to style the submenu
+const SubMenuContent = styled.div`
+    border-radius: 12px;
+    background: rgba(92, 63, 209, 0.95);
+    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
+    padding: 8px;
 `;
 
-const StyledDatabaseOutlined = styled(DatabaseOutlined)`
-    && {
-        font-size: 14px;
-        font-weight: bold;
+const SubMenuTitle = styled.div`
+    border-radius: 12px;
+    background: #2f2477;
+    padding: 8px 12px;
+    font: 700 12px/20px Mulish;
+    margin-bottom: 4px;
+`;
+
+const SubMenuLink = styled.div`
+    border-radius: 12px;
+    padding: 4px 12px 12px 12px;
+
+    &:hover {
+        background-color: #4b39bc;
     }
 `;
 
@@ -79,168 +98,280 @@ interface Props {
     areLinksHidden?: boolean;
 }
 
-// TODO: Refactor this!
 export function NavLinksMenu(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const themeConfig = useTheme();
+    const { helpLinkState } = useGlobalSettingsContext();
+    const { isEnabled: isHelpLinkEnabled, label, link } = helpLinkState;
+    const helpMenuLabel = label;
+    const helpMenuLink = link;
+    const version = config?.appVersion;
+    const showAddHelpLink = !isHelpLinkEnabled && me.platformPrivileges?.manageGlobalSettings;
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
-    // SaaS Only
-    // Currently we only have a flag for metadata proposals.
-    // In the future, we may add configs for alerts, announcements, etc.
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
-    const isTestsEnabled = config?.testsConfig.enabled;
+    // Submenu states
+    const [showGovernMenu, setShowGovernMenu] = useState(false);
+    const [showObserveMenu, setShowObserveMenu] = useState(false);
+    const [showHelpMenu, setShowHelpMenu] = useState(false);
 
-    const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+    // Flags to show/hide menu items
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
+
     const showSettings = true;
+    const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-
-    // SaaS only
-    const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests = isActionRequestsEnabled || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
 
+    const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+
+    // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
+    const { showOnboardingTour } = useHandleOnboardingTour();
+
+    // Help menu options
+    const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
+        title: value.label,
+        description: value.description || '',
+        link: value.path || null,
+        isHidden: false,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+    })) as NavSubMenuItem[];
+
+    // Menu Items
+    const menuItems: Array<NavMenuItem> = [
+        {
+            icon: InboxMenuIcon,
+            title: 'Tasks',
+            description: 'Review and approve metadata proposals',
+            link: PageRoutes.ACTION_REQUESTS,
+            isHidden: !showActionRequests,
+        },
+        {
+            icon: AnalyticsMenuIcon,
+            title: 'Analytics',
+            description: 'Explore data usage and trends',
+            link: PageRoutes.ANALYTICS,
+            isHidden: !showAnalytics,
+        },
+        {
+            icon: GovernMenuIcon,
+            title: 'Govern',
+            description: 'Manage data access and quality',
+            link: null,
+            subMenu: {
+                isOpen: showGovernMenu,
+                open: () => setShowGovernMenu(true),
+                close: () => setShowGovernMenu(false),
+                items: [
+                    {
+                        title: 'Glossary',
+                        description: 'View and modify your business glossary',
+                        link: PageRoutes.GLOSSARY,
+                        isHidden: false,
+                    },
+                    {
+                        title: 'Domains',
+                        description: 'Manage related groups of data assets',
+                        link: PageRoutes.DOMAINS,
+                        isHidden: false,
+                    },
+                    {
+                        title: 'Tests',
+                        description: 'Monitor policies & automate actions across data assets',
+                        link: PageRoutes.TESTS,
+                        isHidden: !showTests,
+                    },
+                    {
+                        title: 'Automations',
+                        description: 'Manage automated actions across your data assets',
+                        link: PageRoutes.AUTOMATIONS,
+                        isHidden: !showAutomations,
+                    },
+                    {
+                        title: 'Compliance Forms',
+                        showNewTag: true,
+                        description: 'Manage compliance initiatives for your data assets',
+                        link: PageRoutes.GOVERN_DASHBOARD,
+                        isHidden: !showDocumentationCenter,
+                    },
+                    {
+                        title: 'Structured Properties',
+                        showNewTag: true,
+                        description: `Manage custom properties for your data assets`,
+                        link: PageRoutes.STRUCTURED_PROPERTIES,
+                        isHidden: !showStructuredProperties,
+                    },
+                ],
+            },
+        },
+        {
+            icon: ObserveMenuIcon,
+            title: 'Observe',
+            description: 'Monitor data health and usage',
+            link: null,
+            isHidden: !showObserve,
+            subMenu: {
+                isOpen: showObserveMenu,
+                open: () => setShowObserveMenu(true),
+                close: () => setShowObserveMenu(false),
+                items: [
+                    {
+                        title: 'Dataset Health',
+                        description:
+                            "Monitor active incidents & failing assertions across your organization's datasets",
+                        link: PageRoutes.DATASET_HEALTH_DASHBOARD,
+                        isHidden: !showDatasetHealth,
+                    },
+                ],
+            },
+        },
+        {
+            icon: IngestionMenuIcon,
+            title: 'Ingestion',
+            description: 'Manage data integrations and pipelines',
+            link: PageRoutes.INGESTION,
+            isHidden: !showIngestion,
+        },
+        {
+            icon: SettingsMenuIcon,
+            title: 'Settings',
+            description: 'Manage your account and preferences',
+            link: PageRoutes.SETTINGS,
+            isHidden: !showSettings,
+        },
+        {
+            icon: HelpMenuIcon,
+            title: 'Help',
+            description: 'Explore help resources and documentation',
+            link: null,
+            isHidden: false,
+            subMenu: {
+                isOpen: showHelpMenu,
+                open: () => setShowHelpMenu(true),
+                close: () => setShowHelpMenu(false),
+                items: [
+                    {
+                        title: helpMenuLabel,
+                        description: '',
+                        link: helpMenuLink,
+                        isHidden: !isHelpLinkEnabled,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    {
+                        title: 'Product Tour',
+                        description: 'Take a quick tour of this page',
+                        isHidden: false,
+                        rel: 'noopener noreferrer',
+                        onClick: showOnboardingTour,
+                    },
+                    {
+                        title: 'GraphiQL',
+                        description: 'Explore the GraphQL API',
+                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        isHidden: false,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    {
+                        title: 'OpenAPI',
+                        description: 'Explore the OpenAPI endpoints',
+                        link: HelpLinkRoutes.OPENAPI,
+                        isHidden: false,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    ...HelpContentMenuItems,
+                    {
+                        title: version || '',
+                        description: '',
+                        link: null,
+                        isHidden: !version,
+                    },
+                    {
+                        title: 'Add Custom Help Link',
+                        description: '',
+                        link: PageRoutes.SETTINGS_HELP_LINK,
+                        isHidden: !showAddHelpLink,
+                    },
+                ],
+            },
+        },
+    ];
+
     return (
-        <LinksWrapper areLinksHidden={areLinksHidden}>
-            {showActionRequests && (
-                <LinkWrapper>
-                    <Link to="/requests">
-                        <Tooltip showArrow={false} placement="right" title="Inbox">
-                            <Button type="text">
-                                <InboxOutlined style={{ color: '#ffffff' }} />
-                            </Button>
-                        </Tooltip>
-                    </Link>
-                </LinkWrapper>
-            )}
-            {showAnalytics && (
-                <LinkWrapper>
-                    <Link to="/analytics">
-                        <Tooltip showArrow={false} placement="right" title="Analytics">
-                            <Button type="text">
-                                <NavTitleContainer>
-                                    <BarChartOutlined style={{ color: '#ffffff' }} />
-                                </NavTitleContainer>
-                            </Button>
-                        </Tooltip>
-                    </Link>
-                </LinkWrapper>
-            )}
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <MenuItem key="0">
-                            <Link to="/glossary">
-                                <NavTitleContainer>
-                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        <MenuItem key="1">
-                            <Link to="/domains">
-                                <NavTitleContainer>
-                                    <DomainIcon
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Domains</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        {showTests && (
-                            <MenuItem key="2">
-                                <Link to="/tests">
-                                    <NavTitleContainer>
-                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Tests</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>
-                                        Monitor policies & automate actions across data assets
-                                    </NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                    </Menu>
+        <LinksWrapper areLinksHidden={areLinksHidden} data-testid="nav-menu-links">
+            {menuItems.map((menuItem) => {
+                // If menu is hidden, don't show it
+                if (menuItem.isHidden) return null;
+
+                // Menu item has sub menu items
+                const hasSubMenu = menuItem.subMenu?.items && menuItem.subMenu?.items?.length > 0;
+
+                // Return a menu item with a submenu
+                if (hasSubMenu) {
+                    const subMenu = (
+                        <SubMenu>
+                            <SubMenuContent>
+                                <SubMenuTitle>{menuItem.title}</SubMenuTitle>
+                                {menuItem.subMenu?.items?.map((subMenuItem) => {
+                                    if (subMenuItem.isHidden) return null;
+                                    return (
+                                        <SubMenuLink>
+                                            <CustomNavLink
+                                                menuItem={subMenuItem}
+                                                key={subMenuItem.title.toLowerCase()}
+                                            />
+                                        </SubMenuLink>
+                                    );
+                                })}
+                            </SubMenuContent>
+                        </SubMenu>
+                    );
+
+                    return (
+                        <LinkWrapper
+                            aria-label={menuItem.title}
+                            aria-describedby={menuItem.description}
+                            onMouseEnter={menuItem.subMenu?.open}
+                            onMouseLeave={menuItem.subMenu?.close}
+                            key={menuItem.title.toLowerCase()}
+                        >
+                            {menuItem.icon && <menuItem.icon />}
+                            {menuItem.subMenu?.isOpen && subMenu}
+                        </LinkWrapper>
+                    );
                 }
-            >
-                <LinkWrapper>
-                    <Tooltip showArrow={false} placement="right" title="Govern">
-                        <Button type="text">
-                            <SolutionOutlined style={{ color: '#ffffff' }} />
-                        </Button>
-                    </Tooltip>
-                </LinkWrapper>
-            </Dropdown>
-            {showObserve && (
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            {showDatasetHealth && (
-                                <MenuItem key="1">
-                                    <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
-                                        <NavTitleContainer>
-                                            <StyledDatabaseOutlined />
-                                            <NavTitleText>Dataset Health</NavTitleText>
-                                        </NavTitleContainer>
-                                        <NavTitleDescription>
-                                            Monitor active incidents & failing assertions across your
-                                            organization&apos;s datasets
-                                        </NavTitleDescription>
-                                    </Link>
-                                </MenuItem>
-                            )}
-                        </Menu>
-                    }
-                >
-                    <LinkWrapper>
-                        <Tooltip showArrow={false} placement="right" title="Observe">
-                            <Button type="text">
-                                <EyeOutlined style={{ color: '#ffffff' }} />
-                            </Button>
-                        </Tooltip>
+
+                // Render a single menu item
+                return (
+                    <LinkWrapper key={menuItem.title.toLowerCase()}>
+                        <Link to={menuItem.link} aria-label={menuItem.title} aria-describedby={menuItem.description}>
+                            <Tooltip placement="right" title={menuItem.title} showArrow={false}>
+                                {menuItem.icon && <menuItem.icon />}
+                            </Tooltip>
+                        </Link>
                     </LinkWrapper>
-                </Dropdown>
-            )}
-            {showIngestion && (
-                <LinkWrapper>
-                    <Link to="/ingestion">
-                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
-                            <Tooltip title="Integrations" showArrow={false} placement="right">
-                                <NavTitleContainer>
-                                    <ApiOutlined style={{ color: '#ffffff' }} />
-                                </NavTitleContainer>
-                            </Tooltip>
-                        </Button>
-                    </Link>
-                </LinkWrapper>
-            )}
-            {showSettings && (
-                <LinkWrapper>
-                    <Link to="/settings">
-                        <Button type="text">
-                            <Tooltip title="Settings" placement="right" showArrow={false}>
-                                <SettingOutlined style={{ color: '#ffffff' }} />
-                            </Tooltip>
-                        </Button>
-                    </Link>
-                </LinkWrapper>
-            )}
-            <LinkWrapper style={{ marginBottom: 0 }}>
-                <HelpDropdown />
-            </LinkWrapper>
+                );
+            })}
         </LinksWrapper>
     );
 }

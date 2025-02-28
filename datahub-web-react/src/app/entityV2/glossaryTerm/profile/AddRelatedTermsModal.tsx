@@ -9,10 +9,18 @@ import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import TermLabel from '../../../shared/TermLabel';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../shared/EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
+import ParentEntities from '../../../searchV2/filters/ParentEntities';
+import { getParentEntities } from '../../../searchV2/filters/utils';
 
 const StyledSelect = styled(Select)`
     width: 480px;
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 interface Props {
@@ -63,15 +71,20 @@ function AddRelatedTermsModal(props: Props) {
     const [termSearch, { data: termSearchData }] = useGetSearchResultsLazyQuery();
     const termSearchResults = termSearchData?.search?.searchResults || [];
 
-    const tagSearchOptions = termSearchResults.map((result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const tagSearchOptions = termSearchResults
+        .filter((result) => result?.entity?.urn !== entityDataUrn)
+        .map((result: SearchResult) => {
+            const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
 
-        return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
-                <TermLabel name={displayName} />
-            </Select.Option>
-        );
-    });
+            return (
+                <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
+                    <SearchResultContainer>
+                        <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
+                        <TermLabel name={displayName} />
+                    </SearchResultContainer>
+                </Select.Option>
+            );
+        });
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
@@ -163,7 +176,7 @@ function AddRelatedTermsModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={addTerms} disabled={!selectedUrns.length}>
+                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
                         Add
                     </Button>
                 </>
@@ -195,7 +208,7 @@ function AddRelatedTermsModal(props: Props) {
                     {tagSearchOptions}
                 </StyledSelect>
                 <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
+                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} termUrnToHide={entityDataUrn} />
                 </BrowserWrapper>
             </ClickOutside>
         </Modal>

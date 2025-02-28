@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
@@ -13,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubConnectionDetailsType;
 import com.linkedin.datahub.graphql.generated.DataHubJsonConnectionInput;
@@ -24,8 +24,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.connection.ConnectionService;
-import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -36,15 +38,22 @@ public class UpsertConnectionResolverTest {
 
   private ConnectionService connectionService;
   private SecretService secretService;
+  private IntegrationsService integrationsService;
+  private FeatureFlags featureFlags;
   private UpsertConnectionResolver resolver;
 
   @BeforeMethod
   public void setUp() {
     connectionService = Mockito.mock(ConnectionService.class);
     secretService = Mockito.mock(SecretService.class);
+    integrationsService = Mockito.mock(IntegrationsService.class);
+    featureFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(featureFlags.isSlackBotTokensObfuscationEnabled()).thenReturn(false);
     Mockito.when(secretService.encrypt("{}")).thenReturn("encrypted");
     Mockito.when(secretService.decrypt("encrypted")).thenReturn("{}");
-    resolver = new UpsertConnectionResolver(connectionService, secretService);
+    resolver =
+        new UpsertConnectionResolver(
+            connectionService, secretService, integrationsService, featureFlags);
   }
 
   @Test
@@ -57,6 +66,7 @@ public class UpsertConnectionResolverTest {
     input.setId(connectionUrn.getId());
     input.setPlatformUrn(platformUrn.toString());
     input.setType(DataHubConnectionDetailsType.JSON);
+    input.setName("test-name");
     input.setJson(new DataHubJsonConnectionInput("{}"));
 
     QueryContext mockContext = getMockAllowContext();
@@ -73,14 +83,15 @@ public class UpsertConnectionResolverTest {
         new DataPlatformInstance().setPlatform(platformUrn);
 
     when(connectionService.upsertConnection(
+            any(OperationContext.class),
             Mockito.eq(input.getId()),
             Mockito.eq(platformUrn),
             Mockito.eq(details.getType()),
             Mockito.eq(details.getJson()),
-            Mockito.any(Authentication.class)))
+            Mockito.any(String.class)))
         .thenReturn(connectionUrn);
     when(connectionService.getConnectionEntityResponse(
-            Mockito.eq(connectionUrn), any(Authentication.class)))
+            any(OperationContext.class), Mockito.eq(connectionUrn)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(connectionUrn)

@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     Container,
@@ -15,17 +16,20 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats } from '../../shared/utils';
+import { summaryHasStats, DatasetLastUpdatedMs } from '../../shared/utils';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
+    data,
     name,
     origin,
     description,
@@ -55,10 +59,12 @@ export const Preview = ({
     paths,
     isOutputPort,
     tier,
-    upstreamTotal,
-    downstreamTotal,
+    headerDropdownItems,
+    previewType,
+    browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     origin: FabricType;
     description?: string | null;
@@ -82,14 +88,15 @@ export const Preview = ({
     rowCount?: number | null;
     columnCount?: number | null;
     statsSummary?: DatasetStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DatasetLastUpdatedMs;
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
     tier?: PopularityTier;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: Maybe<PreviewType>;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
@@ -99,6 +106,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Dataset}
             type={subtype}
@@ -118,7 +126,7 @@ export const Preview = ({
             snippet={snippet}
             glossaryTerms={glossaryTerms || undefined}
             insights={insights}
-            parentContainers={parentContainers}
+            parentEntities={parentContainers?.containers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
             subHeader={
@@ -141,8 +149,10 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             lastUpdatedMs={lastUpdatedMs}
             tier={tier}
-            upstreamTotal={upstreamTotal}
-            downstreamTotal={downstreamTotal}
+            headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
+            previewType={previewType}
+            browsePaths={browsePaths}
         />
     );
 };

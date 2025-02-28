@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { UserOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
+import { Button, message, Modal, Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
@@ -65,11 +66,11 @@ const RoleIcon = styled.span`
 `;
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export default function ViewInviteTokenModal({ visible, onClose }: Props) {
+export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const baseUrl = window.location.origin;
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -101,7 +102,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const roleSelectOptions = () =>
         selectRoleOptions.map((role) => {
             return (
-                <Select.Option value={role.urn}>
+                <Select.Option value={role.urn} key={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
                     {role.name}
                 </Select.Option>
@@ -110,7 +111,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
 
     // Code related to getting or creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
-        skip: !visible,
+        skip: !open,
         variables: { input: { roleUrn: selectedRole?.urn } },
     });
 
@@ -167,7 +168,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     <b>Share Invite Link</b>
                 </Typography.Text>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             <ModalSection>

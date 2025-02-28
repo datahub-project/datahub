@@ -1,0 +1,1 @@
+from datahub_dagster_plugin._version import __package_name__, __version__

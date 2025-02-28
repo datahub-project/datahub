@@ -53,7 +53,7 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
         return {
             dot: (
                 <div style={{ paddingTop: 12 }}>
-                    <AssertionResultDot assertion={assertion} run={run} />
+                    <AssertionResultDot run={run as AssertionRunEvent} />
                 </div>
             ),
             color: getResultColor(run.result?.type as AssertionResultType),

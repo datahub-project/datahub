@@ -1,0 +1,27 @@
+namespace com.linkedin.assertion
+
+/**
+* A set of settings that can be used to adjust assertion values
+* This is mainly applied against inferred assertions
+**/
+record AssertionAdjustmentSettings  {
+
+  /**
+  * The algorithm to use to adjust assertion values to power the sensitivity control feature
+  *
+  * Note that for algorithm "STDDEV" which leverages the standard deviation of trailing values,
+  * the "stdDev" field must be provided inside of AssertionEvaluationContext.pdl by the offline pipeline.
+  **/
+  algorithm: AdjustmentAlgorithm
+
+  /**
+  * The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  **/
+  algorithmName: string
+
+  /**
+  * The context to use to adjust assertion values
+  **/
+  context: optional map[string, string]
+
+}

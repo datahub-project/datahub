@@ -1,7 +1,7 @@
+import { FacetFilterInput, AggregationMetadata } from '@src/types.generated';
 import { CaretDownFilled } from '@ant-design/icons';
 import React from 'react';
-import styled from 'styled-components';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import styled, { CSSProperties } from 'styled-components';
 import { SearchFilterLabel } from './styledComponents';
 import { FilterPredicate, FilterValue } from './types';
 import ValueSelector from './value/ValueSelector';
@@ -17,10 +17,13 @@ export const IconWrapper = styled.div`
 
 interface Props {
     numActiveFilters: number;
-    filterIcon: JSX.Element | null;
+    filterIcon?: JSX.Element;
     displayName: string;
-    filterPredicate: FilterPredicate,
+    filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
+    labelStyle?: CSSProperties;
+    filterOptions: AggregationMetadata[];
+    manuallyUpdateFilters: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function SearchFilterView({
@@ -29,21 +32,27 @@ export default function SearchFilterView({
     displayName,
     filterPredicate,
     onChangeValues,
+    labelStyle,
+    filterOptions,
+    manuallyUpdateFilters,
 }: Props) {
-    return <ValueSelector
-        field={filterPredicate?.field}
-        values={filterPredicate?.values}
-        defaultOptions={filterPredicate?.defaultValueOptions}
-        onChangeValues={onChangeValues}
-    >
-        <SearchFilterLabel
-                isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+    return (
+        <ValueSelector
+            field={filterPredicate?.field}
+            values={filterPredicate?.values}
+            defaultOptions={filterOptions}
+            onChangeValues={onChangeValues}
+            manuallyUpdateFilters={manuallyUpdateFilters}
+        >
+            <SearchFilterLabel
+                $isActive={!!numActiveFilters}
+                style={labelStyle}
+                data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
-    </ValueSelector> 
-
+        </ValueSelector>
+    );
 }

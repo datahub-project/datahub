@@ -7,8 +7,8 @@ import {
     AssertionStdParameters,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { getPropertyFromVolumeType } from './utils';
 import { VolumeNumberInput } from './VolumeNumberInput';
+import { getPropertyFromVolumeType } from '../../../../utils';
 
 const Container = styled.div`
     display: flex;
@@ -87,7 +87,7 @@ export const VolumeRowCountTotalBuilder = ({ volumeInfo, value, onChange, disabl
                             }),
                         ]}
                     />
-                    <Typography.Text strong>Or more than</Typography.Text>
+                    <Typography.Text strong>Or at most</Typography.Text>
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"

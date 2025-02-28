@@ -14,7 +14,9 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -38,6 +40,14 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     OwnershipData,
     PowerBiReport,
     Report,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -53,11 +63,12 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.lossy_collections import LossyList
 
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvConfigMixin):
+class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
@@ -142,7 +153,7 @@ class PowerBiReportServerAPI:
     def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
-            "{}\\{}".format(self.__config.workstation_name, self.__config.username),
+            f"{self.__config.workstation_name}\\{self.__config.username}",
             self.__config.password,
         )
 
@@ -152,14 +163,14 @@ class PowerBiReportServerAPI:
 
     def requests_get(self, url_http: str, url_https: str, content_type: str) -> Any:
         try:
-            LOGGER.info("Request to Report URL={}".format(url_https))
+            LOGGER.info(f"Request to Report URL={url_https}")
             response = requests.get(
                 url=url_https,
                 auth=self.get_auth_credentials,
-                verify=False,
+                verify=True,
             )
         except ConnectionError:
-            LOGGER.info("Request to Report URL={}".format(url_http))
+            LOGGER.info(f"Request to Report URL={url_http}")
             response = requests.get(
                 url=url_http,
                 auth=self.get_auth_credentials,
@@ -314,11 +325,11 @@ class Mapper:
                 "createdDate": str(report.created_date),
                 "modifiedBy": report.modified_by or "",
                 "modifiedDate": str(report.modified_date) or str(report.created_date),
-                "dataSource": str(
-                    [report.connection_string for report in _report.data_sources]
-                )
-                if _report.data_sources
-                else "",
+                "dataSource": (
+                    str([report.connection_string for report in _report.data_sources])
+                    if _report.data_sources
+                    else ""
+                ),
             }
 
         # DashboardInfo mcp
@@ -405,7 +416,7 @@ class Mapper:
         """
         user_mcps = []
         if user:
-            LOGGER.info("Converting user {} to datahub's user".format(user.username))
+            LOGGER.info(f"Converting user {user.username} to datahub's user")
 
             # Create an URN for User
             user_urn = builder.make_user_urn(user.get_urn_part())
@@ -448,7 +459,7 @@ class Mapper:
     def to_datahub_work_units(self, report: Report) -> List[EquableMetadataWorkUnit]:
         mcps = []
         user_mcps = []
-        LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
+        LOGGER.info(f"Converting Dashboard={report.name} to DataHub Dashboard")
         # Convert user to CorpUser
         user_info = report.user_info.owner_to_add
         if user_info:
@@ -474,9 +485,9 @@ class Mapper:
 
 
 @dataclass
-class PowerBiReportServerDashboardSourceReport(SourceReport):
+class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
     scanned_report: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_scanned(self, count: int = 1) -> None:
         self.scanned_report += count
@@ -485,11 +496,11 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
-class PowerBiReportServerDashboardSource(Source):
+class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
     Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
     It extracts the following:
@@ -519,8 +530,9 @@ class PowerBiReportServerDashboardSource(Source):
     def __init__(
         self, config: PowerBiReportServerDashboardSourceConfig, ctx: PipelineContext
     ):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
+        self.ctx = ctx
         self.report = PowerBiReportServerDashboardSourceReport()
         self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
         self.powerbi_client = PowerBiReportServerAPI(self.source_config)
@@ -530,6 +542,14 @@ class PowerBiReportServerDashboardSource(Source):
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

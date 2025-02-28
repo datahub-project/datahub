@@ -1,33 +1,34 @@
-import { useContext, useMemo } from 'react';
-import { SchemaFieldDataType } from '../../../types.generated';
-import { ColumnHighlight, createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
+import { useContext, useMemo, useRef } from 'react';
+import { SchemaFieldDataType } from '@types';
+import { createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
 
-export const LINEAGE_NODE_WIDTH = 200;
-export const LINEAGE_NODE_HEIGHT = 70;
-export const TRANSITION_DURATION_MS = 200;
+export const LINEAGE_NODE_WIDTH = 240;
+export const LINEAGE_NODE_HEIGHT = 80;
 
 type FieldPath = string;
 
 export interface LineageDisplayColumn {
     fieldPath: FieldPath;
     highlighted: boolean;
-    fromSelect?: boolean;
+    hasLineage: boolean;
+    connectedToHomeNode: boolean;
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
+    lineageAsset: ColumnAsset;
 }
 
 interface Arguments {
     urn: string;
     entity?: FetchedEntityV2;
-    showAllColumns: boolean;
+    showColumns: boolean;
     pageIndex: number;
     filterText: string;
     onlyWithLineage: boolean;
 }
 
-interface Return {
+export interface DisplayedColumns {
     paginatedColumns: LineageDisplayColumn[];
     extraHighlightedColumns: LineageDisplayColumn[];
     numFilteredColumns: number;
@@ -35,14 +36,51 @@ interface Return {
     numColumnsTotal: number;
 }
 
-export default function useDisplayedColumns({
+interface NormalizedReturn {
+    plainColumns: string[];
+    highlightedColumns: string[];
+    extraHighlightedColumns: string[];
+    numFilteredColumns: number;
+    numColumnsWithLineage: number;
+    numColumnsTotal: number;
+}
+
+export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
+    // Prevent unnecessary NodeContents rerenders
+    const oldVals = useRef<DisplayedColumns>({
+        paginatedColumns: [],
+        extraHighlightedColumns: [],
+        numFilteredColumns: 0,
+        numColumnsWithLineage: 0,
+        numColumnsTotal: 0,
+    });
+    const vals = useComputeValues(args);
+    // TODO: Consider using comparison method instead
+    if (JSON.stringify(normalize(oldVals.current)) !== JSON.stringify(normalize(vals))) {
+        oldVals.current = vals;
+    }
+    return oldVals.current;
+}
+
+function normalize(val: DisplayedColumns): NormalizedReturn {
+    return {
+        plainColumns: val.paginatedColumns.filter((col) => !col.highlighted).map((col) => col.fieldPath),
+        highlightedColumns: val.paginatedColumns.filter((col) => col.highlighted).map((col) => col.fieldPath),
+        extraHighlightedColumns: val.extraHighlightedColumns.map((col) => col.fieldPath),
+        numFilteredColumns: val.numFilteredColumns,
+        numColumnsWithLineage: val.numColumnsWithLineage,
+        numColumnsTotal: val.numColumnsTotal,
+    };
+}
+
+function useComputeValues({
     urn,
     entity,
-    showAllColumns,
+    showColumns,
     pageIndex,
     filterText,
     onlyWithLineage,
-}: Arguments): Return {
+}: Arguments): DisplayedColumns {
     const { highlightedColumns, fineGrainedLineage } = useContext(LineageDisplayContext);
 
     return useMemo(() => {
@@ -56,56 +94,58 @@ export default function useDisplayedColumns({
             };
         }
 
-        const fieldMap = new Map<string, ColumnAsset>();
-        entity.lineageAssets?.forEach((asset) => {
-            if (asset.type === LineageAssetType.Column) {
-                fieldMap.set(asset.name, asset);
-            }
-        });
-        const columnHighlights = highlightedColumns.get(urn) || new Map<string, ColumnHighlight>();
+        const columnHighlights = highlightedColumns.get(urn) || new Set<string>();
+        const columns = getDisplayColumns(urn, entity, columnHighlights, fineGrainedLineage);
 
-        function makeLineageDisplayColumn(fieldPath: string): LineageDisplayColumn {
-            return {
-                fieldPath,
-                highlighted: columnHighlights.has(fieldPath),
-                fromSelect: columnHighlights.get(fieldPath)?.fromSelect,
-                type: fieldMap.get(fieldPath)?.dataType,
-                nativeDataType: fieldMap.get(fieldPath)?.nativeDataType,
-            };
-        }
-
-        const fields = entity.lineageAssets?.map((asset) => asset.name) || [];
-        const withLineageFields = filterColumnsByLineage(fields, urn, fineGrainedLineage);
-        const filteredFields = filterColumnsByText(onlyWithLineage ? withLineageFields : fields, filterText);
-        const paginatedFields = filteredFields.slice(
+        const columnsWithLineage = columns.filter((field) => field.hasLineage);
+        const filteredColumns = filterColumnsByText(onlyWithLineage ? columnsWithLineage : columns, filterText);
+        const paginatedColumns = filteredColumns.slice(
             pageIndex * NUM_COLUMNS_PER_PAGE,
             pageIndex * NUM_COLUMNS_PER_PAGE + NUM_COLUMNS_PER_PAGE,
         );
-        const missingHighlightedFields = Array.from(columnHighlights)
-            .sort(
-                // Highlights from selection before highlights from hover
-                ([_fieldA, detailsA], [_fieldB, detailsB]) => Number(detailsB.fromSelect) - Number(detailsA.fromSelect),
-            )
-            .filter(([field]) => !showAllColumns || !paginatedFields.includes(field));
-
+        const paginatedFields = new Set(paginatedColumns.map((column) => column.fieldPath));
+        const extraHighlightedColumns = columns.filter(
+            (column) =>
+                columnHighlights.has(column.fieldPath) && (!showColumns || !paginatedFields.has(column.fieldPath)),
+        );
         return {
-            paginatedColumns: paginatedFields.map(makeLineageDisplayColumn),
-            extraHighlightedColumns: missingHighlightedFields.map(([field]) => field).map(makeLineageDisplayColumn),
-            numFilteredColumns: filteredFields.length,
-            numColumnsTotal: fields.length,
-            numColumnsWithLineage: withLineageFields.length,
+            paginatedColumns,
+            extraHighlightedColumns,
+            numFilteredColumns: filteredColumns.length,
+            numColumnsTotal: columns.length,
+            numColumnsWithLineage: columnsWithLineage.length,
         };
-    }, [urn, entity, showAllColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
+    }, [urn, entity, showColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
 }
 
-function filterColumnsByText(fields: FieldPath[], filterText: string): FieldPath[] {
+function getDisplayColumns(
+    urn: string,
+    entity: FetchedEntityV2,
+    columnHighlights: Set<string>,
+    fineGrainedLineage: FineGrainedLineage,
+): LineageDisplayColumn[] {
+    if (!entity.lineageAssets) return [];
+
+    return Array.from(entity.lineageAssets.values())
+        .filter((asset): asset is ColumnAsset => asset.type === LineageAssetType.Column)
+        .map((columnAsset) => {
+            const columnRef = createColumnRef(urn, columnAsset.name);
+            const connectedToHomeNode =
+                fineGrainedLineage.upstream.has(columnRef) || fineGrainedLineage.downstream.has(columnRef);
+
+            return {
+                fieldPath: columnAsset.name,
+                type: columnAsset.dataType,
+                nativeDataType: columnAsset.nativeDataType,
+                highlighted: columnHighlights.has(columnAsset.name),
+                hasLineage: !!columnAsset.numUpstream || !!columnAsset.numDownstream || connectedToHomeNode,
+                connectedToHomeNode,
+                lineageAsset: columnAsset,
+            };
+        });
+}
+
+function filterColumnsByText(fields: LineageDisplayColumn[], filterText: string): LineageDisplayColumn[] {
     const formattedFilterText = filterText.toLocaleLowerCase();
-    return fields?.filter((field) => field.toLocaleLowerCase().includes(formattedFilterText));
-}
-
-function filterColumnsByLineage(fields: FieldPath[], urn: string, fineGrainedLineage: FineGrainedLineage): FieldPath[] {
-    return fields.filter((fieldPath) => {
-        const columnRef = createColumnRef(urn, fieldPath);
-        return fineGrainedLineage.forward.has(columnRef) || fineGrainedLineage.backward.has(columnRef);
-    });
+    return fields?.filter((field) => field.fieldPath.toLocaleLowerCase().includes(formattedFilterText));
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
 import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { SidebarSection } from './SidebarSection';
@@ -36,6 +36,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const areTagsEmpty = !entityData?.globalTags?.tags?.length && !proposedTags?.length;
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
+    const canProposeTags = !!entityData?.privileges?.canProposeTags;
 
     return (
         <div id={ENTITY_PROFILE_TAGS_ID}>
@@ -70,7 +71,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.Tag);
                             event.stopPropagation();
                         }}
-                        actionPrivilege={canEditTags}
+                        actionPrivilege={canEditTags || canProposeTags}
                     />
                 }
             />
@@ -80,6 +81,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 showAddModal={showAddModal}
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
+                refetch={refetch}
             />
         </div>
     );

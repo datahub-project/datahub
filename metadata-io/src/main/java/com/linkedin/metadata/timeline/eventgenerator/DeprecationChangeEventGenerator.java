@@ -8,12 +8,15 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Differ responsible for determining whether an entity has been soft-deleted or soft-created. */
 public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<Deprecation> {
+
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,
@@ -36,13 +39,14 @@ public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<
     // If the entity was not previously deprecated, but is now deprecated, then return a deprecated
     // event.
     if (!isDeprecated(baseDeprecation) && isDeprecated(targetDeprecation)) {
+      final Map<String, Object> parametersMap = buildDeprecatedParameters(targetDeprecation);
       return Collections.singletonList(
           ChangeEvent.builder()
               .category(ChangeCategory.DEPRECATION)
               .operation(ChangeOperation.MODIFY)
               .entityUrn(entityUrn)
               .auditStamp(auditStamp)
-              .parameters(ImmutableMap.of("status", "DEPRECATED"))
+              .parameters(parametersMap)
               .build());
     }
 
@@ -64,5 +68,17 @@ public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<
 
   private boolean isDeprecated(@Nullable final Deprecation deprecation) {
     return deprecation != null && deprecation.isDeprecated();
+  }
+
+  private Map<String, Object> buildDeprecatedParameters(Deprecation deprecation) {
+    Map<String, Object> parametersMap = new HashMap<>();
+    parametersMap.put("status", "DEPRECATED");
+    if (deprecation.hasDecommissionTime()) {
+      parametersMap.put("timestamp", deprecation.getDecommissionTime().toString());
+    }
+    if (deprecation.hasNote()) {
+      parametersMap.put("note", deprecation.getNote());
+    }
+    return parametersMap;
   }
 }

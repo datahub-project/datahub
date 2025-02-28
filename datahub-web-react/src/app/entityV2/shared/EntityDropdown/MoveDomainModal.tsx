@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../EntityContext';
+import { useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
 import DomainParentSelect from './DomainParentSelect';
 import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
-import { useDomainsContext } from '../../../domain/DomainsContext';
 import { EntityType } from '../../../../types.generated';
+import { useDomainsContext } from '../../../domainV2/DomainsContext';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -66,7 +66,7 @@ function MoveDomainModal(props: Props) {
 
     return (
         <Modal
-            title="Move"
+            title="Move Domain"
             data-testid="move-domain-modal"
             visible
             onCancel={onClose}
@@ -75,7 +75,7 @@ function MoveDomainModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
+                    <Button type="primary" onClick={moveDomain} data-testid="move-domain-modal-move-button">
                         Move
                     </Button>
                 </>

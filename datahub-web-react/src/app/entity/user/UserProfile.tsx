@@ -4,6 +4,9 @@ import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
+import { EntityContext } from '../shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../shared/types';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
@@ -11,6 +14,7 @@ import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 import { UserSubscriptions } from './UserSubscriptions';
 
 export interface Props {
@@ -61,14 +65,14 @@ export default function UserProfile() {
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
 
-    const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const castedCorpUser = data?.corpUser as any;
 
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     // Routed Tabs Constants
     const getTabs = () => {
@@ -92,7 +96,7 @@ export default function UserProfile() {
             {
                 name: TabType.Subscription,
                 path: TabType.Subscription.toLocaleLowerCase(),
-                content: <UserSubscriptions />,
+                content: <UserSubscriptions urn={urn} />,
                 display: {
                     enabled: () => true,
                 },
@@ -116,6 +120,7 @@ export default function UserProfile() {
             undefined,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || data?.corpUser?.info?.departmentName || undefined,
+        countryCode: data?.corpUser?.info?.countryCode || undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,
@@ -123,9 +128,27 @@ export default function UserProfile() {
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
         urn,
+        username: data?.corpUser?.username,
     };
+
+    if (data?.corpUser?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
+
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpUser,
+                entityData: (data?.corpUser ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
@@ -139,6 +162,6 @@ export default function UserProfile() {
                     </Col>
                 </Row>
             </UserProfileWrapper>
-        </>
+        </EntityContext.Provider>
     );
 }

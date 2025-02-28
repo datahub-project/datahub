@@ -2,6 +2,7 @@ package com.linkedin.metadata.config.search.custom;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import java.util.Collections;
 import java.util.Map;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -29,7 +30,7 @@ public class QueryConfiguration {
   @Builder.Default private boolean exactMatchQuery = true;
   @Builder.Default private boolean prefixMatchQuery = true;
   private BoolQueryConfiguration boolQuery;
-  private Map<String, Object> functionScore;
+  @Builder.Default private Map<String, Object> functionScore = Collections.emptyMap();
 
   @JsonPOJOBuilder(withPrefix = "")
   public static class QueryConfigurationBuilder {}

@@ -1,169 +1,113 @@
-import React from 'react';
-import Icon from '@ant-design/icons';
-import { Typography } from 'antd';
-import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
+import { Tooltip } from 'antd';
+import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
+import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { useEntityData } from '../entity/shared/EntityContext';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { BusinessGlossaryEntitiesCardColors } from '../onboarding/config/BusinessGlossaryConfigV2';
-import FolderIcon from '../../images/folder-open.svg?react';
-
-const ItemWrapper = styled.div`
-    flex-basis: 24%;
-    & a {
-        display: block
-        height: 100%;
-    }
-`;
-
-interface GlossaryItemCardHeaderProps {
-    index: number;
-}
-
-const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
-    display: flex;
-    padding: 40px 0 30px;
-    justify-content: center;
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
-    opacity: 0.7;
-    background-color: ${(props) => `${BusinessGlossaryEntitiesCardColors[props.index % 15]}`};
-`;
-
-const GlossaryItemCountDiv = styled.div`
-    position: absolute;
-    top: -7px;
-    right: -3px;
-    border-radius: 7px;
-    width: 12px;
-    height: 11px;
-    background: #3cb47a;
-    font-size: 8px;
-    color: #fff;
-    text-align: center;
-    display: none;
-`;
-
-const GlossaryItemCount = styled.span`
-    position: absolute;
-    right: 1px;
-    bottom: 1px;
-    border-radius: 12px 0px 11px 1px;
-    background: #fff;
-    padding: 10px;
-`;
-
-const CountWrapper = styled.span`
-    position: relative;
-`;
-
-const GlossaryItemCard = styled.div`
-    display: flex;
-    flex-direction: column;
-    border-radius: 13px;
-    border: 1px solid #ededed;
-    background: #fff;
-    transition: 0.15s;
-    height: 100%;
-    &:hover {
-        transition: 0.15s;
-        border-color: #5c3fd1;
-    }
-
-    &:hover > ${GlossaryItemCardHeader} {
-        transition: 0.15s;
-        opacity: 0.9 !important;
-    }
-
-    &:hover > ${GlossaryItemCardHeader} > ${GlossaryItemCount} > ${CountWrapper} > ${GlossaryItemCountDiv} {
-        transition: 0.15s;
-        display: block;
-    }
-`;
-
-const GlossaryItemBadge = styled.span`
-    position: absolute;
-    left: -65px;
-    top: 20px;
-    width: 160px;
-    transform: rotate(-45deg);
-    padding: 10px;
-    opacity: 1;
-`;
-
-const GlossaryItemCardDetails = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding: 13px 16px;
-`;
-
-const GlossaryCardHeader = styled(Typography)`
-    color: #fff;
-    font-size: 44px;
-`;
-
-const GlossaryItemCardTitle = styled(Typography)`
-    color: #434863;
-    font-size: 14px;
-    font-weight: 400;
-`;
-
-const GlossaryItemCardDescription = styled(Typography)`
-    color: #434863;
-    font-size: 10px;
-    line-height: 13px;
-    font-weight: 400;
-    opacity: 0.5;
-    width: 100%;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-`;
+import GlossaryNodeCard from './GlossaryNodeCard';
+import GlossaryListCard from './GlossaryListCard';
 
 interface Props {
     name: string;
     description?: string;
     urn: string;
     type: EntityType;
-    count?: Maybe<number>;
-    index: number;
+    descendants?: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment)[];
+    displayProperties?: Maybe<DisplayProperties>;
+    showAsCard?: boolean; // Currently only supported for Nodes!
+}
+
+// iterates through the layers of descendents and counts the max number of layers
+function countMaxDepth(
+    descendents: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment | undefined | null)[],
+    depth = 1,
+): number {
+    let maxDepth = depth;
+
+    descendents.forEach((desc) => {
+        if (!desc) return;
+        if (desc.type === EntityType.GlossaryNode) {
+            const subNode = desc as unknown as GlossaryNodeFragment;
+            if (subNode?.children?.relationships) {
+                const subDepth = countMaxDepth(
+                    subNode?.children?.relationships?.map(
+                        (rel) => rel?.entity as GlossaryNodeFragment | ChildGlossaryTermFragment,
+                    ),
+                    depth + 1,
+                );
+                maxDepth = Math.max(maxDepth, subDepth);
+            }
+        }
+    });
+
+    return maxDepth;
+}
+
+function countTermsAndNodes(
+    descendents: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment)[],
+): {
+    termCount: number;
+    nodeCount: number;
+} {
+    let termCount = 0;
+    let nodeCount = 0; // Counting the root node itself
+
+    function traverse(entity: GlossaryNodeFragment | ChildGlossaryTermFragment) {
+        if (entity.type === EntityType.GlossaryTerm) {
+            termCount++;
+        } else if (entity.type === EntityType.GlossaryNode) {
+            nodeCount++;
+            const subNode = entity as unknown as GlossaryNodeFragment;
+            if (subNode?.children?.relationships) {
+                subNode.children.relationships.forEach((rel) =>
+                    traverse(rel?.entity as GlossaryNodeFragment | ChildGlossaryTermFragment),
+                );
+            }
+        }
+    }
+
+    descendents.forEach((desc) => traverse(desc));
+
+    return { termCount, nodeCount };
 }
 
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, count, index } = props;
-
+    const { name, description, urn, type, descendants, displayProperties } = props;
     const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
+    const { termCount, nodeCount } = countTermsAndNodes(descendants || []);
+    const maxDepth = countMaxDepth(descendants || []);
 
     return (
-        <ItemWrapper>
+        <Tooltip title={name} showArrow={false} placement="top">
             <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
-                <GlossaryItemCard>
-                    <GlossaryItemCardHeader index={index}>
-                        <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
-                        <GlossaryItemBadge
-                            style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}
-                        >
-                            {' '}
-                        </GlossaryItemBadge>
-                        {type === EntityType.GlossaryNode && (
-                            <GlossaryItemCount>
-                                <CountWrapper>
-                                    <Icon component={FolderIcon} style={{ fontSize: '17px' }} />
-                                    <GlossaryItemCountDiv>{count}</GlossaryItemCountDiv>
-                                </CountWrapper>
-                            </GlossaryItemCount>
-                        )}
-                    </GlossaryItemCardHeader>
-                    <GlossaryItemCardDetails>
-                        <GlossaryItemCardTitle>{name}</GlossaryItemCardTitle>
-                        <GlossaryItemCardDescription>{description}</GlossaryItemCardDescription>
-                    </GlossaryItemCardDetails>
-                </GlossaryItemCard>
+                {type === EntityType.GlossaryNode && props.showAsCard ? (
+                    <GlossaryNodeCard
+                        name={name}
+                        description={description}
+                        displayProperties={displayProperties}
+                        urn={urn}
+                        termCount={termCount}
+                        nodeCount={nodeCount}
+                        maxDepth={maxDepth}
+                    />
+                ) : (
+                    <GlossaryListCard
+                        name={name}
+                        description={description}
+                        type={type}
+                        urn={urn}
+                        entityData={entityData}
+                        termCount={termCount}
+                        nodeCount={nodeCount}
+                    />
+                )}
             </Link>
-        </ItemWrapper>
+        </Tooltip>
     );
 }
 

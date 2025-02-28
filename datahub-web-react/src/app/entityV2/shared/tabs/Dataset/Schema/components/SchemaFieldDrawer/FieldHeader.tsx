@@ -1,78 +1,51 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { useAppConfig } from '@app/useAppConfig';
+import { Divider } from 'antd';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-// import { ReactComponent as HistoryIcon } from '../../../../../../../../images/history-icon.svg';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { SchemaField } from '../../../../../../../../types.generated';
 import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
-import { REDESIGN_COLORS } from '../../../../../constants';
+import NullableLabel, { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
 import MenuColumn from '../MenuColumn';
-// import NullableLabel from '../NullableLabel';
-import PartitioningKeyLabel from '../PartitioningKeyLabel';
-import PrimaryKeyLabel from '../PrimaryKeyLabel';
 import TypeLabel from '../TypeLabel';
-import FieldTitle from './FieldTitle';
-import { ColumnTypeIcon, TypeTooltipTitle } from '../../../../../../../sharedV2/utils';
 import FieldPath from './FieldPath';
+import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
-`;
-
-const TypesSection = styled.div`
-    margin-top: 8px;
-    display: flex;
-    gap: 5px;
-    align-items: center;
-    && .ant-badge-count {
-        background: transparent !important;
-        color: ${REDESIGN_COLORS.WHITE} !important;
-        border: 1px solid ${REDESIGN_COLORS.WHITE} !important;
-    }
+    border-bottom: 1px solid rgb(213, 213, 213);
 `;
 
 const NameTypesWrapper = styled.div`
-    overflow: hidden;
-    display: flex;
-    gap: 15px;
-`;
-const NameContainer = styled.div`
     display: flex;
     flex-direction: column;
 `;
-const TypeContainer = styled.div`
+
+const TitleWrapper = styled.div`
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 5px;
+    font-size: 16px;
 `;
+
 const RightGroup = styled.div`
     display: flex;
     align-items: baseline;
 `;
 
 const MenuWrapper = styled.div`
-    color: ${REDESIGN_COLORS.WHITE};
     margin-right: 5px;
 `;
 
-const FieldText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.WHITE};
-    opacity: 0.5;
+const FieldText = styled.div`
     font-size: 12px;
-    font-weight: 700;
     line-height: 24px;
+    color: #8d95b1;
 `;
-
-// const HistoryText = styled(Typography.Text)`
-//     color: ${REDESIGN_COLORS.WHITE};
-//     font-family: Manrope;
-//     font-size: 12px;
-//     font-weight: 600;
-//     line-height: 20px;
-// `;
 
 const CloseIcon = styled.div`
     font-size: 12px;
@@ -82,106 +55,78 @@ const CloseIcon = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+
     &&:hover {
         cursor: pointer;
-        stroke: ${REDESIGN_COLORS.WHITE};
         stroke-width: 10px;
     }
+
     svg {
         height: 16px;
         width: 16px;
-        color: ${REDESIGN_COLORS.WHITE};
     }
 `;
 
-const TypeWrapper = styled.div<{ nullable: boolean }>`
-    margin-right: 4px;
-    border: ${(props) => (props.nullable ? 'none' : '1px solid')};
-    border-color: ${REDESIGN_COLORS.WHITE};
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 14px;
-    svg {
-        height: 14px;
-        width: 14px;
-        color: ${REDESIGN_COLORS.WHITE};
+const StyledDivider = styled(Divider)`
+    height: 75%;
+    margin: 0;
+`;
+
+const StyledTypeLabel = styled(TypeLabel)`
+    font-size: 14px;
+    color: ${colors.gray[500]};
+`;
+
+const StyleLink = styled(Link)`
+    color: ${colors.gray[800]};
+    font-weight: 700;
+
+    &:hover {
+        text-decoration: underline;
     }
 `;
-// const HistoryContainer = styled.div`
-//     display: flex;
-//     align-items: center;
-// `;
-// const VersionHistory = styled.div`
-//     padding: 5px 10px;
-//     display: flex;
-//     gap: 5px;
-//     align-items: center;
-//     background: #958ebf;
-//     border-radius: 100px;
-//     color: ${REDESIGN_COLORS.WHITE};
-//     font-family: Manrope;
-//     font-size: 12px;
-//     font-weight: 500;
-//     line-height: 8px;
-//     letter-spacing: 0.2px;
-//     max-height: 30px;
-
-//     svg {
-//         height: 16px;
-//         width: 16px;
-//         color: ${REDESIGN_COLORS.WHITE};
-//     }
-// `;
 
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
-    showTypeAsIcons?: boolean;
 }
 
-export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath, showTypeAsIcons = true }: Props) {
+export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+    const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
+    const entityRegistry = useEntityRegistry();
+
+    const linkEnabled = config.featureFlags.schemaFieldCLLEnabled;
 
     return (
         <FieldHeaderWrapper>
             <NameTypesWrapper>
-                <NameContainer>
-                    <FieldText> Field</FieldText>
-                    <FieldTitle displayName={displayName} />
-                </NameContainer>
-                <TypeContainer>
-                    <TypesSection>
-                        {!showTypeAsIcons && (
-                            <TypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
-                        )}
-                        {!!showTypeAsIcons && expandedField.type && (
-                            <TypeWrapper nullable={expandedField.nullable}>
-                                <Tooltip
-                                    showArrow={false}
-                                    placement="left"
-                                    title={TypeTooltipTitle(expandedField.type, expandedField.nativeDataType)}
-                                >
-                                    {ColumnTypeIcon(expandedField.type)}
-                                </Tooltip>
-                            </TypeWrapper>
-                        )}
-                        {expandedField.isPartOfKey && <PrimaryKeyLabel />}
-                        {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
-                        {/* {expandedField.nullable && <NullableLabel />} */}
-                    </TypesSection>
-                </TypeContainer>
-                <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
+                <TitleWrapper>
+                    {linkEnabled ? (
+                        <StyleLink
+                            to={
+                                expandedField.schemaFieldEntity &&
+                                `${entityRegistry.getEntityUrl(
+                                    expandedField.schemaFieldEntity?.type,
+                                    (expandedField.schemaFieldEntity?.urn as string) || '',
+                                )}/Lineage`
+                            }
+                        >
+                            {displayName.split('.').pop()}
+                        </StyleLink>
+                    ) : (
+                        displayName.split('.').pop()
+                    )}
+                    <StyledDivider type="vertical" />
+                    <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
+                    {expandedField.isPartOfKey && <PrimaryKeyLabel />}
+                    {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
+                    {expandedField.nullable && <NullableLabel />}
+                    <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
+                </TitleWrapper>
+                <FieldText>Column</FieldText>
             </NameTypesWrapper>
             <RightGroup>
-                {/* <HistoryContainer>
-                    <VersionHistory>
-                        <HistoryText>Version History </HistoryText> <HistoryIcon />
-                    </VersionHistory>
-                </HistoryContainer> */}
                 <MenuWrapper>
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>

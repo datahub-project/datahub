@@ -12,7 +12,7 @@ import {
 } from './columnLineageUtils';
 import { LineageExplorerContext } from './LineageExplorerContext';
 
-export default function useSortColumnsBySelectedField(fetchedEntities: { [x: string]: FetchedEntity }) {
+export default function useSortColumnsBySelectedField(fetchedEntities: Map<string, FetchedEntity>) {
     const { highlightedEdges, selectedField, columnsByUrn, setColumnsByUrn } = useContext(LineageExplorerContext);
     const previousSelectedField = usePrevious(selectedField);
 
@@ -37,15 +37,15 @@ export default function useSortColumnsBySelectedField(fetchedEntities: { [x: str
             setColumnsByUrn(updatedColumnsByUrn);
         } else if (!selectedField && previousSelectedField !== selectedField) {
             Object.entries(columnsByUrn).forEach(([urn, columns]) => {
-                const fetchedEntity = fetchedEntities[urn];
-                if (fetchedEntity && fetchedEntity.schemaMetadata) {
+                const fetchedEntity = fetchedEntities.get(urn);
+                if (fetchedEntity?.schemaMetadata) {
                     updatedColumnsByUrn = sortColumnsByDefault(
                         updatedColumnsByUrn,
                         columns,
                         convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
                         urn,
                     );
-                } else if (fetchedEntity && fetchedEntity.inputFields) {
+                } else if (fetchedEntity?.inputFields) {
                     updatedColumnsByUrn = sortColumnsByDefault(
                         updatedColumnsByUrn,
                         columns,

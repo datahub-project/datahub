@@ -1,9 +1,9 @@
 import { FilterOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input, Popover } from 'antd';
+import { Input } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { MatchText } from '../../../../../searchV2/matches/MatchedFieldList';
+import { pluralize } from '../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
 import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import SchemaFilterSelectContent from './SchemaFilterSelectContent';
@@ -25,7 +25,6 @@ const MatchLabelText = styled.span`
     color: ${REDESIGN_COLORS.DARK_GREY};
     padding-left: 10px;
     margin-top: 5px;
-    vertical-align: -webkit-baseline-middle;
 `;
 
 const SearchContainer = styled.span`
@@ -34,33 +33,44 @@ const SearchContainer = styled.span`
     white-space: nowrap;
     display: flex;
     align-items: center;
+
     .ant-input-group-wrapper {
         border-radius: 20px;
         border: 1px solid ${REDESIGN_COLORS.GREY};
         background: #f3f5fa;
     }
+
     .ant-input-group-wrapper {
         background-color: #ffffff00 !important;
     }
+
     .ant-input-wrapper {
         background-color: #ffffff00 !important;
-        border-radius: 20px;
     }
+
+    .ant-input {
+        border-radius: 0;
+    }
+
     .ant-input-affix-wrapper {
         border-radius: 20px;
         border: none;
     }
+
     .ant-input-group-addon {
         border: none;
         background-color: #ffffff00 !important;
         left: 2px;
     }
+
     .ant-input-affix-wrapper:focus {
         border: none;
     }
+
     .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
         border: none;
     }
+
     .ant-input-affix-wrapper::selection {
         background: transparent;
     }
@@ -71,7 +81,7 @@ const StyledPopover = styled(Popover)`
     background: ${REDESIGN_COLORS.GREY};
 `;
 
-const StyledFilterIcon = styled(FilterOutlined)<{ hasFiltered: boolean }>`
+const StyledFilterIcon = styled(FilterOutlined)<{ $hasFiltered: boolean }>`
     cursor: pointer;
     margin-left: -14px;
     margin-right: -14px;
@@ -82,9 +92,10 @@ const StyledFilterIcon = styled(FilterOutlined)<{ hasFiltered: boolean }>`
     padding-top: 12px;
     padding-bottom: 12px;
     border-radius: 50%;
-    color: ${(props) => (props.hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
+    color: ${(props) => (props.$hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
+
     :hover {
-        color: ${(props) => (!props.hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
+        color: ${(props) => (!props.$hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
     }
 `;
 
@@ -129,7 +140,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
             overlayInnerStyle={{ padding: 0 }}
         >
             <StyledFilterIcon
-                hasFiltered={schemaFilterTypes.length < 4}
+                $hasFiltered={schemaFilterTypes.length < 4}
                 style={{ cursor: 'pointer', margin: '-10px', padding: '10px' }}
             />
         </StyledPopover>
@@ -138,6 +149,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
     return (
         <SearchContainer>
             <StyledInput
+                bordered={false}
                 disabled={schemaFilterTypes.length === 0}
                 addonAfter={schemaFilterTypeSelectPrompt}
                 defaultValue={schemaFilter}
@@ -153,11 +165,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
             />
             {schemaFilter.length > 0 && (
                 <MatchLabelText>
-                    Matched{' '}
-                    <MatchText forceHover isClickable>
-                        {matches.length} column{matches.length === 1 ? '' : 's'}
-                    </MatchText>{' '}
-                    of {numRows}
+                    Matched {matches.length} {pluralize(matches.length, 'column')} of {numRows}
                 </MatchLabelText>
             )}
         </SearchContainer>

@@ -53,8 +53,7 @@ public class AcceptRoleResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
-        .thenReturn(false);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(false);
 
     AcceptRoleInput input = new AcceptRoleInput();
     input.setInviteToken(INVITE_TOKEN_STRING);
@@ -69,10 +68,8 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
-        .thenReturn(true);
-    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication)))
-        .thenReturn(null);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(any(), eq(inviteTokenUrn))).thenReturn(null);
     Actor actor = mock(Actor.class);
     when(_authentication.getActor()).thenReturn(actor);
     when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
@@ -91,10 +88,8 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
-    when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication)))
-        .thenReturn(true);
-    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication)))
-        .thenReturn(roleUrn);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(any(), eq(inviteTokenUrn))).thenReturn(roleUrn);
     Actor actor = mock(Actor.class);
     when(_authentication.getActor()).thenReturn(actor);
     when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);

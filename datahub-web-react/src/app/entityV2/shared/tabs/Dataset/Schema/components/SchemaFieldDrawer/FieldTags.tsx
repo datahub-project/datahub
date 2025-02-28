@@ -1,13 +1,9 @@
 import React from 'react';
-import styled from 'styled-components';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
-import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
-import { SectionHeader, StyledDivider } from './components';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-
-const TagsWrapper = styled.div`
-    margin-bottom: 24px;
-`;
+import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
+import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
+import { StyledDivider } from './components';
 
 interface Props {
     expandedField: SchemaField;
@@ -27,10 +23,9 @@ export default function FieldTags({ expandedField, editableSchemaMetadata }: Pro
     );
 
     return (
-        <TagsWrapper>
-            <SectionHeader>Tags</SectionHeader>
-            {tagRenderer(expandedField.globalTags as GlobalTags, expandedField)}
+        <>
+            <SidebarSection title="Tags" content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)} />
             <StyledDivider dashed />
-        </TagsWrapper>
+        </>
     );
 }

@@ -112,7 +112,7 @@ export const FloatingToolbar = () => {
                     </ToolbarContainer>
                 </FloatingWrapper>
             )}
-            <LinkModal visible={isModalVisible} handleClose={handleClose} />
+            <LinkModal open={isModalVisible} handleClose={handleClose} />
         </>
     );
 };

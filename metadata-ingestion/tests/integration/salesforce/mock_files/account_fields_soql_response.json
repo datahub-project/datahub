@@ -2508,6 +2508,112 @@
             },
             "RelationshipName": null,
             "IsNillable": true
+        },
+        {
+            "attributes": {
+                "type": "EntityParticle",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityParticle/Account.Unique_Account"
+            },
+            "QualifiedApiName": "Unique_Account",
+            "DeveloperName": "Unique_Account",
+            "Label": "# Unique_Account",
+            "InlineHelpText": "# Help Text",
+            "FieldDefinition": {
+                "attributes": {
+                    "type": "FieldDefinition",
+                    "url": "/services/data/v54.0/tooling/sobjects/FieldDefinition/Account.Unique_Account"
+                },
+                "DataType": "Text(80)",
+                "LastModifiedDate": null,
+                "LastModifiedBy": null,
+                "IsIndexed": false,
+                "ComplianceGroup": null,
+                "SecurityClassification": null,
+                "Description": "This is the # description"
+            },
+            "DataType": "string",
+            "Precision": 0,
+            "Scale": 0,
+            "Length": 80,
+            "Digits": 0,
+            "IsUnique": false,
+            "IsCompound": false,
+            "IsComponent": false,
+            "ReferenceTo": {
+                "referenceTo": null
+            },
+            "RelationshipName": null,
+            "IsNillable": true
+        },
+        {
+            "attributes": {
+                "type": "EntityParticle",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityParticle/Account.Blank_Label"
+            },
+            "QualifiedApiName": "Blank_Label",
+            "DeveloperName": "Blank_Label",
+            "Label": null,
+            "InlineHelpText": "# Help Text",
+            "FieldDefinition": {
+                "attributes": {
+                    "type": "FieldDefinition",
+                    "url": "/services/data/v54.0/tooling/sobjects/FieldDefinition/Account.Blank_Label"
+                },
+                "DataType": "Text(80)",
+                "LastModifiedDate": null,
+                "LastModifiedBy": null,
+                "IsIndexed": false,
+                "ComplianceGroup": null,
+                "SecurityClassification": null,
+                "Description": "This is the # description"
+            },
+            "DataType": "string",
+            "Precision": 0,
+            "Scale": 0,
+            "Length": 80,
+            "Digits": 0,
+            "IsUnique": false,
+            "IsCompound": false,
+            "IsComponent": false,
+            "ReferenceTo": {
+                "referenceTo": null
+            },
+            "RelationshipName": null,
+            "IsNillable": true
+        },
+        {
+            "attributes": {
+                "type": "EntityParticle",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityParticle/Account.Unique_Number"
+            },
+            "QualifiedApiName": "Unique_Number",
+            "DeveloperName": "Unique_Account",
+            "Label": "#Unique_Number",
+            "FieldDefinition": {
+                "attributes": {
+                    "type": "FieldDefinition",
+                    "url": "/services/data/v54.0/tooling/sobjects/FieldDefinition/Account.Unique_Number"
+                },
+                "DataType": "Text(80)",
+                "LastModifiedDate": null,
+                "LastModifiedBy": null,
+                "IsIndexed": false,
+                "ComplianceGroup": null,
+                "SecurityClassification": null
+            },
+            "DataType": "string",
+            "Precision": 0,
+            "Scale": 0,
+            "Length": 80,
+            "Digits": 0,
+            "IsUnique": false,
+            "IsCompound": false,
+            "IsComponent": false,
+            "ReferenceTo": {
+                "referenceTo": null
+            },
+            "RelationshipName": null,
+            "IsNillable": true
         }
     ]
 }

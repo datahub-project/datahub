@@ -218,6 +218,30 @@ describe('filterSchemaRows', () => {
         expect(expandedRowsFromFilter).toMatchObject(new Set(['customer', 'customer.child1']));
     });
 
+    it('should return only children if skipParents is passed in', () => {
+        const rowsWithChildren = [
+            { fieldPath: 'customer' },
+            { fieldPath: 'testing' },
+            { fieldPath: 'customer.child1' },
+            { fieldPath: 'customer.child1.findMe' },
+            { fieldPath: 'customer.child2' },
+        ] as SchemaField[];
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const filterText = 'find';
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rowsWithChildren,
+            editableSchemaMetadata,
+            filterText,
+            [SchemaFilterType.Documentation, SchemaFilterType.FieldPath, SchemaFilterType.Tags, SchemaFilterType.Terms],
+            null,
+            testEntityRegistry,
+            true,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'customer.child1.findMe' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
     it('should properly filter schema rows based on non-editable tags', () => {
         const rowsWithTags = [
             { fieldPath: 'customer' },

@@ -1,2 +1,24 @@
-# LinkedIn Owners.
+# LinkedIn Owners
 @linkedin/datahub-reviewers
+
+# UI Reviewers
+/datahub-web-react/ @acryldata/ui-codeowners
+/datahub-frontend/ @chriscollins3456 @samblackk @acryldata/platform
+
+# GraphQL Reviewers 
+/datahub-graphql-core/ @chriscollins3456 @samblackk @acryldata/platform
+
+# Build Reviewers
+/.github/ @acryldata/devops
+/buildSrc/ @acryldata/devops
+/gradle/ @acryldata/devops
+build.gradle @acryldata/devops
+gradle.properties @acryldata/devops
+
+# System Reviewers
+/docker/ @acryldata/devops
+
+# Platform
+/datahub-upgrade/ @acryldata/platform
+/entity-registry/ @acryldata/platform
+/metadata-** @acryldata/platform

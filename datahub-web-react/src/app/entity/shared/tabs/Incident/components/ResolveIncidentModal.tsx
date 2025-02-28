@@ -31,7 +31,7 @@ export const ResolveIncidentModal = ({
         <>
             <Modal
                 title="Resolve Incident"
-                visible={isResolvedModalVisible}
+                open={isResolvedModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[

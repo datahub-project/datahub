@@ -9,4 +9,9 @@ record EntityChangeDetails {
     * Change type that triggers a notification for the subscription.
     */
     entityChangeType: EntityChangeType
+
+    /**
+     * Optional filter that can be applied to exclude or include specific entity change events
+     */
+    filter: optional EntityChangeDetailsFilter
 }

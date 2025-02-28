@@ -3,31 +3,31 @@ package com.linkedin.gms.factory.notifications;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationSinkManager;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.integration.IntegrationsService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
   SettingsProviderFactory.class,
   IdentityProviderFactory.class,
@@ -44,6 +44,10 @@ public class NotificationSinkManagerFactory {
   private IdentityProvider identityProvider;
 
   @Autowired
+  @Qualifier("systemEntityClient")
+  private SystemEntityClient entityClient;
+
+  @Autowired
   @Qualifier("secretProvider")
   private SecretProvider secretProvider;
 
@@ -51,14 +55,20 @@ public class NotificationSinkManagerFactory {
   @Qualifier("connectionService")
   private ConnectionService connectionService;
 
+  @Autowired
+  @Qualifier("integrationsService")
+  private IntegrationsService integrationsService;
+
   @Autowired private ConfigurationProvider configurationProvider;
 
   @Bean(name = "notificationSinkManager")
-  @Singleton
   @Nonnull
-  protected NotificationSinkManager getInstance() {
+  protected NotificationSinkManager getInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOpContext) {
     boolean isNotificationsEnabled = this.configurationProvider.getNotifications().isEnabled();
     String baseUrl = this.configurationProvider.getBaseUrl();
+
+    EntityNameProvider entityNameProvider = new EntityNameProvider(this.entityClient);
 
     final List<NotificationSink> configuredSinks = new ArrayList<>();
     if (isNotificationsEnabled) {
@@ -92,10 +102,13 @@ public class NotificationSinkManagerFactory {
             notificationSink.init(
                 new NotificationSinkConfig(
                     configs,
+                    this.entityClient,
                     this.settingsProvider,
                     this.identityProvider,
+                    entityNameProvider,
                     this.secretProvider,
                     this.connectionService,
+                    this.integrationsService,
                     baseUrl));
             configuredSinks.add(notificationSink);
           } catch (Exception e) {

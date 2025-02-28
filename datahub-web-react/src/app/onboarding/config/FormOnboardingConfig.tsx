@@ -72,13 +72,13 @@ export const FormOnboardingConfig: OnboardingStep[] = [
     {
         id: FORM_ASSET_COMPLETION,
         selector: `#${FORM_ASSET_COMPLETION}`,
-        isActionStep: true,
         title: (
             <AssetCompletionHeader>
                 <StyledSmile /> Congratulations, You’ve Completed 1 Asset!
             </AssetCompletionHeader>
         ),
         style: { width: '640px', maxWidth: '640px' },
+        isActionStep: true,
         content: (
             <Typography.Paragraph>
                 Now that you’ve completed one asset, try switching to the ‘Complete by Question’ view. If an answer fits

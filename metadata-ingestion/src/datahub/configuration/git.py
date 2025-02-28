@@ -24,7 +24,11 @@ class GitReference(ConfigModel):
         "main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
-
+    url_subdir: Optional[str] = Field(
+        default=None,
+        description="Prefix to prepend when generating URLs for files - useful when files are in a subdirectory. "
+        "Only affects URL generation, not git operations.",
+    )
     url_template: Optional[str] = Field(
         None,
         description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
@@ -68,6 +72,8 @@ class GitReference(ConfigModel):
 
     def get_url_for_file_path(self, file_path: str) -> str:
         assert self.url_template
+        if self.url_subdir:
+            file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
             repo_url=self.repo, branch=self.branch, file_path=file_path
         )
@@ -101,7 +107,7 @@ class GitInfo(GitReference):
         if v is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
-                with open(deploy_key_file, "r") as fp:
+                with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
                     return deploy_key
         return v
@@ -115,9 +121,9 @@ class GitInfo(GitReference):
 
         repo: str = values["repo"]
         if repo.startswith(_GITHUB_PREFIX):
-            return f"git@github.com:{repo[len(_GITHUB_PREFIX):]}.git"
+            return f"git@github.com:{repo[len(_GITHUB_PREFIX) :]}.git"
         elif repo.startswith(_GITLAB_PREFIX):
-            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX):]}.git"
+            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
         else:
             raise ValueError(
                 "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."

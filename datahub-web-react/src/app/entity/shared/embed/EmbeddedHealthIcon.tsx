@@ -1,5 +1,6 @@
 import { orange } from '@ant-design/colors';
 import { WarningFilled } from '@ant-design/icons';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
 import { useParams } from 'react-router';
 import styled from 'styled-components';
@@ -27,13 +28,32 @@ export default function EmbeddedHealthIcon() {
     const urn = decodeUrn(encodedUrn);
     const appConfig = useAppConfig();
     const lineageEnabled: boolean = appConfig?.config?.chromeExtensionConfig?.lineageEnabled || false;
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const { data: incidentsData } = useSearchAcrossLineageQuery(
-        generateQueryVariables(urn, HAS_ACTIVE_INCIDENTS_FILTER_NAME, 0, false, true, !lineageEnabled, 0),
+        generateQueryVariables({
+            urn,
+            startTimeMillis,
+            filterField: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+            start: 0,
+            includeAssertions: false,
+            includeIncidents: true,
+            skip: !lineageEnabled,
+            count: 0,
+        }),
     );
 
     const { data: assertionsData } = useSearchAcrossLineageQuery(
-        generateQueryVariables(urn, HAS_FAILING_ASSERTIONS_FILTER_NAME, 0, true, false, !lineageEnabled, 0),
+        generateQueryVariables({
+            urn,
+            startTimeMillis,
+            filterField: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+            start: 0,
+            includeAssertions: true,
+            includeIncidents: false,
+            skip: !lineageEnabled,
+            count: 0,
+        }),
     );
 
     if (incidentsData?.searchAcrossLineage?.total || assertionsData?.searchAcrossLineage?.total) {

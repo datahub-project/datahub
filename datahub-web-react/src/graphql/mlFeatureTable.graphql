@@ -1,8 +1,24 @@
 query getMLFeatureTable($urn: String!) {
     mlFeatureTable(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLFeatureTable
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
@@ -10,5 +26,6 @@ query getMLFeatureTable($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }

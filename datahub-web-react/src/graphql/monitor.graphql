@@ -1,3 +1,5 @@
+#import "./assertion_monitor_shared.graphql"
+
 fragment monitorDetails on Monitor {
     urn
     type
@@ -13,32 +15,7 @@ fragment monitorDetails on Monitor {
                     timezone
                 }
                 parameters {
-                    type
-                    datasetFreshnessParameters {
-                        sourceType
-                        auditLog {
-                            operationTypes
-                            userName
-                        }
-                        field {
-                            type
-                            nativeType
-                            path
-                            kind
-                        }
-                    }
-                    datasetVolumeParameters {
-                        sourceType
-                    }
-                    datasetFieldParameters {
-                        sourceType
-                        changedRowsField {
-                            type
-                            nativeType
-                            path
-                            kind
-                        }
-                    }
+                    ...assertionEvaluationParameters
                 }
             }
         }
@@ -66,7 +43,7 @@ mutation updateMonitorStatus($input: UpdateMonitorStatusInput!) {
 }
 
 fragment assertionDetailsWithMonitors on Assertion {
-    ...assertionDetails
+    ...assertionDetailsWithRunEvents
     monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
         relationships {
             entity {
@@ -74,14 +51,6 @@ fragment assertionDetailsWithMonitors on Assertion {
                     ...monitorDetails
                 }
             }
-        }
-    }
-    runEvents(status: COMPLETE, limit: 1) {
-        total
-        failed
-        succeeded
-        runEvents {
-            ...assertionRunEventDetails
         }
     }
 }
@@ -102,16 +71,20 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
         ...assertionsQueryWithMonitors
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...assertionsQuery
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...assertionsQueryWithMonitors
+                }
             }
         }
         privileges {
             ...entityPrivileges
-            canEditMonitors
-            canEditSqlAssertionMonitors
         }
     }
 }

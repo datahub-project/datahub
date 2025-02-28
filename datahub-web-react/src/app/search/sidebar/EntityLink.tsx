@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -11,10 +11,10 @@ import { Entity, Maybe } from '../../../types.generated';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { BrowseV2EntityLinkClickEvent } from '../../analytics';
 
-const Linkicon = styled(Icon)<{ isSelected: boolean }>`
+const Linkicon = styled(Icon)<{ $isSelected: boolean }>`
     && {
         color: ${(props) => props.theme.styles['primary-color']};
-        ${(props) => !props.isSelected && 'display: none;'}
+        ${(props) => !props.$isSelected && 'display: none;'}
         ${ExpandableNode.SelectableHeader}:hover & {
             display: inherit;
         }
@@ -49,7 +49,7 @@ const EntityLink = ({ entity, targetNode }: Props) => {
         <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
             <Link to={entityUrl}>
                 <ExpandableNode.StaticButton
-                    icon={<Linkicon isSelected={isBrowsePathSelected} component={ExternalLink} />}
+                    icon={<Linkicon $isSelected={isBrowsePathSelected} component={ExternalLink} />}
                     onClick={onClickButton}
                 />
             </Link>

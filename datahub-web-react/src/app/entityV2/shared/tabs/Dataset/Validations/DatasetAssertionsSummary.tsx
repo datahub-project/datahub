@@ -1,5 +1,6 @@
 import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled, StopOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
@@ -77,13 +78,15 @@ export const DatasetAssertionsSummary = ({ summary }: Props) => {
     const summaryIcon = getSummaryIcon(summary);
     const summaryMessage = getSummaryMessage(summary);
     const errorMessage = summary.erroredRuns
-        ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}.`
-        : '.';
+        ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}`
+        : '';
+    const inactiveAssertionsCount = summary.totalAssertions - summary.totalRuns;
+    const inactiveAssertionsMessage = inactiveAssertionsCount ? `, ${inactiveAssertionsCount} inactive.` : '.';
     const subtitleMessage = `${summary.succeededRuns} successful assertions, ${summary.failedRuns} failed assertions`;
     return (
         <SummaryHeader>
             <SummaryContainer>
-                <Tooltip title="This status is based on the most recent run of each assertion.">
+                <Tooltip title="This status is based on the most recent result of each assertion.">
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         {summaryIcon}
                         <SummaryMessage>
@@ -91,6 +94,7 @@ export const DatasetAssertionsSummary = ({ summary }: Props) => {
                             <Typography.Text type="secondary">
                                 {subtitleMessage}
                                 {errorMessage}
+                                {inactiveAssertionsMessage}
                             </Typography.Text>
                         </SummaryMessage>
                     </div>

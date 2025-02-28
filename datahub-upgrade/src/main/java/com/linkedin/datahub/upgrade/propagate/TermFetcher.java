@@ -9,17 +9,20 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
 class TermFetcher {
+  private final OperationContext systemOpContext;
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
   private final Set<String> allowedGlossaryNodes;
@@ -27,7 +30,7 @@ class TermFetcher {
   private static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
 
-  public Set<Urn> fetchAllowedTerms() {
+  public Set<Urn> fetchAllowedTerms(@Nonnull OperationContext opContext) {
     log.info("Fetching all terms");
     Set<Urn> allowedTerms = new HashSet<>();
     int batch = 0;
@@ -36,16 +39,19 @@ class TermFetcher {
       batch++;
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              systemOpContext,
               Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME),
               null,
               null,
               1000,
               nextScrollId,
-              PropagateTerms.ELASTIC_TIMEOUT);
+              PropagateTerms.ELASTIC_TIMEOUT,
+              null);
       nextScrollId = scrollResult.getScrollId();
       log.info("Processing term batch {}", batch);
       Set<Urn> allowedTermsInBatch =
           filterAllowedTerms(
+              opContext,
               scrollResult.getEntities().stream()
                   .map(SearchEntity::getEntity)
                   .collect(Collectors.toSet()));
@@ -74,10 +80,10 @@ class TermFetcher {
     return allowedGlossaryNodes.contains(glossaryTermInfo.getParentNode().toString());
   }
 
-  private Set<Urn> filterAllowedTerms(Set<Urn> terms) {
+  private Set<Urn> filterAllowedTerms(@Nonnull OperationContext opContext, Set<Urn> terms) {
     try {
       return _entityService
-          .getEntitiesV2(Constants.GLOSSARY_TERM_ENTITY_NAME, terms, ASPECTS_TO_FETCH)
+          .getEntitiesV2(opContext, Constants.GLOSSARY_TERM_ENTITY_NAME, terms, ASPECTS_TO_FETCH)
           .values()
           .stream()
           .filter(this::isAllowed)

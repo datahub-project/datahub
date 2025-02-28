@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -13,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionResult;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -52,10 +52,11 @@ public class GetSubscriptionResolver
             final Urn actorUrn = UrnUtils.getUrn(actorUrnString);
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
-                _subscriptionService.getSubscription(entityUrn, actorUrn, authentication);
+                _subscriptionService.getSubscription(
+                    context.getOperationContext(), entityUrn, actorUrn);
 
             DataHubSubscription dataHubSubscription =
-                subscription == null ? null : DataHubSubscriptionMapper.map(subscription);
+                subscription == null ? null : DataHubSubscriptionMapper.map(context, subscription);
             result.setSubscription(dataHubSubscription);
             return result;
           } catch (Exception e) {

@@ -1,4 +1,5 @@
-import { EntityType, SearchResult } from '../../types.generated';
+import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { EntityType, Exact, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
 
@@ -23,6 +24,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {
@@ -46,6 +51,7 @@ export enum IconStyleType {
 
 /**
  * A standard set of Entity Capabilities that span across entity types.
+ * Note: Must be kept in sync with V2 EntityCapabilityType.
  */
 export enum EntityCapabilityType {
     /**
@@ -84,6 +90,18 @@ export enum EntityCapabilityType {
      * Assigning the entity to a data product
      */
     DATA_PRODUCTS,
+    /**
+     * Health status of an entity
+     */
+    HEALTH,
+    /**
+     * Lineage information of an entity
+     */
+    LINEAGE,
+    /**
+     * Assigning Business Attribute to a entity
+     */
+    BUSINESS_ATTRIBUTES,
 }
 
 /**
@@ -101,7 +119,7 @@ export interface Entity<T> {
      * Ant-design icon associated with the Entity. For a list of all candidate icons, see
      * https://ant.design/components/icon/
      */
-    icon: (fontSize?: number, styleType?: IconStyleType, color?: string) => JSX.Element;
+    icon: (fontSize: number, styleType: IconStyleType, color?: string) => JSX.Element;
 
     /**
      * Returns whether the entity search is enabled
@@ -152,7 +170,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering profiles.
      */
-    renderSearch: (result: SearchResult) => JSX.Element;
+    renderSearch: (result: SearchResult, previewType?: PreviewType, onCardClick?: (any: any) => any) => JSX.Element;
 
     /**
      * Constructs config to add entity to lineage viz
@@ -172,14 +190,14 @@ export interface Entity<T> {
     getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
 
     /**
-     * Returns the supported features for the entity
-     */
-    supportedCapabilities: () => Set<EntityCapabilityType>;
-
-    /**
      * Returns the graph name of the entity, as it appears in the GMS entity registry
      */
     getGraphName: () => string;
+
+    /**
+     * Returns the supported features for the entity
+     */
+    supportedCapabilities: () => Set<EntityCapabilityType>;
 
     /**
      * Returns the profile component to be displayed in our Chrome extension
@@ -190,4 +208,26 @@ export interface Entity<T> {
      * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
      */
     getSidebarSections?: () => EntitySidebarSection[];
+
+    /**
+     * Get the query necessary for refetching data on an entity profile page
+     */
+    useEntityQuery?: (
+        baseOptions: QueryHookOptions<
+            any,
+            Exact<{
+                urn: string;
+            }>
+        >,
+    ) => QueryResult<
+        any,
+        Exact<{
+            urn: string;
+        }>
+    >;
+
+    /**
+     * Returns the url to be navigated to when clicked on Cards
+     */
+    getCustomCardUrlPath?: () => string | undefined;
 }

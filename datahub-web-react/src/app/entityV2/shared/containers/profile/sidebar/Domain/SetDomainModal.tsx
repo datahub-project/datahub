@@ -1,16 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Empty } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
-
-import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { getModalDomContainer } from '@src/utils/focus';
+import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import analytics, { EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import domainAutocompleteOptions from '../../../../../../domainV2/DomainAutocompleteOptions';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { DomainLabel } from '../../../../../../shared/DomainLabel';
 import { handleBatchError } from '../../../../utils';
-import { tagRender } from '../tagRenderer';
 import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
@@ -31,20 +32,10 @@ type SelectedDomain = {
     urn: string;
 };
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${ANTD_GRAY[8]};
-    }
-`;
-
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { refetch: entityRefetch } = useEntityContext();
+    const mutationUrn = useMutationUrn();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -56,10 +47,11 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
               }
             : undefined,
     );
-    const [domainSearch, { data: domainSearchData, loading }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults =
-        domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [domainSearch, { data: domainSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const domainSearchResults: Entity[] = domainSearchData?.autoComplete?.entities || [];
+
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
+    const [proposeDomainMutation] = useProposeDomainMutation();
     const inputEl = useRef(null);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
 
@@ -70,33 +62,21 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     };
 
     const handleSearch = (text: string) => {
-        domainSearch({
-            variables: {
-                input: {
-                    type: EntityType.Domain,
-                    query: text,
-                    start: 0,
-                    count: 5,
+        console.log('Not calling search');
+        if (text) {
+            domainSearch({
+                variables: {
+                    input: {
+                        type: EntityType.Domain,
+                        query: text,
+                        limit: 5,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
-    // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: Entity) => {
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <DomainLabel name={displayName} />
-            </Select.Option>
-        );
-    };
-
-    const domainResult = !inputValue || inputValue.length === 0 ? [] : domainSearchResults;
-
-    const domainSearchOptions = domainResult?.map((result) => {
-        return renderSearchResult(result);
-    });
+    const domainResult = !inputValue.length ? [] : domainSearchResults;
 
     const onSelectDomain = (newUrn: string) => {
         if (inputEl && inputEl.current) {
@@ -111,6 +91,49 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 urn: newUrn,
             });
         }
+    };
+
+    const proposeDomain = () => {
+        message.loading('Proposing...');
+
+        if (!selectedDomain) {
+            return;
+        }
+
+        // TODO: Add description to the proposal
+        proposeDomainMutation({
+            variables: {
+                input: {
+                    resourceUrn: mutationUrn,
+                    domainUrn: selectedDomain.urn,
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.ProposeDomainMutation,
+                    resourceUrn: mutationUrn,
+                    domainUrn: selectedDomain.urn,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                message.destroy();
+                message.success('Successfully proposed domain. It is pending approval.');
+                onModalClose();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Unable to propose domain. Something went wrong.',
+                    badRequestMessage: 'Failed to propose domain. Domain is already proposed or applied.',
+                    permissionMessage:
+                        'Unauthorized to propose domain. The "Manage Domain Proposals" privilege is required for this asset.',
+                });
+                onModalClose();
+            });
     };
 
     function selectDomainFromBrowser(domain: Domain) {
@@ -175,7 +198,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setInputValue('');
     }
 
-    function handleCLickOutside() {
+    function handleClickOutside() {
         // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
         setTimeout(() => setIsFocusedOnInput(false), 0);
     }
@@ -183,41 +206,45 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     return (
         <Modal
             title={titleOverride || 'Set Domain'}
-            visible
+            open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Add
+                    <Button
+                        type="default"
+                        onClick={proposeDomain}
+                        disabled={!selectedDomain}
+                        data-testid="propose-domain-on-entity-button"
+                    >
+                        Propose
+                    </Button>
+                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                        Save
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form component={false}>
                 <Form.Item>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
+                    <ClickOutside onClickOutside={handleClickOutside}>
                         <Select
                             autoFocus
-                            defaultOpen
-                            filterOption={false}
                             showSearch
-                            mode="multiple"
+                            filterOption={false}
                             defaultActiveFirstOption={false}
                             placeholder="Search for Domains..."
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
                                 handleSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
                                 setInputValue(value.trim());
                             }}
                             ref={inputEl}
                             value={selectValue}
-                            tagRender={tagRender}
                             onBlur={handleBlur}
                             onFocus={() => setIsFocusedOnInput(true)}
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
@@ -228,17 +255,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                     style={{ color: ANTD_GRAY[7] }}
                                 />
                             }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                domainSearchOptions
-                            )}
-                        </Select>
+                            options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                        />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
                         </BrowserWrapper>

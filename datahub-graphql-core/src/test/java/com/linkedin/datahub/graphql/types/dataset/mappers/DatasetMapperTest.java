@@ -50,7 +50,7 @@ public class DatasetMapperTest {
             .setEntityName(Constants.DATASET_ENTITY_NAME)
             .setUrn(TEST_DATASET_URN)
             .setAspects(new EnvelopedAspectMap(dataSetPropertiesAspects));
-    final Dataset actual = DatasetMapper.map(response);
+    final Dataset actual = DatasetMapper.map(null, response);
 
     final Dataset expected = new Dataset();
     expected.setUrn(TEST_DATASET_URN.toString());
@@ -100,7 +100,7 @@ public class DatasetMapperTest {
             .setEntityName(Constants.DATASET_ENTITY_NAME)
             .setUrn(TEST_DATASET_URN)
             .setAspects(new EnvelopedAspectMap(dataSetPropertiesAspects));
-    final Dataset actual = DatasetMapper.map(response);
+    final Dataset actual = DatasetMapper.map(null, response);
 
     final Dataset expected = new Dataset();
     expected.setUrn(TEST_DATASET_URN.toString());
@@ -154,7 +154,7 @@ public class DatasetMapperTest {
             .setEntityName(Constants.DATASET_ENTITY_NAME)
             .setUrn(TEST_DATASET_URN)
             .setAspects(new EnvelopedAspectMap(dataSetPropertiesAspects));
-    final Dataset actual = DatasetMapper.map(response);
+    final Dataset actual = DatasetMapper.map(null, response);
 
     final Dataset expected = new Dataset();
     expected.setUrn(TEST_DATASET_URN.toString());

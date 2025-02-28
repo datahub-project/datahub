@@ -1,0 +1,157 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "instance": "my_instance",
+                "database": "MY_DB",
+                "schema": "MY_SCHEMA",
+                "key1": "value1",
+                "key2": "value2"
+            },
+            "externalUrl": "https://example.com",
+            "name": "MY_SCHEMA",
+            "qualifiedName": "MY_DB.MY_SCHEMA",
+            "description": "test",
+            "created": {
+                "time": 1735787045000
+            },
+            "lastModified": {
+                "time": 1736391846000
+            }
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:37d6500021cda2a0aa7ae1900eab5a9c"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
+                },
+                {
+                    "id": "urn:li:container:37d6500021cda2a0aa7ae1900eab5a9c",
+                    "urn": "urn:li:container:37d6500021cda2a0aa7ae1900eab5a9c"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@datahubproject.io",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tag1"
+                },
+                {
+                    "tag": "urn:li:tag:tag2"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:AccountBalance"
+                }
+            ],
+            "auditStamp": {
+                "time": 0,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:Marketing"
+            ]
+        }
+    }
+}
+]

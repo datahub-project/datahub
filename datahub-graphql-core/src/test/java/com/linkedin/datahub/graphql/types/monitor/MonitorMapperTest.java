@@ -1,12 +1,17 @@
 package com.linkedin.datahub.graphql.types.monitor;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -14,6 +19,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.monitor.AssertionEvaluationContext;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
@@ -21,12 +27,20 @@ import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
+import com.linkedin.monitor.EmbeddedAssertion;
+import com.linkedin.monitor.EmbeddedAssertionArray;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
+import com.linkedin.timeseries.CalendarInterval;
+import com.linkedin.timeseries.TimeWindow;
+import com.linkedin.timeseries.TimeWindowSize;
+import java.io.IOException;
 import java.util.HashMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -37,8 +51,10 @@ public class MonitorMapperTest {
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
   private static final String TEST_MONITOR_ID = "test";
 
+  private static final JacksonDataCodec CODEC = new JacksonDataCodec();
+
   @Test
-  public void testMapAssertionMonitor() {
+  public void testMapAssertionMonitor() throws IOException {
     MonitorKey key = new MonitorKey();
     key.setEntity(TEST_ENTITY_URN);
     key.setId(TEST_MONITOR_ID);
@@ -46,17 +62,17 @@ public class MonitorMapperTest {
     // Case 1: Without nullable fields
     MonitorInfo info = createAssertionMonitorInfoWithoutNullableFields();
     EntityResponse monitorEntityResponse = createMonitorEntityResponse(key, info);
-    Monitor output = MonitorMapper.map(monitorEntityResponse);
+    Monitor output = MonitorMapper.map(null, monitorEntityResponse);
     verifyMonitor(key, info, output);
 
     // Case 2: With nullable fields
     info = createAssertionMonitorInfoWithNullableFields();
     EntityResponse monitorEntityResponseWithNullables = createMonitorEntityResponse(key, info);
-    output = MonitorMapper.map(monitorEntityResponseWithNullables);
+    output = MonitorMapper.map(null, monitorEntityResponseWithNullables);
     verifyMonitor(key, info, output);
   }
 
-  private void verifyMonitor(MonitorKey key, MonitorInfo info, Monitor output) {
+  private void verifyMonitor(MonitorKey key, MonitorInfo info, Monitor output) throws IOException {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
     Assert.assertEquals(output.getEntity().getUrn(), key.getEntity().toString());
@@ -69,7 +85,8 @@ public class MonitorMapperTest {
   }
 
   private void verifyAssertionMonitor(
-      AssertionMonitor input, com.linkedin.datahub.graphql.generated.AssertionMonitor output) {
+      AssertionMonitor input, com.linkedin.datahub.graphql.generated.AssertionMonitor output)
+      throws IOException {
     Assert.assertEquals(
         output.getAssertions().get(0).getAssertion().getUrn(),
         input.getAssertions().get(0).getAssertion().toString());
@@ -82,6 +99,9 @@ public class MonitorMapperTest {
     Assert.assertEquals(
         output.getAssertions().get(0).getParameters().getType().toString(),
         input.getAssertions().get(0).getParameters().getType().toString());
+    Assert.assertEquals(
+        output.getAssertions().get(0).getRawParameters(),
+        CODEC.mapToString(input.getAssertions().get(0).getParameters().data()));
 
     if (input.getAssertions().get(0).getParameters().hasDatasetFreshnessParameters()) {
       // Verify the dataset FRESHNESS parameters.
@@ -126,6 +146,38 @@ public class MonitorMapperTest {
           output.getAssertions().get(0).getParameters().getDatasetVolumeParameters();
       Assert.assertEquals(
           outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
+    }
+
+    if (input.getAssertions().get(0).getParameters().hasDatasetSchemaParameters()) {
+      // Verify the dataset SCHEMA parameters.
+      DatasetSchemaAssertionParameters inputParams =
+          input.getAssertions().get(0).getParameters().getDatasetSchemaParameters();
+      com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParameters outputParams =
+          output.getAssertions().get(0).getParameters().getDatasetSchemaParameters();
+      Assert.assertEquals(
+          outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
+    }
+
+    if (input.getAssertions().get(0).hasContext()
+        && input.getAssertions().get(0).getContext().hasEmbeddedAssertions()) {
+      EmbeddedAssertion inputAssertion =
+          input.getAssertions().get(0).getContext().getEmbeddedAssertions().get(0);
+      com.linkedin.datahub.graphql.generated.EmbeddedAssertion outputAssertion =
+          output.getAssertions().get(0).getContext().getEmbeddedAssertions().get(0);
+
+      Assert.assertEquals(
+          inputAssertion.getEvaluationTimeWindow().getStartTimeMillis(),
+          outputAssertion.getEvaluationTimeWindow().getStartTimeMillis());
+      Assert.assertEquals(
+          inputAssertion.getEvaluationTimeWindow().getStartTimeMillis()
+              + (2 * 24 * 60 * 60 * 1000), // 2 days into milliseconds
+          outputAssertion.getEvaluationTimeWindow().getEndTimeMillis());
+      Assert.assertEquals(
+          inputAssertion.getAssertion().getType().toString(),
+          outputAssertion.getAssertion().getType().toString());
+      Assert.assertEquals(
+          CODEC.mapToString(inputAssertion.getAssertion().data()),
+          outputAssertion.getRawAssertion());
     }
   }
 
@@ -199,8 +251,39 @@ public class MonitorMapperTest {
                                                     .setKind(FreshnessFieldKind.LAST_MODIFIED)))
                                     .setDatasetVolumeParameters(
                                         new DatasetVolumeAssertionParameters()
-                                            .setSourceType(DatasetVolumeSourceType.QUERY)))))));
+                                            .setSourceType(DatasetVolumeSourceType.QUERY))
+                                    .setDatasetSchemaParameters(
+                                        new DatasetSchemaAssertionParameters()
+                                            .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA)))
+                            .setContext(
+                                new AssertionEvaluationContext()
+                                    .setEmbeddedAssertions(
+                                        new EmbeddedAssertionArray(
+                                            ImmutableList.of(
+                                                new EmbeddedAssertion()
+                                                    .setAssertion(
+                                                        createFreshnessAssertionInfoWithoutNullableFields())
+                                                    .setEvaluationTimeWindow(
+                                                        new TimeWindow()
+                                                            .setStartTimeMillis(1000000000L)
+                                                            .setLength(
+                                                                new TimeWindowSize()
+                                                                    .setMultiple(2)
+                                                                    .setUnit(
+                                                                        CalendarInterval
+                                                                            .DAY)))))))))));
     info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+    return info;
+  }
+
+  public AssertionInfo createFreshnessAssertionInfoWithoutNullableFields() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.FRESHNESS);
+    FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
+    freshnessAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    freshnessAssertionInfo.setType(FreshnessAssertionType.DATASET_CHANGE);
+    info.setFreshnessAssertion(freshnessAssertionInfo);
     return info;
   }
 }

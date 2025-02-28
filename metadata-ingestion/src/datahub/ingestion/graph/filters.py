@@ -1,5 +1,5 @@
 import enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -23,14 +23,35 @@ class RemovedStatusFilter(enum.Enum):
     """Search only soft-deleted entities."""
 
 
+def _validate_or_filter_structure(
+    or_filters: List[Dict[str, List[SearchFilterRule]]],
+) -> None:
+    for filter_list in or_filters:
+        if "and" not in filter_list:
+            raise ValueError(f"Invalid or filter: {filter_list}")
+        if not isinstance(filter_list["and"], list):
+            raise ValueError(f"Invalid or filter: {filter_list}")
+
+
 def generate_filter(
-    platform: Optional[str],
+    platform: Union[None, str, List[str]],
     platform_instance: Optional[str],
     env: Optional[str],
-    container: Optional[str],
+    container: Union[None, str, List[str]],
     status: RemovedStatusFilter,
     extra_filters: Optional[List[SearchFilterRule]],
+    extra_or_filters: Optional[List[SearchFilterRule]] = None,
 ) -> List[Dict[str, List[SearchFilterRule]]]:
+    """
+    Generate a search filter based on the provided parameters.
+    :param platform: The platform to filter by.
+    :param platform_instance: The platform instance to filter by.
+    :param env: The environment to filter by.
+    :param container: The container to filter by.
+    :param status: The status to filter by.
+    :param extra_filters: Extra AND filters to apply.
+    :param extra_or_filters: Extra OR filters to apply. These are combined with the AND filters using an OR at the top level.
+    """
     and_filters: List[SearchFilterRule] = []
 
     # Platform filter.
@@ -54,7 +75,7 @@ def generate_filter(
     if extra_filters:
         and_filters += extra_filters
 
-    or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
+    or_filters = [{"and": and_filters}]
 
     # Env filter
     if env:
@@ -63,6 +84,14 @@ def generate_filter(
         or_filters = [
             {"and": and_filter["and"] + [extraCondition]}
             for extraCondition in env_filters
+            for and_filter in or_filters
+        ]
+
+    # Extra OR filters are distributed across the top level and lists.
+    if extra_or_filters:
+        or_filters = [
+            {"and": and_filter["and"] + [extra_or_filter]}
+            for extra_or_filter in extra_or_filters
             for and_filter in or_filters
         ]
 
@@ -89,6 +118,10 @@ def _get_env_filters(env: str) -> List[SearchFilterRule]:
         {
             "field": "customProperties",
             "value": f"instance={env}",
+        },
+        {
+            "field": "env",
+            "value": env,
         },
         # Note that not all entity types have an env (e.g. dashboards / charts).
         # If the env filter is specified, these will be excluded.
@@ -122,23 +155,31 @@ def _get_status_filter(status: RemovedStatusFilter) -> Optional[SearchFilterRule
         raise ValueError(f"Invalid status filter: {status}")
 
 
-def _get_container_filter(container: str) -> SearchFilterRule:
+def _get_container_filter(container: Union[str, List[str]]) -> SearchFilterRule:
+    if not isinstance(container, list):
+        container = [container]
+
     # Warn if container is not a fully qualified urn.
     # TODO: Change this once we have a first-class container urn type.
-    if guess_entity_type(container) != "container":
-        raise ValueError(f"Invalid container urn: {container}")
+    for cont in container:
+        if guess_entity_type(cont) != "container":
+            raise ValueError(f"Invalid container urn: {cont}")
 
     return {
         "field": "browsePathV2",
-        "values": [container],
+        "values": container,
         "condition": "CONTAIN",
     }
 
 
 def _get_platform_instance_filter(
-    platform: Optional[str], platform_instance: str
+    platform: Union[None, str, List[str]], platform_instance: str
 ) -> SearchFilterRule:
     if platform:
+        if isinstance(platform, list):
+            raise ValueError(
+                "Platform instance filter cannot be combined with a multi-value platform filter."
+            )
         # Massage the platform instance into a fully qualified urn, if necessary.
         platform_instance = make_dataplatform_instance_urn(platform, platform_instance)
 
@@ -154,9 +195,11 @@ def _get_platform_instance_filter(
     }
 
 
-def _get_platform_filter(platform: str) -> SearchFilterRule:
+def _get_platform_filter(platform: Union[str, List[str]]) -> SearchFilterRule:
+    if not isinstance(platform, list):
+        platform = [platform]
     return {
         "field": "platform.keyword",
-        "values": [make_data_platform_urn(platform)],
+        "values": [make_data_platform_urn(plt) for plt in platform],
         "condition": "EQUAL",
     }

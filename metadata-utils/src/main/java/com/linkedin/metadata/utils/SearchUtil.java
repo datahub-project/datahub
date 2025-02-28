@@ -1,7 +1,9 @@
 package com.linkedin.metadata.utils;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -23,8 +25,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 public class SearchUtil {
@@ -33,9 +33,9 @@ public class SearchUtil {
   public static final String AGGREGATION_SPECIAL_TYPE_DELIMITER = "␝";
   public static final String MISSING_SPECIAL_TYPE = "missing";
   public static final String INDEX_VIRTUAL_FIELD = "_entityType";
-  public static final String KEYWORD_SUFFIX = ".keyword";
+  public static final String ES_INDEX_FIELD = "_index";
+  public static final String URN_FIELD = "urn";
   private static final String URN_PREFIX = "urn:";
-  private static final String REMOVED = "removed";
 
   private SearchUtil() {}
 
@@ -56,10 +56,10 @@ public class SearchUtil {
 
   public static FilterValue createFilterValue(String value, Long facetCount, Boolean isFilteredOn) {
     // TODO(indy): test this
-    String[] aggregationTokens = value.split(AGGREGATION_SEPARATOR_CHAR);
+    String[] aggregations = value.split(AGGREGATION_SEPARATOR_CHAR);
     FilterValue result =
         new FilterValue().setValue(value).setFacetCount(facetCount).setFiltered(isFilteredOn);
-    String lastValue = aggregationTokens[aggregationTokens.length - 1];
+    String lastValue = aggregations[aggregations.length - 1];
     if (lastValue.startsWith(URN_PREFIX)) {
       try {
         result.setEntity(Urn.createFromString(lastValue));
@@ -72,16 +72,14 @@ public class SearchUtil {
 
   private static Criterion transformEntityTypeCriterion(
       Criterion criterion, IndexConvention indexConvention) {
-    return criterion
-        .setField("_index")
-        .setValues(
-            new StringArray(
-                criterion.getValues().stream()
-                    .map(value -> String.join("", value.split("_")))
-                    .map(indexConvention::getEntityIndexName)
-                    .collect(Collectors.toList())))
-        .setValue(
-            indexConvention.getEntityIndexName(String.join("", criterion.getValue().split("_"))));
+    return buildCriterion(
+        ES_INDEX_FIELD,
+        Condition.EQUAL,
+        criterion.isNegated(),
+        criterion.getValues().stream()
+            .map(value -> String.join("", value.split("_")))
+            .map(indexConvention::getEntityIndexName)
+            .collect(Collectors.toList()));
   }
 
   private static ConjunctiveCriterion transformConjunctiveCriterion(
@@ -122,30 +120,6 @@ public class SearchUtil {
           .setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
     }
     return filter;
-  }
-
-  /**
-   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter
-   * for the REMOVED field already
-   */
-  public static BoolQueryBuilder filterSoftDeletedByDefault(
-      @Nullable Filter filter, @Nullable BoolQueryBuilder filterQuery) {
-    boolean removedInOrFilter = false;
-    if (filter != null) {
-      removedInOrFilter =
-          filter.getOr().stream()
-              .anyMatch(
-                  or ->
-                      or.getAnd().stream()
-                          .anyMatch(
-                              criterion ->
-                                  criterion.getField().equals(REMOVED)
-                                      || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
-    }
-    if (!removedInOrFilter) {
-      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
-    }
-    return filterQuery;
   }
 
   public static SortCriterion sortBy(@Nonnull String field, @Nullable SortOrder direction) {

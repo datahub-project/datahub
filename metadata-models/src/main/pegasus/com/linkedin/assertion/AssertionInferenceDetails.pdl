@@ -1,0 +1,40 @@
+namespace com.linkedin.assertion
+
+/**
+ * The details of an assertion that was inferred.
+ */
+ @Aspect = {
+   "name": "assertionInferenceDetails"
+ }
+record AssertionInferenceDetails {
+
+  /**
+   * The id of the assertion prediction model.
+   */
+  modelId: optional string
+
+  /**
+   * The version of the model used to make the assertion.
+   */
+  modelVersion: optional string
+
+  /**
+   * The confidence of the inference, if available.
+   */
+  confidence: optional float
+
+  /**
+   * The parameters used to make the inference.
+   */
+  parameters: optional map[string, string]
+
+  /**
+   * The time the inferred assertion was generated at in milliseconds.
+   */
+  generatedAt: optional long
+
+  /**
+   * The settings used to adjust the assertion.
+   */
+  adjustmentSettings: optional AssertionAdjustmentSettings
+}

@@ -1,0 +1,15 @@
+namespace com.linkedin.subscription
+import com.linkedin.common.Urn
+
+/**
+ * Details for filtering notifications relating to an EntityChangeType. Used by Subscriptions to determine how to
+ * filter out change types when triggering a notification.
+ */
+record EntityChangeDetailsFilter {
+    /**
+     * A list of assertions to inclusively filter when generating notifications.
+     * Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+     * Effectively allows for 'assertion level subscriptions'
+     */
+    includeAssertions: optional array[Urn]
+}

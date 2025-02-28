@@ -3,33 +3,35 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.DownstreamSummary;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.subscription.EntityChangeType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,27 +48,24 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class IncidentNotificationGenerator extends BaseMclNotificationGenerator {
-
-  private final EntityNameProvider _entityNameProvider;
   private final FeatureFlags _featureFlags;
 
   public IncidentNotificationGenerator(
+      @Nonnull final OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders,
       @Nonnull final FeatureFlags featureFlags) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+        notificationRecipientBuilders);
     _featureFlags = featureFlags;
-    _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
   }
 
   @Override
@@ -115,6 +114,16 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
               event.getAspect().getValue(),
               event.getAspect().getContentType(),
               IncidentInfo.class));
+
+      // Enable or disable attempting to update the state of an incident we've already broadcasted!
+      if (_featureFlags.isBroadcastNewIncidentUpdatesEnabled()) {
+        sendBroadcastNewIncidentUpdateNotification(
+            event.getEntityUrn(),
+            GenericRecordUtils.deserializeAspect(
+                event.getAspect().getValue(),
+                event.getAspect().getContentType(),
+                IncidentInfo.class));
+      }
     }
   }
 
@@ -134,39 +143,25 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     log.debug(info.toString());
 
     final Urn entityUrn = info.getEntities().get(0);
+    final Urn actorUrn = info.getStatus().getLastUpdated().getActor();
+
     EntityChangeType changeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
-            buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn, changeType));
+            buildRecipients(
+                systemOpContext,
+                NotificationScenarioType.NEW_INCIDENT,
+                entityUrn,
+                changeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       log.warn("Skipping incident notification generation - no recipients");
       return;
     }
 
-    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
-    final List<Urn> owners =
-        maybeOwnership != null
-            ? maybeOwnership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
-            : Collections.emptyList();
-    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityName", _entityNameProvider.getName(entityUrn));
-    templateParams.put("entityType", entityUrn.getEntityType());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", info.getStatus().getState().toString());
-    templateParams.put("owners", listToJSON(owners));
-    templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
-    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
-    if (info.hasTitle()) {
-      templateParams.put("incidentTitle", info.getTitle());
-    }
-    if (info.hasDescription()) {
-      templateParams.put("incidentDescription", info.getDescription());
-    }
+    final Map<String, String> templateParams =
+        buildBroadcastNewIncidentTemplateParams(urn, entityUrn, info);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
@@ -187,12 +182,17 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = newInfo.getEntities().get(0);
+    final Urn actorUrn = newInfo.getStatus().getLastUpdated().getActor();
     EntityChangeType changeType = getEntityChangeType(newInfo);
 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, changeType));
+                systemOpContext,
+                NotificationScenarioType.INCIDENT_STATUS_CHANGE,
+                entityUrn,
+                changeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       log.info("Skipping incident generation - no recipients");
       return;
@@ -203,18 +203,33 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         maybeOwnership != null
             ? maybeOwnership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
             : Collections.emptyList();
-    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
-
+    final DownstreamSummary downstreamSummary = getDownstreamSummary(entityUrn);
     final Map<String, String> templateParams = new HashMap<>();
+    final String entityName = _entityNameProvider.getQualifiedName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String actorName =
+        _entityNameProvider.getName(
+            systemOpContext, newInfo.getStatus().getLastUpdated().getActor());
     templateParams.put("incidentUrn", urn.toString());
     templateParams.put("entityUrn", entityUrn.toString());
     templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("entityName", _entityNameProvider.getName(entityUrn));
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityType", entityType);
     templateParams.put("newStatus", newInfo.getStatus().getState().toString());
     templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
     templateParams.put("owners", listToJSON(owners));
-    templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
+    if (downstreamSummary != null) {
+      final List<Urn> downstreamOwners = downstreamSummary.getOwnerUrns();
+      final Integer downstreamAssetCount = downstreamSummary.getTotal();
+      templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
+      templateParams.put("downstreamAssetCount", downstreamAssetCount.toString());
+    }
     templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
+    templateParams.put("actorName", actorName);
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
     if (newInfo.getStatus().hasMessage()) {
       templateParams.put("message", newInfo.getStatus().getMessage());
     }
@@ -223,6 +238,36 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     }
     if (newInfo.hasDescription()) {
       templateParams.put("incidentDescription", newInfo.getDescription());
+    }
+    if (newInfo.hasPriority()) {
+      templateParams.put("incidentPriority", newInfo.getPriority().toString());
+    }
+    if (newInfo.getStatus().hasStage()) {
+      templateParams.put("incidentStage", newInfo.getStatus().getStage().toString());
+    }
+    if (newInfo.hasType()) {
+      if (newInfo.hasCustomType()) {
+        templateParams.put("incidentType", newInfo.getCustomType());
+      } else {
+        templateParams.put("incidentType", newInfo.getType().toString());
+      }
+    }
+    if (newInfo.hasSource()
+        && IncidentSourceType.ASSERTION_FAILURE.equals(newInfo.getSource().getType())) {
+      Urn assertionUrn = newInfo.getSource().getSourceUrn();
+      templateParams.put("assertionUrn", assertionUrn.toString());
+      // Attempt to populate the assertion description.
+      DataMap rawInfo = getAspectData(assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+      if (rawInfo != null) {
+        AssertionInfo aspectInfo = new AssertionInfo(rawInfo);
+        templateParams.put(
+            "assertionDescription",
+            AssertionUtils.buildAssertionDescription(assertionUrn, aspectInfo));
+        templateParams.put("assertionType", aspectInfo.getType().toString());
+        if (aspectInfo.getSource() != null) {
+          templateParams.put("assertionSourceType", aspectInfo.getSource().getType().toString());
+        }
+      }
     }
 
     final NotificationRequest notificationRequest =
@@ -233,6 +278,121 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
+  }
+
+  /**
+   * Sends a notification of template type "BROADCAST_NEW_INCIDENT_UPDATE" when an incident's status
+   * is changed.
+   *
+   * <p>This is used to update the incident status in the destination, as opposed to sending a net
+   * new notification.
+   */
+  private void sendBroadcastNewIncidentUpdateNotification(
+      @Nonnull final Urn urn, @Nonnull final IncidentInfo newInfo) {
+
+    // Notify a specific slack channel to alert the owners of the asset.
+    final Urn entityUrn = newInfo.getEntities().get(0);
+    final Urn actorUrn = newInfo.getStatus().getLastUpdated().getActor();
+    EntityChangeType changeType = getEntityChangeType(newInfo);
+
+    // Anyone who has received broadcast new incident may be interested in this update -
+    // you do not need to specifically subscribe to receive this special broadcast type.
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(
+            buildRecipients(
+                systemOpContext,
+                NotificationScenarioType.NEW_INCIDENT,
+                entityUrn,
+                changeType,
+                actorUrn));
+
+    if (recipients.isEmpty()) {
+      log.info("Skipping incident generation - no recipients");
+      return;
+    }
+
+    final Map<String, String> templateParams =
+        buildBroadcastNewIncidentTemplateParams(urn, entityUrn, newInfo);
+
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.BROADCAST_NEW_INCIDENT_UPDATE.name(),
+            templateParams,
+            recipients);
+
+    log.info(String.format("Updating broadcasted incident for entity %s...", entityUrn));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  private Map<String, String> buildBroadcastNewIncidentTemplateParams(
+      @Nonnull final Urn urn, @Nonnull Urn entityUrn, @Nonnull final IncidentInfo info) {
+    final Map<String, String> templateParams = new HashMap<>();
+    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
+    final List<Urn> owners =
+        maybeOwnership != null
+            ? maybeOwnership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
+            : Collections.emptyList();
+    final DownstreamSummary downstreamSummary = getDownstreamSummary(entityUrn);
+    final String entityName = _entityNameProvider.getQualifiedName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String actorName =
+        _entityNameProvider.getName(systemOpContext, info.getStatus().getLastUpdated().getActor());
+    templateParams.put("incidentUrn", urn.toString());
+    templateParams.put("entityUrn", entityUrn.toString());
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityType", entityType);
+    templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("newStatus", info.getStatus().getState().toString());
+    templateParams.put("owners", listToJSON(owners));
+    if (downstreamSummary != null) {
+      final List<Urn> downstreamOwners = downstreamSummary.getOwnerUrns();
+      final Integer downstreamAssetCount = downstreamSummary.getTotal();
+      templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
+      templateParams.put("downstreamAssetCount", downstreamAssetCount.toString());
+    }
+    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
+    templateParams.put("actorName", actorName);
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
+    if (info.hasTitle()) {
+      templateParams.put("incidentTitle", info.getTitle());
+    }
+    if (info.hasDescription()) {
+      templateParams.put("incidentDescription", info.getDescription());
+    }
+    if (info.hasPriority()) {
+      templateParams.put("incidentPriority", info.getPriority().toString());
+    }
+    if (info.getStatus().hasStage()) {
+      templateParams.put("incidentStage", info.getStatus().getStage().toString());
+    }
+    if (info.hasType()) {
+      if (info.hasCustomType()) {
+        templateParams.put("incidentType", info.getCustomType());
+      } else {
+        templateParams.put("incidentType", info.getType().toString());
+      }
+    }
+    if (info.hasSource()
+        && IncidentSourceType.ASSERTION_FAILURE.equals(info.getSource().getType())) {
+      Urn assertionUrn = info.getSource().getSourceUrn();
+      templateParams.put("assertionUrn", assertionUrn.toString());
+      // Attempt to populate the assertion description.
+      DataMap rawInfo = getAspectData(assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+      if (rawInfo != null) {
+        AssertionInfo aspectInfo = new AssertionInfo(rawInfo);
+        templateParams.put(
+            "assertionDescription",
+            AssertionUtils.buildAssertionDescription(assertionUrn, aspectInfo));
+        templateParams.put("assertionType", aspectInfo.getType().toString());
+        if (aspectInfo.getSource() != null) {
+          templateParams.put("assertionSourceType", aspectInfo.getSource().getType().toString());
+        }
+      }
+    }
+    return templateParams;
   }
 
   private EntityChangeType getEntityChangeType(@Nonnull final IncidentInfo info) {

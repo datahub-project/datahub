@@ -1,0 +1,171 @@
+.tabbedComponent {
+  padding-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.leftSection {
+  padding-left: 4rem;
+}
+
+.title {
+  color: #373A47;
+  font-family: Manrope;
+  font-size: 3.6rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 4.5rem;
+  letter-spacing: -0.18rem;
+  text-align: left;
+  margin-bottom: 3rem;
+
+  .titleBlue {
+    color: var(--semantics-border-default, #1890FF);
+  }
+}
+
+.container {
+  display: flex;
+  flex-direction: column; // Changed to column for mobile view
+  background: white;
+  overflow: hidden;
+  width: 100vw;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  text-align: left !important;
+}
+
+.tab {
+  align-items: center;
+  margin: 0.5rem 0;
+  position: relative;
+  
+  &.activeTab {
+    border-left: 3px solid #4C49E4;
+    .tabTitle {
+      color: black !important;
+    }
+    .icon {
+      filter: brightness(0);
+    }
+
+  }
+
+  .tabButton {
+    padding: 0rem 1rem 1rem 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: left;
+    text-align: left;
+
+    .tabTitle {
+      color: var(--primitives-text-tex-subtext, #777E99);
+      font-family: Manrope;
+      font-size: 1.45rem;
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+      padding-left: 1rem;
+      transition: all .3s;
+    }
+    .icon {
+      transition: all .3s;
+    }
+    &:hover {
+      .tabTitle {
+        color: black;
+      }
+      .icon {
+        filter: brightness(0);
+      }
+    }
+  }
+
+  .dropdown {
+    background-color: #ffffff;
+    margin-top: 5px;
+    padding: 0rem 1.5rem 0.5rem 1.5rem;
+    color: #777E99;
+    font-family: Manrope;
+    font-size: 1.25rem;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 2rem; /* 160% */
+  }
+}
+
+.imageContainer {
+  justify-content: right;
+  background-color: transparent;
+  margin: 1rem 0; 
+  height: 520px;
+  align-self: center;
+  width: 40%;
+  border-radius: 24px;
+  display: flex;
+  flex-grow: 1;
+}
+
+.tabImage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+
+
+
+@media (min-width: 799px) {
+  .container {
+    flex-direction: row; // Change back to row for larger screens
+    padding: 40px 0px;
+  }
+  .tabs {
+    width: 800px;
+  }
+
+  .imageContainer {
+    margin: 1rem 0rem 1rem 1rem;
+  }
+}
+
+@media (max-width: 800px) {
+  .title {
+    font-size: 2.5rem;
+    line-height: 3rem;
+  }
+  .tabButton {
+    .icon {
+      height: 24px;
+      width: 24px;
+    }
+    .tabTitle {
+      font-size: 1rem!important;
+      padding-left: .25rem!important;
+    }
+  }
+  .dropdown {
+    font-size: .9rem!important;
+    line-height: 1.5rem!important;
+  }
+
+  .imageContainer {
+    display: none !important;
+  }
+
+  .leftSection {
+    padding: 2rem;
+  }
+  
+}

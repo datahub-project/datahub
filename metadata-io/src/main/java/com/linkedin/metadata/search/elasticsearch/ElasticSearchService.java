@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -10,96 +13,119 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
 
 @Slf4j
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
 
+  public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
+      new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(false)
+          .setSkipAggregates(false)
+          .setSkipHighlighting(false)
+          .setIncludeSoftDeleted(false)
+          .setIncludeRestricted(false);
+
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
   private final EntityIndexBuilders indexBuilders;
-  private final ESSearchDAO esSearchDAO;
+  @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
 
   @Override
-  public void configure() {
-    indexBuilders.reindexAll();
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    indexBuilders.reindexAll(properties);
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() {
-    return indexBuilders.buildReindexConfigs();
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+    return indexBuilders.buildReindexConfigs(properties);
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return indexBuilders.buildReindexConfigsWithAllStructProps(properties);
+  public void clear(@Nonnull OperationContext opContext) {
+    esWriteDAO.clear(opContext);
   }
 
   @Override
-  public void reindexAll() {
-    configure();
-  }
-
-  @Override
-  public void clear() {
-    esWriteDAO.clear();
-  }
-
-  @Override
-  public long docCount(@Nonnull String entityName) {
-    return esSearchDAO.docCount(entityName);
+  public long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
+    return esSearchDAO.docCount(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityName,
+        filter);
   }
 
   @Override
   public void upsertDocument(
-      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     log.debug(
         String.format(
             "Upserting Search document entityName: %s, document: %s, docId: %s",
             entityName, document, docId));
-    esWriteDAO.upsertDocument(entityName, document, docId);
+    esWriteDAO.upsertDocument(opContext, entityName, document, docId);
   }
 
   @Override
-  public void deleteDocument(@Nonnull String entityName, @Nonnull String docId) {
+  public void deleteDocument(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     log.debug(
         String.format("Deleting Search document entityName: %s, docId: %s", entityName, docId));
-    esWriteDAO.deleteDocument(entityName, docId);
+    esWriteDAO.deleteDocument(opContext, entityName, docId);
   }
 
   @Override
-  public void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId) {
-    final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
-    if (!maybeDocId.isPresent()) {
-      log.warn(
-          String.format("Failed to append run id, could not generate a doc id for urn %s", urn));
-      return;
-    }
-    final String docId = maybeDocId.get();
-    log.debug(String.format("Appending run id for entityName: %s, docId: %s", entityName, docId));
+  public void appendRunId(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
+    final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
+
+    log.debug(
+        "Appending run id for entity name: {}, doc id: {}, run id: {}",
+        urn.getEntityType(),
+        docId,
+        runId);
+
+    // Create an upsert document that will be used if the document doesn't exist
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("runId", Collections.singletonList(runId));
+
     esWriteDAO.applyScriptUpdate(
-        entityName,
+        opContext,
+        urn.getEntityType(),
         docId,
         /*
           Script used to apply updates to the runId field of the index.
@@ -112,77 +138,100 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
                 + "ctx._source.runId.add('%s'); "
                 + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
                 + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId));
+            runId, runId, MAX_RUN_IDS_INDEXED, runId),
+        upsert);
   }
 
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags) {
-    return search(entityNames, input, postFilters, sortCriterion, from, size, searchFlags, null);
+      int size) {
+    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, null);
   }
 
   @Nonnull
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets) {
     log.debug(
         String.format(
-            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-            entityNames, input, postFilters, sortCriterion, from, size));
+            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
+            entityNames, input, postFilters, sortCriteria, from, size));
+
     return esSearchDAO.search(
-        entityNames, input, postFilters, sortCriterion, from, size, searchFlags, facets);
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityNames,
+        input,
+        postFilters,
+        sortCriteria,
+        from,
+        size,
+        facets);
   }
 
   @Nonnull
   @Override
   public SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     log.debug(
         String.format(
-            "Filtering Search documents entityName: %s, filters: %s, sortCriterion: %s, from: %s, size: %s",
-            entityName, filters, sortCriterion, from, size));
-    return esSearchDAO.filter(entityName, filters, sortCriterion, from, size);
+            "Filtering Search documents entityName: %s, filters: %s, sortCriteria: %s, from: %s, size: %s",
+            entityName, filters, sortCriteria, from, size));
+
+    return esSearchDAO.filter(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityName,
+        filters,
+        sortCriteria,
+        from,
+        size);
   }
 
   @Nonnull
   @Override
   public ScrollResult scroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration) {
+      @Nullable String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fetchConfig) {
     log.debug(
-        "Filtering Search documents entityName: {}, filters: {}, sortCriterion: {}, size: {}, scrollId: {}",
+        "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, size: {}, scrollId: {}",
         entities,
         filters,
-        sortCriterion,
+        sortCriteria,
         size,
         scrollId);
-    return esSearchDAO.scroll(entities, filters, sortCriterion, size, scrollId, keepAliveDuration);
+    return esSearchDAO.scroll(
+        opContext, entities, filters, sortCriteria, size, scrollId, keepAliveDuration, fetchConfig);
   }
 
   @Nonnull
   @Override
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String query,
       @Nullable String field,
@@ -192,12 +241,21 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format(
             "Autocompleting query entityName: %s, query: %s, field: %s, requestParams: %s, limit: %s",
             entityName, query, field, requestParams, limit));
-    return esSearchDAO.autoComplete(entityName, query, field, requestParams, limit);
+
+    return esSearchDAO.autoComplete(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, query, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityName,
+        query,
+        field,
+        requestParams,
+        limit);
   }
 
   @Nonnull
   @Override
   public Map<String, Long> aggregateByValue(
+      @Nonnull OperationContext opContext,
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
@@ -208,12 +266,20 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         field,
         requestParams,
         limit);
-    return esSearchDAO.aggregateByValue(entityNames, field, requestParams, limit);
+
+    return esSearchDAO.aggregateByValue(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityNames,
+        field,
+        requestParams,
+        limit);
   }
 
   @Nonnull
   @Override
   public BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filters,
@@ -223,91 +289,221 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format(
             "Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s",
             entityName, path, filters, from, size));
-    return esBrowseDAO.browse(entityName, path, filters, from, size);
+    return esBrowseDAO.browse(
+        opContext.withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
+        entityName,
+        path,
+        filters,
+        from,
+        size);
   }
 
   @Nonnull
   @Override
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags) {
-    return esBrowseDAO.browseV2(entityName, path, filter, input, start, count, searchFlags);
+      int count) {
+
+    return esBrowseDAO.browseV2(
+        opContext.withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
+        entityName,
+        path,
+        filter,
+        input,
+        start,
+        count);
   }
 
   @Nonnull
   @Override
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags) {
-    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count, searchFlags);
+      int count) {
+
+    return esBrowseDAO.browseV2(
+        opContext.withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
+        entityNames,
+        path,
+        filter,
+        input,
+        start,
+        count);
   }
 
   @Nonnull
   @Override
-  public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
+  public List<String> getBrowsePaths(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
     log.debug(
         String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
-    return esBrowseDAO.getBrowsePaths(entityName, urn);
+    return esBrowseDAO.getBrowsePaths(opContext, entityName, urn);
   }
 
   @Nonnull
   @Override
   public ScrollResult fullTextScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     log.debug(
         String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriterion, scrollId, size));
-    SearchFlags flags = Optional.ofNullable(searchFlags).orElse(new SearchFlags());
-    flags.setFulltext(true);
+            "Scrolling Full Text Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            entities, input, postFilters, sortCriteria, scrollId, size));
+
     return esSearchDAO.scroll(
-        entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, flags);
+        opContext.withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size);
   }
 
   @Nonnull
   @Override
   public ScrollResult structuredScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     log.debug(
         String.format(
-            "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriterion, scrollId, size));
-    SearchFlags flags = Optional.ofNullable(searchFlags).orElse(new SearchFlags());
-    flags.setFulltext(false);
+            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            entities, input, postFilters, sortCriteria, scrollId, size));
+
     return esSearchDAO.scroll(
-        entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, flags);
+        opContext.withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(false)),
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size);
   }
 
-  public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
-    return esSearchDAO.raw(indexName, jsonQuery);
+  public Optional<SearchResponse> raw(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
+    return esSearchDAO.raw(opContext, indexName, jsonQuery);
   }
 
   @Override
   public int maxResultSize() {
     return ESUtils.MAX_RESULT_SIZE;
+  }
+
+  @Override
+  public ExplainResponse explain(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+
+    return esSearchDAO.explain(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        facets);
+  }
+
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexBuilders.getIndexConvention();
+  }
+
+  // SAAS ONLY - Support predicate based filtering
+  @Nonnull
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    log.debug(
+        String.format(
+            "Searching FullText Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, from: %s, size: %s",
+            entityNames, input, predicate, sortCriteria, from, size));
+
+    return esSearchDAO.predicateSearch(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityNames,
+        input,
+        predicate,
+        sortCriteria,
+        from,
+        size,
+        facets);
+  }
+
+  @Nonnull
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size) {
+    log.debug(
+        String.format(
+            "Scrolling Predicate Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, scrollId: %s, size: %s",
+            entities, input, predicate, sortCriteria, scrollId, size));
+
+    return esSearchDAO.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, size);
   }
 }

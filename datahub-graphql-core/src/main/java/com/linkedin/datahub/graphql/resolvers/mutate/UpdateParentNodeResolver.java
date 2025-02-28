@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -37,7 +38,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
     log.info("Updating parent node. input: {}", input.toString());
 
-    if (!_entityService.exists(targetUrn, true)) {
+    if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
     }
@@ -45,7 +46,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     GlossaryNodeUrn parentNodeUrn = null;
     if (input.getParentNode() != null) {
       parentNodeUrn = GlossaryNodeUrn.createFromString(input.getParentNode());
-      if (!_entityService.exists(parentNodeUrn, true)
+      if (!_entityService.exists(context.getOperationContext(), parentNodeUrn, true)
           || !parentNodeUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format(
@@ -55,7 +56,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     }
 
     GlossaryNodeUrn finalParentNodeUrn = parentNodeUrn;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
           // need to be able to manage current parent node and new parent node
@@ -78,7 +79,9 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Boolean updateGlossaryTermParentNode(
@@ -90,6 +93,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       GlossaryTermInfo glossaryTermInfo =
           (GlossaryTermInfo)
               EntityUtils.getAspectFromEntity(
+                  context.getOperationContext(),
                   targetUrn.toString(),
                   Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
                   _entityService,
@@ -107,6 +111,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       }
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(
+          context.getOperationContext(),
           targetUrn,
           Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
           glossaryTermInfo,
@@ -130,6 +135,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       GlossaryNodeInfo glossaryNodeInfo =
           (GlossaryNodeInfo)
               EntityUtils.getAspectFromEntity(
+                  context.getOperationContext(),
                   targetUrn.toString(),
                   Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
                   _entityService,
@@ -145,6 +151,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       }
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(
+          context.getOperationContext(),
           targetUrn,
           Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
           glossaryNodeInfo,

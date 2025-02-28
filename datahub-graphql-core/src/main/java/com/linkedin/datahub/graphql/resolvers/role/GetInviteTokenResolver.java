@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import com.linkedin.datahub.graphql.generated.InviteToken;
@@ -34,15 +35,18 @@ public class GetInviteTokenResolver implements DataFetcher<CompletableFuture<Inv
     final String roleUrnStr = input.getRoleUrn();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return new InviteToken(
-                _inviteTokenService.getInviteToken(roleUrnStr, false, authentication));
+                _inviteTokenService.getInviteToken(
+                    context.getOperationContext(), roleUrnStr, false));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to get invite token for role %s", roleUrnStr), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

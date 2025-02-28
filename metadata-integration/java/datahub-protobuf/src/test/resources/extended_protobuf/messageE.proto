@@ -1,0 +1,19 @@
+syntax = "proto3";
+package extended_protobuf;
+
+/*
+  Timestamp unit enum
+*/
+enum TimestampUnitEnum {
+  MILLISECOND = 0; // 10^-3 seconds
+  MICROSECOND = 1; // 10^-6 seconds
+  NANOSECOND = 2; // 10^-9 seconds
+}
+
+/*
+  Timestamp unit message
+*/
+message TimestampUnitMessage {
+  // timestamp unit
+  TimestampUnitEnum timestamp_unit_type = 1;
+}

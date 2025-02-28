@@ -1,0 +1,282 @@
+# DataHub UI Application-Specific GraphQL Types
+
+ extend type Query {
+
+   """
+   Fetch a specific action pipeline
+   urn: The primary key associated with the action pipeline.
+   """
+   actionPipeline(urn: String!): ActionPipeline
+
+   """
+   List all action pipelines
+   """
+   listActionPipelines(input: ListActionPipelinesInput!): ListActionPipelinesResult
+
+}
+
+extend type Mutation {
+  """
+  Create a new action pipeline
+  """
+  createActionPipeline(input: UpdateActionPipelineInput!): String
+
+  """
+  Upsert an existing action pipeline
+  """
+  upsertActionPipeline(urn: String!, input: UpdateActionPipelineInput!): String
+
+  """
+  Delete an existing action pipeline
+  """
+  deleteActionPipeline(urn: String!): String
+
+  """
+  Create a request to execute an action pipeline
+  input: Input required for creating an action pipeline request
+  """
+  # TODO remove this
+  createActionExecutionRequest(input: CreateActionExecutionRequestInput!): String
+
+  """
+  Stop an existing action pipeline execution
+  """
+  stopActionPipeline(urn: String!): String
+
+  """
+  Start an existing action pipeline execution
+  """
+  startActionPipeline(urn: String!): String
+
+  """
+  Rollback an existing action pipeline execution
+  """
+  rollbackActionPipeline(urn: String!): String
+
+  """
+  Bootstrap an existing action pipeline execution
+  """
+  bootstrapActionPipeline(urn: String!): String
+
+}
+
+"""
+An Action Pipeline Entity
+"""
+type ActionPipeline implements Entity {
+  """
+  The primary key of the Action Pipeline
+  """
+  urn: String!
+
+  """
+  The standard Entity Type field
+  """
+  type: EntityType!
+
+  """
+  The action pipeline details
+  """
+  details: ActionPipelineDetails!
+
+  """
+  Not implemented!
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The current status of the action pipeline
+  Experimental: This field may change or be removed in the future without notice.
+  """
+  status: String
+}
+
+type ActionPipelineDetails {
+  """
+  The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
+  """
+  type: String!
+
+  """
+  The display name of the Action Pipeline
+  """
+  name: String!
+
+  """
+  The category of the action (user defined)
+  """
+  category: String
+
+  """
+  Description of the action
+  """
+  description: String
+
+  """
+  An type-specific set of configurations for the action pipeline
+  """
+  config: ActionConfig!
+
+  """
+  The intended state of the action pipeline
+  """
+  state: ActionPipelineState
+}
+
+enum ActionPipelineState {
+  """
+  The action pipeline is currently active and running.
+  """
+  ACTIVE
+
+  """
+  The action pipeline is currently inactive and not processing any actions.
+  Note: One can issue bootstrap and rollback commands to the action pipeline even when it is inactive.
+  """
+  INACTIVE
+}
+
+
+"""
+Input for creating an execution request input
+"""
+input CreateActionExecutionRequestInput {
+  """
+  Urn of the action pipeline to execute
+  """
+  actionPipelineUrn: String!
+}
+
+
+"""
+A set of configurations for an Ingestion Source
+"""
+type ActionConfig {
+  """
+  The JSON-encoded recipe to use for ingestion
+  """
+  recipe: String!
+
+  """
+  Advanced: The specific executor pool that should handle the execution request. Defaults to 'default'.
+  """
+  executorId: String
+
+  """
+  Advanced: The version of the action framework to use
+  """
+  version: String
+
+  """
+  Advanced: Whether or not to run action in debug mode
+  """
+  debugMode: Boolean
+}
+
+
+"""
+Input arguments for listing Action Pipelines
+"""
+input ListActionPipelinesInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  An optional search query
+  """
+  query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Results returned when listing ingestion sources
+"""
+type ListActionPipelinesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Action Pipelines themselves
+  """
+  actionPipelines: [ActionPipeline!]!
+}
+
+"""
+Input parameters for creating / updating an Action Pipeline
+"""
+input UpdateActionPipelineConfigInput {
+  """
+  A JSON-encoded recipe
+  """
+  recipe: String!
+
+  """
+  The version of DataHub Actions Framework to use when executing the recipe.
+  """
+  version: String
+
+  """
+  The id of the executor pool to use for executing the recipe
+  """
+  executorId: String
+
+  """
+  Whether or not to run actions in debug mode
+  """
+  debugMode: Boolean
+}
+
+
+"""
+Input arguments for creating / updating an Action Pipeline
+"""
+input UpdateActionPipelineInput {
+  """
+  A name associated with the action pipeline
+  """
+  name: String!
+
+  """
+  The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
+  """
+  type: String!
+
+  """
+  The category of the action (user defined)
+  """
+  category: String
+
+  """
+  An optional description associated with the action
+  """
+  description: String
+
+  """
+  A set of type-specific action pipeline configurations
+  """
+  config: UpdateActionPipelineConfigInput!
+}
+

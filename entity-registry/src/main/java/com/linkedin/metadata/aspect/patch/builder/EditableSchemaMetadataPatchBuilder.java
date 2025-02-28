@@ -19,6 +19,8 @@ public class EditableSchemaMetadataPatchBuilder
   private static final String BASE_PATH = "/editableSchemaFieldInfo/";
   private static final String TAGS_PATH_EXTENSION = "/globalTags/tags/";
   private static final String TERMS_PATH_EXTENSION = "/glossaryTerms/terms/";
+  private static final String DESCRIPTION_KEY = "/description";
+  private static final String FIELD_PATH_KEY = "/fieldPath";
   private static final String TAG_KEY = "tag";
   private static final String URN_KEY = "urn";
   private static final String CONTEXT_KEY = "context";
@@ -72,6 +74,22 @@ public class EditableSchemaMetadataPatchBuilder
             PatchOperationType.REMOVE.getValue(),
             BASE_PATH + fieldPath + TERMS_PATH_EXTENSION + term,
             null));
+    return this;
+  }
+
+  public EditableSchemaMetadataPatchBuilder setDescription(
+      @Nonnull String description, @Nonnull String fieldPath) {
+    // always add fieldPath in case it's not there in editableSchemaMetadata yet
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + fieldPath + FIELD_PATH_KEY,
+            instance.textNode(fieldPath)));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + fieldPath + DESCRIPTION_KEY,
+            instance.textNode(description)));
     return this;
   }
 

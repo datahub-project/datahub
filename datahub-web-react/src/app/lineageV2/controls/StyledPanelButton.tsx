@@ -2,10 +2,8 @@ import styled from 'styled-components';
 import { Button } from 'antd';
 
 export const StyledPanelButton = styled(Button)`
-    padding-top: 8px;
-    padding-bottom: 8px;
-    padding-left: 16px;
-    padding-right: 16px;
+    margin: 2px 0;
+    padding: 8px 13px;
     display: flex;
     align-items: center;
     width: 100%;

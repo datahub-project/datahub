@@ -81,9 +81,13 @@ public class ESIndexBuilder {
 
   @Getter private final boolean enableIndexMappingsReindex;
 
+  @Getter private final boolean enableStructuredPropertiesReindex;
+
   @Getter private final ElasticSearchConfiguration elasticSearchConfiguration;
 
   @Getter private final GitVersion gitVersion;
+
+  @Getter private final int maxReindexHours;
 
   private static final RequestOptions REQUEST_OPTIONS =
       RequestOptions.DEFAULT.toBuilder()
@@ -101,8 +105,37 @@ public class ESIndexBuilder {
       Map<String, Map<String, String>> indexSettingOverrides,
       boolean enableIndexSettingsReindex,
       boolean enableIndexMappingsReindex,
+      boolean enableStructuredPropertiesReindex,
       ElasticSearchConfiguration elasticSearchConfiguration,
       GitVersion gitVersion) {
+    this(
+        searchClient,
+        numShards,
+        numReplicas,
+        numRetries,
+        refreshIntervalSeconds,
+        indexSettingOverrides,
+        enableIndexSettingsReindex,
+        enableIndexMappingsReindex,
+        enableStructuredPropertiesReindex,
+        elasticSearchConfiguration,
+        gitVersion,
+        0);
+  }
+
+  public ESIndexBuilder(
+      RestHighLevelClient searchClient,
+      int numShards,
+      int numReplicas,
+      int numRetries,
+      int refreshIntervalSeconds,
+      Map<String, Map<String, String>> indexSettingOverrides,
+      boolean enableIndexSettingsReindex,
+      boolean enableIndexMappingsReindex,
+      boolean enableStructuredPropertiesReindex,
+      ElasticSearchConfiguration elasticSearchConfiguration,
+      GitVersion gitVersion,
+      int maxReindexHours) {
     this._searchClient = searchClient;
     this.numShards = numShards;
     this.numReplicas = numReplicas;
@@ -112,7 +145,9 @@ public class ESIndexBuilder {
     this.enableIndexSettingsReindex = enableIndexSettingsReindex;
     this.enableIndexMappingsReindex = enableIndexMappingsReindex;
     this.elasticSearchConfiguration = elasticSearchConfiguration;
+    this.enableStructuredPropertiesReindex = enableStructuredPropertiesReindex;
     this.gitVersion = gitVersion;
+    this.maxReindexHours = maxReindexHours;
 
     RetryConfig config =
         RetryConfig.custom()
@@ -143,6 +178,8 @@ public class ESIndexBuilder {
             .name(indexName)
             .enableIndexSettingsReindex(enableIndexSettingsReindex)
             .enableIndexMappingsReindex(enableIndexMappingsReindex)
+            .enableStructuredPropertiesReindex(
+                enableStructuredPropertiesReindex && !copyStructuredPropertyMappings)
             .version(gitVersion.getVersion());
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
@@ -293,7 +330,7 @@ public class ESIndexBuilder {
    * @throws IOException communication issues with ES
    */
   public void applyMappings(ReindexConfig indexState, boolean suppressError) throws IOException {
-    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredProperty()) {
+    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredPropertyAddition()) {
       log.info("Updating index {} mappings in place.", indexState.name());
       PutMappingRequest request =
           new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
@@ -342,10 +379,10 @@ public class ESIndexBuilder {
   private void reindex(ReindexConfig indexState) throws Throwable {
     final long startTime = System.currentTimeMillis();
 
-    final int maxReindexHours = 8;
     final long initialCheckIntervalMilli = 1000;
     final long finalCheckIntervalMilli = 60000;
-    final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
+    final long timeoutAt =
+        maxReindexHours > 0 ? startTime + (1000L * 60 * 60 * maxReindexHours) : Long.MAX_VALUE;
 
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
 
@@ -374,6 +411,8 @@ public class ESIndexBuilder {
       boolean reindexTaskCompleted = false;
       Pair<Long, Long> documentCounts = getDocumentCounts(indexState.name(), tempIndexName);
       long documentCountsLastUpdated = System.currentTimeMillis();
+      long previousDocCount = documentCounts.getSecond();
+      long estimatedMinutesRemaining = 0;
 
       while (System.currentTimeMillis() < timeoutAt) {
         log.info(
@@ -384,8 +423,22 @@ public class ESIndexBuilder {
 
         Pair<Long, Long> tempDocumentsCount = getDocumentCounts(indexState.name(), tempIndexName);
         if (!tempDocumentsCount.equals(documentCounts)) {
-          documentCountsLastUpdated = System.currentTimeMillis();
+          long currentTime = System.currentTimeMillis();
+          long timeElapsed = currentTime - documentCountsLastUpdated;
+          long docsIndexed = tempDocumentsCount.getSecond() - previousDocCount;
+
+          // Calculate indexing rate (docs per millisecond)
+          double indexingRate = timeElapsed > 0 ? (double) docsIndexed / timeElapsed : 0;
+
+          // Calculate remaining docs and estimated time
+          long remainingDocs = tempDocumentsCount.getFirst() - tempDocumentsCount.getSecond();
+          long estimatedMillisRemaining =
+              indexingRate > 0 ? (long) (remainingDocs / indexingRate) : 0;
+          estimatedMinutesRemaining = estimatedMillisRemaining / (1000 * 60);
+
+          documentCountsLastUpdated = currentTime;
           documentCounts = tempDocumentsCount;
+          previousDocCount = documentCounts.getSecond();
         }
 
         if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
@@ -398,12 +451,15 @@ public class ESIndexBuilder {
           break;
 
         } else {
+          float progressPercentage =
+              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst();
           log.warn(
-              "Task: {} - Document counts do not match {} != {}. Complete: {}%",
+              "Task: {} - Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes",
               parentTaskId,
               documentCounts.getFirst(),
               documentCounts.getSecond(),
-              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst());
+              progressPercentage,
+              estimatedMinutesRemaining);
 
           long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
           if (lastUpdateDelta > (300 * 1000)) {

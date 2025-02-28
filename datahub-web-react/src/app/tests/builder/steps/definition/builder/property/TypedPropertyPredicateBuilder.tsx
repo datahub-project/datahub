@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { PropertyPredicate } from '../types';
 import { Property } from './types/properties';
-import { getValueOptions, getOperatorOptions } from './utils';
+import { getValueOptions, getOperatorOptions, getPropertyById } from './utils';
 import { PropertyTreeSelect } from './select/PropertyTreeSelect';
 import { OperatorSelect } from './select/OperatorSelect';
 import { ValueSelect } from './select/ValueSelect';
@@ -34,15 +34,21 @@ export const TypedPropertyPredicateBuilder = ({
     onChangeValues,
 }: Props) => {
     /**
-     * Get the operators that can be applied to the current field
+     * Retrieve the selected property to render.
      */
-    const operatorOptions = selectedPredicate && getOperatorOptions(selectedPredicate, properties);
+    const property =
+        (selectedPredicate && selectedPredicate.property && getPropertyById(selectedPredicate.property, properties)) ||
+        undefined;
+    /**
+     * Get the operators that can be applied to the current field.
+     */
+    const operatorOptions = (property?.valueType && getOperatorOptions(property.valueType)) || undefined;
 
     /**
      * Get options required for rendering the "values" input. This is a function of the selected property and
      * operator.
      */
-    const valueOptions = selectedPredicate && getValueOptions(selectedPredicate, properties);
+    const valueOptions = (property && selectedPredicate && getValueOptions(property, selectedPredicate)) || undefined;
 
     return (
         <PredicateContainer>

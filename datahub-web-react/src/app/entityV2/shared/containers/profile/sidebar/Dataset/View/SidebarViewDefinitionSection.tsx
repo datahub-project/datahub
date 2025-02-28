@@ -4,7 +4,7 @@ import { Button, Typography } from 'antd';
 import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
 import { InfoItem } from '../../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../../constants';
-import { useBaseEntity, useRouteToTab } from '../../../../../EntityContext';
+import { useBaseEntity, useRouteToTab } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../../SidebarSection';
 
 const HeaderInfoBody = styled(Typography.Text)`

@@ -1,4 +1,5 @@
-import { Button, Input, Tooltip } from 'antd';
+import { Button, Input } from 'antd';
+import { Tooltip } from '@components';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';

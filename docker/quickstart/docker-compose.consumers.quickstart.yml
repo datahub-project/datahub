@@ -4,7 +4,6 @@ services:
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     depends_on:
       neo4j:
         condition: service_healthy
@@ -32,7 +31,6 @@ services:
     ports:
     - 9091:9091
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     depends_on:
       neo4j:
         condition: service_healthy
@@ -71,4 +69,3 @@ services:
     image: ${DATAHUB_MCE_CONSUMER_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
-version: '3.9'

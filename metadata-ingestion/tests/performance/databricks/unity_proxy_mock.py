@@ -1,7 +1,7 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from databricks.sdk.service.catalog import ColumnTypeName
 from databricks.sdk.service.sql import QueryStatementType
@@ -57,13 +57,15 @@ class UnityCatalogApiProxyMock:
             region=None,
         )
 
-    def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
+    def catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         for container in self.seed_metadata.containers[1]:
-            if not container.parent or metastore.name != container.parent.name:
+            if not container.parent or (
+                metastore and metastore.name != container.parent.name
+            ):
                 continue
 
             yield Catalog(
-                id=f"{metastore.id}.{container.name}",
+                id=f"{metastore.id}.{container.name}" if metastore else container.name,
                 name=container.name,
                 metastore=metastore,
                 comment=None,
@@ -120,9 +122,9 @@ class UnityCatalogApiProxyMock:
                 updated_at=None,
                 updated_by=None,
                 table_id="",
-                view_definition=table.definition
-                if isinstance(table, data_model.View)
-                else None,
+                view_definition=(
+                    table.definition if isinstance(table, data_model.View) else None
+                ),
                 properties={},
             )
 
@@ -153,7 +155,7 @@ class UnityCatalogApiProxyMock:
                 executed_as_user_name=None,
             )
 
-    def table_lineage(self, table: Table) -> None:
+    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         pass
 
     def get_column_lineage(self, table: Table) -> None:

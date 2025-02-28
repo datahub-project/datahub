@@ -5,7 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -16,6 +16,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
@@ -25,7 +26,7 @@ import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;
@@ -40,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class EbeanRetentionService<U extends UpsertItem> extends RetentionService<U> {
+public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService<U> {
   private final EntityService<U> _entityService;
   private final Database _server;
   private final int _batchSize;
@@ -54,8 +55,12 @@ public class EbeanRetentionService<U extends UpsertItem> extends RetentionServic
 
   @Override
   protected AspectsBatch buildAspectsBatch(
-      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
-    return AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp) {
+    return AspectsBatchImpl.builder()
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext())
+        .build();
   }
 
   @Override
@@ -156,7 +161,7 @@ public class EbeanRetentionService<U extends UpsertItem> extends RetentionServic
     return new SimpleExpression(
         EbeanAspectV2.CREATED_ON_COLUMN,
         Op.LT,
-        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000));
+        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L));
   }
 
   private void applyRetention(

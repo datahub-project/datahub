@@ -37,7 +37,7 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
       return Collections.singletonList(
           ChangeEvent.builder()
               .category(ChangeCategory.INCIDENT)
-              .operation(ChangeOperation.ACTIVE)
+              .operation(mapIncidentState(newAspect.getStatus().getState()))
               .auditStamp(auditStamp)
               .parameters(buildParameters(newAspect))
               .entityUrn(entityUrn)
@@ -54,17 +54,20 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
 
       // Change was in status
       if (isIncidentStatusChanged(previousAspect, newAspect)) {
-        if (newAspect.getStatus().getState().equals(IncidentState.RESOLVED)) {
-          changeEventBuilder.operation(ChangeOperation.RESOLVED);
-        }
-        if (newAspect.getStatus().getState().equals(IncidentState.ACTIVE)) {
-          changeEventBuilder.operation(ChangeOperation.ACTIVE);
-        }
+        changeEventBuilder.operation(mapIncidentState(newAspect.getStatus().getState()));
         return Collections.singletonList(changeEventBuilder.build());
       }
+      // TODO: Should changes to incidents be surfaced?
     }
 
     return Collections.emptyList();
+  }
+
+  private ChangeOperation mapIncidentState(IncidentState state) {
+    if (state.equals(IncidentState.RESOLVED)) {
+      return ChangeOperation.RESOLVED;
+    }
+    return ChangeOperation.ACTIVE;
   }
 
   private static boolean isIncidentCreated(IncidentInfo previousAspect, IncidentInfo newAspect) {
@@ -83,7 +86,21 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
   @Nonnull
   private static Map<String, Object> buildParameters(@Nonnull final IncidentInfo incidentInfo) {
     final Map<String, Object> parameters = new HashMap<>();
-    parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities());
+    parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities().toString());
+    parameters.put(Constants.INCIDENT_TYPE, incidentInfo.getType().toString());
+    if (incidentInfo.hasTitle()) {
+      parameters.put(Constants.INCIDENT_TITLE, incidentInfo.getTitle());
+    }
+    if (incidentInfo.hasDescription()) {
+      parameters.put(Constants.INCIDENT_DESCRIPTION, incidentInfo.getDescription());
+    }
+    if (incidentInfo.getStatus().hasStage()) {
+      parameters.put(
+          Constants.INCIDENT_STATUS_STAGE, incidentInfo.getStatus().getStage().toString());
+    }
+    if (incidentInfo.getStatus().hasMessage()) {
+      parameters.put(Constants.INCIDENT_STATUS_MESSAGE, incidentInfo.getStatus().getMessage());
+    }
     return ImmutableSortedMap.copyOf(parameters);
   }
 }

@@ -1,9 +1,10 @@
-import { Avatar, Tooltip } from 'antd';
+import { Avatar } from 'antd';
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import defaultAvatar from '../../../images/default_avatar.png';
 import getAvatarColor from '../../shared/avatar/getAvatarColor';
 
@@ -52,10 +53,12 @@ export default function ActorAvatar({
     hideTooltip = false,
 }: Props) {
     const history = useHistory();
+    const isEmbeddedProfile = useIsEmbeddedProfile();
 
     const navigate = () => {
         if (url) {
-            history.push(url);
+            if (isEmbeddedProfile) window.open(url, '_blank');
+            else history.push(url);
         }
     };
 
@@ -102,7 +105,7 @@ export default function ActorAvatar({
     return hideTooltip ? (
         avatar
     ) : (
-        <Tooltip title={renderTitle(name)} placement={placement}>
+        <Tooltip title={renderTitle(name)} placement={placement} showArrow={false}>
             {avatar}
         </Tooltip>
     );

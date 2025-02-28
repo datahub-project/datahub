@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.query;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -27,6 +28,7 @@ import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -103,10 +105,10 @@ public class QueryTypeTest {
 
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.QUERY_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(queryUrn1, queryUrn2))),
-                Mockito.eq(com.linkedin.datahub.graphql.types.query.QueryType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(com.linkedin.datahub.graphql.types.query.QueryType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 queryUrn1,
@@ -124,6 +126,9 @@ public class QueryTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
     List<DataFetcherResult<QueryEntity>> result =
         type.batchLoad(
             ImmutableList.of(TEST_QUERY_URN.toString(), TEST_QUERY_2_URN.toString()), mockContext);
@@ -131,10 +136,10 @@ public class QueryTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.QUERY_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(queryUrn1, queryUrn2)),
-            Mockito.eq(QueryType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(QueryType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -162,10 +167,10 @@ public class QueryTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_SUBJECTS_1.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.QUERY_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(queryUrn1, queryUrn2))),
-                Mockito.eq(com.linkedin.datahub.graphql.types.query.QueryType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(com.linkedin.datahub.graphql.types.query.QueryType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 queryUrn1,
@@ -178,6 +183,9 @@ public class QueryTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
     List<DataFetcherResult<QueryEntity>> result =
         type.batchLoad(
             ImmutableList.of(TEST_QUERY_URN.toString(), TEST_QUERY_2_URN.toString()), mockContext);
@@ -185,10 +193,10 @@ public class QueryTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.QUERY_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(queryUrn1, queryUrn2)),
-            Mockito.eq(QueryType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(QueryType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -204,11 +212,7 @@ public class QueryTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     QueryType type = new QueryType(mockClient);
 
     // Execute Batch load

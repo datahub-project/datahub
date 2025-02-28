@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.cassandra.CassandraAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import javax.annotation.Nonnull;
@@ -26,5 +27,16 @@ public class EntityAspectIdentifier {
   public static EntityAspectIdentifier fromCassandra(CassandraAspect cassandraAspect) {
     return new EntityAspectIdentifier(
         cassandraAspect.getUrn(), cassandraAspect.getAspect(), cassandraAspect.getVersion());
+  }
+
+  public static EntityAspectIdentifier fromEntityAspect(EntityAspect entityAspect) {
+    return new EntityAspectIdentifier(
+        entityAspect.getUrn(), entityAspect.getAspect(), entityAspect.getVersion());
+  }
+
+  public static EntityAspectIdentifier fromSystemEntityAspect(
+      EntityAspect.EntitySystemAspect systemAspect) {
+    return new EntityAspectIdentifier(
+        systemAspect.getUrn().toString(), systemAspect.getAspectName(), systemAspect.getVersion());
   }
 }

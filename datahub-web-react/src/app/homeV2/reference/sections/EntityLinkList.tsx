@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Entity, EntityType } from '../../../../types.generated';
 import { EntityLink } from './EntityLink';
-import { EntityLinkListLoadingSection } from './EntityLinkListLoadingSection';
+import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
 import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { GenericEntityProperties } from '../../../entityV2/shared/types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
@@ -36,10 +39,11 @@ type Props = {
     loading: boolean;
     title?: string;
     tip?: React.ReactNode;
-    entities: any[];
+    entities: (Entity | GenericEntityProperties | null | undefined)[];
     showMore?: boolean;
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
+    showHealthIcon?: boolean;
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
@@ -54,12 +58,20 @@ export const EntityLinkList = ({
     showMoreComponent,
     showMore = false,
     showMoreCount,
+    showHealthIcon = false,
     empty,
     onClickMore,
     onClickTitle,
     render,
 }: Props) => {
+    const entityRegistry = useEntityRegistryV2();
     const isEmpty = entities.length === 0 && !loading;
+    const { isUserInitializing } = useContext(OnboardingContext);
+
+    if (isUserInitializing || loading) {
+        return <EntityLinkListSkeleton />;
+    }
+
     return (
         <>
             {title && (
@@ -69,11 +81,21 @@ export const EntityLinkList = ({
                     </Tooltip>
                 </Title>
             )}
-            {loading && <EntityLinkListLoadingSection />}
-            <List>
+            <List data-testid="test">
                 {(!isEmpty &&
                     entities.map((entity) => {
-                        return <EntityLink key={`${title}-${entity.urn}`} entity={entity} render={render} />;
+                        return (
+                            <EntityLink
+                                key={`${title}-${entity?.urn}`}
+                                entity={
+                                    entity
+                                        ? entityRegistry.getGenericEntityProperties(entity.type as EntityType, entity)
+                                        : null
+                                }
+                                render={render}
+                                showHealthIcon={showHealthIcon}
+                            />
+                        );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
             </List>
             {showMore && (

@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
  * thrown.
  */
 public interface Authenticator extends Plugin {
+  String IMPERSONATION_HEADER_NAME = "X-DataHub-Impersonated-Urn";
 
   /**
    * Initialize the Authenticator. Invoked once at boot time.

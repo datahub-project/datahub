@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.operator.Operands;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
+import com.linkedin.metadata.test.definition.value.DateType;
 import com.linkedin.metadata.test.definition.value.ListType;
 import com.linkedin.metadata.test.definition.value.StringType;
 import com.linkedin.metadata.test.definition.value.ValueType;
@@ -26,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GreaterThanEvaluator extends BaseOperatorEvaluator {
 
   private static final Set<ValueType> SUPPORTED_OPERAND_TYPES =
-      ImmutableSet.of(new ListType(new StringType()));
+      ImmutableSet.of(new ListType(new StringType()), new DateType());
 
   @Override
   public OperatorType getOperatorType() {
@@ -43,7 +44,7 @@ public class GreaterThanEvaluator extends BaseOperatorEvaluator {
     if (!isSupportedOperandType(operands.get(0).getExpression())
         || !isSupportedOperandType(operands.get(1).getExpression())) {
       throw new InvalidOperandException(
-          "Invalid params for the operation: Requires 2 string list operands");
+          "Invalid params for the operation: Requires 2 string list or date operands");
     }
   }
 
@@ -65,7 +66,7 @@ public class GreaterThanEvaluator extends BaseOperatorEvaluator {
     try {
       Number lhsNumber = NumberFormat.getInstance().parse(lhs);
       Number rhsNumber = NumberFormat.getInstance().parse(rhs);
-      return lhsNumber.intValue() > rhsNumber.intValue(); // REVISIT THIS!
+      return lhsNumber.longValue() > rhsNumber.longValue();
     } catch (ParseException e) {
       log.warn(
           "Failed to evaluate Greater Than (>) Operator. Input values "

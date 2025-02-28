@@ -1,11 +1,62 @@
-import { useEffect } from 'react';
-import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
+import React, { useEffect } from 'react';
+import { useSearchAcrossLineageCountQuery, useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { LineageDirection } from '../../../../../types.generated';
 import { GetSearchResultsParams } from '../../components/styled/search/types';
 
 const filtersExist = (filters, orFilters) => {
     return filters?.length || orFilters?.length;
 };
+
+export function generateUseSearchResultsCountViaRelationshipHook({
+    urn,
+    direction,
+    startTimeMillis,
+    endTimeMillis,
+    skipCache,
+    setSkipCache,
+    setIsLoading,
+}: {
+    urn: string;
+    direction: LineageDirection;
+    startTimeMillis?: number;
+    endTimeMillis?: number;
+    skipCache?: boolean;
+    setSkipCache?: (skipCache: boolean) => void;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+    return function useGetSearchResultsCountViaSearchAcrossLineage({ variables: { input } }: GetSearchResultsParams) {
+        const { filters, orFilters } = input;
+        const inputFields = {
+            ...input,
+            urn,
+            direction,
+            startTimeMillis: startTimeMillis || undefined,
+            endTimeMillis: endTimeMillis || undefined,
+        };
+
+        const { data, loading, error, refetch } = useSearchAcrossLineageCountQuery({
+            variables: {
+                input: inputFields,
+            },
+            fetchPolicy: 'cache-first',
+            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shouldn't return anything :). Might as well skip!
+        });
+
+        useEffect(() => {
+            if (skipCache) {
+                setIsLoading?.(true);
+                refetch({
+                    input: { ...inputFields, searchFlags: { skipCache: true, fulltext: true } },
+                }).finally(() => {
+                    setIsLoading?.(false);
+                });
+                setSkipCache?.(false);
+            }
+        });
+
+        return { total: data?.searchAcrossLineage?.total, loading, error };
+    };
+}
 
 export default function generateUseSearchResultsViaRelationshipHook({
     urn,
@@ -14,6 +65,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
     endTimeMillis,
     skipCache,
     setSkipCache,
+    setIsLoading,
 }: {
     urn: string;
     direction: LineageDirection;
@@ -21,38 +73,31 @@ export default function generateUseSearchResultsViaRelationshipHook({
     endTimeMillis?: number;
     skipCache?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
-        const {
-            variables: {
-                input: { types, query, start, count, filters, orFilters },
-            },
-        } = params;
+    return function useGetSearchResultsViaSearchAcrossLineage({ variables: { input } }: GetSearchResultsParams) {
+        const { filters, orFilters } = input;
         const inputFields = {
+            ...input,
             urn,
             direction,
-            types,
-            query,
-            start,
-            count,
-            filters,
-            orFilters,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
         };
 
         const { data, loading, error, refetch } = useSearchAcrossLineageQuery({
-            variables: {
-                input: inputFields,
-            },
+            variables: { input: inputFields },
             fetchPolicy: 'cache-first',
-            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shound't return anything :). Might as well skip!
+            skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shouldn't return anything :). Might as well skip!
         });
 
         useEffect(() => {
             if (skipCache) {
+                setIsLoading?.(true);
                 refetch({
                     input: { ...inputFields, searchFlags: { skipCache: true, fulltext: true } },
+                }).finally(() => {
+                    setIsLoading?.(false);
                 });
                 setSkipCache?.(false);
             }

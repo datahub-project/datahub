@@ -1,15 +1,13 @@
 package auth.sso.oidc;
 
 import static auth.AuthUtils.*;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
 
 import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
-import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -22,6 +20,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
@@ -40,6 +40,8 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -52,21 +54,34 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.pac4j.core.client.BaseClient;
+import org.pac4j.core.client.Client;
+import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
+import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.Cookie;
+import org.pac4j.core.context.FrameworkParameters;
+import org.pac4j.core.context.WebContext;
+import org.pac4j.core.credentials.Credentials;
 import org.pac4j.core.engine.DefaultCallbackLogic;
+import org.pac4j.core.exception.http.HttpAction;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.core.profile.UserProfile;
+import org.pac4j.core.util.CommonHelper;
 import org.pac4j.core.util.Pac4jConstants;
-import org.pac4j.play.PlayWebContext;
+import org.pac4j.play.store.PlayCookieSessionStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import play.mvc.Result;
 
 /**
@@ -80,94 +95,158 @@ import play.mvc.Result;
  * if the user does not already exist.
  */
 @Slf4j
-public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
+public class OidcCallbackLogic extends DefaultCallbackLogic {
+  private static final Logger LOGGER = LoggerFactory.getLogger(OidcCallbackLogic.class);
 
-  private final SsoManager _ssoManager;
-  private final SystemEntityClient _entityClient;
-  private final Authentication _systemAuthentication;
-  private final AuthServiceClient _authClient;
-  private final CookieConfigs _cookieConfigs;
+  private final SsoManager ssoManager;
+  private final SystemEntityClient systemEntityClient;
+  private final OperationContext systemOperationContext;
+  private final AuthServiceClient authClient;
+  private final CookieConfigs cookieConfigs;
 
   public OidcCallbackLogic(
       final SsoManager ssoManager,
-      final Authentication systemAuthentication,
+      final OperationContext systemOperationContext,
       final SystemEntityClient entityClient,
       final AuthServiceClient authClient,
       final CookieConfigs cookieConfigs) {
-    _ssoManager = ssoManager;
-    _systemAuthentication = systemAuthentication;
-    _entityClient = entityClient;
-    _authClient = authClient;
-    _cookieConfigs = cookieConfigs;
+    this.ssoManager = ssoManager;
+    this.systemOperationContext = systemOperationContext;
+    systemEntityClient = entityClient;
+    this.authClient = authClient;
+    this.cookieConfigs = cookieConfigs;
   }
 
   @Override
-  public Result perform(
-      PlayWebContext context,
+  public Object perform(
       Config config,
-      HttpActionAdapter<Result, PlayWebContext> httpActionAdapter,
-      String defaultUrl,
-      Boolean saveInSession,
-      Boolean multiProfile,
-      Boolean renewSession,
-      String defaultClient) {
+      String inputDefaultUrl,
+      Boolean inputRenewSession,
+      String defaultClient,
+      FrameworkParameters parameters) {
 
-    setContextRedirectUrl(context);
+    final Pair<CallContext, Object> ctxResult =
+        superPerform(config, inputDefaultUrl, inputRenewSession, defaultClient, parameters);
 
-    final Result result =
-        super.perform(
-            context,
-            config,
-            httpActionAdapter,
-            defaultUrl,
-            saveInSession,
-            multiProfile,
-            renewSession,
-            defaultClient);
+    CallContext ctx = ctxResult.getFirst();
+    Result result = (Result) ctxResult.getSecond();
 
     // Handle OIDC authentication errors.
-    if (OidcResponseErrorHandler.isError(context)) {
-      return OidcResponseErrorHandler.handleError(context);
+    if (OidcResponseErrorHandler.isError(ctx)) {
+      return OidcResponseErrorHandler.handleError(ctx);
     }
 
     // By this point, we know that OIDC is the enabled provider.
-    final OidcConfigs oidcConfigs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
-    return handleOidcCallback(oidcConfigs, result, context, getProfileManager(context));
+    final OidcConfigs oidcConfigs = (OidcConfigs) ssoManager.getSsoProvider().configs();
+    return handleOidcCallback(systemOperationContext, ctx, oidcConfigs, result);
   }
 
-  @SuppressWarnings("unchecked")
-  private void setContextRedirectUrl(PlayWebContext context) {
+  /** Overriding this to be able to intercept the CallContext being created */
+  private Pair<CallContext, Object> superPerform(
+      Config config,
+      String inputDefaultUrl,
+      Boolean inputRenewSession,
+      String defaultClient,
+      FrameworkParameters parameters) {
+    LOGGER.debug("=== CALLBACK ===");
+    CallContext ctx = this.buildContext(config, parameters);
+    WebContext webContext = ctx.webContext();
+    HttpActionAdapter httpActionAdapter = config.getHttpActionAdapter();
+    CommonHelper.assertNotNull("httpActionAdapter", httpActionAdapter);
+
+    HttpAction action;
+    try {
+      CommonHelper.assertNotNull("clientFinder", getClientFinder());
+      String defaultUrl = (String) Objects.requireNonNullElse(inputDefaultUrl, "/");
+      boolean renewSession = inputRenewSession == null || inputRenewSession;
+      CommonHelper.assertNotBlank("defaultUrl", defaultUrl);
+      Clients clients = config.getClients();
+      CommonHelper.assertNotNull("clients", clients);
+      List<Client> foundClients = getClientFinder().find(clients, webContext, defaultClient);
+      CommonHelper.assertTrue(
+          foundClients != null && foundClients.size() == 1,
+          "unable to find one indirect client for the callback: check the callback URL for a client name parameter or suffix path or ensure that your configuration defaults to one indirect client");
+      Client foundClient = (Client) foundClients.get(0);
+      LOGGER.debug("foundClient: {}", foundClient);
+      CommonHelper.assertNotNull("foundClient", foundClient);
+      Credentials credentials = (Credentials) foundClient.getCredentials(ctx).orElse(null);
+      LOGGER.debug("extracted credentials: {}", credentials);
+      credentials = (Credentials) foundClient.validateCredentials(ctx, credentials).orElse(null);
+      LOGGER.debug("validated credentials: {}", credentials);
+      if (credentials != null && !credentials.isForAuthentication()) {
+        action = foundClient.processLogout(ctx, credentials);
+      } else {
+        if (credentials != null) {
+          Optional<UserProfile> optProfile = foundClient.getUserProfile(ctx, credentials);
+          LOGGER.debug("optProfile: {}", optProfile);
+          if (optProfile.isPresent()) {
+            UserProfile profile = (UserProfile) optProfile.get();
+            Boolean saveProfileInSession =
+                ((BaseClient) foundClient).getSaveProfileInSession(webContext, profile);
+            boolean multiProfile = ((BaseClient) foundClient).isMultiProfile(webContext, profile);
+            LOGGER.debug(
+                "saveProfileInSession: {} / multiProfile: {}", saveProfileInSession, multiProfile);
+            this.saveUserProfile(
+                ctx, config, profile, saveProfileInSession, multiProfile, renewSession);
+          }
+        }
+
+        // Set the redirect url from cookie before creating action
+        setContextRedirectUrl(ctx);
+
+        action = this.redirectToOriginallyRequestedUrl(ctx, defaultUrl);
+      }
+    } catch (RuntimeException var20) {
+      RuntimeException e = var20;
+      return Pair.of(ctx, this.handleException(e, httpActionAdapter, webContext));
+    }
+
+    return Pair.of(ctx, httpActionAdapter.adapt(action, webContext));
+  }
+
+  private void setContextRedirectUrl(CallContext ctx) {
+    WebContext context = ctx.webContext();
+    PlayCookieSessionStore sessionStore = (PlayCookieSessionStore) ctx.sessionStore();
+
     Optional<Cookie> redirectUrl =
         context.getRequestCookies().stream()
             .filter(cookie -> REDIRECT_URL_COOKIE_NAME.equals(cookie.getName()))
             .findFirst();
     redirectUrl.ifPresent(
         cookie ->
-            context
-                .getSessionStore()
-                .set(
-                    context,
-                    Pac4jConstants.REQUESTED_URL,
-                    JAVA_SER_HELPER.deserializeFromBytes(
+            sessionStore.set(
+                context,
+                Pac4jConstants.REQUESTED_URL,
+                sessionStore
+                    .getSerializer()
+                    .deserializeFromBytes(
                         uncompressBytes(Base64.getDecoder().decode(cookie.getValue())))));
   }
 
   private Result handleOidcCallback(
+      final OperationContext opContext,
+      final CallContext ctx,
       final OidcConfigs oidcConfigs,
-      final Result result,
-      final PlayWebContext context,
-      final ProfileManager<UserProfile> profileManager) {
+      final Result result) {
 
     log.debug("Beginning OIDC Callback Handling...");
 
+    ProfileManager profileManager =
+        ctx.profileManagerFactory().apply(ctx.webContext(), ctx.sessionStore());
+
     if (profileManager.isAuthenticated()) {
       // If authenticated, the user should have a profile.
-      final CommonProfile profile = (CommonProfile) profileManager.get(true).get();
+      final Optional<UserProfile> optProfile = profileManager.getProfile();
+      if (optProfile.isEmpty()) {
+        return internalServerError(
+            "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
+      }
+      final CommonProfile profile = (CommonProfile) optProfile.get();
       log.debug(
           String.format(
               "Found authenticated user with profile %s", profile.getAttributes().toString()));
 
-      // Extract the User name required to log into DataHub.
+      // Extract the Username required to log into DataHub.
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
@@ -177,30 +256,35 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         if (oidcConfigs.isJitProvisioningEnabled()) {
           log.debug("Just-in-time provisioning is enabled. Beginning provisioning process...");
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
-          tryProvisionUser(extractedUser);
+          tryProvisionUser(opContext, extractedUser);
           if (oidcConfigs.isExtractGroupsEnabled()) {
             // Extract groups & provision them.
             List<CorpGroupSnapshot> extractedGroups = extractGroups(profile);
-            tryProvisionGroups(extractedGroups);
+            tryProvisionGroups(opContext, extractedGroups);
             // Add users to groups on DataHub. Note that this clears existing group membership for a
             // user if it already exists.
-            updateGroupMembership(corpUserUrn, createGroupMembership(extractedGroups));
+            updateGroupMembership(opContext, corpUserUrn, createGroupMembership(extractedGroups));
           }
         } else if (oidcConfigs.isPreProvisioningRequired()) {
           // We should only allow logins for user accounts that have been pre-provisioned
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
-          verifyPreProvisionedUser(corpUserUrn);
+          verifyPreProvisionedUser(opContext, corpUserUrn);
         }
+        log.info(String.format("Checking if user %s status is already active.", corpUserUrn));
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
-        setUserStatus(
-            corpUserUrn,
-            new CorpUserStatus()
-                .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
-                .setLastModified(
-                    new AuditStamp()
-                        .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-                        .setTime(System.currentTimeMillis())));
+        if (!checkIsUserStatusActive(opContext, corpUserUrn)) {
+          log.info(String.format("User %s is not active, updating status.", corpUserUrn));
+          setUserStatus(
+              opContext,
+              corpUserUrn,
+              new CorpUserStatus()
+                  .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+                  .setLastModified(
+                      new AuditStamp()
+                          .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                          .setTime(System.currentTimeMillis())));
+        }
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(
@@ -208,16 +292,18 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
                 "Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
+      log.info("OIDC callback authentication successful for user: {}", userName);
+
       // Successfully logged in - Generate GMS login token
-      final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
+      final String accessToken = authClient.generateSessionTokenForUser(corpUserUrn.getId());
       return result
           .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
           .withCookies(
               createActorCookie(
                   corpUserUrn.toString(),
-                  _cookieConfigs.getTtlInHours(),
-                  _cookieConfigs.getAuthCookieSameSite(),
-                  _cookieConfigs.getAuthCookieSecure()));
+                  cookieConfigs.getTtlInHours(),
+                  cookieConfigs.getAuthCookieSameSite(),
+                  cookieConfigs.getAuthCookieSecure()));
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
@@ -302,36 +388,39 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return corpUserSnapshot;
   }
 
-  public static Collection<String> getGroupNames(CommonProfile profile, Object groupAttribute, String groupsClaimName) {
-      Collection<String> groupNames = Collections.emptyList();
-      try {
-        if (groupAttribute instanceof Collection) {
-          // List of group names
-          groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
-        } else if (groupAttribute instanceof String) {
-          String groupString = (String) groupAttribute;
-          ObjectMapper objectMapper = new ObjectMapper();
-          try {
-            // Json list of group names
-            groupNames = objectMapper.readValue(groupString, new TypeReference<List<String>>(){});
-          } catch (Exception e) {
-            groupNames = Arrays.asList(groupString.split(","));
-          }
+  public static Collection<String> getGroupNames(
+      CommonProfile profile, Object groupAttribute, String groupsClaimName) {
+    Collection<String> groupNames = Collections.emptyList();
+    try {
+      if (groupAttribute instanceof Collection) {
+        // List of group names
+        groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+      } else if (groupAttribute instanceof String) {
+        String groupString = (String) groupAttribute;
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+          // Json list of group names
+          groupNames = objectMapper.readValue(groupString, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+          groupNames = Arrays.asList(groupString.split(","));
         }
-      } catch (Exception e) {
-        log.error(String.format(
-                "Failed to parse group names: Expected to find a list of strings for attribute with name %s, found %s",
-                groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
       }
-      return groupNames;
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Failed to parse group names: Expected to find a list of strings for attribute with name %s, found %s",
+              groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
+    }
+    return groupNames;
   }
+
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
 
     log.debug(
         String.format(
             "Attempting to extract groups from OIDC profile %s",
             profile.getAttributes().toString()));
-    final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
+    final OidcConfigs configs = (OidcConfigs) ssoManager.getSsoProvider().configs();
 
     // First, attempt to extract a list of groups from the profile, using the group name attribute
     // config.
@@ -345,7 +434,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       if (profile.containsAttribute(groupsClaimName)) {
         try {
           final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
-          Collection<String> groupNames = getGroupNames(profile, profile.getAttribute(groupsClaimName), groupsClaimName);
+          Collection<String> groupNames =
+              getGroupNames(profile, profile.getAttribute(groupsClaimName), groupsClaimName);
 
           for (String groupName : groupNames) {
             // Create a basic CorpGroupSnapshot from the information.
@@ -400,13 +490,14 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return groupMembershipAspect;
   }
 
-  private void tryProvisionUser(CorpUserSnapshot corpUserSnapshot) {
+  private void tryProvisionUser(
+      @Nonnull OperationContext opContext, CorpUserSnapshot corpUserSnapshot) {
 
     log.debug(String.format("Attempting to provision user with urn %s", corpUserSnapshot.getUrn()));
 
     // 1. Check if this user already exists.
     try {
-      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), _systemAuthentication);
+      final Entity corpUser = systemEntityClient.get(opContext, corpUserSnapshot.getUrn());
       final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
 
       log.debug(String.format("Fetched GMS user with urn %s", corpUserSnapshot.getUrn()));
@@ -420,7 +511,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        _entityClient.update(newEntity, _systemAuthentication);
+        systemEntityClient.update(opContext, newEntity);
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
       }
       log.debug(
@@ -434,7 +525,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     }
   }
 
-  private void tryProvisionGroups(List<CorpGroupSnapshot> corpGroups) {
+  private void tryProvisionGroups(
+      @Nonnull OperationContext opContext, List<CorpGroupSnapshot> corpGroups) {
 
     log.debug(
         String.format(
@@ -445,8 +537,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     try {
       final Set<Urn> urnsToFetch =
           corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
-      final Map<Urn, Entity> existingGroups =
-          _entityClient.batchGet(urnsToFetch, _systemAuthentication);
+      final Map<Urn, Entity> existingGroups = systemEntityClient.batchGet(opContext, urnsToFetch);
 
       log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
 
@@ -484,11 +575,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       log.debug(String.format("Provisioning groups with urns %s", groupsToCreateUrns));
 
       // Now batch create all entities identified to create.
-      _entityClient.batchUpdate(
+      systemEntityClient.batchUpdate(
+          opContext,
           groupsToCreate.stream()
               .map(groupSnapshot -> new Entity().setValue(Snapshot.create(groupSnapshot)))
-              .collect(Collectors.toSet()),
-          _systemAuthentication);
+              .collect(Collectors.toSet()));
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
     } catch (RemoteInvocationException e) {
@@ -501,7 +592,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     }
   }
 
-  private void updateGroupMembership(Urn urn, GroupMembership groupMembership) {
+  private void updateGroupMembership(
+      @Nonnull OperationContext opContext, Urn urn, GroupMembership groupMembership) {
     log.debug(String.format("Updating group membership for user %s", urn));
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -510,18 +602,18 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
     proposal.setChangeType(ChangeType.UPSERT);
     try {
-      _entityClient.ingestProposal(proposal, _systemAuthentication);
+      systemEntityClient.ingestProposal(opContext, proposal);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(
           String.format("Failed to update group membership for user with urn %s", urn), e);
     }
   }
 
-  private void verifyPreProvisionedUser(CorpuserUrn urn) {
+  private void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
     // Validate that the user exists in the system (there is more than just a key aspect for them,
     // as of today).
     try {
-      final Entity corpUser = _entityClient.get(urn, _systemAuthentication);
+      final Entity corpUser = systemEntityClient.get(opContext, urn);
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 
@@ -543,7 +635,21 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     }
   }
 
-  private void setUserStatus(final Urn urn, final CorpUserStatus newStatus) throws Exception {
+  private boolean checkIsUserStatusActive(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn) throws Exception {
+    final EntityResponse response =
+        systemEntityClient.getV2(opContext, userUrn, Set.of(CORP_USER_STATUS_ASPECT_NAME));
+    if (response != null && response.hasAspects()) {
+      final EnvelopedAspect aspect = response.getAspects().get(CORP_USER_STATUS_ASPECT_NAME);
+      final CorpUserStatus status = new CorpUserStatus(aspect.getValue().data());
+      return status.hasStatus() && status.getStatus().equals(Constants.CORP_USER_STATUS_ACTIVE);
+    }
+    return false;
+  }
+
+  private void setUserStatus(
+      @Nonnull OperationContext opContext, final Urn urn, final CorpUserStatus newStatus)
+      throws Exception {
     // Update status aspect to be active.
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -551,7 +657,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(proposal, _systemAuthentication);
+    systemEntityClient.ingestProposal(opContext, proposal, true);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

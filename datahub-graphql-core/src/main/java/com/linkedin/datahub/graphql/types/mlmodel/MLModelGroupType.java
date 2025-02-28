@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -28,11 +29,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,10 +75,12 @@ public class MLModelGroupType
     try {
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_MODEL_GROUP_ENTITY_NAME,
-              new HashSet<>(mlModelGroupUrns),
-              null,
-              context.getAuthentication());
+              mlModelGroupUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
+              null);
 
       final List<EntityResponse> gmsResults =
           mlModelGroupUrns.stream()
@@ -92,7 +93,7 @@ public class MLModelGroupType
                   gmsMlModelGroup == null
                       ? null
                       : DataFetcherResult.<MLModelGroup>newResult()
-                          .data(MLModelGroupMapper.map(gmsMlModelGroup))
+                          .data(MLModelGroupMapper.map(context, gmsMlModelGroup))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -111,14 +112,13 @@ public class MLModelGroupType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "mlModelGroup",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -131,8 +131,8 @@ public class MLModelGroupType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "mlModelGroup", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), "mlModelGroup", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -148,8 +148,13 @@ public class MLModelGroupType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlModelGroup", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "mlModelGroup",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -157,7 +162,7 @@ public class MLModelGroupType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            MLModelUtils.getMLModelGroupUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+            context.getOperationContext(), MLModelUtils.getMLModelGroupUrn(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 }

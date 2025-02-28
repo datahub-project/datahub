@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -14,13 +17,13 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -33,6 +36,7 @@ public class GetRootGlossaryNodesResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -41,12 +45,12 @@ public class GetRootGlossaryNodesResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
                 Mockito.eq(buildGlossaryEntitiesFilter()),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(100),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(100)))
         .thenReturn(
             new SearchResult()
                 .setEntities(
@@ -72,11 +76,7 @@ public class GetRootGlossaryNodesResolverTest {
   private Filter buildGlossaryEntitiesFilter() {
     CriterionArray array =
         new CriterionArray(
-            ImmutableList.of(
-                new Criterion()
-                    .setField("hasParentNode")
-                    .setValue("false")
-                    .setCondition(Condition.EQUAL)));
+            ImmutableList.of(buildCriterion("hasParentNode", Condition.EQUAL, "false")));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));

@@ -5,14 +5,14 @@ import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 
 import { ActionItem } from './ActionItem';
-import { Assertion, DataContract, Monitor } from '../../../../../../../../../types.generated';
+import { Assertion, DataContract } from '../../../../../../../../../types.generated';
 import { useUpsertDataContractMutation } from '../../../../../../../../../graphql/contract.generated';
 import {
     buildAddAssertionToContractMutationVariables,
     buildRemoveAssertionFromContractMutationVariables,
 } from '../../../contract/builder/utils';
 import { getDataContractCategoryFromAssertion, isAssertionPartOfContract } from '../../../contract/utils';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
 import { useIsContractsEnabled } from './useIsContractsEnabled';
 
 const StyledMinusOutlined = styled(MinusOutlined)`
@@ -31,18 +31,19 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
     contract?: DataContract;
     canEdit: boolean;
-    refetch: () => void;
+    // Should be defined if canEdit
+    refetch?: () => void;
+    isExpandedView?: boolean;
 };
 
-export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch }: Props) => {
+export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
 
-    if (!monitor || !entityUrn || !contractsEnabled) {
+    if (!entityUrn || !contractsEnabled) {
         return null;
     }
 
@@ -56,7 +57,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Added assertion to contract!', duration: 2 });
-                    refetch();
+                    refetch?.();
                 }
             })
             .catch(() => {
@@ -72,7 +73,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Removed assertion from contract.', duration: 2 });
-                    refetch();
+                    refetch?.();
                 }
             })
             .catch(() => {
@@ -81,11 +82,11 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
             });
     };
 
-    const isPartOfContract = isAssertionPartOfContract(assertion, contract);
-    const isPartOfContractTip = isPartOfContract ? 'Add to contract' : 'Remove from contract';
+    const isPartOfContract = contract ? isAssertionPartOfContract(assertion, contract) : false;
+    const contractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
 
     const unauthorizedTip = canEdit ? undefined : 'You do not have permission to edit the contract';
-    const tip = canEdit ? isPartOfContractTip : unauthorizedTip;
+    const tip = canEdit ? contractTip : unauthorizedTip;
 
     return (
         <>
@@ -96,6 +97,8 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
                     disabled={!canEdit}
                     onClick={isPartOfContract ? onRemoveFromContract : onAddToContract}
                     icon={isPartOfContract ? <StyledMinusOutlined /> : <StyledPlusOutlined />}
+                    isExpandedView={isExpandedView}
+                    actionName={contractTip}
                 />
             )) ||
                 null}

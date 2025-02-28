@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -159,9 +159,7 @@ public class IsFormAssignedToMeResolverTest {
   private GroupService mockGroupService(final Urn userUrn, final List<Urn> groupUrns)
       throws Exception {
     GroupService mockService = Mockito.mock(GroupService.class);
-    Mockito.when(
-            mockService.getGroupsForUser(Mockito.eq(userUrn), Mockito.any(Authentication.class)))
-        .thenReturn(groupUrns);
+    Mockito.when(mockService.getGroupsForUser(any(), Mockito.eq(userUrn))).thenReturn(groupUrns);
     return mockService;
   }
 }

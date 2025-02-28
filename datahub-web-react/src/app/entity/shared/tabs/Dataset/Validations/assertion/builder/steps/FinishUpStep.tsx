@@ -5,6 +5,7 @@ import { Button } from 'antd';
 
 import { StepProps } from '../types';
 import { FinishUpBuilder } from './finish/FinishUpBuilder';
+import { AssertionType } from '../../../../../../../../../types.generated';
 
 const Step = styled.div`
     height: 100%;
@@ -24,9 +25,12 @@ const ControlsContainer = styled.div`
  */
 export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) => {
     const [isSubmitting, setSubmitting] = useState(false);
+    // SQL assertions require a title
+    const [isFormValid, setIsFormValid] = useState(state.assertion?.type !== AssertionType.Sql);
+
     return (
         <Step>
-            <FinishUpBuilder state={state} updateState={updateState} />
+            <FinishUpBuilder state={state} updateState={updateState} onValidityChange={setIsFormValid} />
             <ControlsContainer>
                 <Button onClick={prev}>Back</Button>
                 <Button
@@ -39,7 +43,7 @@ export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) =>
                             setSubmitting(false);
                         }
                     }}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isFormValid}
                 >
                     Save
                 </Button>

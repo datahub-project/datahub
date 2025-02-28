@@ -1,6 +1,7 @@
 import json
-from typing import Optional
+from typing import Optional, Union
 
+from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
@@ -16,14 +17,15 @@ def _get_id_from_connection_urn(urn: str) -> str:
     return urn[len(_connection_urn_prefix) :]
 
 
-def get_connection(graph: DataHubGraph, urn: str) -> Optional[dict]:
+def get_connection_json(graph: DataHubGraph, urn: str) -> Optional[dict]:
     res = graph.execute_graphql(
         query="""
-query GetSlackConnection($urn: String!) {
+query GetConnection($urn: String!) {
   connection(urn: $urn) {
     urn
     details {
       type
+      name
       json {
         blob
       }
@@ -49,21 +51,38 @@ query GetSlackConnection($urn: String!) {
     blob = res["connection"]["details"]["json"]["blob"]
     obj = json.loads(blob)
 
+    # TODO: Also return the connection name, mainly for debugging purposes?
+
     return obj
 
 
-def save_connection(graph: DataHubGraph, urn: str, blob: str) -> None:
+def save_connection_json(
+    graph: DataHubGraph,
+    *,
+    urn: str,
+    platform_urn: str,
+    config: Union[ConnectionModel, dict],
+    name: Optional[str] = None,
+) -> None:
+    if isinstance(config, ConnectionModel):
+        blob = config.json()
+    else:
+        blob = json.dumps(config)
+
     id = _get_id_from_connection_urn(urn)
 
     res = graph.execute_graphql(
         query="""
-mutation SetSlackConnection($id: String!, $blob: String!) {
+mutation SetConnection($id: String!, $platformUrn: String!, $blob: String!, $name: String) {
   upsertConnection(
     input: {
       id: $id,
       type: JSON,
-      platformUrn: "urn:li:dataPlatform:slack",
-      json: {blob: $blob}
+      name: $name,
+      platformUrn: $platformUrn,
+      json: {
+        blob: $blob
+      }
     }
   ) {
     urn
@@ -72,6 +91,8 @@ mutation SetSlackConnection($id: String!, $blob: String!) {
 """.strip(),
         variables={
             "id": id,
+            "platformUrn": platform_urn,
+            "name": name,
             "blob": blob,
         },
     )

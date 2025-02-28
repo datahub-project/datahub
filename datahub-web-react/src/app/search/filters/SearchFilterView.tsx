@@ -2,8 +2,8 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
 import { SearchFilterLabel } from './styledComponents';
 
@@ -24,9 +24,12 @@ interface Props {
     displayName: string;
     searchQuery: string;
     loading: boolean;
+    hideSearchBar?: boolean;
     updateIsMenuOpen: (isOpen: boolean) => void;
     setSearchQuery: (query: string) => void;
     updateFilters: () => void;
+    filter?: FacetMetadata;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function SearchFilterView({
@@ -37,9 +40,12 @@ export default function SearchFilterView({
     displayName,
     searchQuery,
     loading,
+    hideSearchBar,
     updateIsMenuOpen,
     setSearchQuery,
     updateFilters,
+    filter,
+    manuallyUpdateFilters,
 }: Props) {
     return (
         <Dropdown
@@ -55,16 +61,19 @@ export default function SearchFilterView({
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
                     searchPlaceholder={displayName}
+                    hideSearchBar={hideSearchBar}
+                    filter={filter}
+                    manuallyUpdateFilters={manuallyUpdateFilters}
                 />
             )}
         >
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
-                isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                $isActive={!!numActiveFilters}
+                data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>

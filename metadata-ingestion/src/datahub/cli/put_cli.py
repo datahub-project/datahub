@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import click
 from click_default_group import DefaultGroup
@@ -11,6 +11,7 @@ from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass as DataPlatformInfo,
     PlatformTypeClass,
+    SystemMetadataClass,
 )
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -36,9 +37,15 @@ def put() -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("-a", "--aspect", required=True, type=str)
 @click.option("-d", "--aspect-data", required=True, type=str)
+@click.option(
+    "--run-id",
+    type=str,
+    required=False,
+    help="Run ID into which we should log the aspect.",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def aspect(urn: str, aspect: str, aspect_data: str) -> None:
+def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> None:
     """Update a single aspect of an entity"""
 
     entity_type = guess_entity_type(urn)
@@ -46,11 +53,21 @@ def aspect(urn: str, aspect: str, aspect_data: str) -> None:
         aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
     )
 
+    client = get_default_graph()
+
+    system_metadata: Union[None, SystemMetadataClass] = None
+    if run_id:
+        system_metadata = SystemMetadataClass(runId=run_id)
+
+    # TODO: Replace with client.emit, requires figuring out the correct subsclass of _Aspect to create from the data
     status = post_entity(
+        client._session,
+        client.config.server,
         urn=urn,
         aspect_name=aspect,
         entity_type=entity_type,
         aspect_value=aspect_obj,
+        system_metadata=system_metadata,
     )
     click.secho(f"Update succeeded with status {status}", fg="green")
 
@@ -77,15 +94,18 @@ def aspect(urn: str, aspect: str, aspect_data: str) -> None:
     help="Logo URL that must be reachable from the DataHub UI.",
     required=True,
 )
+@click.option(
+    "--run-id", type=str, help="Run ID into which we should log the platform."
+)
 def platform(
-    ctx: click.Context, name: str, display_name: Optional[str], logo: str
+    ctx: click.Context, name: str, display_name: Optional[str], logo: str, run_id: str
 ) -> None:
     """
     Create or update a dataplatform entity in DataHub
     """
 
     if name.startswith(f"urn:li:{DataPlatformUrn.ENTITY_TYPE}"):
-        platform_urn = DataPlatformUrn.create_from_string(name)
+        platform_urn = DataPlatformUrn.from_string(name)
         platform_name = platform_urn.get_entity_id_as_string()
     else:
         platform_name = name.lower()
@@ -99,11 +119,12 @@ def platform(
         logoUrl=logo,
     )
     datahub_graph = get_default_graph()
-    datahub_graph.emit(
-        MetadataChangeProposalWrapper(
-            entityUrn=str(platform_urn), aspect=data_platform_info
-        )
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=str(platform_urn),
+        aspect=data_platform_info,
+        systemMetadata=SystemMetadataClass(runId=run_id),
     )
+    datahub_graph.emit(mcp)
     click.echo(
         f"✅ Successfully wrote data platform metadata for {platform_urn} to DataHub ({datahub_graph})"
     )

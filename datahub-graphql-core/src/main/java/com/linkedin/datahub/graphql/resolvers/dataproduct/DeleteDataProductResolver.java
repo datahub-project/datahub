@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.service.DataProductService;
@@ -26,16 +27,16 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
     final Urn dataProductUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_dataProductService.verifyEntityExists(
-              dataProductUrn, context.getAuthentication())) {
+              context.getOperationContext(), dataProductUrn)) {
             throw new IllegalArgumentException("The Data Product provided dos not exist");
           }
 
           Domains domains =
               _dataProductService.getDataProductDomains(
-                  dataProductUrn, context.getAuthentication());
+                  context.getOperationContext(), dataProductUrn);
           if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
             // get first domain since we only allow one domain right now
             Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
@@ -47,11 +48,13 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           }
 
           try {
-            _dataProductService.deleteDataProduct(dataProductUrn, authentication);
+            _dataProductService.deleteDataProduct(context.getOperationContext(), dataProductUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Data Product", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

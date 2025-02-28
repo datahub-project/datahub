@@ -2,7 +2,6 @@ package com.linkedin.metadata.search.utils;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataFlowKey;
@@ -10,6 +9,7 @@ import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.test.util.TestEntityRegistry;
 import java.net.URISyntaxException;
 import org.testng.Assert;
 import org.testng.annotations.Test;

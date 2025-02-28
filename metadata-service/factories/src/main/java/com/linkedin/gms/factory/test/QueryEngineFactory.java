@@ -8,7 +8,10 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.query.EntityUrnTypeEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.QueryVersionedAspectEvaluator;
+import com.linkedin.metadata.test.query.StructuredPropertyEvaluator;
 import com.linkedin.metadata.test.query.SystemAspectEvaluator;
+import com.linkedin.metadata.test.query.schemafield.SchemaFieldEvaluator;
+import com.linkedin.metadata.test.query.virtualFields.VirtualFieldsQueryEvaluator;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,7 +37,18 @@ public class QueryEngineFactory {
     final QueryVersionedAspectEvaluator queryVersionedAspectEvaluator =
         new QueryVersionedAspectEvaluator(entityRegistry, entityService);
     final SystemAspectEvaluator systemAspectEvaluator = new SystemAspectEvaluator(entityService);
+    final StructuredPropertyEvaluator structuredPropertyEvaluator =
+        new StructuredPropertyEvaluator(entityService);
+    final SchemaFieldEvaluator schemaFieldEvaluator = new SchemaFieldEvaluator(entityService);
+    final VirtualFieldsQueryEvaluator virtualFieldsQueryEvaluator =
+        new VirtualFieldsQueryEvaluator();
     return new QueryEngine(
-        ImmutableList.of(urnTypeEvaluator, queryVersionedAspectEvaluator, systemAspectEvaluator));
+        ImmutableList.of(
+            urnTypeEvaluator,
+            queryVersionedAspectEvaluator,
+            systemAspectEvaluator,
+            structuredPropertyEvaluator,
+            schemaFieldEvaluator,
+            virtualFieldsQueryEvaluator));
   }
 }

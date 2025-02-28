@@ -4,7 +4,6 @@ import styled from 'styled-components/macro';
 import { Entity, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
-import ParentContainers from './ParentContainers';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 import { SuggestionText } from './styledComponents';
@@ -60,14 +59,20 @@ interface Props {
     hasParentTooltip: boolean;
 }
 
+// TODO: Migrate from using parent entities to using BrowsePathsV2 to mimic search card
 export default function AutoCompleteEntity({ query, entity, siblings, hasParentTooltip }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
     const entities = siblings?.length ? siblings : [entity];
+    const platformsToShow =
+        /* Only show sibling platforms if there are > 0 explicitly included siblings */
+        siblings?.length
+            ? genericEntityProps?.siblingPlatforms
+            : (genericEntityProps?.platform && [genericEntityProps?.platform]) || undefined;
     const platforms =
-        genericEntityProps?.siblingPlatforms
+        platformsToShow
             ?.map(
                 (platform) =>
                     getPlatformName(entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, platform)) || '',
@@ -77,13 +82,17 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
     // Need to reverse parentContainers since it returns direct parent first.
     const orderedParentContainers = [...parentContainers].reverse();
+
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
-    const parentEntities = getParentEntities(entity) || [];
+
+    // Parent entities are either a) containers or b) entity-type specific parents (glossary nodes, domains, etc)
+    const parentEntities =
+        (orderedParentContainers?.length && orderedParentContainers) || getParentEntities(entity) || [];
 
     const showPlatforms = !!platforms.length;
     const showPlatformDivider = !!platforms.length && !!parentContainers.length;
-    const showParentContainers = !!parentContainers.length;
-    const showHeader = showPlatforms || showParentContainers || parentEntities.length > 0;
+    const showParentEntities = !!parentEntities?.length;
+    const showHeader = showPlatforms || showParentEntities;
 
     return (
         <AutoCompleteEntityWrapper data-testid={`auto-complete-entity-name-${displayName}`}>
@@ -98,8 +107,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                             </IconsContainer>
                             {showPlatforms && <AutoCompletePlatformNames platforms={platforms} />}
                             {showPlatformDivider && <Divider />}
-                            {showParentContainers && <ParentContainers parentContainers={orderedParentContainers} />}
-                            <ParentEntities parentEntities={parentEntities} numVisible={3} />
+                            {showParentEntities && <ParentEntities parentEntities={parentEntities} />}
                         </ItemHeader>
                     )}
                     <Typography.Text

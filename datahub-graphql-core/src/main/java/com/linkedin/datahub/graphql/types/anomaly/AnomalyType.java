@@ -52,10 +52,10 @@ public class AnomalyType implements com.linkedin.datahub.graphql.types.EntityTyp
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.ANOMALY_ENTITY_NAME,
               new HashSet<>(anomalyUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : anomalyUrns) {
@@ -67,7 +67,7 @@ public class AnomalyType implements com.linkedin.datahub.graphql.types.EntityTyp
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Anomaly>newResult()
-                          .data(AnomalyMapper.map(gmsResult))
+                          .data(AnomalyMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

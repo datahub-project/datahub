@@ -19,16 +19,20 @@ describe('extendColumnLineage', () => {
                 },
             ] as FineGrainedLineage[],
         };
-        const fetchedEntities = {
-            [dataJobWithCLL.urn]: dataJobWithCLL as FetchedEntity,
-        };
+        const fetchedEntities = new Map([[dataJobWithCLL.urn, dataJobWithCLL as FetchedEntity]]);
         const fineGrainedMap = { forward: {}, reverse: {} };
         extendColumnLineage(dataJobWithCLL, fineGrainedMap, {}, fetchedEntities);
 
         expect(fineGrainedMap).toMatchObject({
             forward: {
-                [dataJob1.urn]: { test1: { [dataset2.urn]: ['test2'] }, test3: { [dataset2.urn]: ['test4'] } },
-                [dataset1.urn]: { test1: { [dataJob1.urn]: ['test1'] }, test3: { [dataJob1.urn]: ['test3'] } },
+                [dataJob1.urn]: {
+                    test1: { [dataset2.urn]: ['test2'] },
+                    test3: { [dataset2.urn]: ['test4'] },
+                },
+                [dataset1.urn]: {
+                    test1: { [dataJob1.urn]: ['test1'] },
+                    test3: { [dataJob1.urn]: ['test3'] },
+                },
             },
             reverse: {
                 [dataJob1.urn]: { test1: { [dataset1.urn]: ['test1'] }, test3: { [dataset1.urn]: ['test3'] } },

@@ -1,6 +1,6 @@
 import { message, Modal } from 'antd';
 import { useState } from 'react';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useDeleteGlossaryEntityMutation } from '../../../../graphql/glossary.generated';
 
@@ -16,6 +16,7 @@ function useDeleteGlossaryEntity() {
             variables: {
                 urn: entityDataUrn,
             },
+            fetchPolicy: 'cache-first',
         })
             .catch((e) => {
                 message.destroy();
@@ -26,13 +27,11 @@ function useDeleteGlossaryEntity() {
                     content: 'Deleting...',
                     duration: 2,
                 });
-                setTimeout(() => {
-                    setHasBeenDeleted(true);
-                    message.success({
-                        content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
-                        duration: 2,
-                    });
-                }, 2000);
+                setHasBeenDeleted(true);
+                message.success({
+                    content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
+                    duration: 2,
+                });
             });
     }
 

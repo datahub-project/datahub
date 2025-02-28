@@ -20,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class TestAssertionResolver implements DataFetcher<CompletableFuture<AssertionResult>> {
-
   private final MonitorService _monitorService;
 
   public TestAssertionResolver(@Nonnull final MonitorService monitorService) {
@@ -33,7 +32,6 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     final QueryContext context = environment.getContext();
     final TestAssertionInput input =
         ResolverUtils.bindArgument(environment.getArgument("input"), TestAssertionInput.class);
-
     final Urn asserteeUrn = UrnUtils.getUrn(AssertionUtils.getAsserteeUrnFromTestInput(input));
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 
@@ -49,7 +47,7 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         FreshnessAssertionUtils.createFreshnessAssertionInfo(
                             input.getFreshnessTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(freshnessResult);
+                return AssertionRunEventMapper.mapResult(context, freshnessResult);
               case VOLUME:
                 final com.linkedin.assertion.AssertionResult volumeResult =
                     _monitorService.testVolumeAssertion(
@@ -57,14 +55,14 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         connectionUrn,
                         VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(volumeResult);
+                return AssertionRunEventMapper.mapResult(context, volumeResult);
               case SQL:
                 final com.linkedin.assertion.AssertionResult sqlResult =
                     _monitorService.testSqlAssertion(
                         asserteeUrn,
                         connectionUrn,
                         SqlAssertionUtils.createSqlAssertionInfo(input.getSqlTestInput()));
-                return AssertionRunEventMapper.mapResult(sqlResult);
+                return AssertionRunEventMapper.mapResult(context, sqlResult);
               case FIELD:
                 final com.linkedin.assertion.AssertionResult fieldResult =
                     _monitorService.testFieldAssertion(
@@ -72,7 +70,16 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         connectionUrn,
                         FieldAssertionUtils.createFieldAssertionInfo(input.getFieldTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(fieldResult);
+                return AssertionRunEventMapper.mapResult(context, fieldResult);
+              case DATA_SCHEMA:
+                final com.linkedin.assertion.AssertionResult dataSchemaResult =
+                    _monitorService.testSchemaAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        SchemaAssertionUtils.createDataSchemaAssertionInfo(
+                            input.getSchemaTestInput()),
+                        MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
+                return AssertionRunEventMapper.mapResult(context, dataSchemaResult);
               default:
                 throw new IllegalArgumentException(
                     "Unsupported assertion type: " + input.getType());

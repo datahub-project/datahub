@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { useMatchedFieldLabel, useMatchedFieldsForList } from '../context/SearchResultContext';
 import { MatchedField } from '../../../types.generated';
@@ -14,6 +15,7 @@ const MatchesContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    padding: 4px 8px;
 `;
 
 const MatchText = styled(Typography.Text)`
@@ -42,7 +44,7 @@ const RenderedField = ({
     field: MatchedField;
 }) => {
     const entityRegistry = useEntityRegistry();
-    const query = useSearchQuery()?.trim().toLowerCase();
+    const query = useSearchQuery()?.trim()?.toLowerCase();
     const customRenderedField = customFieldRenderer?.(field);
     if (customRenderedField) return <b>{customRenderedField}</b>;
     if (isHighlightableEntityField(field)) {

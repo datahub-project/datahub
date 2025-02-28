@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -36,7 +37,7 @@ public class GetUserNotificationSettingsResolverTest {
 
   @Test
   public void testExceptionThrown() {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication)))
+    when(_settingsService.getCorpUserSettings(any(OperationContext.class), eq(USER_URN)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -44,7 +45,7 @@ public class GetUserNotificationSettingsResolverTest {
 
   @Test
   public void testGetUserNotificationSettingPasses() throws Exception {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication)))
+    when(_settingsService.getCorpUserSettings(any(OperationContext.class), eq(USER_URN)))
         .thenReturn(CORP_USER_SETTINGS);
 
     final NotificationSettings result = _resolver.get(_dataFetchingEnvironment).join();

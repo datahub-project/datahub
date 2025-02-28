@@ -67,4 +67,19 @@ record LineageRelationship {
    * Replaces the deprecated field "degree".
    **/
    degrees: optional array[int]
+
+   /**
+    * Marks this relationship as explored during the graph walk
+    */
+    explored: optional boolean
+
+    /**
+     * Indicates this destination node has additional unexplored child relationships
+     */
+    truncatedChildren: optional boolean
+
+   /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+    ignoredAsHop: optional boolean
 }

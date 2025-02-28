@@ -13,8 +13,9 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -23,6 +24,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -40,86 +43,104 @@ import org.opensearch.client.RestClientBuilder;
 public class SearchTestUtils {
   private SearchTestUtils() {}
 
-  public static void syncAfterWrite(ESBulkProcessor bulkProcessor) throws InterruptedException {
-    bulkProcessor.flush();
-    Thread.sleep(1000);
+  public static void syncAfterWrite(ESBulkProcessor bulkProcessor)
+      throws InterruptedException, IOException {
+    BulkProcessorTestUtils.syncAfterWrite(bulkProcessor);
   }
 
-  public static final List<String> SEARCHABLE_ENTITIES;
+  public static final List<String> SEARCHABLE_ENTITIES =
+      Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
+          .map(EntityTypeMapper::getName)
+          .distinct()
+          .collect(Collectors.toList());
 
-  static {
-    SEARCHABLE_ENTITIES =
-        Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(EntityTypeMapper::getName)
-            .distinct()
-            .collect(Collectors.toList());
-  }
-
-  public static SearchResult searchAcrossEntities(SearchService searchService, String query) {
-    return searchAcrossEntities(searchService, query, null);
-  }
-
-  public static SearchResult searchAcrossEntities(
-      SearchService searchService, String query, @Nullable List<String> facets) {
-    return searchService.searchAcrossEntities(
-        SEARCHABLE_ENTITIES,
-        query,
-        null,
-        null,
-        0,
-        100,
-        new SearchFlags().setFulltext(true).setSkipCache(true),
-        facets);
-  }
-
-  public static SearchResult searchAcrossEntities(
+  public static SearchResult facetAcrossEntities(
+      OperationContext opContext,
       SearchService searchService,
       String query,
+      @Nullable List<String> facets) {
+    return facetAcrossEntities(opContext, searchService, SEARCHABLE_ENTITIES, query, facets, null);
+  }
+
+  public static SearchResult facetAcrossEntities(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
       @Nullable List<String> facets,
-      Filter filter,
-      List<String> entityNames) {
+      @Nullable Filter filter) {
     return searchService.searchAcrossEntities(
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         entityNames,
         query,
         filter,
         null,
         0,
         100,
-        new SearchFlags().setFulltext(true).setSkipCache(true),
-        facets);
+        facets,
+        null);
   }
 
-  public static SearchResult searchAcrossCustomEntities(
-      SearchService searchService, String query, List<String> searchableEntities) {
+  public static SearchResult searchAcrossEntities(
+      OperationContext opContext, SearchService searchService, String query) {
+    return searchAcrossEntities(opContext, searchService, SEARCHABLE_ENTITIES, query, null);
+  }
+
+  public static SearchResult searchAcrossEntities(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query) {
+    return searchAcrossEntities(opContext, searchService, entityNames, query, null);
+  }
+
+  public static SearchResult searchAcrossEntities(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter) {
     return searchService.searchAcrossEntities(
-        searchableEntities,
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
         query,
-        null,
+        filter,
         null,
         0,
         100,
-        new SearchFlags().setFulltext(true).setSkipCache(true));
-  }
-
-  public static SearchResult search(SearchService searchService, String query) {
-    return search(searchService, SEARCHABLE_ENTITIES, query);
+        null,
+        null);
   }
 
   public static SearchResult search(
-      SearchService searchService, List<String> entities, String query) {
+      OperationContext opContext, SearchService searchService, String query) {
+    return search(opContext, searchService, SEARCHABLE_ENTITIES, query);
+  }
+
+  public static SearchResult search(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entities,
+      String query) {
     return searchService.search(
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         entities,
         query,
         null,
         null,
         0,
-        100,
-        new SearchFlags().setFulltext(true).setSkipCache(true));
+        100);
   }
 
   public static ScrollResult scroll(
-      SearchService searchService, String query, int batchSize, @Nullable String scrollId) {
+      OperationContext opContext,
+      SearchService searchService,
+      String query,
+      int batchSize,
+      @Nullable String scrollId) {
     return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         SEARCHABLE_ENTITIES,
         query,
         null,
@@ -127,27 +148,33 @@ public class SearchTestUtils {
         scrollId,
         "3m",
         batchSize,
-        new SearchFlags().setFulltext(true).setSkipCache(true));
+        null);
   }
 
   public static ScrollResult scroll(
-      EntitySearchService entitySearchService, int batchSize, @Nullable String scrollId) {
-    return entitySearchService.scroll(SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m");
+      OperationContext opContext,
+      EntitySearchService entitySearchService,
+      int batchSize,
+      @Nullable String scrollId) {
+    return entitySearchService.scroll(
+        opContext, SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m", null);
   }
 
-  public static SearchResult searchStructured(SearchService searchService, String query) {
+  public static SearchResult searchStructured(
+      OperationContext opContext, SearchService searchService, String query) {
     return searchService.searchAcrossEntities(
+        opContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
         SEARCHABLE_ENTITIES,
         query,
         null,
         null,
         0,
         100,
-        new SearchFlags().setFulltext(false).setSkipCache(true));
+        null);
   }
 
   public static LineageSearchResult lineage(
-      LineageSearchService lineageSearchService, Urn root, int hops) {
+      OperationContext opContext, LineageSearchService lineageSearchService, Urn root, int hops) {
     String degree = hops >= 3 ? "3+" : String.valueOf(hops);
     List<FacetFilterInput> filters =
         List.of(
@@ -159,6 +186,9 @@ public class SearchTestUtils {
                 .build());
 
     return lineageSearchService.searchAcrossLineage(
+        opContext
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(flags -> flags),
         root,
         LineageDirection.DOWNSTREAM,
         SEARCHABLE_ENTITY_TYPES.stream()
@@ -169,14 +199,14 @@ public class SearchTestUtils {
         ResolverUtils.buildFilter(filters, List.of()),
         null,
         0,
-        100,
-        null,
-        null,
-        new SearchFlags().setSkipCache(true));
+        100);
   }
 
   public static AutoCompleteResults autocomplete(
-      SearchableEntityType<?, String> searchableEntityType, String query) throws Exception {
+      OperationContext opContext,
+      SearchableEntityType<?, String> searchableEntityType,
+      String query)
+      throws Exception {
     return searchableEntityType.autoComplete(
         query,
         null,
@@ -196,6 +226,16 @@ public class SearchTestUtils {
           @Override
           public Authorizer getAuthorizer() {
             return null;
+          }
+
+          @Override
+          public OperationContext getOperationContext() {
+            return opContext;
+          }
+
+          @Override
+          public DataHubAppConfiguration getDataHubAppConfig() {
+            return new DataHubAppConfiguration();
           }
         });
   }
@@ -229,4 +269,58 @@ public class SearchTestUtils {
               }
             });
   }
+
+  public static GraphQueryConfiguration getGraphQueryConfiguration() {
+    return new GraphQueryConfiguration() {
+      {
+        setBatchSize(1000);
+        setTimeoutSeconds(10);
+        setMaxResult(10000);
+        setEnableMultiPathSearch(true);
+        setBoostViaNodes(true);
+      }
+    };
+  }
+
+  /* SAAS ONLY */
+  public static SearchResult searchAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.searchAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        0,
+        100,
+        null,
+        predicateJson);
+  }
+
+  public static ScrollResult scrollAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        null,
+        "5m",
+        10,
+        predicateJson);
+  }
+  /* END SAAS ONLY */
 }

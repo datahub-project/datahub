@@ -1,9 +1,11 @@
 import React from 'react';
 
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
 import styled from 'styled-components';
+import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '../button/styledComponents';
 import { ActionRequest } from '../../../types.generated';
-import ActionRequestListItem from '../../actionrequest/item/ActionRequestListItem';
 
 type ProposalModalProps = {
     actionRequest: ActionRequest;
@@ -17,7 +19,7 @@ type ProposalModalProps = {
 
 const ProposalModalFooter = styled.div`
     display: flex;
-    justify-content: space-between;
+    justify-content: end;
 `;
 
 export default function ProposalModal({
@@ -36,17 +38,19 @@ export default function ProposalModal({
             onCancel={(e) => {
                 onCloseProposalDecisionModal(e);
             }}
+            title="Review Proposal"
             footer={
                 <ProposalModalFooter>
-                    <Button
-                        onClick={(e) => {
-                            onCloseProposalDecisionModal(e);
-                        }}
-                        type="text"
-                    >
-                        Cancel
-                    </Button>
-                    <div>
+                    <ModalButtonContainer>
+                        <Button
+                            onClick={(e) => {
+                                onCloseProposalDecisionModal(e);
+                            }}
+                            variant="text"
+                            color="gray"
+                        >
+                            Close
+                        </Button>
                         <Button
                             data-testid={`proposal-accept-button-${elementName}`}
                             key="accept"
@@ -64,10 +68,12 @@ export default function ProposalModal({
                                 onProposalRejection(actionRequest);
                                 onCloseProposalDecisionModal(e);
                             }}
+                            color="red"
+                            variant="outline"
                         >
                             Reject
                         </Button>
-                    </div>
+                    </ModalButtonContainer>
                 </ProposalModalFooter>
             }
         >

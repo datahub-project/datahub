@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+    compileOnly externalDependency.lombok
+    api externalDependency.javaxValidation
+
+    implementation externalDependency.logbackClassic
+    implementation externalDependency.logbackJackson
+    implementation externalDependency.logbackJsonClassic
+    implementation externalDependency.kafkaClients
+    implementation externalDependency.kafkaClients
+    implementation externalDependency.kafkaAvroSerde
+    compileOnly externalDependency.lombok
+    api externalDependency.springBeans
+    api externalDependency.springContext
+    api externalDependency.springCore
+    api externalDependency.springKafka
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
+}

@@ -4,7 +4,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../../constants';
 import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
 import { EditOwnersModal } from '../EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { OwnershipTypeSection } from './OwnershipTypeSection';
@@ -25,6 +25,7 @@ const OwnershipSections = styled.div`
     align-items: start;
     justify-content: start;
     flex-wrap: wrap;
+    max-width: 100%;
 `;
 
 interface Props {
@@ -106,6 +107,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                 event.stopPropagation();
                             }}
                             actionPrivilege={canEditOwners}
+                            dataTestId="addOwner"
                         />
                     )
                 }

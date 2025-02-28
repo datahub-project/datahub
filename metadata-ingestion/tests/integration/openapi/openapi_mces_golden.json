@@ -20,7 +20,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/",
+                                "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
@@ -71,7 +71,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,7 +96,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v2",
+                                "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/v2",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
@@ -146,7 +147,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -161,7 +163,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -176,7 +179,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

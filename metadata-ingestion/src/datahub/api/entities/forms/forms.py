@@ -16,17 +16,25 @@ from datahub.api.entities.forms.forms_graphql_constants import (
 )
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
+    make_domain_urn,
     make_group_urn,
+    make_tag_urn,
+    make_term_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
+    DomainParamsClass,
+    FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
+    GlossaryTermsParamsClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipParamsClass,
     OwnershipTypeClass,
     StructuredPropertyParamsClass,
 )
@@ -35,10 +43,51 @@ from datahub.utilities.urns.urn import Urn
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+FILTER_CRITERION_TYPES = "_entityType"
+FILTER_CRITERION_SUB_TYPES = "typeNames.keyword"
+FILTER_CRITERION_PLATFORMS = "platform.keyword"
+FILTER_CRITERION_PLATFORM_INSTANCES = "dataPlatformInstance.keyword"
+FILTER_CRITERION_DOMAINS = "domains.keyword"
+FILTER_CRITERION_CONTAINERS = "container.keyword"
+FILTER_CRITERION_OWNERS = "owners.keyword"
+FILTER_CRITERION_TAGS = "tags.keyword"
+FILTER_CRITERION_GLOSSARY_TERMS = "glossaryTerms.keyword"
+
+
+class PromptCardinality(Enum):
+    SINGLE = "SINGLE"
+    MULTIPLE = "MULTIPLE"
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
+
+class OwnershipParams(ConfigModel):
+    cardinality: Optional[str] = None
+    allowed_owners: Optional[List[str]] = None
+    allowed_ownership_types: Optional[List[str]] = None
+
+
+class GlossaryTermsParams(ConfigModel):
+    cardinality: Optional[str] = None
+    allowed_terms: Optional[List[str]] = None
+    allowed_term_groups: Optional[List[str]] = None
+
+
+class DomainParams(ConfigModel):
+    allowed_domains: Optional[List[str]] = None
+
 
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
     FIELDS_STRUCTURED_PROPERTY = "FIELDS_STRUCTURED_PROPERTY"
+    OWNERSHIP = "OWNERSHIP"
+    DOCUMENTATION = "DOCUMENTATION"
+    FIELDS_DOCUMENTATION = "FIELDS_DOCUMENTATION"
+    GLOSSARY_TERMS = "GLOSSARY_TERMS"
+    FIELDS_GLOSSARY_TERMS = "FIELDS_GLOSSARY_TERMS"
+    DOMAIN = "DOMAIN"
 
     @classmethod
     def has_value(cls, value):
@@ -46,13 +95,16 @@ class PromptType(Enum):
 
 
 class Prompt(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     title: str
-    description: Optional[str]
+    description: Optional[str] = None
     type: str
-    structured_property_id: Optional[str]
-    structured_property_urn: Optional[str]
-    required: Optional[bool]
+    structured_property_id: Optional[str] = None
+    structured_property_urn: Optional[str] = None
+    required: Optional[bool] = None
+    ownership_params: Optional[OwnershipParams] = None
+    glossary_terms_params: Optional[GlossaryTermsParams] = None
+    domain_params: Optional[DomainParams] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -71,33 +123,46 @@ class FormType(Enum):
 
 
 class Filters(ConfigModel):
-    types: Optional[List[str]]
-    platforms: Optional[List[str]]
-    domains: Optional[List[str]]
-    containers: Optional[List[str]]
+    types: Optional[List[str]] = None
+    sub_types: Optional[List[str]] = None
+    platforms: Optional[List[str]] = None
+    platform_instances: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    containers: Optional[List[str]] = None
+    owners: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    terms: Optional[List[str]] = None
 
 
 class Entities(ConfigModel):
-    urns: Optional[List[str]]
-    filters: Optional[Filters]
+    urns: Optional[List[str]] = None
+    filters: Optional[Filters] = None
+
+
+class Actors(ConfigModel):
+    owners: Optional[bool] = None
+    users: Optional[List[str]] = None  # can be user IDs or urns
+    groups: Optional[List[str]] = None  # can be group IDs or urns
 
 
 class Forms(ConfigModel):
-    id: Optional[str]
-    urn: Optional[str]
+    id: Optional[str] = None
+    urn: Optional[str] = None
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     prompts: List[Prompt] = []
-    type: Optional[str]
-    version: Optional[Literal[1]]
-    entities: Optional[Entities]
-    owners: Optional[List[str]]  # can be user IDs or urns
-    group_owners: Optional[List[str]]  # can be group IDs or urns
+    type: Optional[str] = None
+    version: Optional[Literal[1]] = None
+    entities: Optional[Entities] = None
+    owners: Optional[List[str]] = None  # can be user IDs or urns
+    group_owners: Optional[List[str]] = None  # can be group IDs or urns
+    actors: Optional[Actors] = None
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
         if not v:
-            assert values.get("id") is not None, "Form id must be present if urn is not"
+            if values.get("id") is None:
+                raise ValueError("Form id must be present if urn is not")
             return f"urn:li:form:{values['id']}"
         return v
 
@@ -106,7 +171,7 @@ class Forms(ConfigModel):
         emitter: DataHubGraph
 
         with get_default_graph() as emitter:
-            with open(file, "r") as fp:
+            with open(file) as fp:
                 forms: List[dict] = yaml.safe_load(fp)
                 for form_raw in forms:
                     form = Forms.parse_obj(form_raw)
@@ -124,6 +189,7 @@ class Forms(ConfigModel):
                                 description=form.description,
                                 prompts=form.validate_prompts(emitter),
                                 type=form.type,
+                                actors=form.create_form_actors(form.actors),
                             ),
                         )
                         emitter.emit_mcp(mcp)
@@ -155,6 +221,10 @@ class Forms(ConfigModel):
                     logger.warning(
                         f"Prompt id not provided. Setting prompt id to {prompt.id}"
                     )
+                if not PromptType.has_value(prompt.type):
+                    raise Exception(
+                        f"Prompt type {prompt.type} is not a valid type. Please try again with a valid Prompt type."
+                    )
                 if prompt.structured_property_urn:
                     structured_property_urn = prompt.structured_property_urn
                     if emitter.exists(structured_property_urn):
@@ -174,6 +244,18 @@ class Forms(ConfigModel):
                     raise Exception(
                         f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
                     )
+                if (
+                    prompt.type
+                    in (
+                        PromptType.FIELDS_STRUCTURED_PROPERTY.value,
+                        PromptType.FIELDS_DOCUMENTATION.value,
+                        PromptType.FIELDS_GLOSSARY_TERMS.value,
+                    )
+                    and prompt.required
+                ):
+                    raise Exception(
+                        "Schema field prompts cannot be marked as required. Ensure these prompts are not required."
+                    )
 
                 prompts.append(
                     FormPromptClass(
@@ -181,11 +263,16 @@ class Forms(ConfigModel):
                         title=prompt.title,
                         description=prompt.description,
                         type=prompt.type,
-                        structuredPropertyParams=StructuredPropertyParamsClass(
-                            urn=prompt.structured_property_urn
-                        )
-                        if prompt.structured_property_urn
-                        else None,
+                        structuredPropertyParams=(
+                            StructuredPropertyParamsClass(
+                                urn=prompt.structured_property_urn
+                            )
+                            if prompt.structured_property_urn
+                            else None
+                        ),
+                        glossaryTermsParams=self.get_glossary_terms_params(prompt),
+                        ownershipParams=self.get_ownership_params(prompt),
+                        domainParams=self.get_domain_params(prompt),
                         required=prompt.required,
                     )
                 )
@@ -194,10 +281,82 @@ class Forms(ConfigModel):
 
         return prompts
 
+    def get_glossary_terms_params(
+        self, prompt: Prompt
+    ) -> Union[None, GlossaryTermsParamsClass]:
+        if prompt.type not in (
+            PromptType.GLOSSARY_TERMS.value,
+            PromptType.FIELDS_GLOSSARY_TERMS.value,
+        ):
+            return None
+
+        glossary_terms_params = GlossaryTermsParamsClass(cardinality="MULTIPLE")
+        if prompt.glossary_terms_params:
+            if prompt.glossary_terms_params.cardinality:
+                glossary_terms_params.cardinality = (
+                    prompt.glossary_terms_params.cardinality
+                )
+            if prompt.glossary_terms_params.allowed_terms:
+                glossary_terms_params.allowedTerms = (
+                    prompt.glossary_terms_params.allowed_terms
+                )
+            if prompt.glossary_terms_params.allowed_term_groups:
+                glossary_terms_params.allowedTermGroups = (
+                    prompt.glossary_terms_params.allowed_term_groups
+                )
+
+        return glossary_terms_params
+
+    def get_ownership_params(self, prompt: Prompt) -> Union[None, OwnershipParamsClass]:
+        if prompt.type != PromptType.OWNERSHIP.value:
+            return None
+
+        ownership_params = OwnershipParamsClass(cardinality="MULTIPLE")
+        if prompt.ownership_params:
+            if prompt.ownership_params.cardinality:
+                ownership_params.cardinality = prompt.ownership_params.cardinality
+            if prompt.ownership_params.allowed_owners:
+                ownership_params.allowedOwners = prompt.ownership_params.allowed_owners
+            if prompt.ownership_params.allowed_ownership_types:
+                ownership_params.allowedOwnershipTypes = (
+                    prompt.ownership_params.allowed_ownership_types
+                )
+
+        return ownership_params
+
+    def get_domain_params(self, prompt: Prompt) -> Union[None, DomainParamsClass]:
+        if prompt.type != PromptType.DOMAIN.value:
+            return None
+
+        if prompt.domain_params and prompt.domain_params.allowed_domains:
+            return DomainParamsClass(
+                allowedDomains=prompt.domain_params.allowed_domains
+            )
+
+        return None
+
+    def create_form_actors(
+        self, actors: Optional[Actors] = None
+    ) -> Union[None, FormActorAssignmentClass]:
+        if actors is None:
+            return None
+
+        users = None
+        if actors.users is not None:
+            users = Forms.format_users(actors.users)
+
+        groups = None
+        if actors.groups is not None:
+            groups = Forms.format_groups(actors.groups)
+
+        return FormActorAssignmentClass(
+            owners=actors.owners, users=users, groups=groups
+        )
+
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:
         if self.entities and self.entities.urns:
             formatted_entity_urns = ", ".join(
-                ['"{}"'.format(value) for value in self.entities.urns]
+                [f'"{value}"' for value in self.entities.urns]
             )
             query = UPLOAD_ENTITIES_FOR_FORMS.format(
                 form_urn=self.urn, entity_urns=formatted_entity_urns
@@ -213,29 +372,70 @@ class Forms(ConfigModel):
         # Loop through each entity and assign a filter for it
         if self.entities and self.entities.filters:
             filters = self.entities.filters
+
             if filters.types:
                 filters_raw.append(
-                    Forms.format_form_filter("_entityType", filters.types)
+                    Forms.format_form_filter(FILTER_CRITERION_TYPES, filters.types)
                 )
+
+            if filters.sub_types:
+                filters_raw.append(
+                    Forms.format_form_filter(
+                        FILTER_CRITERION_SUB_TYPES, filters.sub_types
+                    )
+                )
+
             if filters.platforms:
                 urns = [
                     make_data_platform_urn(platform) for platform in filters.platforms
                 ]
-                filters_raw.append(Forms.format_form_filter("platform", urns))
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORMS, urns)
+                )
+
+            if filters.platform_instances:
+                urns = []
+                for platform_instance in filters.platform_instances:
+                    platform_instance_urn = Forms.validate_platform_instance_urn(
+                        platform_instance
+                    )
+                    if platform_instance_urn:
+                        urns.append(platform_instance_urn)
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORM_INSTANCES, urns)
+                )
+
             if filters.domains:
-                urns = []
-                for domain in filters.domains:
-                    domain_urn = Forms.validate_domain_urn(domain)
-                    if domain_urn:
-                        urns.append(domain_urn)
-                filters_raw.append(Forms.format_form_filter("domains", urns))
+                urns = [make_domain_urn(domain) for domain in filters.domains]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_DOMAINS, urns)
+                )
+
             if filters.containers:
-                urns = []
-                for container in filters.containers:
-                    container_urn = Forms.validate_container_urn(container)
-                    if container_urn:
-                        urns.append(container_urn)
-                filters_raw.append(Forms.format_form_filter("container", urns))
+                urns = [
+                    make_container_urn(container) for container in filters.containers
+                ]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_CONTAINERS, urns)
+                )
+
+            if filters.owners:
+                urns = [make_user_urn(owner) for owner in filters.owners]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_OWNERS, urns)
+                )
+
+            if filters.tags:
+                urns = [make_tag_urn(tag) for tag in filters.tags]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_TAGS, urns)
+                )
+
+            if filters.terms:
+                urns = [make_term_urn(term) for term in filters.terms]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_GLOSSARY_TERMS, urns)
+                )
 
         filters_str = ", ".join(item for item in filters_raw)
         result = emitter.execute_graphql(
@@ -243,6 +443,7 @@ class Forms(ConfigModel):
                 form_urn=self.urn, filters=filters_str
             )
         )
+
         if not result:
             return Exception(
                 f"Could not bulk upload urns or filters for form {self.urn}."
@@ -253,9 +454,9 @@ class Forms(ConfigModel):
     def add_owners(self, emitter: DataHubGraph) -> Union[None, Exception]:
         owner_urns: List[str] = []
         if self.owners:
-            owner_urns += Forms.format_owners(self.owners)
+            owner_urns += Forms.format_users(self.owners)
         if self.group_owners:
-            owner_urns += Forms.format_group_owners(self.group_owners)
+            owner_urns += Forms.format_groups(self.group_owners)
 
         ownership = OwnershipClass(
             owners=[
@@ -274,29 +475,24 @@ class Forms(ConfigModel):
 
     @staticmethod
     def format_form_filter(field: str, urns: List[str]) -> str:
-        formatted_urns = ", ".join(['"{}"'.format(urn) for urn in urns])
+        formatted_urns = ", ".join([f'"{urn}"' for urn in urns])
         return FIELD_FILTER_TEMPLATE.format(field=field, values=formatted_urns)
 
     @staticmethod
-    def validate_domain_urn(domain: str) -> Union[str, None]:
-        if domain.startswith("urn:li:domain:"):
-            return domain
+    def validate_platform_instance_urn(instance: str) -> Union[str, None]:
+        if instance.startswith("urn:li:dataPlatformInstance:"):
+            return instance
 
-        logger.warning(f"{domain} is not an urn. Unable to create domain filter.")
-        return None
-
-    @staticmethod
-    def validate_container_urn(container: str) -> Union[str, None]:
-        if container.startswith("urn:li:container:"):
-            return container
-
-        logger.warning(f"{container} is not an urn. Unable to create container filter.")
+        logger.warning(
+            f"{instance} is not an urn. Unable to create platform instance filter."
+        )
         return None
 
     @staticmethod
     def from_datahub(graph: DataHubGraph, urn: str) -> "Forms":
         form: Optional[FormInfoClass] = graph.get_aspect(urn, FormInfoClass)
-        assert form is not None
+        if form is None:
+            raise Exception("FormInfo aspect is None. Unable to create form.")
         prompts = []
         for prompt_raw in form.prompts:
             prompts.append(
@@ -305,9 +501,18 @@ class Forms(ConfigModel):
                     title=prompt_raw.title,
                     description=prompt_raw.description,
                     type=prompt_raw.type,
-                    structured_property_urn=prompt_raw.structuredPropertyParams.urn
-                    if prompt_raw.structuredPropertyParams
-                    else None,
+                    structured_property_urn=(
+                        prompt_raw.structuredPropertyParams.urn
+                        if prompt_raw.structuredPropertyParams
+                        else None
+                    ),
+                    ownership_params=(
+                        OwnershipParams(
+                            cardinality=prompt_raw.ownershipParams.cardinality
+                        )
+                        if prompt_raw.ownershipParams
+                        else None
+                    ),
                 )
             )
         return Forms(
@@ -319,28 +524,28 @@ class Forms(ConfigModel):
         )
 
     @staticmethod
-    def format_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
+    def format_users(users: List[str]) -> List[str]:
+        formatted_users: List[str] = []
 
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
+        for user in users:
+            if user.startswith("urn:li:"):
+                formatted_users.append(user)
             else:
-                formatted_owners.append(make_user_urn(owner))
+                formatted_users.append(make_user_urn(user))
 
-        return formatted_owners
+        return formatted_users
 
     @staticmethod
-    def format_group_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
+    def format_groups(groups: List[str]) -> List[str]:
+        formatted_groups: List[str] = []
 
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
+        for group in groups:
+            if group.startswith("urn:li:"):
+                formatted_groups.append(group)
             else:
-                formatted_owners.append(make_group_urn(owner))
+                formatted_groups.append(make_group_urn(group))
 
-        return formatted_owners
+        return formatted_groups
 
     def to_yaml(
         self,

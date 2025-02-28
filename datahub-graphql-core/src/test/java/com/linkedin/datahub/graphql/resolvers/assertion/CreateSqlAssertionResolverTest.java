@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionAction;
@@ -34,6 +34,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -111,12 +112,12 @@ public class CreateSqlAssertionResolverTest {
     // Validate that we created the assertion
     Mockito.verify(mockService, Mockito.times(1))
         .createSqlAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getEntity()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getType()),
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_ASSERTION_ACTIONS));
   }
 
   @Test
@@ -134,7 +135,7 @@ public class CreateSqlAssertionResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -144,12 +145,12 @@ public class CreateSqlAssertionResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createSqlAssertion(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
 
     CreateSqlAssertionResolver resolver = new CreateSqlAssertionResolver(mockService);
 
@@ -166,17 +167,17 @@ public class CreateSqlAssertionResolverTest {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
             service.createSqlAssertion(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(
             service.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(

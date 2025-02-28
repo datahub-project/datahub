@@ -5,7 +5,7 @@ import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.gener
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { notEmpty } from '../../shared/utils';
 
 const ViewRawButtonContainer = styled.div`
@@ -35,14 +35,14 @@ export default function SourcesView() {
             features?.reduce((accumulator: Array<Dataset>, feature) => {
                 if (feature.__typename === 'MLFeature' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.properties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources?.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }
                     });
                 } else if (feature.__typename === 'MLPrimaryKey' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.properties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources?.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }

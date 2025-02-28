@@ -6,45 +6,37 @@ import {
     FieldMetricType,
     FieldTransformType,
 } from '../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
+import { GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP } from './assertion/profile/summary/shared/constants';
 
-const getAssertionStdOperator = (operator: AssertionStdOperator) => {
-    switch (operator) {
-        case AssertionStdOperator.EqualTo:
-            return 'is equal to';
-        case AssertionStdOperator.Null:
-            return 'is null';
-        case AssertionStdOperator.NotNull:
-            return 'is not null';
-        case AssertionStdOperator.NotEqualTo:
-            return 'is not equal to';
-        case AssertionStdOperator.NotIn:
-            return 'is not in';
-        case AssertionStdOperator.RegexMatch:
-            return 'matches regex';
-        case AssertionStdOperator.GreaterThan:
-            return 'is greater than';
-        case AssertionStdOperator.LessThan:
-            return 'is less than';
-        case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'is greater than or equal to';
-        case AssertionStdOperator.LessThanOrEqualTo:
-            return 'is less than or equal to';
-        case AssertionStdOperator.In:
-            return 'is in';
-        case AssertionStdOperator.Between:
-            return 'is between';
-        case AssertionStdOperator.Contain:
-            return 'contains';
-        case AssertionStdOperator.IsTrue:
-            return 'is true';
-        case AssertionStdOperator.IsFalse:
-            return 'is false';
-        default:
-            throw new Error(`Unknown operator ${operator}`);
+const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
+    AssertionStdOperator.EqualTo,
+    AssertionStdOperator.Null,
+    AssertionStdOperator.NotNull,
+    AssertionStdOperator.NotEqualTo,
+    AssertionStdOperator.NotIn,
+    AssertionStdOperator.RegexMatch,
+    AssertionStdOperator.GreaterThan,
+    AssertionStdOperator.LessThan,
+    AssertionStdOperator.GreaterThanOrEqualTo,
+    AssertionStdOperator.LessThanOrEqualTo,
+    AssertionStdOperator.In,
+    AssertionStdOperator.Between,
+    AssertionStdOperator.Contain,
+    AssertionStdOperator.IsTrue,
+    AssertionStdOperator.IsFalse,
+];
+const getAssertionStdOperator = ({ operator, isPlural }: { operator: AssertionStdOperator; isPlural?: boolean }) => {
+    const ASSERTION_OPERATOR_TO_DESCRIPTION = GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP({ isPlural });
+
+    if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
+        throw new Error(`Unknown operator ${operator}`);
     }
+    return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
 };
 
-const getMetricType = (metric: FieldMetricType) => {
+export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
             return 'Null count';
@@ -96,10 +88,16 @@ const getFieldTransformType = (transform: FieldTransformType) => {
 
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return parameters.value.value;
+        return formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+        );
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${parameters.minValue.value} and ${parameters.maxValue.value}`;
+        return `${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+        )} and ${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+        )}`;
     }
     return '';
 };
@@ -116,15 +114,21 @@ export const getFieldDescription = (assertionInfo: FieldAssertionInfo) => {
     }
 };
 
-export const getFieldOperatorDescription = (assertionInfo: FieldAssertionInfo) => {
+export const getFieldOperatorDescription = ({
+    assertionInfo,
+    isPlural,
+}: {
+    assertionInfo: FieldAssertionInfo;
+    isPlural?: boolean;
+}) => {
     const { type, fieldValuesAssertion, fieldMetricAssertion } = assertionInfo;
     switch (type) {
         case FieldAssertionType.FieldValues:
             if (!fieldValuesAssertion?.operator) return '';
-            return getAssertionStdOperator(fieldValuesAssertion.operator);
+            return getAssertionStdOperator({ operator: fieldValuesAssertion.operator, isPlural });
         case FieldAssertionType.FieldMetric:
             if (!fieldMetricAssertion?.operator) return '';
-            return getAssertionStdOperator(fieldMetricAssertion.operator);
+            return getAssertionStdOperator({ operator: fieldMetricAssertion.operator, isPlural });
         default:
             throw new Error(`Unknown field assertion type ${type}`);
     }
@@ -138,7 +142,7 @@ export const getFieldTransformDescription = (assertionInfo: FieldAssertionInfo) 
             return getFieldTransformType(fieldValuesAssertion.transform.type);
         case FieldAssertionType.FieldMetric:
             if (!fieldMetricAssertion?.metric) return '';
-            return getMetricType(fieldMetricAssertion.metric);
+            return getFieldMetricTypeReadableLabel(fieldMetricAssertion.metric);
         default:
             throw new Error(`Unknown field assertion type ${type}`);
     }

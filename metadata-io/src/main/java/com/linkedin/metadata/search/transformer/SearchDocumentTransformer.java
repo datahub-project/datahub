@@ -1,37 +1,55 @@
 package com.linkedin.metadata.search.transformer;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +61,6 @@ import lombok.extern.slf4j.Slf4j;
 @Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
-
   // Number of elements to index for a given array.
   // The cap improves search speed when having fields with a large number of elements
   private final int maxArrayLength;
@@ -52,8 +69,6 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
-
-  private AspectRetriever aspectRetriever;
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -79,39 +94,100 @@ public class SearchDocumentTransformer {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
     extractedSearchableFields.forEach(
-        (key, value) -> setSearchableValue(key, value, searchDocument, forDelete));
+        (key, value) ->
+            setSearchableValue(
+                key, value, searchDocument, forDelete, AuditStampUtils.createDefaultAuditStamp()));
     extractedSearchScoreFields.forEach(
         (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
     return Optional.of(searchDocument.toString());
   }
 
-  public Optional<String> transformAspect(
-      final Urn urn,
-      final RecordTemplate aspect,
-      final AspectSpec aspectSpec,
-      final Boolean forDelete)
+  public static ObjectNode withSystemCreated(
+      ObjectNode searchDocument,
+      @Nonnull ChangeType changeType,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull final AuditStamp auditStamp) {
+
+    // relies on the MCP processor preventing unneeded key aspects
+    if (Set.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT).contains(changeType)
+        && entitySpec.getKeyAspectName().equals(aspectSpec.getName())) {
+      searchDocument.put(SYSTEM_CREATED_FIELD, auditStamp.getTime());
+    }
+    return searchDocument;
+  }
+
+  /**
+   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
+   * for structured properties to start with i.e.
+   *
+   * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
+   * "value1" "structuredProperties.foobar2": "value2" } Expected => {
+   * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
+   *
+   * @param searchDocument new document
+   * @param previousSearchDocument previous document (if not present, no-op)
+   * @return searchDocument to upsert
+   */
+  public static ObjectNode handleRemoveFields(
+      @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
+    if (previousSearchDocument != null) {
+      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
+      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
+          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
+          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    }
+    // no-op
+    return searchDocument;
+  }
+
+  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
+    Iterable<String> iterable = () -> fieldNames;
+    return StreamSupport.stream(iterable.spliterator(), false)
+        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
+        .collect(Collectors.toSet());
+  }
+
+  public Optional<ObjectNode> transformAspect(
+      @Nonnull OperationContext opContext,
+      final @Nonnull Urn urn,
+      final @Nullable RecordTemplate aspect,
+      final @Nonnull AspectSpec aspectSpec,
+      final Boolean forDelete,
+      final AuditStamp mclCreateAuditStamp)
       throws RemoteInvocationException, URISyntaxException {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
+    final Map<SearchableRefFieldSpec, List<Object>> extractedSearchRefFields =
+        FieldExtractor.extractFields(
+            aspect, aspectSpec.getSearchableRefFieldSpecs(), maxValueLength);
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchScoreFieldSpecs(), maxValueLength);
 
-    Optional<String> result = Optional.empty();
+    Optional<ObjectNode> result = Optional.empty();
 
-    if (!extractedSearchableFields.isEmpty() || !extractedSearchScoreFields.isEmpty()) {
+    if (!extractedSearchableFields.isEmpty()
+        || !extractedSearchScoreFields.isEmpty()
+        || !extractedSearchRefFields.isEmpty()) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
+
       extractedSearchableFields.forEach(
-          (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
+          (key, values) ->
+              setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
+      extractedSearchRefFields.forEach(
+          (key, values) ->
+              setSearchableRefValue(
+                  opContext, key, values, searchDocument, forDelete, mclCreateAuditStamp));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
-      result = Optional.of(searchDocument.toString());
+      result = Optional.of(searchDocument);
     } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
       setStructuredPropertiesSearchValue(
-          new StructuredProperties(aspect.data()), searchDocument, forDelete);
-      result = Optional.of(searchDocument.toString());
+          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      result = Optional.of(searchDocument);
     }
 
     return result;
@@ -121,7 +197,8 @@ public class SearchDocumentTransformer {
       final SearchableFieldSpec fieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
-      final Boolean forDelete) {
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
     boolean isArray = fieldSpec.isArray();
@@ -141,8 +218,13 @@ public class SearchDocumentTransformer {
                     fieldName,
                     JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false)));
               } else {
-                searchDocument.set(
-                    fieldName, JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty()));
+                final boolean hasValue;
+                if (DataSchema.Type.STRING.equals(valueType)) {
+                  hasValue = firstValue.isPresent() && !String.valueOf(firstValue.get()).isEmpty();
+                } else {
+                  hasValue = !fieldValues.isEmpty();
+                }
+                searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
               }
             });
 
@@ -181,7 +263,14 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
+    if (ESUtils.getSystemModifiedAtFieldName(fieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(fieldSpec).get();
+      searchDocument.set(
+          modifiedAtFieldName,
+          JsonNodeFactory.instance.numberNode((Long) mclCreatedAuditStamp.getTime()));
+    }
+
+    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -193,7 +282,7 @@ public class SearchDocumentTransformer {
                 value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
-    } else if (valueType == DataSchema.Type.MAP) {
+    } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
       ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
       fieldValues
           .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
@@ -201,8 +290,60 @@ public class SearchDocumentTransformer {
               fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
                 String key = keyValues[0];
-                String value = keyValues[1];
-                dictDoc.put(key, value);
+                ArrayNode values = JsonNodeFactory.instance.arrayNode();
+                Arrays.stream(keyValues[1].substring(1, keyValues[1].length() - 1).split(", "))
+                    .forEach(
+                        v -> {
+                          if (!v.isEmpty()) {
+                            values.add(v);
+                          }
+                        });
+                dictDoc.set(key, values);
+              });
+      searchDocument.set(fieldName, dictDoc);
+    } else if (valueType == DataSchema.Type.MAP) {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+          .forEach(
+              fieldValue -> {
+                String[] keyValues = fieldValue.toString().split("=");
+                String key = keyValues[0], value = "";
+                if (keyValues.length > 1) {
+                  value = keyValues[1];
+                  if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.BOOLEAN)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.INT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Integer.parseInt(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.DOUBLE)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.numberNode(Double.parseDouble(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.LONG)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Long.parseLong(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.FLOAT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Float.parseFloat(value)));
+                  } else {
+                    dictDoc.put(key, value);
+                  }
+                } else {
+                  dictDoc.put(key, value);
+                }
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
@@ -261,16 +402,16 @@ public class SearchDocumentTransformer {
         return Optional.of(JsonNodeFactory.instance.numberNode((Integer) fieldValue));
       case LONG:
         return Optional.of(JsonNodeFactory.instance.numberNode((Long) fieldValue));
+      case FLOAT:
+        return Optional.of(JsonNodeFactory.instance.numberNode((Float) fieldValue));
+      case DOUBLE:
+        return Optional.of(JsonNodeFactory.instance.numberNode((Double) fieldValue));
         // By default run toString
       default:
         String value = fieldValue.toString();
-        // If index type is BROWSE_PATH, make sure the value starts with a slash
-        if (fieldType == FieldType.BROWSE_PATH && !value.startsWith("/")) {
-          value = "/" + value;
-        }
         return value.isEmpty()
-            ? Optional.empty()
-            : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
+            ? Optional.of(JsonNodeFactory.instance.nullNode())
+            : Optional.of(JsonNodeFactory.instance.textNode(value));
     }
   }
 
@@ -298,7 +439,10 @@ public class SearchDocumentTransformer {
   }
 
   private void setStructuredPropertiesSearchValue(
-      final StructuredProperties values, final ObjectNode searchDocument, final Boolean forDelete)
+      @Nonnull OperationContext opContext,
+      final StructuredProperties values,
+      final ObjectNode searchDocument,
+      final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
     Map<Urn, Set<StructuredPropertyValueAssignment>> propertyMap =
         values.getProperties().stream()
@@ -307,8 +451,10 @@ public class SearchDocumentTransformer {
                     StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
 
     Map<Urn, Map<String, Aspect>> definitions =
-        aspectRetriever.getLatestAspectObjects(
-            propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+        opContext
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
     if (definitions.size() < propertyMap.size()) {
       String message =
@@ -324,25 +470,29 @@ public class SearchDocumentTransformer {
         .entrySet()
         .forEach(
             propertyEntry -> {
-              StructuredPropertyDefinition definition =
-                  new StructuredPropertyDefinition(
-                      definitions
-                          .get(propertyEntry.getKey())
-                          .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                          .data());
+              Optional<StructuredPropertyDefinition> definition =
+                  Optional.ofNullable(
+                          definitions
+                              .get(propertyEntry.getKey())
+                              .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                      .map(def -> new StructuredPropertyDefinition(def.data()));
+
+              LogicalValueType logicalValueType =
+                  definition
+                      .map(StructuredPropertyUtils::getLogicalValueType)
+                      .orElse(LogicalValueType.UNKNOWN);
+
               String fieldName =
                   String.join(
                       ".",
                       List.of(
                           STRUCTURED_PROPERTY_MAPPING_FIELD,
-                          sanitizeStructuredPropertyFQN(definition.getQualifiedName())));
+                          toElasticsearchFieldName(
+                              propertyEntry.getKey(), definition.orElse(null))));
 
               if (forDelete) {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
-                LogicalValueType logicalValueType =
-                    StructuredPropertiesValidator.getLogicalValueType(definition.getValueType());
-
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
 
                 propertyEntry
@@ -384,5 +534,148 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, arrayNode);
               }
             });
+  }
+
+  public void setSearchableRefValue(
+      @Nonnull final OperationContext opContext,
+      final SearchableRefFieldSpec searchableRefFieldSpec,
+      final List<Object> fieldValues,
+      final ObjectNode searchDocument,
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
+    String fieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
+    FieldType fieldType = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldType();
+    boolean isArray = searchableRefFieldSpec.isArray();
+
+    if (forDelete) {
+      searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+      return;
+    }
+    int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
+    if (isArray) {
+      ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxArrayLength))
+          .forEach(
+              value ->
+                  getNodeForRef(opContext, depth, value, fieldType, mclCreatedAuditStamp)
+                      .ifPresent(arrayNode::add));
+      searchDocument.set(fieldName, arrayNode);
+    } else if (!fieldValues.isEmpty()) {
+      String finalFieldName = fieldName;
+      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType, mclCreatedAuditStamp)
+          .ifPresent(node -> searchDocument.set(finalFieldName, node));
+    } else {
+      searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+    }
+  }
+
+  private Optional<JsonNode> getNodeForRef(
+      @Nonnull OperationContext opContext,
+      final int depth,
+      final Object fieldValue,
+      final FieldType fieldType,
+      final AuditStamp auditStamp) {
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    AspectRetriever aspectRetriever = opContext.getAspectRetriever();
+
+    if (depth == 0) {
+      if (fieldValue.toString().isEmpty()) {
+        return Optional.empty();
+      } else {
+        return Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
+      }
+    }
+    if (fieldType == FieldType.URN) {
+      ObjectNode resultNode = JsonNodeFactory.instance.objectNode();
+      try {
+        Urn eAUrn = EntityUtils.getUrnFromString(fieldValue.toString());
+        String entityType = eAUrn.getEntityType();
+        String entityKeyAspectName = entityRegistry.getEntitySpec(entityType).getKeyAspectName();
+        Optional<Aspect> entityKeyAspect =
+            Optional.ofNullable(aspectRetriever.getLatestAspectObject(eAUrn, entityKeyAspectName));
+        if (entityKeyAspect.isEmpty()) {
+          return Optional.ofNullable(JsonNodeFactory.instance.nullNode());
+        }
+        resultNode.set("urn", JsonNodeFactory.instance.textNode(fieldValue.toString()));
+        EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+        for (Map.Entry<String, AspectSpec> mapEntry : entitySpec.getAspectSpecMap().entrySet()) {
+          String aspectName = mapEntry.getKey();
+          AspectSpec aspectSpec = mapEntry.getValue();
+          String aspectClass = aspectSpec.getDataTemplateClass().getCanonicalName();
+          if (!Constants.SKIP_REFERENCE_ASPECT.contains(aspectName)) {
+            try {
+              Aspect aspectDetails = aspectRetriever.getLatestAspectObject(eAUrn, aspectName);
+              DataMap aspectDataMap = aspectDetails.data();
+              RecordTemplate aspectRecord =
+                  RecordUtils.toRecordTemplate(aspectClass, aspectDataMap);
+              // Extract searchable fields and create node using getNodeForSearchable
+              final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
+                  FieldExtractor.extractFields(
+                      aspectRecord, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
+              for (Map.Entry<SearchableFieldSpec, List<Object>> entry :
+                  extractedSearchableFields.entrySet()) {
+                SearchableFieldSpec spec = entry.getKey();
+                List<Object> value = entry.getValue();
+                if (!value.isEmpty()) {
+                  setSearchableValue(spec, value, resultNode, false, auditStamp);
+                }
+              }
+
+              // Extract searchable ref fields and create node using getNodeForRef
+              final Map<SearchableRefFieldSpec, List<Object>> extractedSearchableRefFields =
+                  FieldExtractor.extractFields(
+                      aspectDetails, aspectSpec.getSearchableRefFieldSpecs(), maxValueLength);
+              for (Map.Entry<SearchableRefFieldSpec, List<Object>> entry :
+                  extractedSearchableRefFields.entrySet()) {
+                SearchableRefFieldSpec spec = entry.getKey();
+                List<Object> value = entry.getValue();
+                String fieldName = spec.getSearchableRefAnnotation().getFieldName();
+                boolean isArray = spec.isArray();
+                if (!value.isEmpty()) {
+                  int newDepth = Math.min(depth - 1, spec.getSearchableRefAnnotation().getDepth());
+                  if (isArray) {
+                    ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+                    value
+                        .subList(0, Math.min(value.size(), maxArrayLength))
+                        .forEach(
+                            val ->
+                                getNodeForRef(
+                                        opContext,
+                                        newDepth,
+                                        val,
+                                        spec.getSearchableRefAnnotation().getFieldType(),
+                                        auditStamp)
+                                    .ifPresent(arrayNode::add));
+                    resultNode.set(fieldName, arrayNode);
+                  } else {
+                    Optional<JsonNode> node =
+                        getNodeForRef(
+                            opContext,
+                            newDepth,
+                            value.get(0),
+                            spec.getSearchableRefAnnotation().getFieldType(),
+                            auditStamp);
+                    if (node.isPresent()) {
+                      resultNode.set(fieldName, node.get());
+                    }
+                  }
+                }
+              }
+            } catch (Exception e) {
+              log.error(
+                  "Error while fetching aspect details of {} for urn {} : {}",
+                  aspectName,
+                  eAUrn,
+                  e.getMessage());
+            }
+          }
+        }
+        return Optional.of(resultNode);
+      } catch (Exception e) {
+        log.error("Error while processing ref field of urn {} : {}", fieldValue, e.getMessage());
+      }
+    }
+    return Optional.empty();
   }
 }

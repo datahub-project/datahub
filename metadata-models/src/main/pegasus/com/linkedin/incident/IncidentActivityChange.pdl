@@ -1,0 +1,32 @@
+namespace com.linkedin.incident
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Incident Activity Change is a record that represents the changes that occurred in the incident activity event.
+ */
+record IncidentActivityChange {
+    /**
+    * The type of change. TODO: Determine if description change should be included in this aspect.
+    * This is a timeseries field so you can filter by a given change type!
+    */
+    @TimeseriesCollection = {}
+    type: enum IncidentActivityChangeType {
+        /**
+        * Assignees were added or removed
+        */
+        ASSIGNEES,
+        /**
+        * State of the incident changed
+        */
+        STATE,
+        /**
+        * Lifecycle stage of the incident changes
+        */
+        STAGE,
+        /**
+        * The priority of the incident changed
+        */
+        PRIORITY,
+    }
+}

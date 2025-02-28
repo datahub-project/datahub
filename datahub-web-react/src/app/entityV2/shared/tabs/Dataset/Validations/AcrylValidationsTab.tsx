@@ -1,35 +1,51 @@
 import React, { useEffect } from 'react';
-import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
-import { AcrylTestResults } from './AcrylTestResults';
-import TabToolbar from '../../../components/styled/TabToolbar';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useGetValidationsTab } from './useGetValidationsTab';
-import { ANTD_GRAY } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AssertionSourceType } from '../../../../../../types.generated';
-import { AcrylAssertions } from './AcrylAssertions';
+import { REDESIGN_COLORS } from '../../../constants';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
+import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
+import { AcrylAssertionSummaryTab } from './AssertionList/Summary/AcrylAssertionSummaryTab';
+import { ValidationTabPaths } from './constants';
 
 const TabTitle = styled.span`
     margin-left: 4px;
 `;
 
-const TabButton = styled(Button)<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
-    margin-left: 4px;
+const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
+    display: flex;
+    background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
+    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : 'none')};
+    align-items: center;
+    justify-content: center;
+    cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
+    border-radius: 5px;
+    padding: 0px 12px 0px 12px;
+    font-size: 14px;
+    height: 40px;
+    color: ${(props) => (props.disabled && '#00000040') || 'none'};
+`;
+const TabToolbar = styled.div`
+    display: flex;
+    position: relative;
+    z-index: 1;
+    height: 46px;
+    padding: 7px 12px;
+    flex: 0 0 auto;
 `;
 
-enum TabPaths {
-    ASSERTIONS = 'Assertions',
-    TESTS = 'Tests',
-    DATA_CONTRACT = 'Data Contract',
-}
+const TabContentWrapper = styled.div`
+    @media screen and (max-height: 800px) {
+        display: contents;
+        overflow: auto;
+    }
+`;
 
-const DEFAULT_TAB = TabPaths.ASSERTIONS;
+const DEFAULT_TAB = ValidationTabPaths.SUMMARY;
 
 /**
  * Acryl-specific component used for rendering the Entity Validations Tab.
@@ -37,55 +53,46 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
-    const { urn, entityData } = useEntityData();
+    const { entityData } = useEntityData();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
 
-    const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-    const totalAssertions =
-        assertionsData?.dataset?.assertions?.assertions?.filter(
-            // SaaS-Only filtering.
-            (assertion) => assertion.info?.source?.type !== AssertionSourceType.Inferred,
-        ).length || 0;
-
-    const passingTests = (entityData as any)?.testResults?.passing || [];
-    const failingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = failingTests.length + passingTests.length;
-
-    const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
+    const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(ValidationTabPaths));
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
         if (!selectedTab) {
             // Route to the default tab.
-            history.replace(`${basePath}/${DEFAULT_TAB}`);
+            history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }
-    }, [selectedTab, basePath, history]);
+    }, [selectedTab, basePath, history, isHideSiblingMode]);
 
     /**
      * The top-level Toolbar tabs to display.
      */
-    const tabs = [
+    const tabs: any[] = [
         {
             title: (
                 <>
-                    <FileProtectOutlined />
-                    <TabTitle>Assertions ({totalAssertions})</TabTitle>
+                    <TabTitle>Summary</TabTitle>
                 </>
             ),
-            path: TabPaths.ASSERTIONS,
+            path: ValidationTabPaths.SUMMARY,
             disabled: false, // Always keep the assertions tab clickable in saas.
-            content: <AcrylAssertions />,
+            content: <AcrylAssertionSummaryTab />,
+            id: 'summary',
         },
         {
             title: (
                 <>
-                    <FileDoneOutlined />
-                    <TabTitle>Tests ({totalTests})</TabTitle>
+                    <TabTitle>Assertions</TabTitle>
                 </>
             ),
-            path: TabPaths.TESTS,
-            disabled: totalTests === 0,
-            content: <AcrylTestResults urn={urn} />,
+            path: ValidationTabPaths.ASSERTIONS,
+            disabled: false, // Always keep the assertions tab clickable in saas.
+            content: <AcrylAssertionList />,
+            id: 'assertions',
         },
     ];
 
@@ -94,34 +101,50 @@ export const AcrylValidationsTab = () => {
         tabs.push({
             title: (
                 <>
-                    <AuditOutlined />
                     <TabTitle>Data Contract</TabTitle>
                 </>
             ),
-            path: TabPaths.DATA_CONTRACT,
+            path: ValidationTabPaths.DATA_CONTRACT,
             content: <DataContractTab />,
-            disabled: false,
+            disabled: isRenderingSiblings,
+            tip: isRenderingSiblings ? (
+                <>
+                    You cannot view a data contract for a group of assets. <br />
+                    <br />
+                    To view the data contract for a specific asset in this group, navigate to them using the{' '}
+                    <b>Composed Of</b> sidebar section on the right.
+                </>
+            ) : null,
+            id: 'data-contract',
         });
     }
 
     return (
         <>
             <TabToolbar>
-                <div>
-                    {tabs.map((tab) => (
+                {tabs.map((tab) => (
+                    <Tooltip showArrow={false} title={tab.tip}>
                         <TabButton
                             key={tab.path}
-                            type="text"
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}
-                            onClick={() => history.replace(`${basePath}/${tab.path}`)}
+                            id={`acryl-validation-tab-${tab.id}-sub-tab`}
+                            onClick={() => {
+                                if (!tab.disabled) {
+                                    history.replace(
+                                        `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
+                                    );
+                                }
+                            }}
                         >
                             {tab.title}
                         </TabButton>
-                    ))}
-                </div>
+                    </Tooltip>
+                ))}
             </TabToolbar>
-            {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
+            <TabContentWrapper>
+                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
+            </TabContentWrapper>
         </>
     );
 };

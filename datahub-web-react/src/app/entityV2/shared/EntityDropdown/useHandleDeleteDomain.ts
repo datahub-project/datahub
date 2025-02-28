@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { GenericEntityProperties } from '../types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 import { removeFromListDomainsCache } from '../../../domain/utils';
 import { useDomainsContext } from '../../../domain/DomainsContext';
 

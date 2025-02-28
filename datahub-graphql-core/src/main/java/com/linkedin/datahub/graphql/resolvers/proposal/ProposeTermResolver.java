@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.TermAssociationInput;
+import com.linkedin.datahub.graphql.generated.ProposeTermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -22,18 +22,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TermAssociationInput input =
-        bindArgument(environment.getArgument("input"), TermAssociationInput.class);
+    final QueryContext context = environment.getContext();
+    final ProposeTermAssociationInput input =
+        bindArgument(environment.getArgument("input"), ProposeTermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!ProposalUtils.isAuthorizedToProposeTerms(
-        environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!ProposalUtils.isAuthorizedToProposeTerms(context, targetUrn, input.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -41,6 +41,7 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
     return CompletableFuture.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
@@ -50,34 +51,38 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
               false);
 
           if (ProposalUtils.isTermAlreadyAttachedToTarget(
-              termUrn, targetUrn, input.getSubResource(), _entityService)) {
+              context.getOperationContext(),
+              termUrn,
+              targetUrn,
+              input.getSubResource(),
+              _entityService)) {
             throw new DataHubGraphQLException(
                 "Term has already been applied to target", DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
           if (ProposalUtils.isTermAlreadyProposedToTarget(
+              context.getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
-              _entityClient,
-              ((QueryContext) environment.getContext()).getAuthentication())) {
+              _entityClient)) {
             throw new DataHubGraphQLException(
                 "Term has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
           log.info("Proposing Term. input: {}", input.toString());
           try {
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             return ProposalUtils.proposeTerm(
+                context.getOperationContext(),
                 actor,
                 termUrn,
                 targetUrn,
                 input.getSubResource(),
                 input.getSubResourceType(),
-                _entityService,
-                ((QueryContext) environment.getContext()).getAuthorizer());
+                input.getOrigin(),
+                input.getInferenceMetadata(),
+                _entityService);
           } catch (Exception e) {
             log.error(
                 "Failed to perform update against input {}, {}", input.toString(), e.getMessage());

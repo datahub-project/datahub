@@ -1,5 +1,5 @@
-import { FolderFilled, FolderOutlined } from '@ant-design/icons';
 import React from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
@@ -12,6 +12,9 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -20,15 +23,15 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined style={{ fontSize, color }} />;
+            return <BookmarksSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarksSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <FolderOutlined
+            <BookmarksSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
@@ -51,6 +54,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -72,18 +77,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
-                ]}
-                sidebarSections={[
                     {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
+                        name: 'Properties',
+                        component: PropertiesTab,
                     },
                 ]}
+                sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.ADD_TERM_GROUP,
@@ -95,6 +94,24 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;

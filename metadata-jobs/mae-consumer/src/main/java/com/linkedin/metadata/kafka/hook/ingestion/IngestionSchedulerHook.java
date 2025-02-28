@@ -10,12 +10,12 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,32 +28,39 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({EntityRegistryFactory.class, IngestionSchedulerFactory.class})
 public class IngestionSchedulerHook implements MetadataChangeLogHook {
-
-  private final EntityRegistry _entityRegistry;
-  private final IngestionScheduler _scheduler;
-  private final boolean _isEnabled;
+  private final IngestionScheduler scheduler;
+  private final boolean isEnabled;
+  private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IngestionSchedulerHook(
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final IngestionScheduler scheduler,
-      @Nonnull @Value("${ingestionScheduler.enabled:true}") Boolean isEnabled) {
-    _entityRegistry = entityRegistry;
-    _scheduler = scheduler;
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${ingestionScheduler.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${ingestionScheduler.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.scheduler = scheduler;
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public IngestionSchedulerHook(
+      @Nonnull final IngestionScheduler scheduler, @Nonnull Boolean isEnabled) {
+    this(scheduler, isEnabled, "");
   }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
-  public void init() {
-    _scheduler.init();
+  public IngestionSchedulerHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    scheduler.init();
+    return this;
   }
 
   @Override
@@ -69,11 +76,11 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
       final Urn urn = getUrnFromEvent(event);
 
       if (ChangeType.DELETE.equals(event.getChangeType())) {
-        _scheduler.unscheduleNextIngestionSourceExecution(urn);
+        scheduler.unscheduleNextIngestionSourceExecution(urn);
       } else {
         // Update the scheduler to reflect the latest changes.
         final DataHubIngestionSourceInfo info = getInfoFromEvent(event);
-        _scheduler.scheduleNextIngestionSourceExecution(urn, info);
+        scheduler.scheduleNextIngestionSourceExecution(urn, info);
       }
     }
   }
@@ -91,6 +98,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
         && (ChangeType.UPSERT.equals(event.getChangeType())
             || ChangeType.CREATE.equals(event.getChangeType())
+            || ChangeType.CREATE_ENTITY.equals(event.getChangeType())
             || ChangeType.DELETE.equals(event.getChangeType()));
   }
 
@@ -106,7 +114,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   private Urn getUrnFromEvent(final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -124,7 +132,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   private DataHubIngestionSourceInfo getInfoFromEvent(final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -140,6 +148,6 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   @VisibleForTesting
   IngestionScheduler scheduler() {
-    return _scheduler;
+    return scheduler;
   }
 }

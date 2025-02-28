@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.steps;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
@@ -24,6 +25,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.IncidentService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -47,7 +49,7 @@ public class MigrateIncidentsSummaryStepTest {
     final MigrateIncidentsSummaryStep step =
         new MigrateIncidentsSummaryStep(entityService, entitySearchService, incidentService);
 
-    step.upgrade();
+    step.upgrade(mock(OperationContext.class));
 
     IncidentsSummary expectedSummary = new IncidentsSummary();
     IncidentSummaryDetailsArray activeIncidentDetails = new IncidentSummaryDetailsArray();
@@ -58,7 +60,9 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.verify(incidentService, times(1))
         .updateIncidentsSummary(
-            Mockito.eq(UrnUtils.getUrn(DATASET_URN)), Mockito.eq(expectedSummary));
+            any(OperationContext.class),
+            Mockito.eq(UrnUtils.getUrn(DATASET_URN)),
+            Mockito.eq(expectedSummary));
   }
 
   @Test
@@ -72,7 +76,7 @@ public class MigrateIncidentsSummaryStepTest {
     final MigrateIncidentsSummaryStep step =
         new MigrateIncidentsSummaryStep(entityService, entitySearchService, incidentService);
 
-    step.upgrade();
+    step.upgrade(mock(OperationContext.class));
 
     IncidentsSummary expectedSummary = new IncidentsSummary();
     IncidentSummaryDetailsArray resolvedIncidentDetails = new IncidentSummaryDetailsArray();
@@ -83,7 +87,9 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.verify(incidentService, times(1))
         .updateIncidentsSummary(
-            Mockito.eq(UrnUtils.getUrn(DATASET_URN)), Mockito.eq(expectedSummary));
+            any(OperationContext.class),
+            Mockito.eq(UrnUtils.getUrn(DATASET_URN)),
+            Mockito.eq(expectedSummary));
   }
 
   private static void configureEntitySearchServiceMock(
@@ -98,12 +104,14 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                any(),
                 Mockito.eq(Collections.singletonList(Constants.INCIDENT_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(null),
-                Mockito.eq("5m")))
+                Mockito.eq("5m"),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     ScrollResult newScrollResult = new ScrollResult();
@@ -111,12 +119,14 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                any(),
                 Mockito.eq(Collections.singletonList(Constants.INCIDENT_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(SCROLL_ID),
-                Mockito.eq("5m")))
+                Mockito.eq("5m"),
+                Mockito.eq(null)))
         .thenReturn(newScrollResult);
   }
 
@@ -144,10 +154,14 @@ public class MigrateIncidentsSummaryStepTest {
     incidentInfo.setCreated(new AuditStamp().setTime(0L));
     incidentInfo.setPriority(1);
 
-    Mockito.when(mockIncidentService.getIncidentInfo(Mockito.eq(INCIDENT_URN)))
+    Mockito.when(
+            mockIncidentService.getIncidentInfo(
+                any(OperationContext.class), Mockito.eq(INCIDENT_URN)))
         .thenReturn(incidentInfo);
 
-    Mockito.when(mockIncidentService.getIncidentsSummary(Mockito.eq(UrnUtils.getUrn(DATASET_URN))))
+    Mockito.when(
+            mockIncidentService.getIncidentsSummary(
+                any(OperationContext.class), Mockito.eq(UrnUtils.getUrn(DATASET_URN))))
         .thenReturn(
             new IncidentsSummary()
                 .setActiveIncidents(new UrnArray(ImmutableList.of(INCIDENT_URN)))

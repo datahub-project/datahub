@@ -29,7 +29,7 @@ export default function LinkButton({ link }: Props) {
             href={link.url}
             target="_blank"
             rel="noreferrer"
-            key={`${link.label}-${link.url}-${link.author}`}
+            key={`${link.label}-${link.url}-${link.actor.urn}`}
         >
             <LinkOutlined />
             {link.description || link.label}

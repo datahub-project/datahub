@@ -39,14 +39,16 @@
         "menu": {
             "items": [
                 {
-                    "label": "DataHub Project",
-                    "path": "https://datahubproject.io",
-                    "shouldOpenInNewTab": true
-                },
-                {
                     "label": "DataHub Docs",
                     "path": "https://datahubproject.io/docs",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": true,
+                    "description": "Read DataHub Project documentation"
+                },
+                {
+                    "label": "DataHub Project",
+                    "path": "https://datahubproject.io",
+                    "shouldOpenInNewTab": true,
+                    "description": "Explore DataHub Project website"
                 },
                 {
                     "label": "DataHub GitHub",

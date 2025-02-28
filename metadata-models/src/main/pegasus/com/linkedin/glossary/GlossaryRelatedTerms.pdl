@@ -24,7 +24,7 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "isRelatedTerms",
       "fieldType": "URN",
-      "boostScore": 2.0
+      "queryByDefault": false,
     }
   }
   isRelatedTerms: optional array[GlossaryTermUrn]
@@ -42,7 +42,7 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "hasRelatedTerms",
       "fieldType": "URN",
-      "boostScore": 2.0
+      "queryByDefault": false,
     }
   }
   hasRelatedTerms: optional array[GlossaryTermUrn]

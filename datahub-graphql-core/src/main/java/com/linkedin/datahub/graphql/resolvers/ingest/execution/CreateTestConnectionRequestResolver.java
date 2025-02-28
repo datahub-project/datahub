@@ -5,11 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
@@ -32,7 +34,6 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private static final String TEST_CONNECTION_SOURCE_NAME = "MANUAL_TEST_CONNECTION";
   private static final String RECIPE_ARG_NAME = "recipe";
   private static final String VERSION_ARG_NAME = "version";
-  private static final String DEFAULT_EXECUTOR_ID = "default";
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -47,9 +48,9 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!IngestionAuthUtils.canManageIngestion(context)) {
+          if (!AuthorizationUtils.canManageIngestion(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -71,6 +72,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             execInput.setSource(new ExecutionRequestSource().setType(TEST_CONNECTION_SOURCE_NAME));
             execInput.setExecutorId(DEFAULT_EXECUTOR_ID);
             execInput.setRequestedAt(System.currentTimeMillis());
+            execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
 
             Map<String, String> arguments = new HashMap<>();
             arguments.put(
@@ -88,13 +90,15 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                     EXECUTION_REQUEST_ENTITY_NAME,
                     EXECUTION_REQUEST_INPUT_ASPECT_NAME,
                     execInput);
-            return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
                     "Failed to create new test ingestion connection request %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

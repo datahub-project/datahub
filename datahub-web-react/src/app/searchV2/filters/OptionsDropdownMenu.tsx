@@ -15,7 +15,7 @@ const StyledButton = styled(Button)`
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div<{ type: 'card' | 'default'; alignRight?: boolean }>`
+export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
     background-color: white;
     ${(props) => props.type === 'card' && 'border-radius: 5px;'}
     ${(props) =>
@@ -24,22 +24,14 @@ export const DropdownMenu = styled.div<{ type: 'card' | 'default'; alignRight?: 
     overflow: hidden;
     min-width: 200px;
 
-    ${(props) =>
-        props.alignRight &&
-        `
-    position: absolute;
-    left: 205px;
-    top: -34px;
-    `}
-
     .ant-dropdown-menu-title-content {
         background-color: white;
         &:hover {
             background-color: white;
         }
     }
-    .ant-dropdown-menu{      
-        padding 7px;
+    .ant-dropdown-menu {
+        padding: 7px;
     }
 `;
 
@@ -63,13 +55,13 @@ const LoadingWrapper = styled.div`
 interface Props {
     menu: React.ReactNode;
     updateFilters: () => void;
-    isLoading: boolean;
-    searchQuery: string;
-    updateSearchQuery: (query: string) => void;
-    alignRight?: boolean;
+    isLoading?: boolean;
+    searchQuery?: string;
+    updateSearchQuery?: (query: string) => void;
     searchPlaceholder?: string;
     showSearchBar?: boolean;
     type?: 'card' | 'default';
+    className?: string;
 }
 
 export default function OptionsDropdownMenu({
@@ -78,17 +70,17 @@ export default function OptionsDropdownMenu({
     isLoading,
     searchQuery,
     updateSearchQuery,
-    alignRight,
     searchPlaceholder,
     showSearchBar = true,
     type = 'card',
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
     return (
-        <DropdownMenu type={type} alignRight={alignRight} data-testid="filter-dropdown">
+        <DropdownMenu type={type} data-testid="filter-dropdown" className={className}>
             <ScrollableContent>
                 {showSearchBar && (
                     <SearchBar
@@ -106,7 +98,7 @@ export default function OptionsDropdownMenu({
                             borderRadius: 8,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => updateSearchQuery(q)}
+                        onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
                         textColor={ANTD_GRAY[9]}
                         placeholderColor={ANTD_GRAY[6]}

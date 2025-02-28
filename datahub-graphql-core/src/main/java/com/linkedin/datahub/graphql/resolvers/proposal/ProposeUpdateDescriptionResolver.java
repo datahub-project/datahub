@@ -2,13 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class ProposeUpdateDescriptionResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -27,14 +27,11 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
     final QueryContext context = environment.getContext();
     Urn resourceUrn = Urn.createFromString(input.getResourceUrn());
     String description = input.getDescription();
+    String subResourceType =
+        input.getSubResourceType() == null ? null : input.getSubResourceType().toString();
     String subresource = input.getSubResource();
 
-    if (subresource != null) {
-      throw new IllegalArgumentException(
-          "Proposing an update to a column description is currently not supported");
-    }
-
-    if (!ProposalUtils.isAuthorizedToProposeDescription(context, resourceUrn)) {
+    if (!ProposalUtils.isAuthorizedToProposeDescription(context, resourceUrn, subresource)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -51,7 +48,12 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
               case Constants.GLOSSARY_NODE_ENTITY_NAME:
               case Constants.DATASET_ENTITY_NAME:
                 return _proposalService.proposeUpdateResourceDescription(
-                    actor, resourceUrn, description, context.getAuthorizer());
+                    context.getOperationContext(),
+                    actor,
+                    resourceUrn,
+                    subResourceType,
+                    subresource,
+                    description);
               default:
                 log.warn(
                     String.format(

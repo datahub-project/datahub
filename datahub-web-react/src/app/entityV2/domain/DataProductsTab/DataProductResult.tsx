@@ -1,55 +1,51 @@
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Modal, message } from 'antd';
+import { useEntityContext } from '@src/app/entity/shared/EntityContext';
+import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { DataProduct, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
-import { MenuIcon } from '../../shared/EntityDropdown/EntityMenuActions';
-import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
+import { REDESIGN_COLORS } from '../../shared/constants';
+import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
 
-const ResultWrapper = styled.div`
-    background-color: white;
-    border-radius: 8px;
-    max-width: 1200px;
-    margin: 0 auto 8px auto;
-    padding: 8px 16px;
-    display: flex;
-    width: 100%;
-`;
-
-const StyledButton = styled(Button)`
-    border: none;
+const TransparentButton = styled(Button)`
+    color: ${REDESIGN_COLORS.RED_ERROR};
+    font-size: 12px;
     box-shadow: none;
-    outline: none;
-    height: 18px;
-    width: 18px;
-    padding: 0;
+    border: none;
+    display: none;
+    padding: unset;
+    align-items: center;
+    &&& span {
+        font-size: 12px;
+    }
 
-    svg {
-        height: 14px;
-        width: 14px;
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        color: ${REDESIGN_COLORS.RED_ERROR};
     }
 `;
 
-const ButtonsWrapper = styled.div`
-    margin-left: 16px;
+const ResultWrapper = styled.div`
+    padding: 20px;
     display: flex;
-`;
+    align-items: center;
+    border: 1px solid #ebecf0;
+    background: ${REDESIGN_COLORS.WHITE};
+    border-radius: 10px;
 
-const StyledMenuIcon = styled(MenuIcon)`
-    margin-left: 8px;
-    height: 18px;
-    width: 18px;
+    &:hover ${TransparentButton} {
+        display: flex;
+    }
 `;
 
 const PreviewWrapper = styled.div`
-    max-width: 94%;
+    position: relative;
     flex: 1;
+    max-width: 100%;
 `;
-
-const MenuItem = styled.div``;
 
 interface Props {
     dataProduct: DataProduct;
@@ -58,59 +54,30 @@ interface Props {
 }
 
 export default function DataProductResult({ dataProduct, onUpdateDataProduct, setDeletedDataProductUrns }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
+    const { refetch } = useEntityContext();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-    const [deleteDataProductMutation] = useDeleteDataProductMutation();
 
     function deleteDataProduct() {
-        deleteDataProductMutation({ variables: { urn: dataProduct.urn } })
-            .then(() => {
-                message.success('Deleted Data Product');
-                setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
-            })
-            .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to delete Data Product. An unexpected error occurred' });
-            });
+        setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    function onRemove() {
-        Modal.confirm({
-            title: `Delete ${entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct)}`,
-            content: `Are you sure you want to delete this Data Product?`,
-            onOk() {
-                deleteDataProduct();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    }
+    const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
 
-    const items = [
-        {
-            key: '0',
-            label: (
-                <MenuItem onClick={onRemove}>
-                    <DeleteOutlined /> &nbsp;Delete
-                </MenuItem>
-            ),
-        },
-    ];
+    function onDeleteDataProduct() {
+        onDeleteEntity();
+        setTimeout(() => refetch(), 3000);
+    }
 
     return (
         <>
             <ResultWrapper>
                 <PreviewWrapper>
-                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.SEARCH, dataProduct)}
+                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct, {
+                        onDelete: onDeleteDataProduct,
+                        onEdit: () => setIsEditModalVisible(true),
+                    })}
                 </PreviewWrapper>
-                <ButtonsWrapper>
-                    <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />
-                    <Dropdown menu={{ items }} trigger={['click']}>
-                        <StyledMenuIcon />
-                    </Dropdown>
-                </ButtonsWrapper>
             </ResultWrapper>
             {isEditModalVisible && (
                 <EditDataProductModal

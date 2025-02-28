@@ -3,7 +3,7 @@ import { Button, Empty, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EntityType } from '../../types.generated';
-import { useEntityData } from '../entityV2/shared/EntityContext';
+import { useEntityData } from '../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { useUserContext } from '../context/useUserContext';
 

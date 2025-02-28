@@ -12,6 +12,8 @@ fragment testResultsSummaryFields on Test {
     results {
         passingCount
         failingCount
+        testDefinitionMd5
+        lastRunTimestampMillis
     }
 }
 
@@ -52,7 +54,47 @@ mutation runTestDefinition($urn: String!, $test: TestDefinitionInput!) {
 
 query getTestResultsSummary($urn: String!) {
     test(urn: $urn) {
+        urn
+        type
+        name
         ...testResultsSummaryFields
+    }
+}
+
+query getOnDemandTestResults($urn: String!) {
+    test(urn: $urn) {
+        urn
+        type
+        name
+        batchRunEvents(limit: 10) {
+            batchRunEvents {
+                result {
+                    passingCount
+                }
+                timestampMillis
+            }
+        }
+    }
+}
+
+query getResultsForOnDemandTests($input: ListTestsInput!) {
+    listTests(input: $input) {
+        start
+        count
+        total
+        tests {
+            urn
+            type
+            name
+            batchRunEvents(limit: 10) {
+                batchRunEvents {
+                    result {
+                        passingCount
+                    }
+                    timestampMillis
+                }
+            }
+        }
     }
 }
 
@@ -62,7 +104,7 @@ mutation runTests($urn: String!) {
 
 query getDatasetTestResults($urn: String!) {
     dataset(urn: $urn) {
-        testResults {
+        testResults(includeSoftDeleted: false) {
             passing {
                 test {
                     ...testFields

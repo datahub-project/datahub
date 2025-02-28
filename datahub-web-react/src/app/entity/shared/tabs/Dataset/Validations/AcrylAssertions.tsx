@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
+import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
+
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
-import { Assertion } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { createAssertionGroups, getLegacyAssertionsSummary } from './acrylUtils';
+import {
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    getLegacyAssertionsSummary,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -25,7 +32,7 @@ export const AcrylAssertions = () => {
     const { config } = useAppConfig();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
-    const { data, refetch, client } = useGetDatasetAssertionsWithMonitorsQuery({
+    const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
@@ -36,15 +43,33 @@ export const AcrylAssertions = () => {
     });
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-    const assertions = combinedData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
-    const assertionGroups = createAssertionGroups(assertions);
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
+        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
 
     const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
 
-    const canCreateAssertion =
+    const isSiblingMode = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
+    const isSiblingModeMessage = (
+        <>
+            You cannot create an assertion for a group of assets. <br />
+            <br />
+            To create an assertion for a specific asset in this group, navigate to them using the <b>
+                Composed Of
+            </b>{' '}
+            sidebar section below.
+        </>
+    );
+
+    const isAllowedToCreateAssertion =
         (data?.dataset?.privileges?.canEditAssertions || false) &&
         (data?.dataset?.privileges?.canEditMonitors || false);
+    const isNotAllowedToCreateAssertionMessage = 'You do not have permission to create an assertion for this asset';
+
+    /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
+    const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
+    const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
 
     return (
         <>
@@ -52,32 +77,37 @@ export const AcrylAssertions = () => {
                 <TabToolbar>
                     <Tooltip
                         showArrow={false}
-                        title={
-                            !canCreateAssertion && 'You do not have permission to create an assertion for this asset'
-                        }
+                        title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
                     >
                         <Button
                             type="text"
-                            onClick={() => canCreateAssertion && setShowAssertionBuilder(true)}
-                            disabled={!canCreateAssertion}
+                            onClick={() => !disableCreateAssertion && setShowAssertionBuilder(true)}
+                            disabled={disableCreateAssertion}
+                            id="create-assertion-btn-main"
                         >
                             <PlusOutlined /> Create
                         </Button>
                     </Tooltip>
                 </TabToolbar>
             )}
-            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertions)} />
-            <AssertionGroupTable
-                groups={assertionGroups}
-                contract={contract}
-                refetch={() => {
-                    refetch();
-                    contractRefetch();
-                }}
-                canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
-                canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
-                canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
-            />
+            {loading ? (
+                <TableLoadingSkeleton />
+            ) : (
+                <>
+                    <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
+                    <AssertionGroupTable
+                        groups={assertionGroups}
+                        contract={contract}
+                        refetch={() => {
+                            refetch();
+                            contractRefetch();
+                        }}
+                        canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
+                        canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
+                        canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
+                    />
+                </>
+            )}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}

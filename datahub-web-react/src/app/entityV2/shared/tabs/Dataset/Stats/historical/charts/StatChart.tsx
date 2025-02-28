@@ -9,12 +9,16 @@ import { ANTD_GRAY } from '../../../../../constants';
 const ChartTitle = styled(Typography.Text)`
     && {
         text-align: left;
-        font-size: 14px;
+        font-size: 12px;
         color: ${ANTD_GRAY[8]};
     }
 `;
 
-const ChartCard = styled(Card)<{ visible: boolean }>`
+/**
+ * Exported this styled card to enable width adjustment for better fit within the sidebar also for boxShadow.
+ * This approach allows style updates without the need for unnecessary props.
+ */
+export const ChartCard = styled(Card)<{ visible: boolean }>`
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
@@ -35,6 +39,9 @@ export type Props = {
     dateRange: DateRange;
     yAxis?: AxisConfig;
     visible?: boolean;
+    width?: number;
+    height?: number;
+    lineColor?: string;
 };
 
 /**
@@ -48,7 +55,17 @@ const DEFAULT_AXIS_WIDTH = 2;
 /**
  * Time Series Chart with a single line.
  */
-export default function StatChart({ title, values, tickInterval: interval, dateRange, yAxis, visible = true }: Props) {
+export default function StatChart({
+    title,
+    values,
+    tickInterval: interval,
+    dateRange,
+    yAxis,
+    visible = true,
+    width = 360,
+    height = 300,
+    lineColor = DEFAULT_LINE_COLOR,
+}: Props) {
     const timeSeriesData = useMemo(
         () =>
             values
@@ -69,7 +86,7 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
                 <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
                     style={{
-                        lineColor: DEFAULT_LINE_COLOR,
+                        lineColor,
                         axisColor: DEFAULT_AXIS_COLOR,
                         axisWidth: DEFAULT_AXIS_WIDTH,
                     }}
@@ -85,8 +102,8 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
                         interval,
                         dateRange,
                     }}
-                    width={360}
-                    height={300}
+                    width={width}
+                    height={height}
                     yScale={{ type: 'linear', zero: false }}
                     yAxis={yAxis}
                 />

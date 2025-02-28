@@ -7,6 +7,8 @@ import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
 export const HOME_PAGE_DOMAINS_ID = 'home-page-domains';
+export const HOME_PAGE_DATA_PRODUCTS_ID = 'home-page-data-products';
+export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
 export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
 export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
@@ -16,25 +18,34 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         id: GLOBAL_WELCOME_TO_DATAHUB_ID,
         content: (
             <div>
-                <Image
-                    preview={false}
-                    height={184}
-                    width={500}
-                    style={{ marginLeft: '50px' }}
-                    src={dataHubFlowDiagram}
-                />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <div
+                    style={{
+                        width: '540px', // Adjusted width to be wider than the image
+                        borderRadius: '10px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        margin: '0 auto 20px auto',
+                    }}
+                >
+                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
+                </div>
+                <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    <strong>DataHub</strong> helps you discover and organize the important data within your
-                    organization. You can:
+                    <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
+                    within your organization. You can:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
                     <ul>
                         <li>
-                            Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more
+                            Quickly <strong>search</strong> for Tables, Dashboards, Data Pipelines, and more
                         </li>
                         <li>
-                            View and understand the full <strong>end-to-end Lineage</strong> of how data is created,
+                            Understand <strong>quality</strong> and trustworthiness of data using operational and social
+                            signals
+                        </li>
+                        <li>
+                            View and understand the full <strong>end-to-end lineage</strong> of how data is created,
                             transformed, and consumed
                         </li>
                         <li>
@@ -42,6 +53,10 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                         </li>
                         <li>
                             Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
+                        </li>
+                        <li>
+                            Create and manage <strong>central governance standards</strong> for data assets to drive
+                            accountability and trust
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>
@@ -57,7 +72,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     >
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
-                            Press <strong> Cmd + Ctrl + T</strong> to open up this tutorial at any time.
+                            Press <strong>Cmd + Ctrl + T</strong> to open up this tutorial at any time.
                         </span>
                     </div>
                 </Typography.Paragraph>
@@ -116,7 +131,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     collaborating around the data most important to you.
                 </p>
                 <p>
-                    Not sure where to start? Click on <strong>Explore All</strong>!
+                    Not sure where to start? Click on <strong>View All</strong>!
                 </p>
             </Typography.Paragraph>
         ),

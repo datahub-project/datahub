@@ -1,5 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
@@ -40,7 +41,10 @@ public interface SystemMetadataService {
   List<IngestionRunSummary> listRuns(
       Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 
-  void configure();
+  List<AspectRowSummary> findAspectsByUrn(
+      @Nonnull Urn urn, @Nonnull List<String> aspects, boolean includeSoftDeleted);
+
+  default void configure() {}
 
   void clear();
 }

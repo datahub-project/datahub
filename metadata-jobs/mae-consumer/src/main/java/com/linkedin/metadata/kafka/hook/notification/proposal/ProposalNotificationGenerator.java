@@ -2,13 +2,10 @@ package com.linkedin.metadata.kafka.hook.notification.proposal;
 
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.google.common.collect.ImmutableMap;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestStatus;
@@ -17,10 +14,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
@@ -30,41 +26,37 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.subscription.EntityChangeType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Import;
 
 /**
  * An extension of {@link BaseMclNotificationGenerator} which generates notifications on incident
  * creation and status changes.
  */
 @Slf4j
-@Import({SlackNotificationRecipientBuilder.class})
 public class ProposalNotificationGenerator extends BaseMclNotificationGenerator {
-
-  private final EntityNameProvider entityNameProvider;
   private final FeatureFlags _featureFlags;
 
   public ProposalNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders,
       @Nonnull final FeatureFlags featureFlags) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
-    this.entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
+        notificationRecipientBuilders);
     _featureFlags = featureFlags;
   }
 
@@ -170,11 +162,17 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final ActionRequestInfo info,
       @Nonnull final AuditStamp auditStamp) {
     final Urn entityUrn = UrnUtils.getUrn(info.getResource());
+    final Urn actorUrn = auditStamp.getActor();
     final EntityChangeType entityChangeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
-            buildRecipients(NotificationScenarioType.NEW_PROPOSAL, entityUrn, entityChangeType));
+            buildRecipients(
+                systemOpContext,
+                NotificationScenarioType.NEW_PROPOSAL,
+                entityUrn,
+                entityChangeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       return;
     }
@@ -187,15 +185,22 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final String modifierName = getEntityDisplayName(modifierUrn);
 
     final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("entityName", getEntityDisplayName(entityUrn));
-    templateParams.put("entityType", getEntityType(entityUrn));
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String actorName = _entityNameProvider.getName(systemOpContext, auditStamp.getActor());
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityType", entityType);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
     templateParams.put("operation", operation);
     templateParams.put("modifierType", modifierType);
     templateParams.put("modifierName", modifierName);
     templateParams.put("modifierPath", generateEntityPath(modifierUrn));
     templateParams.put("actorUrn", auditStamp.getActor().toString());
-
+    templateParams.put("actorName", actorName);
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
     if (subResource != null && subResourceType != null) {
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
@@ -230,17 +235,25 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       return;
     }
     final Urn entityUrn = UrnUtils.getUrn(info.getResource());
+    final Urn actorUrn = auditStamp.getActor();
     final EntityChangeType entityChangeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.PROPOSAL_STATUS_CHANGE, entityUrn, entityChangeType));
+                systemOpContext,
+                NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
+                entityUrn,
+                entityChangeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       return;
     }
 
-    final String entityName = getEntityDisplayName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String actorName = _entityNameProvider.getName(systemOpContext, auditStamp.getActor());
     final String subResource = info.getSubResource();
     final String subResourceType = info.getSubResourceType();
     final String operation = getOperation(info);
@@ -252,14 +265,17 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("entityName", entityName);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("entityType", getEntityType(entityUrn));
+    templateParams.put("entityType", entityType);
     templateParams.put("operation", operation);
     templateParams.put("modifierType", modifierType);
     templateParams.put("modifierName", modifierName);
     templateParams.put("modifierPath", generateEntityPath(modifierUrn));
     templateParams.put("actorUrn", auditStamp.getActor().toString());
+    templateParams.put("actorName", actorName);
     templateParams.put("action", action);
-
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
     if (subResource != null && subResourceType != null) {
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
@@ -295,10 +311,10 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     try {
       EntityResponse entityResponse =
           _entityClient.getV2(
+              systemOpContext,
               Constants.ACTION_REQUEST_ENTITY_NAME,
               actionRequestUrn,
-              ImmutableSet.of(Constants.ACTION_REQUEST_INFO_ASPECT_NAME),
-              _systemAuthentication);
+              ImmutableSet.of(Constants.ACTION_REQUEST_INFO_ASPECT_NAME));
       if (entityResponse != null
           && entityResponse.hasAspects()
           && entityResponse.getAspects().containsKey(Constants.ACTION_REQUEST_INFO_ASPECT_NAME)) {
@@ -369,7 +385,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   }
 
   private String getEntityDisplayName(Urn entityUrn) {
-    return entityNameProvider.getName(entityUrn);
+    return _entityNameProvider.getName(systemOpContext, entityUrn);
   }
 
   private Urn getModifierUrn(ActionRequestInfo info) {

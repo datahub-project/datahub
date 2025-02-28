@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { Bar } from '@visx/shape';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';

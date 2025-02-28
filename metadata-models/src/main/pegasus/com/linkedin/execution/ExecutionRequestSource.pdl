@@ -21,4 +21,18 @@ record ExecutionRequestSource {
     "queryByDefault": false
   }
   ingestionSource: optional Urn
+
+  /**
+   * The urn of the connection source associated with the connection request. Present if type is CONNECTION
+   */
+  @Relationship = {
+    "name": "connection",
+    "entityTypes": [ "dataHubConnection" ]
+  }
+  @Searchable = {
+    "fieldName": "connection",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  connection: optional Urn
 }

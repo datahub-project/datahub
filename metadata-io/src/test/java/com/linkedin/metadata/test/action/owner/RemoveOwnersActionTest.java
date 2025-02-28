@@ -1,14 +1,17 @@
 package com.linkedin.metadata.test.action.owner;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.OwnerService;
+import com.linkedin.metadata.service.OwnerServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -60,20 +63,22 @@ public class RemoveOwnersActionTest {
 
   @Test
   private void testApply() throws Exception {
-    OwnerService service = Mockito.mock(OwnerService.class);
+    OwnerServiceAsync service = mock(OwnerServiceAsync.class);
 
     RemoveOwnersAction action = new RemoveOwnersAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
-    action.apply(ALL_URNS, params);
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchRemoveOwners(
+            any(OperationContext.class),
             Mockito.eq(TEST_OWNERS),
             Mockito.eq(DASHBOARD_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchRemoveOwners(
+            any(OperationContext.class),
             Mockito.eq(TEST_OWNERS),
             Mockito.eq(DATASET_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
@@ -83,14 +88,14 @@ public class RemoveOwnersActionTest {
 
   @Test
   private void testValidateValidParams() {
-    RemoveOwnersAction action = new RemoveOwnersAction(Mockito.mock(OwnerService.class));
+    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    RemoveOwnersAction action = new RemoveOwnersAction(Mockito.mock(OwnerService.class));
+    RemoveOwnersAction action = new RemoveOwnersAction(mock(OwnerServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

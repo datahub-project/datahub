@@ -36,6 +36,79 @@
                 },
                 {
                     "fieldPath": "city",
+                    "nullable": false,
+                    "description": "Sort Key",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "contactNumbers",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "List",
+                    "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Phone_Number"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1693396800000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "partitionKey",
+                    "nullable": false,
+                    "description": "Partition Key",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "Map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.hours",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "Map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.hours.close",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -47,9 +120,32 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "partitionKey",
-                    "nullable": false,
-                    "description": "Partition Key",
+                    "fieldPath": "services.hours.open",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.parking",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "Boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.wifi",
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -76,7 +172,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -90,12 +187,14 @@
                 "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
                 "table.totalItems": "1"
             },
+            "name": "Location",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -111,7 +210,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -126,7 +226,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Phone_Number",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Phone_Number"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

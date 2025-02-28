@@ -1,13 +1,16 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
-import React from 'react';
+import React, { useRef } from 'react';
+import GlossaryBrowser from '@src/app/glossary/GlossaryBrowser/GlossaryBrowser';
+import ClickOutside from '@src/app/shared/ClickOutside';
+import { BrowserWrapper } from '@src/app/shared/tags/AddTagsTermsModal';
 import styled from 'styled-components';
-import { StructuredPropertyEntity } from '../../../../../../../types.generated';
+import { Entity, EntityType, FormPromptType } from '../../../../../../../types.generated';
 import useUrnInput from './useUrnInput';
 import SelectedEntity from './SelectedEntity';
 
 const EntitySelect = styled(Select)`
-    width: 75%;
+    width: 100%;
     min-width: 400px;
     max-width: 600px;
 
@@ -28,51 +31,121 @@ const LoadingWrapper = styled.div`
 `;
 
 interface Props {
-    structuredProperty: StructuredPropertyEntity;
     selectedValues: any[];
-    updateSelectedValues: (values: string[] | number[]) => void;
+    updateSelectedValues: (values: any[]) => void;
+    initialEntities: Entity[];
+    allowedEntities?: Entity[];
+    allowedEntityTypes?: EntityType[];
+    isMultiple: boolean;
+    promptType?: FormPromptType;
+    placeholder?: string;
 }
 
-export default function UrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+const GLOSSARY_TERM_PROMPT_TYPES = [FormPromptType.GlossaryTerms, FormPromptType.FieldsGlossaryTerms];
+
+export default function UrnInput({
+    initialEntities,
+    allowedEntities,
+    allowedEntityTypes,
+    isMultiple,
+    selectedValues,
+    updateSelectedValues,
+    promptType,
+    placeholder,
+}: Props) {
     const {
         onSelectValue,
         onDeselectValue,
+        onSelectEntity,
         handleSearch,
         tagRender,
         selectedEntities,
-        searchResults,
+        entityOptions,
         loading,
         entityTypeNames,
-    } = useUrnInput({ structuredProperty, selectedValues, updateSelectedValues });
+        searchValue,
+        setSearchValue,
+        isFocused,
+        setIsFocused,
+    } = useUrnInput({
+        initialEntities,
+        allowedEntities,
+        allowedEntityTypes,
+        isMultiple,
+        selectedValues,
+        updateSelectedValues,
+    });
+    const inputEl = useRef(null);
 
-    const placeholder = `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'entities'}...`;
+    const displayedPlaceholder =
+        placeholder || `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'assets'}...`;
+    const canShowGlossaryBrowser =
+        promptType && GLOSSARY_TERM_PROMPT_TYPES.includes(promptType) && !allowedEntities?.length;
+    const isShowingGlossaryBrowser = canShowGlossaryBrowser && !searchValue;
 
     return (
-        <EntitySelect
-            mode="multiple"
-            filterOption={false}
-            placeholder={placeholder}
-            showSearch
-            defaultActiveFirstOption={false}
-            onSelect={(urn: any) => onSelectValue(urn)}
-            onDeselect={(urn: any) => onDeselectValue(urn)}
-            onSearch={(value: string) => handleSearch(value.trim())}
-            tagRender={tagRender}
-            value={selectedEntities.map((e) => e.urn)}
-            loading={loading}
-            notFoundContent={
-                loading ? (
-                    <LoadingWrapper>
-                        <LoadingOutlined />
-                    </LoadingWrapper>
-                ) : undefined
-            }
+        <ClickOutside
+            onClickOutside={() => setIsFocused(false)}
+            style={{ width: '75%', minWidth: 400, maxWidth: 600, position: 'relative' }}
         >
-            {searchResults?.map((searchResult) => (
-                <Select.Option value={searchResult.urn} key={searchResult.urn}>
-                    <SelectedEntity entity={searchResult} />
-                </Select.Option>
-            ))}
-        </EntitySelect>
+            <EntitySelect
+                mode="multiple"
+                filterOption={false}
+                placeholder={displayedPlaceholder}
+                showSearch
+                ref={inputEl}
+                defaultActiveFirstOption={false}
+                onSelect={(urn: any) => {
+                    onSelectValue(urn);
+                    setSearchValue('');
+                    if (canShowGlossaryBrowser && inputEl && inputEl.current) {
+                        (inputEl.current as any).blur();
+                    }
+                }}
+                onDeselect={(urn: any) => {
+                    onDeselectValue(urn);
+                    setSearchValue('');
+                }}
+                onSearch={(value: string) => handleSearch(value)}
+                tagRender={tagRender}
+                value={selectedEntities.map((e) => e.urn)}
+                searchValue={searchValue}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setSearchValue('')}
+                loading={loading}
+                notFoundContent={
+                    loading ? (
+                        <LoadingWrapper>
+                            <LoadingOutlined />
+                        </LoadingWrapper>
+                    ) : undefined
+                }
+                dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+            >
+                {entityOptions?.map((entity) => (
+                    <Select.Option value={entity.urn} key={entity.urn}>
+                        <SelectedEntity entity={entity} />
+                    </Select.Option>
+                ))}
+            </EntitySelect>
+            <BrowserWrapper
+                isHidden={!isShowingGlossaryBrowser || !isFocused}
+                width="100%"
+                minWidth={400}
+                maxWidth={600}
+            >
+                <GlossaryBrowser
+                    isSelecting
+                    selectTerm={(urn, displayName) => {
+                        onSelectEntity({
+                            urn,
+                            type: EntityType.GlossaryTerm,
+                            properties: { name: displayName },
+                        } as Entity);
+                        setIsFocused(false);
+                    }}
+                />
+            </BrowserWrapper>
+        </ClickOutside>
     );
 }

@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.types.form;
 
-import static com.linkedin.metadata.Constants.FORM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -27,7 +25,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FormType implements com.linkedin.datahub.graphql.types.EntityType<Form, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(FORM_INFO_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
+      ImmutableSet.of(
+          FORM_INFO_ASPECT_NAME, DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
@@ -53,10 +52,10 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               FORM_ENTITY_NAME,
               new HashSet<>(formUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : formUrns) {
@@ -67,7 +66,9 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
               gmsResult ->
                   gmsResult == null
                       ? null
-                      : DataFetcherResult.<Form>newResult().data(FormMapper.map(gmsResult)).build())
+                      : DataFetcherResult.<Form>newResult()
+                          .data(FormMapper.map(context, gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Forms", e);

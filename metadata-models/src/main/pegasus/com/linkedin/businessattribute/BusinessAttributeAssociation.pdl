@@ -1,0 +1,15 @@
+namespace com.linkedin.businessattribute
+import com.linkedin.common.BusinessAttributeUrn
+
+record BusinessAttributeAssociation {
+  /**
+  * Urn of the applied businessAttribute
+  */
+  @Searchable = {
+     "fieldName": "schemaFieldBusinessAttribute",
+     "queryByDefault": false,
+     "includeSystemModifiedAt": true,
+     "systemModifiedAtFieldName": "schemaFieldBusinessAttributeModifiedAt"
+  }
+   businessAttributeUrn: BusinessAttributeUrn
+}

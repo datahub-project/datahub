@@ -1,0 +1,71 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CpreconditionV3%2CPROD%29",
+      "description": "Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "description": "Test Precondition Validation Entity",
+      "params": {
+        "async": "false"
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,preconditionV3,PROD)",
+          "status": {
+            "value": {
+              "removed": false
+            },
+            "headers": {
+              "If-Version-Match": "-10000"
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "status_codes": [
+        412
+      ],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CpreconditionV3%2CPROD%29/status",
+      "description": "Test Precondition Validation Aspect",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "removed": false
+        },
+        "headers": {
+          "If-Version-Match": "-10000"
+        }
+      }
+    },
+    "response": {
+      "status_codes": [
+        412
+      ],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  }
+]

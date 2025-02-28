@@ -3,7 +3,8 @@ package com.linkedin.metadata.test.query;
 import com.google.common.collect.Streams;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.ValidationResult;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,8 +30,9 @@ public class QueryEngine {
   }
 
   // Batch evaluate a single query for the given entity urns
-  public Map<Urn, TestQueryResponse> batchEvaluateQuery(Set<Urn> urns, TestQuery query) {
-    return batchEvaluateQueries(urns, Collections.singleton(query)).entrySet().stream()
+  public Map<Urn, TestQueryResponse> batchEvaluateQuery(
+      @Nonnull OperationContext opContext, Set<Urn> urns, TestQuery query) {
+    return batchEvaluateQueries(opContext, urns, Collections.singleton(query)).entrySet().stream()
         .filter(entry -> entry.getValue().containsKey(query))
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(query)));
   }
@@ -38,7 +40,7 @@ public class QueryEngine {
   @WithSpan
   // Batch evaluate multiple queries for the given entity urns
   public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(
-      Collection<Urn> urns, Collection<TestQuery> queries) {
+      @Nonnull OperationContext opContext, Collection<Urn> urns, Collection<TestQuery> queries) {
     queries.forEach(this::validateQuery);
     // First group urns by entity type - different entity types are eligible for different types of
     // queries
@@ -78,7 +80,7 @@ public class QueryEngine {
                     if (queryBatch.isEmpty()) {
                       return Collections.<Urn, Map<TestQuery, TestQueryResponse>>emptyMap();
                     }
-                    return evaluator.evaluate(entityType, urnsOfType, queryBatch);
+                    return evaluator.evaluate(opContext, entityType, urnsOfType, queryBatch);
                   })
               .collect(Collectors.toList());
 

@@ -1,28 +1,40 @@
-import * as React from 'react';
 import { AppstoreOutlined, FileOutlined, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Container, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
+import * as React from 'react';
 import { GetContainerQuery, useGetContainerQuery } from '../../../graphql/container.generated';
-import { ContainerEntitiesTab } from './ContainerEntitiesTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { Container, EntityType, SearchResult } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
-import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import SidebarContentsSection from '../shared/containers/profile/sidebar/Container/SidebarContentsSection';
-import ContainerSummaryTab from './ContainerSummaryTab';
-import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import SidebarContentsSection from '../shared/containers/profile/sidebar/Container/SidebarContentsSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { getDataProduct, isOutputPort } from '../shared/utils';
+import { ContainerEntitiesTab } from './ContainerEntitiesTab';
+import ContainerSummaryTab from './ContainerSummaryTab';
+import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub Container entity.
@@ -72,6 +84,8 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -79,9 +93,7 @@ export class ContainerEntity implements Entity<Container> {
             useEntityQuery={useGetContainerQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE])
-            }
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Summary',
@@ -103,37 +115,59 @@ export class ContainerEntity implements Entity<Container> {
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                    icon: UnorderedListOutlined,
+                },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarContentsSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarContentsSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -149,6 +183,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}
@@ -161,6 +196,8 @@ export class ContainerEntity implements Entity<Container> {
                 tags={data.tags}
                 externalUrl={data.properties?.externalUrl}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -168,9 +205,11 @@ export class ContainerEntity implements Entity<Container> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Container;
         const genericProperties = this.getGenericEntityProperties(data);
+
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}
@@ -189,6 +228,8 @@ export class ContainerEntity implements Entity<Container> {
                 paths={(result as any).paths}
                 entityCount={data.entities?.total}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

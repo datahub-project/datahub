@@ -1,0 +1,57 @@
+plugins {
+  id("com.palantir.git-version") apply false
+  id 'java'
+  id 'com.gradleup.shadow'
+  id 'signing'
+  id 'io.codearte.nexus-staging'
+  id 'maven-publish'
+}
+
+apply from: "../../../gradle/coverage/java-coverage.gradle"
+apply from: "../versioning.gradle"
+
+dependencies {
+  implementation project(':metadata-models')
+  implementation project(path: ':metadata-models', configuration: "dataTemplate")
+
+  implementation externalDependency.slf4jApi
+  implementation externalDependency.jacksonDataBind
+  runtimeOnly externalDependency.jna
+
+  compileOnly externalDependency.swaggerAnnotations
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  // VisibleForTesting
+  compileOnly externalDependency.guava
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.httpClient
+  testRuntimeOnly externalDependency.logbackClassicJava8
+}
+
+task copyAvroSchemas {
+  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+  copy {
+    from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    into file('./src/main/resources')
+  }
+}
+
+compileJava.dependsOn copyAvroSchemas
+
+test {
+  // to avoid simultaneous executions of tests when complete build is run
+  mustRunAfter(":metadata-io:test")
+  useJUnit()
+}
+
+// task sourcesJar(type: Jar) {
+//  archiveClassifier = 'sources'
+//  from sourceSets.main.allSource
+//}
+
+//task javadocJar(type: Jar) {
+//  archiveClassifier = 'javadoc'
+//  from javadoc
+//}

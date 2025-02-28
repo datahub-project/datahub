@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     AccessLevel,
@@ -13,16 +14,19 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats } from '../../shared/utils';
+import { summaryHasStats, DashboardLastUpdatedMs } from '../../shared/utils';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const ChartPreview = ({
     urn,
+    data,
     name,
     description,
     platform,
@@ -48,10 +52,11 @@ export const ChartPreview = ({
     subType,
     isOutputPort,
     tier,
-    upstreamTotal,
-    downstreamTotal,
+    headerDropdownItems,
+    browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     platform?: string;
     platformInstanceId?: string;
     name?: string;
@@ -67,7 +72,7 @@ export const ChartPreview = ({
     logoUrl?: string | null;
     deprecation?: Deprecation | null;
     statsSummary?: ChartStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DashboardLastUpdatedMs;
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
@@ -77,8 +82,8 @@ export const ChartPreview = ({
     subType?: string | null;
     isOutputPort?: boolean;
     tier?: PopularityTier;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    browsePaths?: BrowsePathV2 | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -88,6 +93,7 @@ export const ChartPreview = ({
             url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Chart}
             type={subType}
@@ -103,7 +109,7 @@ export const ChartPreview = ({
             dataProduct={dataProduct}
             container={container || undefined}
             insights={insights}
-            parentContainers={parentContainers}
+            parentEntities={parentContainers?.containers}
             deprecation={deprecation}
             externalUrl={externalUrl}
             snippet={snippet}
@@ -125,8 +131,9 @@ export const ChartPreview = ({
             lastUpdatedMs={lastUpdatedMs}
             isOutputPort={isOutputPort}
             tier={tier}
-            upstreamTotal={upstreamTotal}
-            downstreamTotal={downstreamTotal}
+            headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
+            browsePaths={browsePaths}
         />
     );
 };

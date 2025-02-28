@@ -4,10 +4,11 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
 import AvatarsGroup from '../AvatarsGroup';
+import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 
 type Props = {
     role: DataHubRole;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
@@ -16,6 +17,10 @@ const PolicyContainer = styled.div`
     padding-right: 20px;
     > div {
         margin-bottom: 32px;
+    }
+
+    ${SpacedAvatarGroup} {
+        flex-wrap: wrap;
     }
 `;
 
@@ -34,7 +39,7 @@ const ThinDivider = styled(Divider)`
 /**
  * Component used for displaying the details about an existing Role.
  */
-export default function RoleDetailsModal({ role, visible, onClose }: Props) {
+export default function RoleDetailsModal({ role, open, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const actionButtons = (
@@ -45,11 +50,11 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
 
     const castedRole = role as any;
 
-    const users = castedRole?.users?.relationships.map((relationship) => relationship.entity as CorpUser);
-    const policies = castedRole?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy);
+    const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
+    const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
 
     return (
-        <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>

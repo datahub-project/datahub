@@ -10,16 +10,22 @@ const Container = styled.div`
 `;
 
 const PlatformLogo = styled(Image)`
-    max-height: 28px;
-    width: auto;
+    max-height: 45px;
     object-fit: contain;
     background-color: transparent;
+    height: 32px;
+    width: 32px;
 `;
 
-const ImageContainer = styled.div``;
+const ImageContainer = styled.div`
+    border: 0.72px solid #c4d0dd;
+    border-radius: 16px;
+    padding: 16px;
+`;
 
 const NameContainer = styled.div`
-    font-size: 14px;
+    font-size: 18px;
+    font-weight: 700;
 `;
 
 const TitleContainer = styled.div``;

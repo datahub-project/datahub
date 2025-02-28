@@ -1,55 +1,108 @@
-import { SearchOutlined } from '@ant-design/icons';
-import React from 'react';
-import { Input } from 'antd';
-import { Panel } from 'reactflow';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { isTransformational, LineageNodesContext } from '@app/lineageV2/common';
+import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
+import { Switch } from 'antd';
+import { Tooltip } from '@components';
+import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
-const StyledControlsPanel = styled(Panel)<{ isRootPanelExpanded: boolean }>`
-    margin-top: 36px;
+const ToggleWrapper = styled.div`
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 16px;
-    width: 255px;
-    border-radius: 8px;
-    border: 1px solid #d5d5d5;
-    background: #fff;
-    box-shadow: 0px 4px 4px 0px rgba(224, 224, 224, 0.25);
-    transition: width 0.3s ease-in-out;
-    overflow: hidden;
-    margin-left: ${({ isRootPanelExpanded }) => (isRootPanelExpanded ? '178px' : '66px')};
-    transition: margin-left 0.3s ease-in-out;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
 `;
 
-const GlobalFiltersTitleText = styled.div`
-    font-size: 14px;
-    font-weight: 600;
-    color: #0958d9;
+const ToggleLabel = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: ${ANTD_GRAY[9]};
 `;
 
-const GlobalFilterSubText = styled.div`
-    color: #595959;
-    font-size: 10px;
-    font-weight: 500;
+const StyledInfoPopover = styled(InfoPopover)`
+    position: relative;
+    color: ${ANTD_GRAY[7]};
 `;
 
-const StyledSearchInput = styled(Input)`
-    margin-top: 19px;
+const PopoverWrapper = styled.div`
+    max-width: 200px;
 `;
 
-type Props = {
-    isRootPanelExpanded: boolean;
-};
+const StyledSwitch = styled(Switch)``;
 
-const LineageSearchFilters = ({ isRootPanelExpanded }: Props) => {
-    return (
-        <StyledControlsPanel position="top-left" isRootPanelExpanded={isRootPanelExpanded}>
-            <GlobalFiltersTitleText>Global Filters</GlobalFiltersTitleText>
-            <GlobalFilterSubText>These can be used to filter across all nodes</GlobalFilterSubText>
+export default function LineageSearchFilters() {
+    const {
+        nodes,
+        rootUrn,
+        nodeVersion,
+        hideTransformations,
+        setHideTransformations,
+        showDataProcessInstances,
+        setShowDataProcessInstances,
+        showGhostEntities,
+        setShowGhostEntities,
+    } = useContext(LineageNodesContext);
 
-            <StyledSearchInput placeholder="Search by name..." suffix={<SearchOutlined />} />
-        </StyledControlsPanel>
+    const hasTransformations = useMemo(
+        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)), // eslint-disable-next-line react-hooks/exhaustive-deps
+        [nodes, nodeVersion],
     );
-};
-
-export default LineageSearchFilters;
+    return (
+        <ControlPanel>
+            <ControlPanelTitle>Filters</ControlPanelTitle>
+            <ControlPanelSubtext>Hide or show assets on the graph.</ControlPanelSubtext>
+            <ToggleWrapper>
+                <span>
+                    <ToggleLabel>
+                        Hide Transformations
+                        <StyledInfoPopover
+                            content={
+                                <PopoverWrapper>
+                                    Hide queries and transforms (circular nodes). Will not hide home node.
+                                </PopoverWrapper>
+                            }
+                        />
+                    </ToggleLabel>
+                </span>
+                <Tooltip title={hasTransformations ? undefined : 'No transformations to hide'}>
+                    <StyledSwitch
+                        disabled={!hasTransformations}
+                        size="small"
+                        checked={hideTransformations}
+                        onChange={setHideTransformations}
+                    />
+                </Tooltip>
+            </ToggleWrapper>
+            <ToggleWrapper>
+                <span>
+                    <ToggleLabel>
+                        Show Process Instances
+                        <StyledInfoPopover
+                            content={<PopoverWrapper>Show task runs. Will not hide home node.</PopoverWrapper>}
+                        />
+                    </ToggleLabel>
+                </span>
+                <StyledSwitch size="small" checked={showDataProcessInstances} onChange={setShowDataProcessInstances} />
+            </ToggleWrapper>
+            <ToggleWrapper>
+                <span>
+                    <ToggleLabel>
+                        Show Hidden Edges
+                        <StyledInfoPopover
+                            content={
+                                <PopoverWrapper>
+                                    Show assets that have been deleted or do not exist in DataHub
+                                </PopoverWrapper>
+                            }
+                        />
+                    </ToggleLabel>
+                </span>
+                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
+            </ToggleWrapper>
+        </ControlPanel>
+    );
+}

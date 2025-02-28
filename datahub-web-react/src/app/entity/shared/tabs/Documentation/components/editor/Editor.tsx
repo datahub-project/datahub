@@ -41,33 +41,35 @@ type EditorProps = {
     className?: string;
     doNotFocus?: boolean;
     dataTestId?: string;
+    onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+    editorStyle?: string;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, dataTestId } = props;
+    const { content, readOnly, onChange, className, dataTestId, onKeyDown, editorStyle } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
-            new BoldExtension(),
-            new BulletListExtension(),
+            new BoldExtension({}),
+            new BulletListExtension({}),
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
-            new DataHubMentionsExtension(),
-            new DropCursorExtension(),
+            new DataHubMentionsExtension({}),
+            new DropCursorExtension({}),
             new HardBreakExtension(),
-            new HeadingExtension(),
-            new HistoryExtension(),
-            new HorizontalRuleExtension(),
+            new HeadingExtension({}),
+            new HistoryExtension({}),
+            new HorizontalRuleExtension({}),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
-            new ListItemExtension(),
+            new ListItemExtension({}),
             new MarkdownExtension({ htmlSanitizer: DOMPurify.sanitize, htmlToMarkdown, markdownToHtml }),
             new OrderedListExtension(),
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
-            ...(readOnly ? [] : [new HistoryExtension()]),
+            ...(readOnly ? [] : [new HistoryExtension({})]),
         ],
         content,
         stringHandler: 'markdown',
@@ -99,7 +101,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className} data-testid={dataTestId}>
+        <EditorContainer className={className} onKeyDown={onKeyDown} data-testid={dataTestId} editorStyle={editorStyle}>
             <ThemeProvider theme={EditorTheme}>
                 <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
                     {!readOnly && (

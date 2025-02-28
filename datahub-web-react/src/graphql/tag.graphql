@@ -1,6 +1,7 @@
 query getTag($urn: String!) {
     tag(urn: $urn) {
         urn
+        type
         name
         description
         properties {
@@ -13,6 +14,9 @@ query getTag($urn: String!) {
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        assetOrigin {
+            ...originFields
         }
     }
 }

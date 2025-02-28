@@ -1,3 +1,4 @@
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -22,8 +23,10 @@ export default function UpstreamHealth() {
     const [datasetsWithFailingAssertions, setDatasetsWithFailingAssertions] = useState<Dataset[]>([]);
     const [incidentsDataStart, setIncidentsDataStart] = useState(0);
     const [assertionsDataStart, setAssertionsDataStart] = useState(0);
+
     const appConfig = useAppConfig();
     const lineageEnabled: boolean = appConfig?.config?.chromeExtensionConfig?.lineageEnabled || false;
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const urn = entityData?.urn || '';
 
@@ -32,7 +35,15 @@ export default function UpstreamHealth() {
         loading: isLoadingIncidents,
         fetchMore: fetchMoreIncidents,
     } = useSearchAcrossLineageQuery(
-        generateQueryVariables(urn, HAS_ACTIVE_INCIDENTS_FILTER_NAME, incidentsDataStart, false, true, !lineageEnabled),
+        generateQueryVariables({
+            urn,
+            startTimeMillis,
+            filterField: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+            start: incidentsDataStart,
+            includeAssertions: false,
+            includeIncidents: true,
+            skip: !lineageEnabled,
+        }),
     );
 
     const {
@@ -40,14 +51,15 @@ export default function UpstreamHealth() {
         loading: isLoadingAssertions,
         fetchMore: fetchMoreAssertions,
     } = useSearchAcrossLineageQuery(
-        generateQueryVariables(
+        generateQueryVariables({
             urn,
-            HAS_FAILING_ASSERTIONS_FILTER_NAME,
-            assertionsDataStart,
-            true,
-            false,
-            !lineageEnabled,
-        ),
+            startTimeMillis,
+            filterField: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+            start: assertionsDataStart,
+            includeAssertions: true,
+            includeIncidents: false,
+            skip: !lineageEnabled,
+        }),
     );
 
     useEffect(() => {
@@ -68,31 +80,45 @@ export default function UpstreamHealth() {
 
     function fetchMoreIncidentsData() {
         const newIncidentsStart = incidentsDataStart + DATASET_COUNT;
-        fetchMoreIncidents(generateQueryVariables(urn, 'hasActiveIncidents', newIncidentsStart, false, true)).then(
-            (result) => {
-                if (result.data.searchAcrossLineage?.searchResults) {
-                    setDatasetsWithActiveIncidents([
-                        ...datasetsWithActiveIncidents,
-                        ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
-                    ]);
-                }
-            },
-        );
+        fetchMoreIncidents(
+            generateQueryVariables({
+                urn,
+                startTimeMillis,
+                filterField: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+                start: newIncidentsStart,
+                includeAssertions: false,
+                includeIncidents: true,
+            }),
+        ).then((result) => {
+            if (result.data.searchAcrossLineage?.searchResults) {
+                setDatasetsWithActiveIncidents([
+                    ...datasetsWithActiveIncidents,
+                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                ]);
+            }
+        });
         setIncidentsDataStart(newIncidentsStart);
     }
 
     function fetchMoreAssertionsData() {
         const newAssertionsStart = assertionsDataStart + DATASET_COUNT;
-        fetchMoreAssertions(generateQueryVariables(urn, 'hasFailingAssertions', newAssertionsStart, true, false)).then(
-            (result) => {
-                if (result.data.searchAcrossLineage?.searchResults) {
-                    setDatasetsWithFailingAssertions([
-                        ...datasetsWithFailingAssertions,
-                        ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
-                    ]);
-                }
-            },
-        );
+        fetchMoreAssertions(
+            generateQueryVariables({
+                urn,
+                startTimeMillis,
+                filterField: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+                start: newAssertionsStart,
+                includeAssertions: true,
+                includeIncidents: false,
+            }),
+        ).then((result) => {
+            if (result.data.searchAcrossLineage?.searchResults) {
+                setDatasetsWithFailingAssertions([
+                    ...datasetsWithFailingAssertions,
+                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                ]);
+            }
+        });
         setAssertionsDataStart(newAssertionsStart);
     }
 

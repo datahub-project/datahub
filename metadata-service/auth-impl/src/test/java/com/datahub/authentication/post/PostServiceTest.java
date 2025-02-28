@@ -16,11 +16,15 @@ import com.linkedin.post.PostContent;
 import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostType;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PostServiceTest {
   private static final Urn POST_URN = UrnUtils.getUrn("urn:li:post:123");
+  private static final Urn ENTITY_URN = UrnUtils.getUrn("urn:li:domain:123");
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
       "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
@@ -43,6 +47,8 @@ public class PostServiceTest {
       new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
   private EntityClient _entityClient;
   private PostService _postService;
+  private OperationContext opContext =
+      TestOperationContexts.userContextNoSearchAuthorization(SYSTEM_AUTHENTICATION);
 
   @BeforeMethod
   public void setupTest() {
@@ -65,20 +71,20 @@ public class PostServiceTest {
   }
 
   @Test
-  public void testCreatePost() throws RemoteInvocationException {
-    _postService.createPost(POST_TYPE.toString(), POST_CONTENT, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+  public void testCreatePost() throws RemoteInvocationException, URISyntaxException {
+    _postService.createPost(opContext, POST_TYPE.toString(), POST_CONTENT, ENTITY_URN.toString());
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
   public void testDeletePostDoesNotExist() throws RemoteInvocationException {
-    when(_entityClient.exists(eq(POST_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
-    assertThrows(() -> _postService.deletePost(POST_URN, SYSTEM_AUTHENTICATION));
+    when(_entityClient.exists(any(OperationContext.class), eq(POST_URN))).thenReturn(false);
+    assertThrows(() -> _postService.deletePost(mock(OperationContext.class), POST_URN));
   }
 
   @Test
   public void testDeletePost() throws RemoteInvocationException {
-    when(_entityClient.exists(eq(POST_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    assertTrue(_postService.deletePost(POST_URN, SYSTEM_AUTHENTICATION));
+    when(_entityClient.exists(any(OperationContext.class), eq(POST_URN))).thenReturn(true);
+    assertTrue(_postService.deletePost(mock(OperationContext.class), POST_URN));
   }
 }

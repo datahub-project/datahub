@@ -45,7 +45,7 @@ public class DeletePostResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_dataFetchingEnvironment.getArgument(eq("urn"))).thenReturn(POST_URN_STRING);
-    when(_postService.deletePost(eq(postUrn), eq(_authentication))).thenReturn(true);
+    when(_postService.deletePost(any(), eq(postUrn))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

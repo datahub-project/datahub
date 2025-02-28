@@ -4,18 +4,16 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Import({SystemAuthenticationFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionSchedulerFactory {
 
   @Autowired
@@ -33,9 +31,11 @@ public class IngestionSchedulerFactory {
   @Bean(name = "ingestionScheduler")
   @Scope("singleton")
   @Nonnull
-  protected IngestionScheduler getInstance(final SystemEntityClient entityClient) {
+  protected IngestionScheduler getInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      final SystemEntityClient entityClient) {
     return new IngestionScheduler(
-        entityClient.getSystemAuthentication(),
+        systemOpContext,
         entityClient,
         _configProvider.getIngestion(),
         _delayIntervalSeconds,

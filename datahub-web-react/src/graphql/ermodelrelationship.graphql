@@ -1,0 +1,56 @@
+query getERModelRelationship($urn: String!) {
+    erModelRelationship(urn: $urn) {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        outgoing: relationships(
+            input: { types: ["ermodelrelationA", "ermodelrelationB"], direction: OUTGOING, start: 0, count: 100 }
+        ) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on ERModelRelationship {
+                        urn
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation updateERModelRelationship($urn: String!, $input: ERModelRelationshipUpdateInput!) {
+    updateERModelRelationship(urn: $urn, input: $input)
+}
+
+mutation createERModelRelationship($input: ERModelRelationshipUpdateInput!) {
+    createERModelRelationship(input: $input) {
+        urn
+        type
+        id
+    }
+}

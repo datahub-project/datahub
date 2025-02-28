@@ -1,11 +1,14 @@
 package com.linkedin.metadata;
 
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.identity.CorpUserInfo;
@@ -14,6 +17,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class AspectGenerationUtils {
 
@@ -30,17 +34,25 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId) {
-    return createSystemMetadata(lastObserved, runId, runId);
+  public static SystemMetadata createSystemMetadata(int nextAspectVersion) {
+    return createSystemMetadata(1625792689, "run-123", null, String.valueOf(nextAspectVersion));
+  }
+
+  @Nonnull
+  public static SystemMetadata createSystemMetadata(int lastObserved, @Nonnull String runId) {
+    return createSystemMetadata(lastObserved, runId, null, null);
   }
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(
-      long lastObserved, @Nonnull String runId, @Nonnull String lastRunId) {
-    SystemMetadata metadata = new SystemMetadata();
+      int lastObserved, // for test comparison must be int
+      @Nullable String runId,
+      @Nullable String lastRunId,
+      @Nullable String version) {
+    SystemMetadata metadata = createDefaultSystemMetadata(runId);
+    metadata.setLastRunId(lastRunId, SetMode.IGNORE_NULL);
+    metadata.setVersion(version, SetMode.IGNORE_NULL);
     metadata.setLastObserved(lastObserved);
-    metadata.setRunId(runId);
-    metadata.setLastRunId(lastRunId);
     return metadata;
   }
 
@@ -55,6 +67,7 @@ public class AspectGenerationUtils {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
+    corpUserInfo.setSystem(false);
     return corpUserInfo;
   }
 

@@ -1,0 +1,23 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Metrics corresponding to a single schema field.
+ * Notice that this aspect may be partially completed so the user
+ * should filter for existence of the stats they need when querying.
+ *
+ * In the long term, this serves as a replacement for the DatasetFieldProfile object.
+ * Note that it does not yet support quantiles, histograms, etc, but may evolve to in the future.
+ */
+@Aspect = {
+  "name": "schemaFieldProfile",
+  "type": "timeseries",
+}
+record SchemaFieldProfile includes BaseSchemaFieldProfile, TimeseriesAspectBase {
+  /**
+   * Rich details about the source of the metrics provided in this profile.
+   */
+  @TimeseriesField = {}
+  source: optional DatasetMetricsSourceDetails
+}

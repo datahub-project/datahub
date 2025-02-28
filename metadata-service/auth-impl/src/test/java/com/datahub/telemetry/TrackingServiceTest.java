@@ -11,11 +11,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.Optional;
 import org.json.JSONException;
@@ -54,8 +56,9 @@ public class TrackingServiceTest {
   private MixpanelAPI _mixpanelAPI;
   private MessageBuilder _mixpanelMessageBuilder;
   private SecretService _secretService;
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
   private TrackingService _trackingService;
+  private OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
   @BeforeMethod
   public void setupTest() {
@@ -76,8 +79,10 @@ public class TrackingServiceTest {
   @Test
   public void testEmitAnalyticsEvent() throws IOException {
     when(_secretService.hashString(eq(ACTOR_URN_STRING))).thenReturn(HASHED_ACTOR_URN_STRING);
-    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(true);
-    when(_entityService.getLatestAspect(eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
+    when(_entityService.exists(any(OperationContext.class), eq(_clientIdUrn), eq(true)))
+        .thenReturn(true);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
         .thenReturn(TELEMETRY_CLIENT_ID);
     when(_mixpanelMessageBuilder.event(eq(CLIENT_ID), eq(EVENT_TYPE), any()))
         .thenReturn(_mixpanelMessage);
@@ -92,28 +97,36 @@ public class TrackingServiceTest {
             NOT_ALLOWED_FIELD,
             NOT_ALLOWED_FIELD_VALUE);
     final JsonNode event = OBJECT_MAPPER.readTree(eventString);
-    _trackingService.emitAnalyticsEvent(event);
+    _trackingService.emitAnalyticsEvent(opContext, event);
 
     verify(_mixpanelAPI, times(1)).sendMessage(eq(_mixpanelMessage));
   }
 
   @Test
   public void testGetClientIdAlreadyExists() {
-    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(true);
-    when(_entityService.getLatestAspect(eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
+    when(_entityService.exists(any(OperationContext.class), eq(_clientIdUrn), eq(true)))
+        .thenReturn(true);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
         .thenReturn(TELEMETRY_CLIENT_ID);
 
-    assertEquals(CLIENT_ID, _trackingService.getClientId());
+    assertEquals(CLIENT_ID, _trackingService.getClientId(opContext));
   }
 
   @Test
   public void testGetClientIdDoesNotExist() {
-    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(false);
+    when(_entityService.exists(any(OperationContext.class), eq(_clientIdUrn), eq(true)))
+        .thenReturn(false);
 
-    assertNotNull(_trackingService.getClientId());
+    assertNotNull(_trackingService.getClientId(opContext));
     verify(_entityService, times(1))
         .ingestAspectIfNotPresent(
-            eq(_clientIdUrn), eq(CLIENT_ID_ASPECT), any(TelemetryClientId.class), any(), eq(null));
+            any(OperationContext.class),
+            eq(_clientIdUrn),
+            eq(CLIENT_ID_ASPECT),
+            any(TelemetryClientId.class),
+            any(),
+            eq(null));
   }
 
   @Test

@@ -1,14 +1,13 @@
 from typing import List
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
     UpstreamClass,
 )
-
 from tests.setup.lineage.constants import (
     DATASET_ENTITY_TYPE,
     SNOWFLAKE_DATA_PLATFORM,
@@ -74,11 +73,11 @@ GNP_DATASET = Dataset(
 )
 
 
-def ingest_dataset_join_change(emitter: DatahubRestEmitter) -> None:
+def ingest_dataset_join_change(graph_client: DataHubGraph) -> None:
     # Case 3. gnp has two upstreams originally (gdp and factor_income), but later factor_income is removed.
-    emit_mcps(emitter, create_node(GDP_DATASET))
-    emit_mcps(emitter, create_node(FACTOR_INCOME_DATASET))
-    emit_mcps(emitter, create_node(GNP_DATASET))
+    emit_mcps(graph_client, create_node(GDP_DATASET))
+    emit_mcps(graph_client, create_node(FACTOR_INCOME_DATASET))
+    emit_mcps(graph_client, create_node(GNP_DATASET))
     d3_d1_edge: UpstreamClass = create_upstream_edge(
         GDP_DATASET_URN,
         TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
@@ -100,7 +99,7 @@ def ingest_dataset_join_change(emitter: DatahubRestEmitter) -> None:
         TIMESTAMP_MILLIS_ONE_DAY_AGO,
         run_id="gdp_gnp",
     )
-    emitter.emit_mcp(case_3_mcp)
+    graph_client.emit_mcp(case_3_mcp)
 
 
 def get_dataset_join_change_urns() -> List[str]:

@@ -9,7 +9,7 @@ import DataProductsDropdown from './action/DataProductsDropdown';
 import { EntityType } from '../../../../../../types.generated';
 import { EntityCapabilityType } from '../../../../Entity';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SelectActionGroups } from './types';
 
 /**

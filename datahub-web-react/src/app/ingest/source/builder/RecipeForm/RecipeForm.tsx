@@ -1,9 +1,12 @@
-import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
 import React, { Fragment } from 'react';
+
+import { Button, Collapse, Form, message, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+
 import { jsonToYaml } from '../../utils';
 import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
@@ -11,6 +14,7 @@ import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
 import { SourceBuilderState, SourceConfig } from '../types';
+import { RequiredFieldForm } from '../../../../shared/form/RequiredFieldForm';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -115,7 +119,7 @@ function RecipeForm(props: Props) {
         },
     });
     const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+        data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -140,7 +144,7 @@ function RecipeForm(props: Props) {
     }
 
     return (
-        <Form
+        <RequiredFieldForm
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             onFinish={onClickNext}
@@ -208,7 +212,7 @@ function RecipeForm(props: Props) {
                     header={
                         <SectionHeader
                             icon={<SettingOutlined />}
-                            text="Advanced"
+                            text="Settings"
                             sectionTooltip={advancedSectionTooltip}
                         />
                     }
@@ -230,9 +234,11 @@ function RecipeForm(props: Props) {
                 <Button disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button htmlType="submit">Next</Button>
+                <Button type="primary" htmlType="submit">
+                    Next
+                </Button>
             </ControlsContainer>
-        </Form>
+        </RequiredFieldForm>
     );
 }
 

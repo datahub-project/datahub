@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, MenuProps, Tooltip } from 'antd';
+import { Dropdown, MenuProps } from 'antd';
+import { Tooltip } from '@components';
 import { CaretDownFilled, StarFilled, StarOutlined } from '@ant-design/icons';
 import SubscriptionDrawer from './drawer/SubscriptionDrawer';
 import { useEntityData, useMutationUrn } from '../../entity/shared/EntityContext';
@@ -10,6 +11,8 @@ import useDeleteSubscription from './useDeleteSubscription';
 import useSubscriptionSummary from './useSubscriptionSummary';
 import useGroupRelationships from './useGroupRelationships';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../onboarding/config/EntityProfileOnboardingConfig';
+import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
+import { EntityType } from '../../../types.generated';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -43,13 +46,18 @@ export default function SubscribeButtons() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
+    const isEntityExists = entityType === EntityType.Dataset ? entityData?.exists : true;
 
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
     const { subscription, isSubscribed, canManageSubscription, refetchSubscription } = useSubscription({
         isPersonal,
         entityUrn: primaryEntityUrn,
         groupUrn,
+        isEntityExists,
     });
+
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const isSiblingMode = (entityData?.siblingsSearch?.total && !isSeparateSiblingsMode) || false;
 
     const {
         isUserSubscribed,
@@ -58,7 +66,7 @@ export default function SubscribeButtons() {
         groupNames,
         setIsUserSubscribed,
         refetchSubscriptionSummary,
-    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn });
+    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn, isEntityExists });
 
     const handleUpsertSubscription = () => setIsUserSubscribed(true);
 
@@ -104,6 +112,7 @@ export default function SubscribeButtons() {
         <>
             <span id={ENTITY_PROFILE_SUBSCRIPTION_ID}>
                 <SubscribeDropdown
+                    disabled={isSiblingMode}
                     menu={{
                         items: [
                             ...(isUserSubscribed
@@ -137,12 +146,21 @@ export default function SubscribeButtons() {
                     buttonsRender={([leftButton, rightButton]) => [
                         <Tooltip
                             title={
-                                <SubscriptionStarTooltip
-                                    isUserSubscribed={isUserSubscribed}
-                                    numUserSubscriptions={numUserSubscriptions}
-                                    numGroupSubscriptions={numGroupSubscriptions}
-                                    groupNames={groupNames}
-                                />
+                                !isSiblingMode ? (
+                                    <SubscriptionStarTooltip
+                                        isUserSubscribed={isUserSubscribed}
+                                        numUserSubscriptions={numUserSubscriptions}
+                                        numGroupSubscriptions={numGroupSubscriptions}
+                                        groupNames={groupNames}
+                                    />
+                                ) : (
+                                    <>
+                                        You cannot subscribe to a group of assets. <br />
+                                        <br />
+                                        Please subscribe to the assets that this group is <b>Composed Of</b> by
+                                        navigating to them in the sidebar below.
+                                    </>
+                                )
                             }
                             placement="left"
                             color="#262626"
@@ -153,7 +171,7 @@ export default function SubscribeButtons() {
                     ]}
                     onClick={onClickStar}
                 >
-                    {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
+                    {isUserSubscribed && !isSiblingMode ? <StyledStarFilled /> : <StarOutlined />}
                 </SubscribeDropdown>
             </span>
             <SubscriptionDrawer

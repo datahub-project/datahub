@@ -1,7 +1,7 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 

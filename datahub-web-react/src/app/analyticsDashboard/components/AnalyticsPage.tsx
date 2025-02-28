@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Alert, Divider, Input, Select } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { ChartGroup } from './ChartGroup';
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '../../../graphql/analytics.generated';
 import { useGetHighlightsQuery } from '../../../graphql/highlights.generated';
@@ -11,13 +12,38 @@ import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
+import { useIsThemeV2 } from '../../useIsThemeV2';
+
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        height: 100%;
+        margin: 5px;
+        overflow: auto;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '24px' : '0'};
+        margin-bottom: ${props.isV2 ? '24px' : '0'};
+    `}
+    border-radius: ${(props) => {
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return props.isV2 ? '8px' : '0';
+    }};
+`;
 
 const HighlightGroup = styled.div`
-    display: flex;
-    align-items: space-between;
-    justify-content: center;
-    padding-top: 20px;
+    margin-top: 20px;
+    padding: 0 20px;
     margin-bottom: 10px;
+    display: grid;
+    grid-template-rows: auto auto;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
 `;
 
 const MetadataAnalyticsInput = styled.div`
@@ -47,6 +73,8 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
+    const isV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
@@ -88,14 +116,14 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <>
-            {isLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
                 )}
                 {highlightData?.getHighlights?.map((highlight) => (
-                    <Highlight highlight={highlight} shortenValue />
+                    <Highlight highlight={highlight} shortenValue key={highlight.title} />
                 ))}
             </HighlightGroup>
             <>
@@ -105,7 +133,7 @@ export const AnalyticsPage = () => {
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
                     .map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} />
+                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
                     ))}
             </>
             <>
@@ -121,12 +149,12 @@ export const AnalyticsPage = () => {
                                 placeholder="Select a domain"
                                 onChange={onDomainChange}
                                 filterOption={(input, option) =>
-                                    option?.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                                    option?.children?.toLowerCase()?.indexOf(input.toLowerCase()) >= 0
                                 }
                             >
                                 <Select.Option value="ALL">All</Select.Option>
-                                {domainData?.listDomains?.domains.map((domainChoice) => (
-                                    <Select.Option value={domainChoice.urn}>
+                                {domainData?.listDomains?.domains?.map((domainChoice) => (
+                                    <Select.Option value={domainChoice.urn} key={domainChoice.urn}>
                                         {domainChoice?.properties?.name}
                                     </Select.Option>
                                 ))}
@@ -159,7 +187,7 @@ export const AnalyticsPage = () => {
                           </MetadataAnalyticsPlaceholder>
                       )
                     : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                          <ChartGroup chartGroup={chartGroup} />
+                          <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
                       ))}
             </>
             <>
@@ -168,12 +196,12 @@ export const AnalyticsPage = () => {
                     chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
                         .map((chartGroup) => (
-                            <>
+                            <React.Fragment key={chartGroup.title}>
                                 <Divider />
                                 <ChartGroup chartGroup={chartGroup} />
-                            </>
+                            </React.Fragment>
                         ))}
             </>
-        </>
+        </PageContainer>
     );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useBaseEntity } from '../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { QueryEntity } from '../../../../../../../types.generated';
 import { SidebarSection } from '../SidebarSection';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
@@ -43,7 +43,9 @@ export default function SidebarQueryDefinitionSection() {
             content={
                 <>
                     <DefinitionLink href={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
-                        {entity?.platform && <DefinitionIcon platform={entity?.platform} />}
+                        {entity?.platform && (
+                            <DefinitionIcon platform={entity?.platform} size={16} entityType={origin.type} />
+                        )}
                         <DefinitionName>{entityRegistry.getDisplayName(origin.type, entity)}</DefinitionName>
                     </DefinitionLink>
                 </>

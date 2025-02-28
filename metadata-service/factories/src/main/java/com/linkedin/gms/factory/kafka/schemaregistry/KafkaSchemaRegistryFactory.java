@@ -1,11 +1,9 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -16,14 +14,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@ConditionalOnProperty(
-    name = "kafka.schemaRegistry.type",
-    havingValue = KafkaSchemaRegistryFactory.TYPE)
+@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = "KAFKA")
 public class KafkaSchemaRegistryFactory {
 
   public static final String TYPE = "KAFKA";
@@ -48,8 +42,9 @@ public class KafkaSchemaRegistryFactory {
 
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
-    Map<String, Object> props = new HashMap<>();
+  protected KafkaConfiguration.SerDeKeyValueConfig getInstance(
+      ConfigurationProvider configurationProvider) {
+    Map<String, String> props = new HashMap<>();
     // FIXME: Properties for this factory should come from ConfigurationProvider object,
     // specifically under the
     // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
@@ -70,7 +65,9 @@ public class KafkaSchemaRegistryFactory {
           sslKeystoreLocation);
     }
 
-    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+    return configurationProvider.getKafka().getSerde().getEvent().toBuilder()
+        .properties(props)
+        .build();
   }
 
   private String withNamespace(String configKey) {

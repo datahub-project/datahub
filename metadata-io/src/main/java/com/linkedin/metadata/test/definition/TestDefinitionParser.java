@@ -10,9 +10,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.test.action.ActionType;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.Query;
+import com.linkedin.metadata.test.definition.literal.DateLiteral;
 import com.linkedin.metadata.test.definition.literal.StringListLiteral;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperandConstants;
@@ -21,6 +21,7 @@ import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
+import com.linkedin.metadata.test.util.TestMd5;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -125,6 +126,12 @@ public class TestDefinitionParser {
 
   public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition)
       throws TestDefinitionParsingException {
+    return deserialize(testUrn, jsonTestDefinition, TestMd5.getMd5(jsonTestDefinition));
+  }
+
+  public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition, String md5)
+      throws TestDefinitionParsingException {
+
     JsonNode parsedTestDefinition;
     try {
       parsedTestDefinition = OBJECT_MAPPER.readTree(jsonTestDefinition);
@@ -136,14 +143,16 @@ public class TestDefinitionParser {
         || !parsedTestDefinition.has(RULES_FIELD)) {
       throw new TestDefinitionParsingException(
           String.format(
-              "Failed to deserialize test definitio for urn %s: %s: test definition must have a on clause and a rules clause",
+              "Failed to deserialize test definition for urn %s: %s: test definition must have a on clause and a rules clause",
               testUrn, jsonTestDefinition));
     }
     return new TestDefinition(
         testUrn,
         deserializeMatchConditions(parsedTestDefinition.get(ON_FIELD)),
         deserializeRule(parsedTestDefinition.get(RULES_FIELD)),
-        deserializeActions(parsedTestDefinition.get(ACTIONS_FIELD)));
+        deserializeActions(parsedTestDefinition.get(ACTIONS_FIELD)),
+        md5,
+        jsonTestDefinition);
   }
 
   private TestMatch deserializeMatchConditions(JsonNode jsonTargetingRule) {
@@ -180,7 +189,7 @@ public class TestDefinitionParser {
     return new TestMatch(targetTypes, targetingRules);
   }
 
-  private Predicate deserializeRule(JsonNode jsonRule) {
+  public static Predicate deserializeRule(JsonNode jsonRule) {
     // TODO: Validate that single object doesn't contains multiple children (like AND and NOT).
     if (jsonRule.isArray()) {
       ArrayNode ruleArray = (ArrayNode) jsonRule;
@@ -335,29 +344,41 @@ public class TestDefinitionParser {
             param.toString()));
   }
 
-  private Predicate deserializeCompositePredicate(
+  private static Predicate deserializeCompositePredicate(
       ArrayNode childPredicates, String operation, boolean negated) {
     List<Expression> deserializedChildPredicates =
         StreamSupport.stream(childPredicates.spliterator(), false)
-            .map(this::deserializeRule)
+            .map(TestDefinitionParser::deserializeRule)
             .map(pred -> (Expression) pred)
             .collect(Collectors.toList());
     return Predicate.of(
         OperatorType.fromCommonName(operation), deserializedChildPredicates, negated);
   }
 
-  private Expression createParam(JsonNode paramJson) {
+  private static Expression createParam(JsonNode paramJson) {
     if (paramJson.isArray()) {
       ArrayNode paramArray = (ArrayNode) paramJson;
       return new StringListLiteral(
           StreamSupport.stream(paramArray.spliterator(), false)
               .map(JsonNode::asText)
               .collect(Collectors.toList()));
+    } else {
+      if (paramJson.has("type")) {
+        String paramType = paramJson.get("type").asText();
+        if (paramType.equals("relativeDate")) {
+          return new DateLiteral(paramJson.get("value").asText());
+        } else {
+          throw new TestDefinitionParsingException(
+              String.format(
+                  "Failed to deserialize param %s: unsupported param type %s",
+                  paramJson.toString(), paramType));
+        }
+      }
     }
     return new StringListLiteral(Collections.singletonList(paramJson.asText()));
   }
 
-  private Predicate deserializeBasePredicate(ObjectNode testRule, boolean negated) {
+  private static Predicate deserializeBasePredicate(ObjectNode testRule, boolean negated) {
     if (!hasTextField(testRule, PROPERTY_FIELD) && !hasTextField(testRule, LEGACY_QUERY_FIELD)) {
       throw new TestDefinitionParsingException(
           String.format(
@@ -379,7 +400,7 @@ public class TestDefinitionParser {
         testRule.has(OPERATOR_FIELD)
             ? testRule.get(OPERATOR_FIELD).asText()
             : testRule.get(LEGACY_OPERATION_FIELD).asText();
-    if (!predicateEvaluator.isOperationValid(operation)) {
+    if (!PredicateEvaluator.isOperationValid(operation)) {
       throw new TestDefinitionParsingException(
           String.format(
               "Failed to deserialize rule %s: Unsupported operation %s",
@@ -392,7 +413,7 @@ public class TestDefinitionParser {
 
     Predicate predicate = new Predicate(OperatorType.fromCommonName(operation), operands, negated);
     try {
-      predicateEvaluator.validate(predicate);
+      PredicateEvaluator.validate(predicate);
     } catch (InvalidOperandException e) {
       throw new TestDefinitionParsingException(
           String.format(
@@ -419,7 +440,7 @@ public class TestDefinitionParser {
    *
    * <p>Which simply removes the need for an additional explicit level of nesting.
    */
-  private void addLeftHandOperands(List<Operand> base, ObjectNode predicate) {
+  private static void addLeftHandOperands(List<Operand> base, ObjectNode predicate) {
     if (predicate.has(PARAMS_FIELD)) {
       addLegacyParamValues(base, predicate);
     } else {
@@ -427,7 +448,7 @@ public class TestDefinitionParser {
     }
   }
 
-  private void addLegacyParamValues(List<Operand> base, ObjectNode predicateJson) {
+  private static void addLegacyParamValues(List<Operand> base, ObjectNode predicateJson) {
     // If params field is set, use the explicit params map.
     if (!predicateJson.get(PARAMS_FIELD).isObject()) {
       throw new TestDefinitionParsingException(
@@ -443,7 +464,7 @@ public class TestDefinitionParser {
     }
   }
 
-  private void addValues(List<Operand> base, ObjectNode predicateJson) {
+  private static void addValues(List<Operand> base, ObjectNode predicateJson) {
     // Use all non-standard fields as named params.
     int currIndex = 1;
     for (Iterator<Map.Entry<String, JsonNode>> it = predicateJson.fields(); it.hasNext(); ) {

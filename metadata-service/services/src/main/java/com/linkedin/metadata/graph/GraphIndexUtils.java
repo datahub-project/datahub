@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -229,6 +230,10 @@ public class GraphIndexUtils {
         newEdge.getUpdatedActor(),
         newEdge.getProperties(),
         oldEdge.getLifecycleOwner(),
-        oldEdge.getVia());
+        oldEdge.getVia(),
+        oldEdge.getViaStatus(),
+        oldEdge.getLifecycleOwnerStatus(),
+        oldEdge.getSourceStatus(),
+        oldEdge.getDestinationStatus());
   }
 }

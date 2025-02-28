@@ -2,10 +2,11 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import queryString from 'query-string';
 import { isEqual } from 'lodash';
-import { AppConfig, EntityType } from '../../../../../types.generated';
+import { AppConfig, EntityType, ShareResult } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
+import EntityRegistryV2 from '../../../../entityV2/EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
 import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
 import {
@@ -61,12 +62,15 @@ export function getDataForEntityType<T>({
         };
     }
 
-    if (anyEntityData?.siblings?.siblings?.filter((sibling) => sibling.exists).length > 0 && !isHideSiblingMode) {
-        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblings?.siblings?.map((sibling) =>
-            getDataForEntityType({ data: sibling, getOverrideProperties: () => ({}) }),
+    if (
+        anyEntityData?.siblingsSearch?.searchResults?.filter((sibling) => sibling.entity.exists).length > 0 &&
+        !isHideSiblingMode
+    ) {
+        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblingsSearch?.searchResults?.map(
+            (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
-        const allPlatforms = anyEntityData.siblings.isPrimary
+        const allPlatforms = anyEntityData.siblings?.isPrimary
             ? [anyEntityData.platform, genericSiblingProperties?.[0]?.platform]
             : [genericSiblingProperties?.[0]?.platform, anyEntityData.platform];
 
@@ -85,7 +89,7 @@ export function getDataForEntityType<T>({
 export function getEntityPath(
     entityType: EntityType,
     urn: string,
-    entityRegistry: EntityRegistry,
+    entityRegistry: EntityRegistry | EntityRegistryV2,
     isLineageMode: boolean,
     isHideSiblingMode: boolean,
     tabName?: string,
@@ -138,7 +142,7 @@ export function useIsOnTab(tabName: string): boolean {
 export function useGlossaryActiveTabPath(): string {
     const { pathname, search } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    
+
     // Match against the regex
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
 
@@ -148,7 +152,7 @@ export function useGlossaryActiveTabPath(): string {
     }
 
     // No match found!
-    return "";
+    return '';
 }
 
 export function formatDateString(time: number) {
@@ -235,9 +239,31 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
+        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain?.defaultTab;
         sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
     }
 
     return sortedTabs;
+}
+
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
+}
+
+export function sortSharedList(sharedItems: ShareResult[]) {
+    // sort by lastSuccess time considering the running state items with lastSuccess null
+    const sortedItems = sharedItems.slice().sort((a, b) => {
+        if (a.lastSuccess === null && b.lastSuccess !== null) {
+            return -1;
+        }
+        if (a.lastSuccess !== null && b.lastSuccess === null) {
+            return 1;
+        }
+        if (a.lastSuccess === null && b.lastSuccess === null) {
+            return 0;
+        }
+        return (b.lastSuccess?.time || 0) - (a.lastSuccess?.time || 0);
+    });
+
+    return sortedItems;
 }

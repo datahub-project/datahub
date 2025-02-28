@@ -7,9 +7,9 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -44,19 +44,29 @@ public class SearchCommonTestConfiguration {
     return searchConfiguration;
   }
 
-  @Bean
-  public CustomSearchConfiguration customSearchConfiguration() throws Exception {
+  @Bean("defaultTestCustomSearchConfig")
+  public CustomSearchConfiguration defaultTestCustomSearchConfig() throws Exception {
     CustomConfiguration customConfiguration = new CustomConfiguration();
     customConfiguration.setEnabled(true);
     customConfiguration.setFile("search_config_builder_test.yml");
     return customConfiguration.resolve(new YAMLMapper());
   }
 
-  @Bean(name = "entityRegistry")
-  public EntityRegistry entityRegistry() throws EntityRegistryException {
-    return new ConfigEntityRegistry(
-        SearchCommonTestConfiguration.class
-            .getClassLoader()
-            .getResourceAsStream("entity-registry.yml"));
+  @Bean("fixtureCustomSearchConfig")
+  public CustomSearchConfiguration fixtureCustomSearchConfig() throws Exception {
+    CustomConfiguration customConfiguration = new CustomConfiguration();
+    customConfiguration.setEnabled(true);
+    customConfiguration.setFile("search_config_fixture_test.yml");
+    return customConfiguration.resolve(new YAMLMapper());
+  }
+
+  @Bean(name = "queryOperationContext")
+  public OperationContext queryOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
+  @Bean
+  public QueryFilterRewriteChain queryFilterRewriteChain() {
+    return QueryFilterRewriteChain.EMPTY;
   }
 }

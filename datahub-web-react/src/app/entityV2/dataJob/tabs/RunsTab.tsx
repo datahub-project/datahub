@@ -1,5 +1,6 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Pagination, Table, Tooltip, Typography } from 'antd';
+import { Pagination, Table, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +13,7 @@ import {
 } from '../../../ingest/source/utils';
 import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
 import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
 
@@ -88,13 +89,15 @@ const columns = [
         title: 'Inputs',
         dataIndex: 'inputs',
         key: 'inputs',
-        render: (inputs) => <CompactEntityNameList entities={inputs} />,
+        render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+        width: 150,
     },
     {
         title: 'Outputs',
         dataIndex: 'outputs',
         key: 'outputs',
-        render: (outputs) => <CompactEntityNameList entities={outputs} />,
+        render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+        width: 150,
     },
     {
         title: '',
@@ -123,14 +126,14 @@ export const RunsTab = () => {
     const runs = data && data?.dataJob?.runs?.runs;
 
     const tableData = runs
-        ?.filter((run) => run)
+        ?.filter((run) => run?.state?.length)
         .map((run) => ({
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {

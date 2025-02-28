@@ -1,8 +1,10 @@
 query getUser($urn: String!, $groupsCount: Int) {
     corpUser(urn: $urn) {
         urn
+        type
         username
         isNativeUser
+        exists
         info {
             active
             displayName
@@ -12,6 +14,7 @@ query getUser($urn: String!, $groupsCount: Int) {
             fullName
             email
             departmentName
+            countryCode
         }
         editableProperties {
             slack
@@ -30,11 +33,28 @@ query getUser($urn: String!, $groupsCount: Int) {
                 urn
             }
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        privileges {
+            ...entityPrivileges
+        }
         globalTags {
             ...globalTagsFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         groups: relationships(
             input: {
@@ -88,6 +108,9 @@ query getUser($urn: String!, $groupsCount: Int) {
                 }
             }
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 
@@ -127,6 +150,29 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                         count
                         total
                     }
+                }
+            }
+        }
+    }
+}
+
+query getUserGroupsUrns($urn: String!, $start: Int!, $count: Int!) {
+    corpUser(urn: $urn) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: $start
+                count: $count
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    urn
+                    type
                 }
             }
         }
@@ -182,6 +228,43 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
+query getUsers($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on CorpUser {
+            urn
+            type
+            ...userFields
+        }
+    }
+}
+
+fragment userFields on CorpUser {
+    username
+    properties {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    info {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    editableProperties {
+        displayName
+        title
+        pictureLink
+    }
+}
+
 mutation removeUser($urn: String!) {
     removeUser(urn: $urn)
 }
@@ -204,4 +287,10 @@ mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
 
 mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
     updateCorpUserViewsSettings(input: $input)
+}
+
+query getUserOwnedAssets($urns: [String!]!) {
+    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
+        ...searchResults
+    }
 }

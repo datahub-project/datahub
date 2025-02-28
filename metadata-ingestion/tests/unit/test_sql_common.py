@@ -38,7 +38,7 @@ def test_generate_foreign_key():
         "referred_columns": ["test_referred_column"],  # type: ignore
     }
     foreign_key = source.get_foreign_key_metadata(
-        dataset_urn="test_urn",
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD)",
         schema="test_schema",
         fk_dict=fk_dict,
         inspector=mock.Mock(),
@@ -48,7 +48,9 @@ def test_generate_foreign_key():
     assert [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_referred_schema.test_table,PROD),test_referred_column)"
     ] == foreign_key.foreignFields
-    assert ["urn:li:schemaField:(test_urn,test_column)"] == foreign_key.sourceFields
+    assert [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
+    ] == foreign_key.sourceFields
 
 
 def test_use_source_schema_for_foreign_key_if_not_specified():
@@ -60,7 +62,7 @@ def test_use_source_schema_for_foreign_key_if_not_specified():
         "referred_columns": ["test_referred_column"],  # type: ignore
     }
     foreign_key = source.get_foreign_key_metadata(
-        dataset_urn="test_urn",
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD)",
         schema="test_schema",
         fk_dict=fk_dict,
         inspector=mock.Mock(),
@@ -70,7 +72,9 @@ def test_use_source_schema_for_foreign_key_if_not_specified():
     assert [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.test_table,PROD),test_referred_column)"
     ] == foreign_key.foreignFields
-    assert ["urn:li:schemaField:(test_urn,test_column)"] == foreign_key.sourceFields
+    assert [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
+    ] == foreign_key.sourceFields
 
 
 PLATFORM_FROM_SQLALCHEMY_URI_TEST_CASES: Dict[str, str] = {

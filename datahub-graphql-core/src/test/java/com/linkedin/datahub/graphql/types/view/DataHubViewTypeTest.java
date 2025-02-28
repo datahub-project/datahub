@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.view;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -24,7 +26,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
@@ -32,6 +33,7 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,13 +74,11 @@ public class DataHubViewTypeTest {
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test")
-                                                          .setCondition(Condition.EQUAL))))))))
+                                                      buildCriterion(
+                                                          "test",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"))))))))
                   .setEntityTypes(
                       new StringArray(
                           ImmutableList.of(
@@ -108,38 +108,30 @@ public class DataHubViewTypeTest {
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test")
-                                                          .setCondition(Condition.EQUAL),
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL)))),
+                                                      buildCriterion(
+                                                          "test",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"),
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2")))),
                                       new ConjunctiveCriterion()
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL),
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL))))))))
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"),
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"))))))))
                   .setEntityTypes(
                       new StringArray(
                           ImmutableList.of(
@@ -161,11 +153,11 @@ public class DataHubViewTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_VALID_VIEW_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(viewUrn1, viewUrn2))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 viewUrn1,
@@ -179,16 +171,19 @@ public class DataHubViewTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
     List<DataFetcherResult<DataHubView>> result =
         type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), mockContext);
 
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(viewUrn1, viewUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -227,11 +222,11 @@ public class DataHubViewTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_INVALID_VIEW_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(invalidViewUrn))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 invalidViewUrn,
@@ -245,16 +240,19 @@ public class DataHubViewTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
     List<DataFetcherResult<DataHubView>> result =
         type.batchLoad(ImmutableList.of(TEST_VIEW_URN), mockContext);
 
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(invalidViewUrn)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 1);
 
@@ -276,11 +274,7 @@ public class DataHubViewTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.view.DataHubViewType type =
         new com.linkedin.datahub.graphql.types.view.DataHubViewType(mockClient);
 

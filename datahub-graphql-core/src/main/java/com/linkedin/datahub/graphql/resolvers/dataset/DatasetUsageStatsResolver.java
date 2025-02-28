@@ -4,10 +4,13 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isVi
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.Constants;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
@@ -30,10 +33,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final UsageTimeRange range = UsageTimeRange.valueOf(environment.getArgument("range"));
+    final String timeZone = environment.getArgument(Constants.TIME_ZONE_INPUT_FIELD);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+          if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
             log.debug(
                 "User {} is not authorized to view usage information for dataset {}",
                 context.getActorUrn(),
@@ -42,12 +46,17 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           }
           try {
             com.linkedin.usage.UsageQueryResult usageQueryResult =
-                usageClient.getUsageStats(resourceUrn.toString(), range);
-            return UsageQueryResultMapper.map(usageQueryResult);
+                usageClient.getUsageStats(
+                    context.getOperationContext(), resourceUrn.toString(), range, timeZone);
+            return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
+            log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
+            MetricUtils.counter(this.getClass(), "usage_stats_dropped").inc();
           }
-        });
+
+          return UsageQueryResultMapper.EMPTY;
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

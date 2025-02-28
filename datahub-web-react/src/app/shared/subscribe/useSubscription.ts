@@ -4,9 +4,11 @@ type Props = {
     isPersonal: boolean;
     entityUrn: string;
     groupUrn?: string;
+    isEntityExists?: boolean;
 };
-const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
-    const skip = !isPersonal && !groupUrn;
+const useSubscription = ({ isPersonal, entityUrn, groupUrn, isEntityExists = true }: Props) => {
+    const skip = (!isPersonal && !groupUrn) || !isEntityExists;
+
     const {
         data: getSubscriptionData,
         loading,
@@ -23,7 +25,7 @@ const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
 
     const subscription = (!skip && getSubscriptionData?.getSubscription.subscription) || undefined;
     const isSubscribed = !!subscription;
-    const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription.privileges?.canManageEntity;
+    const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription?.privileges?.canManageEntity;
 
     return { subscription, isSubscribed, refetchSubscription, canManageSubscription };
 };

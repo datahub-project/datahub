@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { CheckCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 

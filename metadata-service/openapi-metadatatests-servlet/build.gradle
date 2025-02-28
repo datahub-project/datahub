@@ -3,13 +3,17 @@ plugins {
     id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
     implementation project(':metadata-auth:auth-api')
     implementation project(':metadata-service:auth-impl')
     implementation project(':metadata-service:services')
+    implementation project(':metadata-service:factories')
     implementation project(':metadata-io')
     implementation project(':metadata-service:openapi-servlet')
+    implementation project(':metadata-service:openapi-servlet:models')
     implementation project(':metadata-service:openapi-entity-servlet')
 
     implementation externalDependency.springBoot
@@ -34,6 +38,7 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
+    testImplementation project(':metadata-service:factories')
 
     swaggerCodegen externalDependency.swaggerCli
 }

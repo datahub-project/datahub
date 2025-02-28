@@ -4,15 +4,35 @@ import static org.testng.Assert.*;
 
 import com.datahub.test.KeyPartEnum;
 import com.datahub.test.TestEntityKey;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.snapshot.Snapshot;
+import java.net.URISyntaxException;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 /** Tests the capabilities of {@link EntityKeyUtils} */
 public class EntityKeyUtilsTest {
+
+  private EntityRegistry entityRegistry;
+
+  @BeforeTest
+  public void setup() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    entityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+  }
 
   @Test
   public void testConvertEntityKeyToUrn() throws Exception {
@@ -58,5 +78,23 @@ public class EntityKeyUtilsTest {
     final RecordTemplate actualKey =
         EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec());
     Assert.assertEquals(actualKey.data(), expectedKey.data());
+  }
+
+  @Test
+  public void testConvertEntityUrnToKeyUrlEncoded() throws URISyntaxException {
+    final Urn urn =
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29,PROD)");
+    final AspectSpec keyAspectSpec =
+        entityRegistry.getEntitySpec(urn.getEntityType()).getKeyAspectSpec();
+    final RecordTemplate actualKey = EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec);
+
+    final DatasetKey expectedKey = new DatasetKey();
+    expectedKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:s3"));
+    expectedKey.setName(
+        "urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29");
+    expectedKey.setOrigin(FabricType.PROD);
+
+    assertEquals(actualKey, expectedKey);
   }
 }

@@ -20,6 +20,8 @@ public class SearchableAnnotation {
 
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
+  public static final Set<FieldType> OBJECT_FIELD_TYPES =
+      ImmutableSet.of(FieldType.OBJECT, FieldType.MAP_ARRAY);
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(
           FieldType.TEXT,
@@ -58,6 +60,10 @@ public class SearchableAnnotation {
   // only adds to query time not mapping
   boolean includeQueryEmptyAggregation;
 
+  boolean includeSystemModifiedAt;
+
+  Optional<String> systemModifiedAtFieldName;
+
   public enum FieldType {
     KEYWORD,
     TEXT,
@@ -71,7 +77,8 @@ public class SearchableAnnotation {
     OBJECT,
     BROWSE_PATH_V2,
     WORD_GRAM,
-    DOUBLE
+    DOUBLE,
+    MAP_ARRAY
   }
 
   @Nonnull
@@ -83,8 +90,8 @@ public class SearchableAnnotation {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
           String.format(
-              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-              ANNOTATION_NAME, context));
+              "Failed to validate @%s annotation declared at %s: Invalid value type %s provided (Expected Map)",
+              ANNOTATION_NAME, context, annotationObj.getClass()));
     }
 
     Map map = (Map) annotationObj;
@@ -122,6 +129,10 @@ public class SearchableAnnotation {
     final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
+    final Optional<Boolean> includeSystemModifiedAt =
+        AnnotationUtils.getField(map, "includeSystemModifiedAt", Boolean.class);
+    final Optional<String> systemModifiedAtFieldName =
+        AnnotationUtils.getField(map, "systemModifiedAtFieldName", String.class);
     return new SearchableAnnotation(
         fieldName.orElse(schemaFieldName),
         resolvedFieldType,
@@ -136,7 +147,9 @@ public class SearchableAnnotation {
         numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()),
         fieldNameAliases,
-        includeQueryEmptyAggregation.orElse(false));
+        includeQueryEmptyAggregation.orElse(false),
+        includeSystemModifiedAt.orElse(false),
+        systemModifiedAtFieldName);
   }
 
   private static FieldType getFieldType(
@@ -150,10 +163,12 @@ public class SearchableAnnotation {
   private static FieldType getDefaultFieldType(DataSchema.Type schemaDataType) {
     switch (schemaDataType) {
       case INT:
-      case FLOAT:
         return FieldType.COUNT;
       case MAP:
         return FieldType.KEYWORD;
+      case FLOAT:
+      case DOUBLE:
+        return FieldType.DOUBLE;
       default:
         return FieldType.TEXT;
     }

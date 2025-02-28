@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -18,7 +19,9 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -27,10 +30,15 @@ public class MutationUtils {
   private MutationUtils() {}
 
   public static void persistAspect(
-      Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn urn,
+      String aspectName,
+      RecordTemplate aspect,
+      Urn actor,
+      EntityService entityService) {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
-    entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
+    entityService.ingestProposal(opContext, proposal, EntityUtils.getAuditStamp(actor), false);
   }
 
   /**
@@ -77,7 +85,7 @@ public class MutationUtils {
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Assumes proposal is generated first from the builder methods above so SystemMetadata is empty
-    SystemMetadata systemMetadata = new SystemMetadata();
+    SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);
@@ -108,6 +116,7 @@ public class MutationUtils {
   }
 
   public static Boolean validateSubresourceExists(
+      @Nonnull OperationContext opContext,
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
@@ -115,7 +124,8 @@ public class MutationUtils {
     if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
       SchemaMetadata schemaMetadata =
           (SchemaMetadata)
-              entityService.getAspect(targetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME, 0);
+              entityService.getAspect(
+                  opContext, targetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
         throw new IllegalArgumentException(

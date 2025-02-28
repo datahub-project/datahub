@@ -6,6 +6,7 @@ import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import { PromptWrapper } from './Prompt';
 import { useUpdateEducationStepsAllowList } from '../../../../onboarding/useUpdateEducationStepsAllowList';
 import { FORM_ASSET_COMPLETION } from '../../../../onboarding/config/FormOnboardingConfig';
+import analytics, { DocRequestView, EventType } from '../../../../analytics';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -28,9 +29,10 @@ const VerifyButton = styled(Button)`
 interface Props {
     formUrn: string;
     associatedUrn?: string;
+    shouldShowVerificationPrompt?: boolean;
 }
 
-export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
+export default function VerificationPrompt({ formUrn, associatedUrn, shouldShowVerificationPrompt = false }: Props) {
     const urn = useMutationUrn();
     const { refetch } = useEntityContext();
     const [verifyFormMutation] = useVerifyFormMutation();
@@ -41,6 +43,11 @@ export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
             .then(() => {
                 refetch();
                 addIdToAllowList(FORM_ASSET_COMPLETION);
+                analytics.event({
+                    type: EventType.CompleteVerification,
+                    source: DocRequestView.ByAsset,
+                    numAssets: 1,
+                });
             })
             .catch(() => {
                 message.error('Error when verifying responses on form');
@@ -54,7 +61,7 @@ export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
             block: 'start',
             inline: 'nearest',
         });
-    }, []);
+    }, [shouldShowVerificationPrompt]);
 
     return (
         <>

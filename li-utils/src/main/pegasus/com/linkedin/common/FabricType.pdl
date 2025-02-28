@@ -54,4 +54,24 @@ enum FabricType {
    * Designates corporation fabrics
    */
   CORP
+
+  /**
+   * Designates review fabrics
+   */
+  RVW
+
+  /**
+   * Alternative Prod spelling
+   */
+  PRD
+
+  /**
+   * Alternative Test spelling
+   */
+  TST
+
+  /**
+   * Designates sandbox fabrics
+   */
+  SANDBOX
 }

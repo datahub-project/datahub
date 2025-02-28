@@ -1,21 +1,20 @@
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
-import {
-    getDirectDownstreamSummary,
-    getDirectUpstreamSummary,
-    getRelatedEntitySummary,
-    navigateToLineageGraph,
-} from './utils';
+import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntitySummary } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
+import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const Section = styled.div`
     display: flex;
@@ -26,17 +25,18 @@ const Section = styled.div`
 `;
 
 const DirectionText = styled.div`
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 20px;
     letter-spacing: 0.48px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 const SummaryText = styled.div`
     text-wrap: wrap;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
-    line-height: 13px;
+    line-height: 20px;
 `;
 
 const StyledUpOutlined = styled(ArrowUpOutlined)`
@@ -52,25 +52,32 @@ const DirectionHeader = styled.div`
     align-items: center;
     justify-content: start;
     font-weight: bold;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    && {
-        color: ${ANTD_GRAY[7]};
-    }
-    width: 100px;
+    color: ${ANTD_GRAY[6]};
+    min-width: 100px;
     margin-right: 6px;
 `;
 
+const StyledPartitionOutlined = styled(PartitionOutlined)`
+    svg {
+        padding: 4px 5px 4px 4px;
+    }
+`;
+
 const SidebarLineageSection = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
+    const linkProps = useEmbeddedProfileLinkProps();
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
+
+    const separateSiblings = useIsSeparateSiblingsMode();
+    const onCombinedSiblingPage = !separateSiblings && (entityData?.siblingsSearch?.total || 0) > 0;
     const { data, loading } = useGetSearchAcrossLineageCountsQuery({
-        variables: {
-            urn,
-        },
+        variables: { urn, startTimeMillis },
         fetchPolicy: 'cache-first',
+        skip: onCombinedSiblingPage,
     });
 
     const directUpstreamSummary = data?.upstreams && getDirectUpstreamSummary(data.upstreams as any);
@@ -92,6 +99,7 @@ const SidebarLineageSection = () => {
             content={
                 <>
                     {loading && <SidebarLineageLoadingSection />}
+                    {!loading && <UpstreamHealth />}
                     {!loading && directUpstreamCount > 0 && (
                         <Section key="upstream">
                             <Tooltip
@@ -136,13 +144,12 @@ const SidebarLineageSection = () => {
                             placement="left"
                             showArrow={false}
                         >
-                            <PartitionOutlined />
+                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
+                                <StyledPartitionOutlined />
+                            </Link>
                         </Tooltip>
                     }
-                    onClick={(event) => {
-                        navigateToLineageGraph(urn, entityType, history, entityRegistry);
-                        event.stopPropagation();
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                 />
             }
         />

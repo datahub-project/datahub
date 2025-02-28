@@ -1,5 +1,4 @@
 # Service definitions for standalone Kafka consumer containers.
-version: '3.9'
 services:
   datahub-gms:
     environment:
@@ -7,7 +6,6 @@ services:
       - MCE_CONSUMER_ENABLED=false
 
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     hostname: datahub-mae-consumer
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
@@ -23,7 +21,6 @@ services:
       neo4j:
         condition: service_healthy
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     hostname: datahub-mce-consumer
     image: ${DATAHUB_MCE_CONSUMER_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:

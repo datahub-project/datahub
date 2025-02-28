@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -77,12 +78,12 @@ public class EntityAnomaliesResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                Mockito.any(),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
-                Mockito.eq(expectedSort),
+                Mockito.eq(Collections.singletonList(expectedSort)),
                 Mockito.eq(0),
-                Mockito.eq(10),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(10)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

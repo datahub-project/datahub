@@ -1,11 +1,14 @@
-import { Typography } from 'antd';
-import React from 'react';
+import { Radio, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { InfoItem } from '../../../components/styled/InfoItem';
+import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+import { DBT_URN } from '../../../../../ingest/source/builder/constants';
+import CopyQuery from '../Queries/CopyQuery';
+import { ViewHeader } from '../../../containers/profile/sidebar/SidebarLogicSection';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
@@ -23,23 +26,61 @@ const InfoItemContent = styled.div`
     padding-top: 8px;
 `;
 
+const FormattingSelector = styled.div``;
+
+/**
+ * NOTE: To ensure consistent font-family for pre and code tags within as the parent wrapper was overriding it,
+ * we explicitly apply 'Roboto Mono', monospace as the font-family for code children using span.
+ */
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 20px;
     background-color: ${ANTD_GRAY[2]};
+    span {
+        font-family: 'Roboto Mono', monospace !important;
+    }
 `;
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
-const NestedSyntax = styled(SyntaxHighlighter)`
+const NestedSyntax = styled(StyledSyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
 `;
 
+interface ViewTabProps {
+    formatOptions: string[];
+    showFormatted: boolean;
+    setShowFormatted: (showFormatted: boolean) => void;
+}
+
+export function ViewTab({ formatOptions, showFormatted, setShowFormatted }: ViewTabProps) {
+    return (
+        <FormattingSelector>
+            <Radio.Group
+                options={[
+                    { label: formatOptions[0], value: false },
+                    { label: formatOptions[1], value: true },
+                ]}
+                onChange={(e) => setShowFormatted(e.target.value)}
+                value={showFormatted}
+                optionType="button"
+            />
+        </FormattingSelector>
+    );
+}
+
 export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
+    const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
+    const canShowFormatted = !!formattedLogic;
+
+    const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
+    const formatOptions = isDbt ? ['Source', 'Compiled'] : ['Raw', 'Formatted'];
+    const [showFormatted, setShowFormatted] = useState(false);
 
     return (
         <>
@@ -56,8 +97,18 @@ export default function ViewDefinitionTab() {
             </InfoSection>
             <InfoSection>
                 <Typography.Title level={5}>Logic</Typography.Title>
+                <ViewHeader>
+                    {canShowFormatted && (
+                        <ViewTab
+                            formatOptions={formatOptions}
+                            setShowFormatted={setShowFormatted}
+                            showFormatted={showFormatted}
+                        />
+                    )}
+                    <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
+                </ViewHeader>
                 <QueryText>
-                    <NestedSyntax language="sql">{logic}</NestedSyntax>
+                    <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
                 </QueryText>
             </InfoSection>
         </>

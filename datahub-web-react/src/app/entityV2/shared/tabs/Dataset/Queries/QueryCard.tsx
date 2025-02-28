@@ -5,15 +5,14 @@ import QueryCardHeader from './QueryCardHeader';
 import QueryCardQuery from './QueryCardQuery';
 import QueryCardDetails from './QueryCardDetails';
 
-const Card = styled.div`
+const Card = styled.div<{ isCompact?: boolean }>`
     border: 1px solid ${ANTD_GRAY[5]};
     border-radius: 4px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    height: 380px;
-    width: 32%;
-    margin-right: 6px;
-    margin-left: 6px;
-    margin-bottom: 20px;
+    max-width: 450px;
+
+    ${(props) => !props.isCompact && `height: 380px;`}
+    ${(props) => props.isCompact && `max-width: 650px;`}
 `;
 
 export type Props = {
@@ -25,10 +24,12 @@ export type Props = {
     showDelete?: boolean;
     showEdit?: boolean;
     showDetails?: boolean;
+    showHeader?: boolean;
     onDeleted?: () => void;
     onClickExpand?: () => void;
     onClickEdit?: () => void;
     index?: number;
+    isCompact?: boolean;
 };
 
 export default function QueryCard({
@@ -40,17 +41,25 @@ export default function QueryCard({
     showDelete,
     showEdit,
     showDetails = true,
+    showHeader = true,
     onDeleted,
     onClickExpand,
     onClickEdit,
     index,
+    isCompact,
 }: Props) {
     const [focused, setFocused] = useState(false);
 
     return (
-        <Card onMouseEnter={() => setFocused(true)} onMouseLeave={() => setFocused(false)}>
-            <QueryCardHeader query={query} focused={focused} onClickExpand={onClickExpand} />
-            <QueryCardQuery query={query} showDetails={showDetails} onClickExpand={onClickExpand} index={index} />
+        <Card onMouseEnter={() => setFocused(true)} onMouseLeave={() => setFocused(false)} isCompact={isCompact}>
+            {showHeader && <QueryCardHeader query={query} focused={focused} onClickExpand={onClickExpand} />}
+            <QueryCardQuery
+                query={query}
+                showDetails={showDetails}
+                onClickExpand={onClickExpand}
+                index={index}
+                isCompact={isCompact}
+            />
             {showDetails && (
                 <QueryCardDetails
                     urn={urn}

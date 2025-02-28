@@ -1,9 +1,11 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import {
     FieldFormPromptAssociation,
+    Form,
     FormAssociation,
     FormPrompt,
     FormPromptAssociation,
+    FormState,
     FormType,
     ResolvedAuditStamp,
     SchemaField,
@@ -12,7 +14,9 @@ import { SCHEMA_FIELD_PROMPT_TYPES } from '../../../../entityForm/constants';
 import { GenericEntityProperties } from '../../../../types';
 
 export function getFormAssociations(entityData: GenericEntityProperties | null) {
-    return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])];
+    return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])].filter(
+        filterFormAssociationsForUser,
+    );
 }
 
 export function getFormAssociation(formUrn: string, entityData: GenericEntityProperties | null) {
@@ -183,9 +187,25 @@ export function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entity
 }
 
 // Get prompts from both complete and incomplete forms
+export function getPromptAssociation(entityData: GenericEntityProperties | null, promptId: string) {
+    let prompts = entityData?.forms?.incompleteForms?.flatMap((form) => form.completedPrompts) || [];
+    prompts = prompts.concat(entityData?.forms?.incompleteForms?.flatMap((form) => form.incompletePrompts) || []);
+    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.completedPrompts) || []);
+    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.incompletePrompts) || []);
+    return prompts.find((p) => p?.id === promptId);
+}
+
+// Get prompts from both complete and incomplete forms
 export function getAllPrompts(entityData: GenericEntityProperties | null) {
-    let prompts = entityData?.forms?.incompleteForms?.flatMap((form) => form.form.info.prompts) || [];
-    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.form.info.prompts) || []);
+    let prompts =
+        entityData?.forms?.incompleteForms
+            ?.filter(filterFormAssociationsForUser)
+            ?.flatMap((form) => form.form.info.prompts || []) || [];
+    prompts = prompts.concat(
+        entityData?.forms?.completedForms
+            ?.filter(filterFormAssociationsForUser)
+            ?.flatMap((form) => form.form.info.prompts || []) || [],
+    );
     return prompts;
 }
 
@@ -197,14 +217,14 @@ export function findPromptAssociation(prompt: FormPrompt, allPrompts: Array<Form
 // Get the prompts for a given form
 export function getPromptsForForm(formUrn: string, entityData: GenericEntityProperties | null) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.prompts || [];
+    return formAssociation?.form?.info?.prompts || [];
 }
 
 /*
  * Gets information for entity level prompts
  */
 export function getEntityPromptsInfo(prompts: FormPrompt[], entityData: GenericEntityProperties | null) {
-    const entityPrompts = prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
+    const entityPrompts = prompts.filter((prompt) => !!prompt && !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
     const requiredEntityPrompts = entityPrompts.filter((prompt) => prompt.required);
     const optionalEntityPrompts = entityPrompts.filter((prompt) => !prompt.required);
 
@@ -279,7 +299,7 @@ export function isVerificationComplete(entityData: GenericEntityProperties | nul
 
 export function isFormVerificationType(entityData: GenericEntityProperties | null, formUrn: string) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.type === FormType.Verification;
+    return formAssociation?.form?.info?.type === FormType.Verification;
 }
 
 /*
@@ -314,9 +334,10 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
     return getMostRecentVerificationAuditStamp(entityData);
 }
 
-export function getBulkByQuestionPrompts(formUrn: string, entityData: GenericEntityProperties | null) {
-    const formAssociation = getFormAssociation(formUrn, entityData);
-    return (
-        formAssociation?.form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
-    );
+export function getBulkByQuestionPrompts(form: Form) {
+    return form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || [];
+}
+
+export function filterFormAssociationsForUser(association: FormAssociation) {
+    return association.form.info.status.state === FormState.Published && association.form.exists;
 }

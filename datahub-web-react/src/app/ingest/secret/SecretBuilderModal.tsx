@@ -10,13 +10,13 @@ const VALUE_FIELD_NAME = 'value';
 type Props = {
     initialState?: SecretBuilderState;
     editSecret?: SecretBuilderState;
-    visible: boolean;
+    open: boolean;
     onSubmit?: (source: SecretBuilderState, resetState: () => void) => void;
     onUpdate?: (source: SecretBuilderState, resetState: () => void) => void;
     onCancel?: () => void;
 };
 
-export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit, onUpdate, onCancel }: Props) => {
+export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, onUpdate, onCancel }: Props) => {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -52,7 +52,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
         <Modal
             width={540}
             title={<Typography.Text>{titleText}</Typography.Text>}
-            visible={visible}
+            open={open}
             onCancel={onCloseModal}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={

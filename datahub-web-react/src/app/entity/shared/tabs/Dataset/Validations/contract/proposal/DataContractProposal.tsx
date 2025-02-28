@@ -11,11 +11,16 @@ import {
 } from '@ant-design/icons';
 import { useEntityData } from '../../../../../EntityContext';
 import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
-import { ActionRequestStatus, ActionRequestType, DataContractProposalParams, EntityType } from '../../../../../../../../types.generated';
+import {
+    ActionRequestStatus,
+    ActionRequestType,
+    DataContractProposalParams,
+    EntityType,
+} from '../../../../../../../../types.generated';
 import { DataContractProposalDescription } from './DataContractProposalDescription';
 import {
-    useAcceptProposalMutation,
-    useRejectProposalMutation,
+    useAcceptProposalsMutation,
+    useRejectProposalsMutation,
 } from '../../../../../../../../graphql/actionRequest.generated';
 import { ANTD_GRAY } from '../../../../../constants';
 import { FAILURE_COLOR_HEX } from '../../../../Incident/incidentUtils';
@@ -90,7 +95,7 @@ const DenyButton = styled(Button)`
         background-color: ${FAILURE_COLOR_HEX};
         border-color: ${FAILURE_COLOR_HEX};
     }
-    margin-right: 12px; ;
+    margin-right: 12px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
@@ -116,8 +121,8 @@ type Props = {
  */
 export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, entityType }: Props) => {
     const { urn } = useEntityData();
-    const [acceptProposalMutation] = useAcceptProposalMutation();
-    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [acceptProposalsMutation] = useAcceptProposalsMutation();
+    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const { data, refetch: contractRefetch } = useGetContractProposalsQuery({
         variables: {
             urn,
@@ -134,7 +139,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
             content: 'Are you sure you want to accept this proposal? New assertions will be created for this dataset.',
             okText: 'Yes',
             onOk() {
-                acceptProposalMutation({ variables: { urn: actionRequestUrn } })
+                acceptProposalsMutation({ variables: { urns: [actionRequestUrn] } })
                     .then(() => {
                         analytics.event({
                             type: EventType.EntityActionEvent,
@@ -161,14 +166,14 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                 'Are you sure you want to reject this proposal? Proposals will no longer be created for this dataset.',
             okText: 'Yes',
             onOk() {
-                rejectProposalMutation({ variables: { urn: actionRequestUrn } })
+                rejectProposalsMutation({ variables: { urns: [actionRequestUrn] } })
                     .then(() => {
                         analytics.event({
                             type: EventType.EntityActionEvent,
                             actionType: EntityActionType.ProposalRejected,
                             actionQualifier: ActionRequestType.DataContract,
                             entityType,
-                            entityUrn
+                            entityUrn,
                         });
                         contractRefetch();
                         setTimeout(() => refetch(), 3000);
@@ -200,7 +205,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                         <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 24 }} />
                     )}
                     <SummaryMessage>
-                        {(isActiveProposal && (
+                        {isActiveProposal && (
                             <>
                                 <SummaryTitle level={5}>
                                     There is a contract proposal pending review <StyledInfoCircleOutlined />
@@ -210,15 +215,6 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                                     proposal={contractProposal as DataContractProposalParams}
                                 />
                             </>
-                        )) || (
-                            <SummaryTitle level={5}>
-                                No contract found
-                                <div>
-                                    <Typography.Text type="secondary">
-                                        A contract does not yet exist for this dataset
-                                    </Typography.Text>
-                                </div>
-                            </SummaryTitle>
                         )}
                     </SummaryMessage>
                 </SummaryDescription>

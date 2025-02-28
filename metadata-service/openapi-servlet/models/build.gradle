@@ -1,0 +1,17 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':entity-registry')
+  implementation project(':metadata-operation-context')
+  implementation project(':metadata-auth:auth-api')
+
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.httpClient
+
+  compileOnly externalDependency.swaggerAnnotations
+  compileOnly externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+}

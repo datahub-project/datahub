@@ -8,6 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesInput;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesResult;
 import com.linkedin.datahub.graphql.generated.StepStateResult;
@@ -20,6 +21,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.step.DataHubStepStateProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,21 +47,21 @@ public class BatchGetStepStatesResolver
     final BatchGetStepStatesInput input =
         bindArgument(environment.getArgument("input"), BatchGetStepStatesInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Map<Urn, String> urnsToIdsMap;
           Set<Urn> urns;
           Map<Urn, EntityResponse> entityResponseMap;
 
           try {
-            urnsToIdsMap = buildUrnToIdMap(input.getIds(), authentication);
+            urnsToIdsMap = buildUrnToIdMap(context.getOperationContext(), input.getIds());
             urns = urnsToIdsMap.keySet();
             entityResponseMap =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     DATAHUB_STEP_STATE_ENTITY_NAME,
                     urns,
-                    ImmutableSet.of(DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME),
-                    authentication);
+                    ImmutableSet.of(DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME));
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
@@ -83,17 +85,19 @@ public class BatchGetStepStatesResolver
           final BatchGetStepStatesResult result = new BatchGetStepStatesResult();
           result.setResults(results);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nonnull
   private Map<Urn, String> buildUrnToIdMap(
-      @Nonnull final List<String> ids, @Nonnull final Authentication authentication)
+      @Nonnull OperationContext opContext, @Nonnull final List<String> ids)
       throws RemoteInvocationException {
     final Map<Urn, String> urnToIdMap = new HashMap<>();
     for (final String id : ids) {
       final Urn urn = getStepStateUrn(id);
-      if (_entityClient.exists(urn, authentication)) {
+      if (_entityClient.exists(opContext, urn)) {
         urnToIdMap.put(urn, id);
       }
     }

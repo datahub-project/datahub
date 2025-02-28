@@ -1,76 +1,12 @@
-#################################
-# Integrations Service
-#################################
-x-datahub-integrations-service: &datahub-integrations-service
-  hostname: datahub-integrations-service
-  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
-  ports:
-    - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
-  env_file: datahub-integrations-service/env/docker.env
+---
+name: acryl
 
-x-datahub-integrations-service-dev: &datahub-integrations-service-dev
-  <<: *datahub-integrations-service
-  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
-  volumes:
-    - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
-    - ../../metadata-ingestion/src:/metadata-ingestion/src
-    - ../../datahub-integrations-service:/datahub-integrations-service
-    # - ../../datahub-actions:/datahub-actions
-
-#################################
-# Monitors Service
-#################################
-x-datahub-monitors-service: &datahub-monitors-service
-  hostname: datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
-  ports:
-    - ${DATAHUB_MAPPED_MONITORS_PORT:-9004}:9004
-  env_file: datahub-monitors-service/env/docker.env
-
-x-datahub-monitors-service-dev: &datahub-monitors-service-dev
-  <<: *datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-debug}
-  volumes:
-    - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
-    - ../../metadata-ingestion/src:/metadata-ingestion/src
-    - ../../datahub-monitors-service:/datahub-monitors-service
-
-services:
-  #################################
-  # Integrations Service
-  #################################
-  datahub-integrations-quickstart-consumers:
-    <<: *datahub-integrations-service
-    profiles:
-      - quickstart-consumers
-    container_name: datahub-integrations-service
-    depends_on:
-      datahub-gms-quickstart-consumers:
-        condition: service_healthy
-  datahub-integrations-quickstart-dev:
-    <<: *datahub-integrations-service-dev
-    profiles:
-      - debug
-    container_name: datahub-integrations-service-dev
-    depends_on:
-      datahub-gms-debug:
-        condition: service_healthy
-  #################################
-  # Monitors Service
-  #################################
-  datahub-monitors-quickstart-consumers:
-    <<: *datahub-monitors-service
-    profiles:
-      - quickstart-consumers
-    container_name: datahub-monitors-service
-    depends_on:
-      datahub-gms-quickstart-consumers:
-        condition: service_healthy
-  datahub-monitors-quickstart-dev:
-    <<: *datahub-monitors-service-dev
-    profiles:
-      - debug
-    container_name: datahub-monitors-service-dev
-    depends_on:
-      datahub-gms-debug:
-        condition: service_healthy
+include:
+  # Contains storage layers: i.e. mysql, kafka, elasticsearch
+  - docker-compose.prerequisites.yml
+  # Frontend
+  - docker-compose.frontend.yml
+  # Remaining components: i.e. gms, system-update, consumers
+  - docker-compose.gms.yml
+  # Saas components: i.e. monitors & integrations services
+  - docker-compose.acryl-python-services.yml

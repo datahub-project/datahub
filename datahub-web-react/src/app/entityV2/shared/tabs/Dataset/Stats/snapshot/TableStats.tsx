@@ -1,12 +1,13 @@
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
+import { CorpUser, Maybe, PartitionSpec, PartitionType, UserUsageCounts } from '../../../../../../../types.generated';
+import { countFormatter } from '../../../../../../../utils/formatter/index';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
+import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
-import { countFormatter } from '../../../../../../../utils/formatter/index';
-import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
-import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 type Props = {
     rowCount?: number;
@@ -15,6 +16,7 @@ type Props = {
     users?: Array<Maybe<UserUsageCounts>>;
     lastUpdatedTime?: string;
     lastReportedTime?: string;
+    partitionSpec?: Maybe<PartitionSpec>;
 };
 
 const StatSection = styled.div`
@@ -37,6 +39,7 @@ export default function TableStats({
     users,
     lastUpdatedTime,
     lastReportedTime,
+    partitionSpec,
 }: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
@@ -52,9 +55,15 @@ export default function TableStats({
         return null;
     }
     const sortedUsers = users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0));
+
+    // we assume if no partition spec is provided, it's a full table
+    const isPartitioned = partitionSpec && partitionSpec.type !== PartitionType.FullTable;
+
     return (
         <StatSection>
-            <Typography.Title level={5}>Table Stats</Typography.Title>
+            <Typography.Title level={5}>
+                {isPartitioned ? `Partition Stats for Partition ${partitionSpec.partition}` : 'Table Stats'}
+            </Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">
@@ -80,7 +89,7 @@ export default function TableStats({
                     </InfoItem>
                 )}
                 {sortedUsers && sortedUsers.length > 0 && (
-                    <InfoItem title="Top Users">
+                    <InfoItem title="Top Users" width="inherit">
                         <div style={{ paddingTop: 8 }}>
                             <ExpandedActorGroup
                                 containerStyle={{

@@ -3,13 +3,10 @@ package com.linkedin.metadata.kafka.hook.notification.change;
 import static com.linkedin.metadata.Constants.ASSERTION_RESULT_KEY;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.google.common.collect.ImmutableMap;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
@@ -20,17 +17,19 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.event.notification.NotificationContext;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.NotificationRecipientsGeneratorExtraContext;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
@@ -45,7 +44,10 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorR
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeType;
+import com.linkedin.subscription.SubscriptionInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,9 +81,17 @@ import org.springframework.context.annotation.Import;
 @Import({
   EntityChangeEventGeneratorRegistry.class,
   EntityRegistryFactory.class,
-  SlackNotificationRecipientBuilder.class
 })
 public class EntityChangeNotificationGenerator extends BaseMclNotificationGenerator {
+
+  private static final String DEPRECATED = "DEPRECATED";
+  private static final String UNDEPRECATED = "ACTIVE";
+
+  private static final List<EntityChangeType> ASSERTION_ENTITY_CHANGE_TYPES =
+      List.of(
+          EntityChangeType.ASSERTION_PASSED,
+          EntityChangeType.ASSERTION_FAILED,
+          EntityChangeType.ASSERTION_ERROR);
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> SUPPORTED_ASPECT_NAMES =
@@ -121,35 +131,31 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       ImmutableSet.of(ChangeType.CREATE, ChangeType.UPSERT);
 
   private static final String MODIFICATION_CATEGORY = "modificationCategory";
-
-  private final EntityNameProvider _entityNameProvider;
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityRegistry _entityRegistry;
   private final FeatureFlags _featureFlags;
   private final AssertionService _assertionService;
 
   public EntityChangeNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final AssertionService assertionService,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final NotificationRecipientBuilders recipientBuilders,
       @Nonnull final FeatureFlags featureFlags) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
-    _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
+        recipientBuilders);
     _entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _entityRegistry = Objects.requireNonNull(systemOpContext.getEntityRegistry());
     _assertionService = Objects.requireNonNull(assertionService);
     _featureFlags = featureFlags;
   }
@@ -258,7 +264,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -278,7 +285,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -301,7 +309,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -321,7 +330,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -344,7 +354,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -364,7 +375,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -387,7 +399,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -407,28 +420,52 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
   private void trySendDeprecationChangeNotifications(
       final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
-    long deprecationChangeEventCount =
+    List<ChangeEvent> deprecatedChangeEvents =
         changeEvents.stream()
             .filter(changeEvent -> ChangeCategory.DEPRECATION.equals(changeEvent.getCategory()))
             .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
-            .count();
-    if (deprecationChangeEventCount > 0) {
+            .filter(changeEvent -> DEPRECATED.equals(changeEvent.getParameters().get("status")))
+            .toList();
+    if (!deprecatedChangeEvents.isEmpty()) {
+      final ChangeEvent deprecatedEvent = deprecatedChangeEvents.get(0);
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DEPRECATION_CHANGE,
           EntityChangeType.DEPRECATED,
           logEvent.getCreated().getActor(),
-          "updated",
+          "marked as deprecated",
           "deprecation",
           null,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          convertObjectMapToStringMap(deprecatedEvent.getParameters()),
+          logEvent.getSystemMetadata());
+    }
+    long undeprecatedChangeEventCount =
+        changeEvents.stream()
+            .filter(changeEvent -> ChangeCategory.DEPRECATION.equals(changeEvent.getCategory()))
+            .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
+            .filter(changeEvent -> UNDEPRECATED.equals(changeEvent.getParameters().get("status")))
+            .count();
+    if (undeprecatedChangeEventCount > 0) {
+      sendEntityChangeNotification(
+          NotificationScenarioType.ENTITY_DEPRECATION_CHANGE,
+          EntityChangeType.UNDEPRECATED,
+          logEvent.getCreated().getActor(),
+          "marked as un-deprecated",
+          "deprecation",
+          null,
+          logEvent.getEntityUrn(),
+          null,
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -448,11 +485,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           EntityChangeType.OPERATION_COLUMN_ADDED,
           logEvent.getCreated().getActor(),
           "added",
-          "schema field(s)",
+          "column(s)",
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -469,11 +507,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           EntityChangeType.OPERATION_COLUMN_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
-          "schema field(s)",
+          "column(s)",
           removedUrns,
           logEvent.getEntityUrn(),
           "",
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> renamedUrns =
@@ -495,11 +534,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           EntityChangeType.OPERATION_COLUMN_MODIFIED,
           logEvent.getCreated().getActor(),
           "renamed",
-          "schema field(s)",
+          "column(s)",
           renamedUrns,
           logEvent.getEntityUrn(),
           "",
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> typeChangedUrns =
@@ -520,12 +560,13 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           NotificationScenarioType.DATASET_SCHEMA_CHANGE,
           EntityChangeType.OPERATION_COLUMN_MODIFIED,
           logEvent.getCreated().getActor(),
-          "updated type for",
-          "schema field(s)",
+          "updated (field types)",
+          "column(s)",
           typeChangedUrns,
           logEvent.getEntityUrn(),
           "",
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -548,7 +589,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -568,7 +610,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           "",
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -591,7 +634,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           addedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
 
     List<Urn> removedUrns =
@@ -611,7 +655,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           removedUrns,
           logEvent.getEntityUrn(),
           null,
-          null);
+          null,
+          logEvent.getSystemMetadata());
     }
   }
 
@@ -624,31 +669,71 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nullable final List<Urn> modifierUrns,
       final Urn entityUrn,
       @Nullable final String subResourceType,
-      @Nullable final String subResource) {
+      @Nullable final String subResource,
+      @Nullable final SystemMetadata systemMetadata) {
+    sendEntityChangeNotification(
+        notificationScenarioType,
+        entityChangeType,
+        actorUrn,
+        operation,
+        modifierType,
+        modifierUrns,
+        entityUrn,
+        subResourceType,
+        subResource,
+        null,
+        systemMetadata);
+  }
+
+  private void sendEntityChangeNotification(
+      final NotificationScenarioType notificationScenarioType,
+      final EntityChangeType entityChangeType,
+      final Urn actorUrn,
+      final String operation,
+      final String modifierType,
+      @Nullable final List<Urn> modifierUrns,
+      final Urn entityUrn,
+      @Nullable final String subResourceType,
+      @Nullable final String subResource,
+      @Nullable final Map<String, String> extraParameters,
+      @Nullable final SystemMetadata systemMetadata) {
     // 1. Determine who to send to.
     final Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(notificationScenarioType, entityUrn, entityChangeType));
+        new HashSet<>(
+            buildRecipients(
+                systemOpContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn));
 
     if (recipients.isEmpty()) {
       return;
     }
 
     // 2. Build request.
-    final String entityName = _entityNameProvider.getName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String actorName = _entityNameProvider.getName(systemOpContext, actorUrn);
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("entityName", entityName);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("entityType", getEntityType(entityUrn));
+    templateParams.put("entityType", entityType);
     templateParams.put("operation", operation);
     templateParams.put("modifierType", modifierType);
     templateParams.put(
         "modifierCount", modifierUrns == null ? "0" : String.valueOf(modifierUrns.size()));
     templateParams.put("actorUrn", actorUrn.toString());
+    templateParams.put("actorName", actorName);
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
+
+    if (extraParameters != null) {
+      templateParams.putAll(extraParameters);
+    }
 
     if (modifierUrns != null) {
       for (int i = 0; i < modifierUrns.size() && i < 3; i++) {
         final Urn modifierUrn = modifierUrns.get(i);
-        final String modifierName = _entityNameProvider.getName(modifierUrn);
+        final String modifierName = _entityNameProvider.getName(systemOpContext, modifierUrn);
         templateParams.put(String.format("modifier%sName", i), modifierName);
         templateParams.put(String.format("modifier%sPath", i), generateEntityPath(modifierUrn));
       }
@@ -659,9 +744,18 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       templateParams.put("subResource", subResource);
     }
 
+    final NotificationContext context = new NotificationContext();
+
+    if (systemMetadata != null) {
+      context.setRunId(systemMetadata.getRunId(), SetMode.IGNORE_NULL);
+    }
+
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
-            NotificationTemplateType.BROADCAST_ENTITY_CHANGE.name(), templateParams, recipients);
+            NotificationTemplateType.BROADCAST_ENTITY_CHANGE.name(),
+            templateParams,
+            recipients,
+            context);
 
     // 3. Send request.
     log.debug(
@@ -757,16 +851,22 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     final Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.ASSERTION_STATUS_CHANGE, entityUrn, entityChangeType));
+                systemOpContext,
+                NotificationScenarioType.ASSERTION_STATUS_CHANGE,
+                entityUrn,
+                entityChangeType,
+                null,
+                new NotificationRecipientsGeneratorExtraContext().setModifierUrn(assertionUrn)));
 
     if (recipients.isEmpty()) {
       return;
     }
 
     // 2. Build request.
-    final AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    final AssertionInfo assertionInfo =
+        _assertionService.getAssertionInfo(systemOpContext, assertionUrn);
     final DataPlatformInstance maybeAssertionPlatform =
-        _assertionService.getAssertionDataPlatformInstance(assertionUrn);
+        _assertionService.getAssertionDataPlatformInstance(systemOpContext, assertionUrn);
 
     if (assertionInfo == null) {
       log.warn(
@@ -776,20 +876,28 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       return;
     }
 
-    final String entityName = _entityNameProvider.getName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("assertionType", assertionInfo.getType().toString());
+    templateParams.put("assertionUrn", assertionUrn.toString());
     templateParams.put("entityName", entityName);
+    templateParams.put("entityType", entityType);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
     templateParams.put("result", result.getType().toString());
     templateParams.put(
         "description", AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo));
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
     if (result.hasExternalUrl()) {
       templateParams.put("externalUrl", result.getExternalUrl());
     }
     if (maybeAssertionPlatform != null) {
       templateParams.put(
-          "externalPlatform", _entityNameProvider.getName(maybeAssertionPlatform.getPlatform()));
+          "externalPlatform",
+          _entityNameProvider.getName(systemOpContext, maybeAssertionPlatform.getPlatform()));
     }
     if (assertionInfo.hasSource()) {
       templateParams.put("sourceType", assertionInfo.getSource().getType().toString());
@@ -807,6 +915,58 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
             "Broadcasting entity change notification request for entity %s, notification type %s",
             entityUrn, NotificationScenarioType.ASSERTION_STATUS_CHANGE));
     sendNotificationRequest(notificationRequest);
+  }
+
+  @Override
+  @Nonnull
+  protected Map<Urn, SubscriptionInfo> applySubscriptionFiltersToSubscriptionMap(
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptionInfoMap,
+      @Nullable EntityChangeType changeType,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+    if (changeType == null || extraContext == null) return subscriptionInfoMap;
+    if (!ASSERTION_ENTITY_CHANGE_TYPES.contains(changeType)) return subscriptionInfoMap;
+    final Urn triggeredByAssertionUrn = extraContext.getModifierUrn();
+    if (triggeredByAssertionUrn == null) {
+      throw new RuntimeException(
+          String.format(
+              "Assertion urn missing from extra context, but it is required for change type: %s",
+              changeType));
+    }
+
+    return subscriptionInfoMap.entrySet().stream()
+        .filter(
+            subscriptionEntry ->
+                checkSubscriptionQualifiesForNotification(
+                    subscriptionEntry.getValue(), changeType, triggeredByAssertionUrn))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private boolean checkSubscriptionQualifiesForNotification(
+      final SubscriptionInfo subscriptionInfo,
+      final EntityChangeType changeType,
+      final Urn triggeredByAssertionUrn) {
+    // Subscription qualifies for notification if...
+    // a) this subscription is not tied to any entity change types
+    if (!subscriptionInfo.hasEntityChangeTypes()) return true;
+
+    final Set<EntityChangeDetails> assertionChangeDetails =
+        subscriptionInfo.getEntityChangeTypes().stream()
+            .filter(details -> details.getEntityChangeType().equals(changeType))
+            .collect(Collectors.toSet());
+    // We should never have subscription passed in here that is not related to the changeType
+    // For now letting it pass through to prevent breaking prev functionality - TODO throw an error?
+    if (assertionChangeDetails.isEmpty()) return true;
+
+    // b) this subscription has an assertion subscription with no filters,
+    //    or a filter that includes this assertion urn
+    return assertionChangeDetails.stream()
+        .anyMatch(
+            details -> {
+              // has no assertion filters
+              if (!details.hasFilter() || !details.getFilter().hasIncludeAssertions()) return true;
+              // has filters that include this assertion urn
+              return details.getFilter().getIncludeAssertions().contains(triggeredByAssertionUrn);
+            });
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
@@ -841,5 +1001,18 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   private Aspect createAspect(
       @Nullable final RecordTemplate value, @Nullable final SystemMetadata systemMetadata) {
     return new Aspect(value, systemMetadata);
+  }
+
+  private Map<String, String> convertObjectMapToStringMap(Map<String, Object> map) {
+    Map<String, String> stringMap = new HashMap<>();
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      Object value = entry.getValue();
+      if (value instanceof String) {
+        stringMap.put(entry.getKey(), (String) value);
+      } else {
+        log.warn("Found non-string value in map: " + entry.getKey() + " -> " + value);
+      }
+    }
+    return stringMap;
   }
 }

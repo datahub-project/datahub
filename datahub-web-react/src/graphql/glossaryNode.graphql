@@ -5,6 +5,7 @@ fragment childGlossaryTerm on GlossaryTerm {
     hierarchicalName
     properties {
         name
+        description
     }
 }
 
@@ -26,17 +27,21 @@ query getGlossaryNode($urn: String!) {
         privileges {
             ...entityPrivileges
         }
+        share {
+            ...shareFields
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
-        children: relationships(
-            input: {
-                types: ["IsPartOf"]
-                direction: INCOMING
-                start: 0
-                count: 10000
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
             }
-        ) {
+        }
+        forms {
+            ...formsFields
+        }
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
             total
             relationships {
                 direction
@@ -55,5 +60,9 @@ query getGlossaryNode($urn: String!) {
         displayProperties {
             ...displayPropertiesFields
         }
+        assetOrigin {
+            ...originFields
+        }
+        ...notes
     }
 }

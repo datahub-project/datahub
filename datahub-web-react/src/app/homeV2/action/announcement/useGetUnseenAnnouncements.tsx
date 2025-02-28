@@ -1,3 +1,4 @@
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { useListPostsQuery } from '../../../../graphql/post.generated';
 import { Post, PostContentType, PostType } from '../../../../types.generated';
 import { useGetLastViewedAnnouncementTime } from '../../shared/useGetLastViewedAnnouncementTime';
@@ -14,6 +15,7 @@ export const useGetUnseenAnnouncements = () => {
             input: {
                 start: 0,
                 count: 30,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: 'cache-first',

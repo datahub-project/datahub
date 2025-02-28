@@ -37,7 +37,9 @@ interface Props {
 
 export default function DropdownHeader({ field, numPrompts, isExpanded }: Props) {
     const { entityData } = useEntityData();
-    const { formUrn } = useEntityFormContext();
+    const {
+        form: { formUrn },
+    } = useEntityFormContext();
     const numPromptsCompletedForField = useMemo(
         () => getNumPromptsCompletedForField(field.fieldPath, entityData, formUrn),
         [entityData, field.fieldPath, formUrn],

@@ -51,7 +51,7 @@ export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
 
     return (
         <Section>
-            <Typography.Title level={5}>Fail if resulting value</Typography.Title>
+            <Typography.Title level={5}>Pass if resulting value</Typography.Title>
             <StyledSelect
                 value={SQL_OPERATION_OPTIONS[optionValue]}
                 options={options}

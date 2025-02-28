@@ -2,7 +2,7 @@ package com.linkedin.metadata.config;
 
 import lombok.Data;
 
-/** POJO representing the "ingestion" configuration block in application.yml. */
+/** POJO representing the "ingestion" configuration block in application.yaml. */
 @Data
 public class IngestionConfiguration {
   /** Whether managed ingestion is enabled */

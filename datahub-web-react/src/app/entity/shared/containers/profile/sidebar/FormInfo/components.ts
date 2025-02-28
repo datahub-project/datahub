@@ -18,6 +18,7 @@ export const SubTitle = styled.div<{ addMargin?: boolean }>`
     font-weight: 600;
     margin-bottom: 4px;
     ${(props) => props.addMargin && `margin-top: 8px;`}
+    text-wrap: wrap;
 `;
 
 export const Title = styled.div`

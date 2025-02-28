@@ -1,18 +1,18 @@
 import { ApolloClient } from '@apollo/client';
-import { isEqual } from 'lodash';
 import { useEffect } from 'react';
+import { isEqual } from 'lodash';
 import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
 import { Entity, EntityType } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
 import { GenericEntityProperties } from '../entity/shared/types';
 import usePrevious from '../shared/usePrevious';
+import { useDomainsContext } from './DomainsContext';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useDomainsContext as useDomainsContextV2 }  from './DomainsContext';
+import EntityRegistry from '../entity/EntityRegistry';
 
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
+export const addToListDomainsCache = (client: ApolloClient<any>, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -61,7 +61,7 @@ export const updateListDomainsCache = (
         client,
         {
             urn,
-            id: id || null,
+            id: id || '',
             type: EntityType.Domain,
             properties: {
                 name,
@@ -120,7 +120,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDo
 };
 
 export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
-    const { setEntityData } = useDomainsContextV2();
+    const { setEntityData } = useDomainsContext();
     const previousEntityData = usePrevious(entityData);
 
     useEffect(() => {

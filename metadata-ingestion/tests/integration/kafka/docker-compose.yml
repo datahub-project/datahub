@@ -1,5 +1,4 @@
 ---
-version: "3.8"
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.2.2

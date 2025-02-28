@@ -15,6 +15,7 @@ import FormRequestedBy from './FormSelectionModal/FormRequestedBy';
 import useHasComponentRendered from '../../../shared/useHasComponentRendered';
 import Loading from '../../../shared/Loading';
 import { DeferredRenderComponent } from '../../../shared/DeferredRenderComponent';
+import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { OnboardingTour } from '../../../onboarding/OnboardingTour';
 import { FORM_ASSET_COMPLETION } from '../../../onboarding/config/FormOnboardingConfig';
 
@@ -43,58 +44,82 @@ const RequestedByWrapper = styled(PromptSubTitle)`
 
 interface Props {
     formUrn: string;
+    showHeader?: boolean;
+    showVerifyPrompt?: boolean;
 }
 
-function Form({ formUrn }: Props) {
+function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { entityType, entityData } = useEntityData();
+    const { entityType, entityData, loading } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
     const shouldShowVerificationPrompt = useShouldShowVerificationPrompt(formUrn);
     const { hasRendered } = useHasComponentRendered();
 
-    if (!hasRendered) return <Loading />;
-
     const formAssociation = getFormAssociation(formUrn, entityData);
-    const title = formAssociation?.form.info.name;
+    const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
-    const description = formAssociation?.form.info.description;
-    const owners = formAssociation?.form.ownership?.owners;
+    const description = formAssociation?.form?.info?.description;
+    const owners = formAssociation?.form?.ownership?.owners;
+
+    if (!hasRendered || !entityData) return <Loading />;
 
     return (
         <TabWrapper>
             <OnboardingTour stepIds={[FORM_ASSET_COMPLETION]} />
-            <HeaderWrapper>
-                <IntroTitle>
-                    {title ? <>{title}</> : <>{entityRegistry.getEntityName(entityType)} Requirements</>}
-                </IntroTitle>
-                {owners && owners.length > 0 && (
-                    <RequestedByWrapper>
-                        <FormRequestedBy owners={owners} />
-                    </RequestedByWrapper>
-                )}
-                {description ? (
-                    <SubTitle>{description}</SubTitle>
-                ) : (
-                    <SubTitle>
-                        Please fill out the following information for this {entityRegistry.getEntityName(entityType)} so
-                        that we can keep track of the status of the asset
-                    </SubTitle>
-                )}
-            </HeaderWrapper>
-            {entityPrompts?.map((prompt, index) => (
-                <Prompt
-                    key={`${prompt.id}-${entityData?.urn}`}
-                    promptNumber={index + 1}
-                    prompt={prompt as FormPrompt}
-                    associatedUrn={associatedUrn}
-                />
-            ))}
-            {fieldPrompts.length > 0 && <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />}
-            {shouldShowVerificationPrompt && <VerificationPrompt formUrn={formUrn} associatedUrn={associatedUrn} />}
+            {showHeader && (
+                <HeaderWrapper>
+                    <IntroTitle>
+                        {title ? <>{title}</> : <>{entityRegistry.getEntityName(entityType)} Requirements</>}
+                    </IntroTitle>
+                    {owners && owners.length > 0 && (
+                        <RequestedByWrapper>
+                            <FormRequestedBy owners={owners} />
+                        </RequestedByWrapper>
+                    )}
+                    {description ? (
+                        <SubTitle>
+                            <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        </SubTitle>
+                    ) : (
+                        <SubTitle>
+                            Please fill out the following information for this{' '}
+                            {entityRegistry.getEntityName(entityType)} so that we can keep track of the status of the
+                            asset
+                        </SubTitle>
+                    )}
+                </HeaderWrapper>
+            )}
+            {loading && <Loading />}
+            {!loading && (
+                <>
+                    {entityPrompts?.map((prompt, index) => (
+                        <Prompt
+                            key={`${prompt.id}-${entityData?.urn}`}
+                            promptNumber={index + 1}
+                            prompt={prompt as FormPrompt}
+                            associatedUrn={associatedUrn}
+                        />
+                    ))}
+                    {fieldPrompts.length > 0 && (
+                        <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />
+                    )}
+                    {shouldShowVerificationPrompt && showVerifyPrompt && (
+                        <VerificationPrompt
+                            formUrn={formUrn}
+                            associatedUrn={associatedUrn}
+                            shouldShowVerificationPrompt={showVerifyPrompt && shouldShowVerificationPrompt}
+                        />
+                    )}
+                </>
+            )}
         </TabWrapper>
     );
 }
 
-export default function FormContainer({ formUrn }: Props) {
-    return <DeferredRenderComponent wrappedComponent={<Form formUrn={formUrn} />} />;
+export default function FormContainer({ formUrn, showHeader = true, showVerifyPrompt = true }: Props) {
+    return (
+        <DeferredRenderComponent
+            wrappedComponent={<Form formUrn={formUrn} showHeader={showHeader} showVerifyPrompt={showVerifyPrompt} />}
+        />
+    );
 }

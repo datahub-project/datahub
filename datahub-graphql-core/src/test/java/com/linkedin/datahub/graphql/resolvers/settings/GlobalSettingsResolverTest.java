@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -18,15 +18,17 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.NotificationSettingValue;
+import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -42,10 +44,10 @@ public class GlobalSettingsResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
                 Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
@@ -81,6 +83,10 @@ public class GlobalSettingsResolverTest {
         actual.getIntegrationSettings().getSlackSettings().getDefaultChannelName(),
         expected.getIntegrations().getSlackSettings().getDefaultChannelName());
 
+    assertEquals(
+        actual.getIntegrationSettings().getEmailSettings().getDefaultEmail(),
+        expected.getIntegrations().getEmailSettings().getDefaultEmail());
+
     // Verify notification settings settings.
     for (NotificationSetting actualSetting : actual.getNotificationSettings().getSettings()) {
       assertEquals(
@@ -108,8 +114,7 @@ public class GlobalSettingsResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(OperationContext.class), Mockito.any(), Mockito.anySet(), Mockito.anySet());
   }
 
   @Test
@@ -118,8 +123,7 @@ public class GlobalSettingsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(OperationContext.class), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     SecretService mockSecretService = Mockito.mock(SecretService.class);
 
     GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
@@ -137,7 +141,8 @@ public class GlobalSettingsResolverTest {
     globalSettingsInfo.setIntegrations(
         new GlobalIntegrationSettings()
             .setSlackSettings(
-                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test")));
+                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+            .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
     NotificationSettingMap map = new NotificationSettingMap();
     map.put(
         NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),

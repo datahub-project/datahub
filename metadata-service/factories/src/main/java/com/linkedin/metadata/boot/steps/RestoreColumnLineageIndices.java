@@ -11,8 +11,8 @@ import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ExtraInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -27,43 +27,45 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
   private static final String UPGRADE_ID = "restore-column-lineage-indices";
   private static final Integer BATCH_SIZE = 1000;
 
-  private final EntityRegistry _entityRegistry;
-
-  public RestoreColumnLineageIndices(
-      @Nonnull final EntityService<?> entityService, @Nonnull final EntityRegistry entityRegistry) {
+  public RestoreColumnLineageIndices(@Nonnull final EntityService<?> entityService) {
     super(entityService, VERSION, UPGRADE_ID);
-    _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry must not be null");
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    final int totalUpstreamLineageCount = getAndRestoreUpstreamLineageIndices(0, auditStamp);
+    final int totalUpstreamLineageCount =
+        getAndRestoreUpstreamLineageIndices(systemOperationContext, 0, auditStamp);
     int upstreamLineageCount = BATCH_SIZE;
     while (upstreamLineageCount < totalUpstreamLineageCount) {
-      getAndRestoreUpstreamLineageIndices(upstreamLineageCount, auditStamp);
+      getAndRestoreUpstreamLineageIndices(systemOperationContext, upstreamLineageCount, auditStamp);
       upstreamLineageCount += BATCH_SIZE;
     }
 
     final int totalChartInputFieldsCount =
-        getAndRestoreInputFieldsIndices(Constants.CHART_ENTITY_NAME, 0, auditStamp);
+        getAndRestoreInputFieldsIndices(
+            systemOperationContext, Constants.CHART_ENTITY_NAME, 0, auditStamp);
     int chartInputFieldsCount = BATCH_SIZE;
     while (chartInputFieldsCount < totalChartInputFieldsCount) {
       getAndRestoreInputFieldsIndices(
-          Constants.CHART_ENTITY_NAME, chartInputFieldsCount, auditStamp);
+          systemOperationContext, Constants.CHART_ENTITY_NAME, chartInputFieldsCount, auditStamp);
       chartInputFieldsCount += BATCH_SIZE;
     }
 
     final int totalDashboardInputFieldsCount =
-        getAndRestoreInputFieldsIndices(Constants.DASHBOARD_ENTITY_NAME, 0, auditStamp);
+        getAndRestoreInputFieldsIndices(
+            systemOperationContext, Constants.DASHBOARD_ENTITY_NAME, 0, auditStamp);
     int dashboardInputFieldsCount = BATCH_SIZE;
     while (dashboardInputFieldsCount < totalDashboardInputFieldsCount) {
       getAndRestoreInputFieldsIndices(
-          Constants.DASHBOARD_ENTITY_NAME, dashboardInputFieldsCount, auditStamp);
+          systemOperationContext,
+          Constants.DASHBOARD_ENTITY_NAME,
+          dashboardInputFieldsCount,
+          auditStamp);
       dashboardInputFieldsCount += BATCH_SIZE;
     }
   }
@@ -74,14 +76,17 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
     return ExecutionMode.ASYNC;
   }
 
-  private int getAndRestoreUpstreamLineageIndices(int start, AuditStamp auditStamp) {
+  private int getAndRestoreUpstreamLineageIndices(
+      @Nonnull OperationContext systemOperationContext, int start, AuditStamp auditStamp) {
     final AspectSpec upstreamLineageAspectSpec =
-        _entityRegistry
+        systemOperationContext
+            .getEntityRegistry()
             .getEntitySpec(Constants.DATASET_ENTITY_NAME)
             .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
 
     final ListResult<RecordTemplate> latestAspects =
-        _entityService.listLatestAspects(
+        entityService.listLatestAspects(
+            systemOperationContext,
             Constants.DATASET_ENTITY_NAME,
             Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
             start,
@@ -117,8 +122,9 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       }
 
       futures.add(
-          _entityService
+          entityService
               .alwaysProduceMCLAsync(
+                  systemOperationContext,
                   urn,
                   Constants.DATASET_ENTITY_NAME,
                   Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
@@ -146,14 +152,25 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
     return latestAspects.getTotalCount();
   }
 
-  private int getAndRestoreInputFieldsIndices(String entityName, int start, AuditStamp auditStamp)
+  private int getAndRestoreInputFieldsIndices(
+      @Nonnull OperationContext systemOperationContext,
+      String entityName,
+      int start,
+      AuditStamp auditStamp)
       throws Exception {
     final AspectSpec inputFieldsAspectSpec =
-        _entityRegistry.getEntitySpec(entityName).getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME);
+        systemOperationContext
+            .getEntityRegistry()
+            .getEntitySpec(entityName)
+            .getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME);
 
     final ListResult<RecordTemplate> latestAspects =
-        _entityService.listLatestAspects(
-            entityName, Constants.INPUT_FIELDS_ASPECT_NAME, start, BATCH_SIZE);
+        entityService.listLatestAspects(
+            systemOperationContext,
+            entityName,
+            Constants.INPUT_FIELDS_ASPECT_NAME,
+            start,
+            BATCH_SIZE);
 
     if (latestAspects.getTotalCount() == 0
         || latestAspects.getValues() == null
@@ -185,8 +202,9 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       }
 
       futures.add(
-          _entityService
+          entityService
               .alwaysProduceMCLAsync(
+                  systemOperationContext,
                   urn,
                   entityName,
                   Constants.INPUT_FIELDS_ASPECT_NAME,

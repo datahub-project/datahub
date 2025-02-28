@@ -1,18 +1,22 @@
 import React, { useEffect } from 'react';
 import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { AcrylTestResults } from './AcrylTestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AssertionSourceType } from '../../../../../../types.generated';
 import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
+import {
+    SEPARATE_SIBLINGS_URL_PARAM,
+    combineEntityDataWithSiblings,
+    useIsSeparateSiblingsMode,
+} from '../../../siblingUtils';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -24,8 +28,7 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 `;
 
 enum TabPaths {
-    ASSERTIONS = 'Assertions',
-    TESTS = 'Tests',
+    ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
 }
 
@@ -38,18 +41,13 @@ export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
     const { urn, entityData } = useEntityData();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-    const totalAssertions =
-        assertionsData?.dataset?.assertions?.assertions?.filter(
-            // SaaS-Only filtering.
-            (assertion) => assertion.info?.source?.type !== AssertionSourceType.Inferred,
-        ).length || 0;
-
-    const passingTests = (entityData as any)?.testResults?.passing || [];
-    const failingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = failingTests.length + passingTests.length;
+    const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
+    const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
@@ -57,14 +55,14 @@ export const AcrylValidationsTab = () => {
     useEffect(() => {
         if (!selectedTab) {
             // Route to the default tab.
-            history.replace(`${basePath}/${DEFAULT_TAB}`);
+            history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }
-    }, [selectedTab, basePath, history]);
+    }, [selectedTab, basePath, history, isHideSiblingMode]);
 
     /**
      * The top-level Toolbar tabs to display.
      */
-    const tabs = [
+    const tabs: any[] = [
         {
             title: (
                 <>
@@ -75,17 +73,6 @@ export const AcrylValidationsTab = () => {
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertions />,
-        },
-        {
-            title: (
-                <>
-                    <FileDoneOutlined />
-                    <TabTitle>Tests ({totalTests})</TabTitle>
-                </>
-            ),
-            path: TabPaths.TESTS,
-            disabled: totalTests === 0,
-            content: <AcrylTestResults urn={urn} />,
         },
     ];
 
@@ -100,7 +87,15 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.DATA_CONTRACT,
             content: <DataContractTab />,
-            disabled: false,
+            disabled: isRenderingSiblings,
+            tip: isRenderingSiblings ? (
+                <>
+                    You cannot view a data contract for a group of assets. <br />
+                    <br />
+                    To view the data contract for a specific asset in this group, navigate to them using the{' '}
+                    <b>Composed Of</b> sidebar section on the right.
+                </>
+            ) : null,
         });
     }
 
@@ -109,15 +104,21 @@ export const AcrylValidationsTab = () => {
             <TabToolbar>
                 <div>
                     {tabs.map((tab) => (
-                        <TabButton
-                            key={tab.path}
-                            type="text"
-                            disabled={tab.disabled}
-                            selected={selectedTab === tab.path}
-                            onClick={() => history.replace(`${basePath}/${tab.path}`)}
-                        >
-                            {tab.title}
-                        </TabButton>
+                        <Tooltip showArrow={false} title={tab.tip}>
+                            <TabButton
+                                key={tab.path}
+                                type="text"
+                                disabled={tab.disabled}
+                                selected={selectedTab === tab.path}
+                                onClick={() =>
+                                    history.replace(
+                                        `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
+                                    )
+                                }
+                            >
+                                {tab.title}
+                            </TabButton>
+                        </Tooltip>
                     ))}
                 </div>
             </TabToolbar>

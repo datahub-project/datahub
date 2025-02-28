@@ -1,35 +1,50 @@
-import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Divider, Dropdown, Menu } from 'antd';
 import React from 'react';
+import { CloseOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import styled from 'styled-components/macro';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import useRemoveRelatedTerms from './useRemoveRelatedTerms';
+import { REDESIGN_COLORS } from '../../shared/constants';
+
+const TransparentButton = styled(Button)`
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-size: 12px;
+    box-shadow: none;
+    border: none;
+    padding: 0px 10px;
+    position: absolute;
+    top: 19px;
+    right: 50px;
+    display: none;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
 
 const ListItem = styled.div`
-    margin: 0 20px;
+    position: relative;
+    border: 1px solid #ebebeb;
+    border-radius: 11px;
+
+    &:hover ${TransparentButton} {
+        display: inline-block;
+    }
+    &:hover {
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 const Profile = styled.div`
-    display: felx;
-    marging-bottom: 20px;
-`;
-
-const MenuIcon = styled(MoreOutlined)`
     display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 20px;
-    height: 32px;
-    margin-left: -10px;
-`;
-
-const MenuItem = styled.div`
-    font-size: 12px;
-    padding: 0 4px;
-    color: #262626;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
 `;
 
 interface Props {
@@ -56,23 +71,11 @@ function RelatedTerm(props: Props) {
             <Profile>
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 {isEditable && (
-                    <Dropdown
-                        overlay={
-                            <Menu>
-                                <Menu.Item key="0">
-                                    <MenuItem onClick={onRemove}>
-                                        <DeleteOutlined /> &nbsp; Remove Term
-                                    </MenuItem>
-                                </Menu.Item>
-                            </Menu>
-                        }
-                        trigger={['click']}
-                    >
-                        <MenuIcon />
-                    </Dropdown>
+                    <TransparentButton size="small" onClick={onRemove}>
+                        <CloseOutlined size={5} /> Remove Relationship
+                    </TransparentButton>
                 )}
             </Profile>
-            <Divider style={{ margin: '20px 0' }} />
         </ListItem>
     );
 }

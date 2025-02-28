@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { isEqual } from 'lodash';
 import { useEntityContext } from '../../../EntityContext';
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
 import { getInitialValues } from './utils';
 import usePrevious from '../../../../../shared/usePrevious';
 import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
 import { FormView, useEntityFormContext } from '../../EntityFormContext';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
+import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
 
 interface Props {
     prompt: FormPrompt;
@@ -13,15 +16,29 @@ interface Props {
 }
 
 export default function useStructuredPropertyPrompt({ prompt, submitResponse, field }: Props) {
-    const { refetch: refetchSchema } = useGetEntityWithSchema();
-    const { refetch, entityData } = useEntityContext();
-    const { selectedPromptId, formView } = useEntityFormContext();
-    const [isSaveVisible, setIsSaveVisible] = useState(false);
+    const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
+    const { entityData } = useEntityContext();
+    const {
+        prompt: { selectedPromptId },
+        form: { formView },
+    } = useEntityFormContext();
+
     const initialValues = useMemo(
-        () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
+        () =>
+            formView === FormView.BY_ENTITY || formView === FormView.BULK_VERIFY
+                ? getInitialValues(prompt, entityData, field)
+                : [],
         [formView, entityData, prompt, field],
     );
-    const [selectedValues, setSelectedValues] = useState<any[]>(initialValues || []);
+    const {
+        selectedValues,
+        setSelectedValues,
+        selectSingleValue,
+        toggleSelectedValue,
+        updateSelectedValues,
+        hasEdited,
+        setHasEdited,
+    } = useEditStructuredProperty(initialValues);
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 
@@ -30,35 +47,22 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         if (entityData?.urn !== previousEntityUrn) {
             setSelectedValues(initialValues || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialValues]);
+    }, [entityData?.urn, previousEntityUrn, initialValues, setSelectedValues]);
 
     const previousSelectedPromptId = usePrevious(selectedPromptId);
     useEffect(() => {
         if (selectedPromptId !== previousSelectedPromptId) {
-            setIsSaveVisible(false);
+            setHasEdited(false);
             setSelectedValues(initialValues || []);
         }
-    }, [previousSelectedPromptId, selectedPromptId, initialValues]);
+    }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
 
-    // respond to prompts
-    function selectSingleValue(value: string | number) {
-        setIsSaveVisible(true);
-        setSelectedValues([value as string]);
-    }
-
-    function toggleSelectedValue(value: string | number) {
-        setIsSaveVisible(true);
-        if (selectedValues.includes(value)) {
-            setSelectedValues((prev) => prev.filter((v) => v !== value));
-        } else {
-            setSelectedValues((prev) => [...prev, value]);
+    const previousInitialValues = usePrevious(initialValues);
+    useEffect(() => {
+        if (!hasEdited && !!initialValues?.length && !isEqual(initialValues, previousInitialValues)) {
+            setSelectedValues(initialValues);
         }
-    }
-
-    function updateSelectedValues(values: any[]) {
-        setSelectedValues(values);
-        setIsSaveVisible(true);
-    }
+    }, [initialValues, previousInitialValues, hasEdited, setSelectedValues]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {
@@ -79,8 +83,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
                 },
             },
             () => {
-                refetch();
-                setIsSaveVisible(false);
+                setHasEdited(false);
                 if (field) {
                     refetchSchema();
                 }
@@ -89,7 +92,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     }
 
     return {
-        isSaveVisible,
+        hasEdited,
         selectedValues,
         selectSingleValue,
         toggleSelectedValue,

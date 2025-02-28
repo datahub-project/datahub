@@ -1,0 +1,16 @@
+{
+    "errors":[
+        {
+          "message": "One or more of the attributes used in your filter contain sensitive data so your results have been automatically filtered to contain only the results you have permissions to see",
+          "extensions": {
+            "severity": "WARNING",
+            "code": "PERMISSIONS_MODE_SWITCHED",
+            "properties": {
+              "workbooksConnection": [
+                "projectNameWithin"
+              ]
+            }
+          }
+        }
+    ]
+}

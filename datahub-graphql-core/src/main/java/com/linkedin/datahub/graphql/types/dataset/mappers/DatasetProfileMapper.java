@@ -1,12 +1,19 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PartitionSpec;
+import com.linkedin.datahub.graphql.generated.PartitionType;
+import com.linkedin.datahub.graphql.generated.TimeWindow;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.Quantile;
+import com.linkedin.dataset.ValueFrequency;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DatasetProfileMapper
     implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.DatasetProfile> {
@@ -14,13 +21,13 @@ public class DatasetProfileMapper
   public static final DatasetProfileMapper INSTANCE = new DatasetProfileMapper();
 
   public static com.linkedin.datahub.graphql.generated.DatasetProfile map(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
-    return INSTANCE.apply(envelopedAspect);
+      @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
+    return INSTANCE.apply(context, envelopedAspect);
   }
 
   @Override
   public com.linkedin.datahub.graphql.generated.DatasetProfile apply(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
+      @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
 
     DatasetProfile gmsProfile =
         GenericRecordUtils.deserializeAspect(
@@ -35,6 +42,9 @@ public class DatasetProfileMapper
     result.setColumnCount(gmsProfile.getColumnCount());
     result.setSizeInBytes(gmsProfile.getSizeInBytes());
     result.setTimestampMillis(gmsProfile.getTimestampMillis());
+    if (gmsProfile.hasPartitionSpec()) {
+      result.setPartitionSpec(mapPartitionSpec(gmsProfile.getPartitionSpec()));
+    }
     if (gmsProfile.hasFieldProfiles()) {
       result.setFieldProfiles(
           gmsProfile.getFieldProfiles().stream()
@@ -42,6 +52,24 @@ public class DatasetProfileMapper
               .collect(Collectors.toList()));
     }
 
+    return result;
+  }
+
+  private PartitionSpec mapPartitionSpec(com.linkedin.timeseries.PartitionSpec partitionSpec) {
+    final PartitionSpec result = new PartitionSpec();
+    if (partitionSpec.hasPartition()) {
+      result.setPartition(partitionSpec.getPartition());
+    }
+    if (partitionSpec.hasType()) {
+      result.setType(PartitionType.valueOf(partitionSpec.getType().toString()));
+    }
+    if (partitionSpec.hasTimePartition()) {
+      TimeWindow resultTimeWindow = new TimeWindow();
+      if (partitionSpec.getTimePartition().hasStartTimeMillis()) {
+        resultTimeWindow.setStartTimeMillis(partitionSpec.getTimePartition().getStartTimeMillis());
+      }
+      result.setTimePartition(resultTimeWindow);
+    }
     return result;
   }
 
@@ -64,6 +92,37 @@ public class DatasetProfileMapper
       result.setNullProportion(gmsProfile.getNullProportion());
     }
     result.setSampleValues(gmsProfile.getSampleValues());
+    if (gmsProfile.hasQuantiles()) {
+      result.setQuantiles(
+          gmsProfile.getQuantiles().stream()
+              .map(DatasetProfileMapper::mapQuantile)
+              .collect(Collectors.toList()));
+    }
+    if (gmsProfile.hasDistinctValueFrequencies()) {
+      result.setDistinctValueFrequencies(
+          gmsProfile.getDistinctValueFrequencies().stream()
+              .map(DatasetProfileMapper::mapValueFrequency)
+              .collect(Collectors.toList()));
+    }
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.Quantile mapQuantile(Quantile quantile) {
+    final com.linkedin.datahub.graphql.generated.Quantile result =
+        new com.linkedin.datahub.graphql.generated.Quantile();
+    result.setQuantile(quantile.getQuantile());
+    result.setValue(quantile.getValue());
+
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.ValueFrequency mapValueFrequency(
+      ValueFrequency frequencies) {
+    final com.linkedin.datahub.graphql.generated.ValueFrequency result =
+        new com.linkedin.datahub.graphql.generated.ValueFrequency();
+    result.setValue(frequencies.getValue());
+    result.setFrequency(frequencies.getFrequency());
+
     return result;
   }
 }

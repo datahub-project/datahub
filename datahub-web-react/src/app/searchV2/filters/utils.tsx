@@ -1,16 +1,9 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
-import {
-    BookOutlined,
-    CloseCircleOutlined,
-    DatabaseOutlined,
-    FileOutlined,
-    FolderFilled,
-    FolderOutlined,
-    TagOutlined,
-    UserOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
-import React from 'react';
+import moment from 'moment-timezone';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { FolderFilled } from '@ant-design/icons';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -21,7 +14,9 @@ import {
     EntityType,
     FacetFilterInput,
     FacetMetadata,
+    FilterOperator,
     GlossaryTerm,
+    StructuredPropertyEntity,
     Tag,
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
@@ -35,8 +30,6 @@ import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
@@ -52,34 +45,50 @@ import {
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
+    LAST_MODIFIED_FILTER_NAME,
+    STRUCTURED_PROPERTIES_FILTER_NAME,
 } from '../utils/constants';
 import { EntityRegistry } from '../../../entityRegistryContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FieldType, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
-import { capitalizeFirstLetterOnly, forcePluralize } from '../../shared/textUtil';
+import {
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterOptionType,
+    FilterPredicate,
+    FilterValueOption,
+} from './types';
+import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
-import { ALL_FILTER_FIELDS } from './field/fields';
-import { getSubTypeIcon, TYPE_ICON_CLASS_NAME } from '../../entityV2/shared/components/subtypes';
+import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from './field/fields';
+import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from './FilterOption';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
-export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
-    let newFilters = activeFilters;
+export function getNewFilters(
+    filterField: string,
+    activeFilters: FacetFilterInput[],
+    selectedFilterValues: string[],
+): FacetFilterInput[] {
     if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
-        newFilters = activeFilters
+        return activeFilters
             .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
             .filter((f) => !(f.values?.length === 0));
-    } else {
-        newFilters = [...activeFilters, { field: filterField, values: selectedFilterValues }].filter(
-            (f) => !(f.values?.length === 0),
-        );
     }
-    return newFilters;
+
+    return [
+        ...activeFilters,
+        {
+            field: filterField,
+            values: selectedFilterValues,
+            // TODO: Define on filter field instead
+            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+        },
+    ].filter((f) => !(f.values?.length === 0));
 }
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
@@ -135,11 +144,10 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
     return browseEntries[browseEntries.length - 1] || '';
 }
 
-const SubTypeIcon = styled.span`
-    .${TYPE_ICON_CLASS_NAME} {
-        font-size: 12px;
-        color: ${ANTD_GRAY[8]};
-    }
+const SubTypeIcon = styled.span<{ $fontSize?: number }>`
+    display: inline-flex;
+    color: ${ANTD_GRAY[9]};
+    font-size: ${({ $fontSize }) => $fontSize || 12}px;
 `;
 
 function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
@@ -149,8 +157,8 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     // If this includes a delimiter, it is a subType
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
-        label = capitalizeFirstLetterOnly(forcePluralize(subType));
-        icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
+        label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
+        icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
@@ -290,31 +298,10 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
 }
 
 export function getFilterDropdownIcon(field: string) {
-    switch (field) {
-        case PLATFORM_FILTER_NAME:
-            return <DatabaseOutlined />;
-        case ENTITY_FILTER_NAME:
-            return <FileOutlined />;
-        case TYPE_NAMES_FILTER_NAME:
-        case ENTITY_SUB_TYPE_FILTER_NAME:
-            return <FileOutlined />;
-        case GLOSSARY_TERMS_FILTER_NAME:
-            return <BookOutlined />;
-        case TAGS_FILTER_NAME:
-            return <TagOutlined />;
-        case OWNERS_FILTER_NAME:
-            return <UserOutlined />;
-        case CONTAINER_FILTER_NAME:
-            return <FolderOutlined />;
-        case DOMAINS_FILTER_NAME:
-            return <Icon component={DomainsIcon} />;
-        case HAS_ACTIVE_INCIDENTS_FILTER_NAME:
-            return <WarningOutlined />;
-        case HAS_FAILING_ASSERTIONS_FILTER_NAME:
-            return <CloseCircleOutlined />;
-        default:
-            return null;
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
+        return STRUCTURED_PROPERTY_FILTER.icon;
     }
+    return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field)?.icon;
 }
 
 // maps aggregations and auto complete results to FilterOptionType[] and adds selected filter options if not already there
@@ -326,7 +313,7 @@ export function getFilterOptions(
 ) {
     const aggregationFilterOptions = aggregations.map((agg) => ({ field: filterField, ...agg }));
 
-    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions.find((suggestion) =>
+    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.find((suggestion) =>
         FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
     );
     const searchFilterOptions = searchResults?.entities
@@ -360,7 +347,7 @@ export function filterOptionsWithSearch(searchQuery: string, name: string, neste
 export const createBrowseV2SearchFilter = (path: Array<string>) => `${UNIT_SEPARATOR}${path.join(UNIT_SEPARATOR)}`;
 
 export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
-    const nestedSubTypeFilter = activeFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
+    const nestedSubTypeFilter = activeFilters?.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
     if (nestedSubTypeFilter) {
         const entityTypes = nestedSubTypeFilter.values?.filter((value) => !value.includes(FILTER_DELIMITER));
         const subTypes = nestedSubTypeFilter.values?.filter((value) => value.includes(FILTER_DELIMITER));
@@ -376,7 +363,7 @@ export function getParentEntities(entity: Entity): Entity[] | null {
     if (!entity) {
         return null;
     }
-    if (entity.type === EntityType.GlossaryTerm) {
+    if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
         return (entity as GlossaryTerm).parentNodes?.nodes || [];
     }
     if (entity.type === EntityType.Domain) {
@@ -466,12 +453,13 @@ const getFilterEntityTypes = (field: string, aggregationMetadata?: AggregationMe
     return [];
 };
 
-function getKnownFilterField(field: string) {
+function getKnownFilterField(field: string): FilterField | undefined {
     return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field);
 }
 
-function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]) {
-    const filterDisplayName = availableFilters?.find((availableFilter) => availableFilter.field === field)?.displayName;
+function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
+    const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
+    const filterDisplayName = associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
@@ -481,12 +469,13 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
         type: getFilterFieldType(field, filterAggregations || []),
         entityTypes: getFilterEntityTypes(field, filterAggregations),
         icon: getFilterDropdownIcon(field),
+        entity: associatedAvailableFilter?.entity || undefined,
     };
 }
 
 function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetadata[]) {
-    const filterAggregations = availableFilters?.find(
-        (availableFilter) => availableFilter.field.includes(filter?.field),
+    const filterAggregations = availableFilters?.find((availableFilter) =>
+        availableFilter.field.includes(filter?.field),
     )?.aggregations;
     return (
         filter?.values?.map((value) => {
@@ -495,25 +484,51 @@ function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetada
             return {
                 value,
                 entity: filterAggregation?.entity || null,
-                count: filterAggregation?.count
+                count: filterAggregation?.count,
+                displayName: filterAggregation?.displayName || undefined,
             };
         }) || []
     );
 }
 
 function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: FacetMetadata[]) {
-    const filterAggregations = availableFilters?.find(
-        (availableFilter) => availableFilter.field.includes(filter?.field),
-    )?.aggregations;
+    const currentFilter = availableFilters?.find((availableFilter) => availableFilter.field.includes(filter?.field));
+    const filterAggregations = currentFilter?.aggregations;
     return (
         filterAggregations?.map((agg) => {
             return {
                 value: agg.value,
                 entity: agg.entity || null,
-                count: agg.count
+                count: agg.count,
+                displayName:
+                    agg.displayName ||
+                    getStructuredPropFilterDisplayName(filter.field, agg.value, currentFilter?.entity),
             };
         }) || []
     );
+}
+
+export function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
+    const isStructuredPropertyValue = field.startsWith('structuredProperties.');
+    if (!isStructuredPropertyValue) return undefined;
+
+    // check for structured prop entity values
+    if (value.startsWith('urn:li:')) {
+        // this value is an urn, handle entity display names elsewhere
+        return undefined;
+    }
+
+    // check for structured prop date values
+    if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
+        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+    }
+
+    // check for structured prop number values
+    if (!Number.isNaN(parseFloat(value))) {
+        return parseFloat(value).toString();
+    }
+
+    return removeMarkdown(value);
 }
 
 /**
@@ -523,33 +538,33 @@ function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: Fac
  * @param availableFilters - An array of available facet filters metadata.
  * @returns The resulting FilterPredicate.
  */
-export function convertToFilterPredicate(
-    filter: FacetFilterInput,
-    availableFilters: FacetMetadata[],
-): FilterPredicate {
-        // First, check whether this is a well-supported filter field.
-        const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
-        const operator =
-            (filter.condition &&
-                convertBackendToFrontendOperatorType({
-                    operator: filter.condition,
-                    negated: filter.negated || false,
-                })) ||
-            FilterOperatorType.EQUALS;
+export function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
+    // First, check whether this is a well-supported filter field.
+    const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
+    const operator =
+        (filter.condition &&
+            convertBackendToFrontendOperatorType({
+                operator: filter.condition,
+                negated: filter.negated || false,
+            })) ||
+        FilterOperatorType.EQUALS;
 
-        const values = getFilterValues(filter, availableFilters);
-        const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
-        
-        return {
-            field,
-            operator,
-            values,
-            defaultValueOptions: defaultOptions,
-        };
+    const values = getFilterValues(filter, availableFilters);
+    const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
+
+    return {
+        field,
+        operator,
+        values,
+        defaultValueOptions: defaultOptions,
+    };
 }
 
 /**
  * Converts an array of selected facet filters to an array of FilterPredicates based on available filters metadata.
+ * Here, we employ strict checking for the field value to differentiate between '_entityType␞typeNames' (recommended filter)
+ * and '_entityType' filters. This strict checking ensures complete decoupling of these filters,
+ * opting for direct equality comparison over 'includes'.
  *
  * @param selectedFilters - The array of selected facet filters to be converted.
  * @param availableFilters - An array of available facet filters metadata.
@@ -558,12 +573,12 @@ export function convertToFilterPredicate(
 export const convertToAvailableFilterPredictes = (
     selectedFilters: FacetFilterInput[],
     availableFilters: FacetMetadata[],
-): FilterPredicate[] =>{
-    return availableFilters.map(filter =>{
-        const selectedFilterObj = selectedFilters.find(obj => obj.field.includes(filter.field))
-        return convertToFilterPredicate(selectedFilterObj || filter, availableFilters)
-    })
-}
+): FilterPredicate[] => {
+    return availableFilters.map((filter) => {
+        const selectedFilterObj = selectedFilters.find((obj) => obj.field === filter.field);
+        return convertToFilterPredicate(selectedFilterObj || filter, availableFilters);
+    });
+};
 
 /**
  * Converts an array of selected facet filters to an array of FilterPredicates based on available filters metadata.
@@ -576,11 +591,11 @@ export const convertToAvailableFilterPredictes = (
 export const convertToSelectedFilterPredictes = (
     selectedFilters: FacetFilterInput[],
     availableFilters: FacetMetadata[],
-): FilterPredicate[] =>{
-    return selectedFilters.map(filter =>{
-        return convertToFilterPredicate(filter, availableFilters)
-    })
-}
+): FilterPredicate[] => {
+    return selectedFilters.map((filter) => {
+        return convertToFilterPredicate(filter, availableFilters);
+    });
+};
 
 interface FilterEntityIconProps {
     field: string;
@@ -603,3 +618,74 @@ export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entit
             return null; // default
     }
 };
+
+/**
+ * Custom hook to track dimensions of a DOM element.
+ * @param {object} ref - Reference to the DOM element.
+ * @returns {object} - Object containing width, height, and whether the element is outside the window.
+ */
+export function useElementDimensions(ref) {
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0, isElementOutsideWindow: false });
+
+    useLayoutEffect(() => {
+        const updateDimensions = () => {
+            if (ref.current) {
+                const { offsetWidth, offsetHeight } = ref.current;
+                // Using data-testid to locate the "More Filters" dropdown button accurately, considering z-index and styling complexities of antd.
+                const dropdownButton = document.querySelector('[data-testid="more-filters-dropdown"]');
+
+                if (dropdownButton) {
+                    const { left } = dropdownButton.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const isElementOutsideWindow = left + offsetWidth * 2 > windowWidth;
+
+                    setDimensions({
+                        width: offsetWidth,
+                        height: offsetHeight,
+                        isElementOutsideWindow,
+                    });
+                }
+            }
+        };
+
+        updateDimensions();
+
+        const handleResize = () => {
+            updateDimensions();
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [ref]);
+
+    return dimensions;
+}
+
+export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
+    const entityRegistry = useEntityRegistryV2();
+
+    if (filter.entity) {
+        return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
+    }
+
+    return predicateDisplayName || filter.displayName || filter.field;
+}
+
+export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
+    if (field.entity && field.entity.type === EntityType.StructuredProperty) {
+        return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
+    }
+    return false;
+}
+
+export function getFilterDisplayName(option: FilterValueOption, field: FilterField) {
+    if (option.displayName) {
+        return option.displayName;
+    }
+
+    return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
+        ? getStructuredPropFilterDisplayName(field.field, option.value)
+        : undefined;
+}

@@ -17,10 +17,10 @@ interface Props {
     onChangeValues: (newValues: FilterValue[]) => void;
     onApply: () => void;
     type?: 'card' | 'default';
-    alignRight?: boolean;
+    className?: string;
 }
 
-export default function BooleanValueMenu({ field, values, type = 'card', alignRight, onChangeValues, onApply }: Props) {
+export default function BooleanValueMenu({ field, values, type = 'card', onChangeValues, onApply, className }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -56,7 +56,7 @@ export default function BooleanValueMenu({ field, values, type = 'card', alignRi
             isLoading={false}
             showSearchBar={false}
             type={type}
-            alignRight={alignRight}
+            className={className}
         />
     );
 }

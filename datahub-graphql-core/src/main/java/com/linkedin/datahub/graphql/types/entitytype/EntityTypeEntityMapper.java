@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.entitytype;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.EntityTypeEntity;
 import com.linkedin.datahub.graphql.generated.EntityTypeInfo;
@@ -11,17 +12,20 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class EntityTypeEntityMapper implements ModelMapper<EntityResponse, EntityTypeEntity> {
 
   public static final EntityTypeEntityMapper INSTANCE = new EntityTypeEntityMapper();
 
-  public static EntityTypeEntity map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static EntityTypeEntity map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public EntityTypeEntity apply(@Nonnull final EntityResponse entityResponse) {
+  public EntityTypeEntity apply(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final EntityTypeEntity result = new EntityTypeEntity();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.ENTITY_TYPE);

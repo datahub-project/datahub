@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,7 +14,10 @@ import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,10 +40,13 @@ public class ListSubscriptionsResolverTest {
 
     final QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.userContextNoSearchAuthorization(USER_URN));
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
 
     final ListSubscriptionsInput input = new ListSubscriptionsInput();
+    input.setActorUrn(USER_URN_STRING);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
     _resolver = new ListSubscriptionsResolver(_subscriptionService);
@@ -49,7 +54,8 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptionsExceptionThrown() {
-    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
+    when(_subscriptionService.listSubscriptions(
+            any(OperationContext.class), any(SearchResult.class)))
         .thenThrow(new RuntimeException("Failed to list subscriptions"));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -66,9 +72,10 @@ public class ListSubscriptionsResolverTest {
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
     when(_subscriptionService.getSubscriptionsSearchResult(
-            eq(USER_URN), anyInt(), anyInt(), eq(_authentication)))
+            any(OperationContext.class), eq(USER_URN), anyInt(), anyInt()))
         .thenReturn(searchResult);
-    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
+    when(_subscriptionService.listSubscriptions(
+            any(OperationContext.class), any(SearchResult.class)))
         .thenReturn(
             ImmutableMap.of(
                 SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1, SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2));

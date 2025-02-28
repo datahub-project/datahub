@@ -32,10 +32,10 @@ const ListContainer = styled.div`
 export default function ManagePosts() {
     return (
         <PageContainer>
-            <PageHeaderContainer>
-                <PageTitle level={3}>Home Page Posts</PageTitle>
+            <PageHeaderContainer data-testid="managePostsV1">
+                <PageTitle level={3}>Home Page</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View and manage pinned posts that appear to all users on the landing page.
+                    View and manage pinned announcements and links that appear to all users on the landing page.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

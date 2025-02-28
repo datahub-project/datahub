@@ -2,24 +2,31 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
-import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
+import com.linkedin.datahub.graphql.generated.ListRecommendationsInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +49,11 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
   }
 
   private final EntityClient _entityClient;
+  private final ViewService _viewService;
 
-  public DomainEntitiesResolver(final EntityClient entityClient) {
+  public DomainEntitiesResolver(final EntityClient entityClient, final ViewService viewService) {
     _entityClient = entityClient;
+    _viewService = viewService;
   }
 
   @Override
@@ -62,62 +71,78 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
             final CriterionArray criteria = new CriterionArray();
             final Criterion filterCriterion =
-                new Criterion()
-                    .setField(DOMAINS_FIELD_NAME + ".keyword")
-                    .setCondition(Condition.EQUAL)
-                    .setValue(urn);
+                buildCriterion(DOMAINS_FIELD_NAME + ".keyword", Condition.EQUAL, urn);
             criteria.add(filterCriterion);
             if (input.getFilters() != null) {
               input
                   .getFilters()
                   .forEach(
                       filter -> {
-                        criteria.add(
-                            new Criterion()
-                                .setField(filter.getField())
-                                .setValue(filter.getValue(), SetMode.IGNORE_NULL)
-                                .setValues(
-                                    filter.getValues() != null
-                                        ? new StringArray(filter.getValues())
-                                        : null,
-                                    SetMode.IGNORE_NULL)
-                                .setNegated(filter.getNegated(), SetMode.IGNORE_NULL)
-                                .setCondition(
-                                    filter.getCondition() != null
-                                        ? Condition.valueOf(filter.getCondition().name())
-                                        : null,
-                                    SetMode.IGNORE_NULL));
+                        criteria.add(criterionFromFilter(filter));
                       });
             }
+            Filter baseFilter =
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
+            DataHubViewInfo maybeResolvedView = getViewInfo(environment);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
                     query,
-                    new Filter()
-                        .setOr(
-                            new ConjunctiveCriterionArray(
-                                new ConjunctiveCriterion().setAnd(criteria))),
+                    maybeResolvedView != null
+                        ? FilterUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     start,
                     count,
+                    Collections.emptyList(),
                     null,
-                    null,
-                    context.getAuthentication()));
+                    null));
 
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to resolve entities associated with Domain with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
+  }
+
+  /**
+   * Get viewUrn from parent listRecommendations query if this is the parent query, otherwise return
+   * null
+   */
+  DataHubViewInfo getViewInfo(final DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
+
+    String viewUrn = null;
+    try {
+      ListRecommendationsInput listRecommendationsInput =
+          environment.getVariables().get(INPUT_ARG_NAME) != null
+              ? bindArgument(
+                  environment.getVariables().get(INPUT_ARG_NAME), ListRecommendationsInput.class)
+              : null;
+      viewUrn = listRecommendationsInput != null ? listRecommendationsInput.getViewUrn() : null;
+    } catch (Exception e) {
+      log.debug("DomainEntitiesResolver not being used in the listRecommendations context", e);
+    }
+    return (viewUrn != null)
+        ? resolveView(context.getOperationContext(), _viewService, UrnUtils.getUrn(viewUrn))
+        : null;
   }
 }

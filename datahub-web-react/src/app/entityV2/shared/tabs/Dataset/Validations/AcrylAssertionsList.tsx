@@ -12,7 +12,7 @@ type Props = {
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 /**

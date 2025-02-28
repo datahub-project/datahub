@@ -61,8 +61,8 @@ public class BatchGetStepStatesResolverTest {
     input.setIds(ImmutableList.of(FIRST_STEP_STATE_ID, SECOND_STEP_STATE_ID));
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
-    when(_entityClient.exists(eq(FIRST_STEP_STATE_URN), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(SECOND_STEP_STATE_URN), eq(_authentication))).thenReturn(false);
+    when(_entityClient.exists(any(), eq(FIRST_STEP_STATE_URN))).thenReturn(true);
+    when(_entityClient.exists(any(), eq(SECOND_STEP_STATE_URN))).thenReturn(false);
 
     final DataHubStepStateProperties firstStepStateProperties =
         new DataHubStepStateProperties().setLastModified(AUDIT_STAMP);
@@ -73,8 +73,7 @@ public class BatchGetStepStatesResolverTest {
     final Map<Urn, EntityResponse> entityResponseMap =
         ImmutableMap.of(FIRST_STEP_STATE_URN, TestUtils.buildEntityResponse(firstAspectMap));
 
-    when(_entityClient.batchGetV2(
-            eq(DATAHUB_STEP_STATE_ENTITY_NAME), eq(urns), eq(ASPECTS), eq(_authentication)))
+    when(_entityClient.batchGetV2(any(), eq(DATAHUB_STEP_STATE_ENTITY_NAME), eq(urns), eq(ASPECTS)))
         .thenReturn(entityResponseMap);
 
     final BatchGetStepStatesResult actualBatchResult =
@@ -93,8 +92,8 @@ public class BatchGetStepStatesResolverTest {
     input.setIds(ImmutableList.of(FIRST_STEP_STATE_ID, SECOND_STEP_STATE_ID));
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
-    when(_entityClient.exists(eq(FIRST_STEP_STATE_URN), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(SECOND_STEP_STATE_URN), eq(_authentication))).thenReturn(true);
+    when(_entityClient.exists(any(), eq(FIRST_STEP_STATE_URN))).thenReturn(true);
+    when(_entityClient.exists(any(), eq(SECOND_STEP_STATE_URN))).thenReturn(true);
 
     final DataHubStepStateProperties firstStepStateProperties =
         new DataHubStepStateProperties().setLastModified(AUDIT_STAMP);
@@ -111,8 +110,7 @@ public class BatchGetStepStatesResolverTest {
             FIRST_STEP_STATE_URN, TestUtils.buildEntityResponse(firstAspectMap),
             SECOND_STEP_STATE_URN, TestUtils.buildEntityResponse(secondAspectMap));
 
-    when(_entityClient.batchGetV2(
-            eq(DATAHUB_STEP_STATE_ENTITY_NAME), eq(urns), eq(ASPECTS), eq(_authentication)))
+    when(_entityClient.batchGetV2(any(), eq(DATAHUB_STEP_STATE_ENTITY_NAME), eq(urns), eq(ASPECTS)))
         .thenReturn(entityResponseMap);
 
     final BatchGetStepStatesResult actualBatchResult =

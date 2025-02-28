@@ -4,10 +4,13 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -24,6 +27,7 @@ public class DatasetPropertiesPatchBuilder
   public static final String NAME_KEY = "name";
   public static final String QUALIFIED_NAME_KEY = "qualifiedName";
   public static final String URI_KEY = "uri";
+  public static final String LAST_MODIFIED_KEY = "lastModified";
 
   private CustomPropertiesPatchBuilder<DatasetPropertiesPatchBuilder> customPropertiesPatchBuilder =
       new CustomPropertiesPatchBuilder<>(this);
@@ -85,6 +89,20 @@ public class DatasetPropertiesPatchBuilder
     return this;
   }
 
+  public DatasetPropertiesPatchBuilder setLastModified(@Nonnull TimeStamp timeStamp) {
+    try {
+      ObjectNode timeStampNode =
+          (ObjectNode) new ObjectMapper().readTree(RecordUtils.toJsonString(timeStamp));
+      pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(), BASE_PATH + LAST_MODIFIED_KEY, timeStampNode));
+      return this;
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(
+          "Failed to set last modified, failed to parse provided aspect json.", e);
+    }
+  }
+
   public DatasetPropertiesPatchBuilder setUri(@Nullable String uri) {
     if (uri == null) {
       this.pathValues.add(
@@ -114,12 +132,6 @@ public class DatasetPropertiesPatchBuilder
   public DatasetPropertiesPatchBuilder setCustomProperties(Map<String, String> properties) {
     customPropertiesPatchBuilder.setProperties(properties);
     return this;
-  }
-
-  @Override
-  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
-    pathValues.addAll(customPropertiesPatchBuilder.getSubPaths());
-    return pathValues;
   }
 
   @Override

@@ -1,0 +1,231 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+}
+.ecosystem_section {
+  position: relative;
+  background: white;
+  padding: 4vh 0;
+  padding-bottom: 6vh;
+  max-height: 1100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  //   padding: 2rem 0rem;
+  // margin: 4rem 0rem 0rem 0rem;
+
+  .ecosystem_section_content {
+    width: 70%;
+    min-width: 800px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem 0rem;
+
+    .ecosystem_section_upper_content {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding-top: 1rem;
+
+      .ecosystem_section_heading {
+        font-size: 2.75rem;
+        line-height: 3.25rem;
+        font-weight: 500;
+        font-family: Manrope;
+      }
+      .ecosystem_section_subtitle {
+        font-size: 1.25rem;
+        margin-top: 2rem;
+        line-height: normal;
+        font-family: Manrope;
+      }
+      .bottom_line_cta {
+        color: #12b0fb;
+        font-size: 1rem;
+        font-weight: 500;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+      }
+    }
+    .ecosystem_section_lower_content {
+      height: 380px;
+      margin-top: 48px;
+      display: flex;
+      flex-direction: row;
+
+      .itemWrappers {
+        display: flex;
+        flex-direction: column;
+        margin-right: 8px;
+      }
+      .itemWrappersRow {
+        display: flex;
+        flex-direction: row;
+        height: 50%;
+      }
+      .itemWrappers>.itemWrappersRow:first-child {
+        padding-bottom: 4px;
+      }
+      .itemWrappers>.itemWrappersRow:last-child {
+        padding-top: 4px;
+      }
+      .itemWrappersRow>a:nth-child(2) {
+        margin-left: 8px;
+      }
+
+      .diagramItem {
+        display: flex;
+        border-radius: 20px;
+        overflow: hidden;
+        aspect-ratio: 1;
+        height: 100%;
+        flex-basis: 45%;
+        background-color: #FFF;
+        border: 1px solid #DDD;
+        justify-content: center;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+
+    }
+
+    .item1,
+    .item2,
+    .item3,
+    .item4 {
+      border-radius: 20px;
+      display: flex;
+      align-items: end;
+      justify-content: start;
+      position: relative;
+      padding: 36px 32px;
+      overflow: hidden;
+      white-space: normal;
+      cursor: pointer;
+      transition: all 0.3s ease-in-out;
+      text-decoration: none;
+      background-color: #FFF;
+      border: 1px solid #DDD;
+      box-shadow: none;
+
+      &:hover {
+        box-shadow: 0px 2px 12px 0px #0000001C;
+        border: 1px solid #333;
+        .itemLinkOpenArrow {
+          opacity: 1;
+        }
+      }
+    }
+    .itemLinkOpenArrow {
+      position: absolute;
+      top: 12px; right: 12px;
+      height: 36px;
+      width: 36px;
+      opacity: 0.75;
+      transition: opacity 0.3s ease-in-out;
+      filter: brightness(0);
+    }
+
+    .item1 {
+      flex-basis: 40%;
+      // background-color: #77B750;
+    }
+
+    .item2 {
+      flex-grow: 1;
+      // background-color: #FC5263;
+    }
+
+    .item3 {
+      flex-grow: 1;
+      // background-color: #EFB300;
+    }
+
+    .item4 {
+      flex-basis: 40%;
+      // background-color: #1890FF;
+    }
+
+    /* Additional: Control image size */
+    .item_content img {
+      width: 20px;
+      height: 20px;
+      // make it all black
+      filter: brightness(0);// invert(1);
+    }
+
+    /* Additional: Limit text height with ellipsis */
+    .item_content span {
+      display: -webkit-box;
+      -webkit-line-clamp: 3; /* Show only 2 lines */
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: black;
+      font-size: 1.15rem;
+      line-height: 1.3rem;
+    }
+  }
+
+  // Responsiveness
+  @media only screen and (max-width: 800px) {
+    .ecosystem_section_content {
+      width: 90%;
+      min-width: 0;
+      height: auto!important;
+      padding-bottom: 48px;
+      padding-top: 48px;
+
+      .ecosystem_section_upper_content {
+        height: auto!important;
+
+        .ecosystem_section_heading {
+          font-size: 1.75rem;
+          line-height: 2.25rem;
+        }
+        .ecosystem_section_subtitle {
+          font-size: 1rem;
+          line-height: 1.3rem;
+          margin-top: 1rem;
+          opacity: .75;
+        }
+        .bottom_line_cta {
+          margin-top: .5rem;
+        }
+      }
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 8px;
+        flex-direction: column-reverse;
+
+        .diagramItem {
+          margin-bottom: 12px;
+        }
+
+        .item1,
+        .item2,
+        .item3,
+        .item4 {
+          padding: 24px 12px;
+        }
+        .item1, .item4 {
+          flex-basis: 45%;
+        }
+        .item_content span {
+          font-size: .8rem;
+          line-height: 1.1rem;
+        }
+      }
+    }
+
+  }
+
+}

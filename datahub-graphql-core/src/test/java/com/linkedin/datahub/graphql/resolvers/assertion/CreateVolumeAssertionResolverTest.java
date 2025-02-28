@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionAction;
@@ -37,6 +37,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -122,11 +123,11 @@ public class CreateVolumeAssertionResolverTest {
     // Validate that we created the assertion
     Mockito.verify(mockService, Mockito.times(1))
         .createVolumeAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion().getEntity()),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion().getType()),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_ASSERTION_ACTIONS));
   }
 
   @Test
@@ -144,7 +145,7 @@ public class CreateVolumeAssertionResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -154,11 +155,11 @@ public class CreateVolumeAssertionResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createVolumeAssertion(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
 
     CreateVolumeAssertionResolver resolver = new CreateVolumeAssertionResolver(mockService);
 
@@ -175,16 +176,16 @@ public class CreateVolumeAssertionResolverTest {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
             service.createVolumeAssertion(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(
             service.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(

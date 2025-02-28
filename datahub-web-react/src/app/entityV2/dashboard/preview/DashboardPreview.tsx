@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     AccessLevel,
@@ -13,16 +14,19 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats } from '../../shared/utils';
+import { summaryHasStats, DashboardLastUpdatedMs } from '../../shared/utils';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const DashboardPreview = ({
     urn,
+    data,
     platform,
     platformInstanceId,
     name,
@@ -49,10 +53,12 @@ export const DashboardPreview = ({
     paths,
     isOutputPort,
     tier,
-    upstreamTotal,
-    downstreamTotal,
+    headerDropdownItems,
+    previewType,
+    browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     platform?: string;
     platformInstanceId?: string;
     name?: string;
@@ -70,7 +76,7 @@ export const DashboardPreview = ({
     logoUrl?: string | null;
     chartCount?: number | null;
     statsSummary?: DashboardStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DashboardLastUpdatedMs;
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
@@ -79,8 +85,9 @@ export const DashboardPreview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     tier?: PopularityTier;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -90,6 +97,7 @@ export const DashboardPreview = ({
             url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             description={description || ''}
             entityType={EntityType.Dashboard}
             type={subtype}
@@ -106,7 +114,7 @@ export const DashboardPreview = ({
             dataProduct={dataProduct}
             deprecation={deprecation}
             insights={insights}
-            parentContainers={parentContainers}
+            parentEntities={parentContainers?.containers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
             snippet={snippet}
@@ -128,8 +136,10 @@ export const DashboardPreview = ({
             lastUpdatedMs={lastUpdatedMs}
             isOutputPort={isOutputPort}
             tier={tier}
-            upstreamTotal={upstreamTotal}
-            downstreamTotal={downstreamTotal}
+            headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
+            previewType={previewType}
+            browsePaths={browsePaths}
         />
     );
 };

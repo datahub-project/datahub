@@ -1,23 +1,36 @@
+import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
-import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
+import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
+import { EntityType, MlModelGroup, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
-import ModelGroupModels from './profile/ModelGroupModels';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
+import ModelGroupModels from './profile/ModelGroupModels';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -63,9 +76,13 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getCollectionName = () => 'ML Groups';
 
-    getOverridePropertiesFromEntity = (_?: MlModelGroup | null): GenericEntityProperties => {
-        return {};
+    getOverridePropertiesFromEntity = (mlModelGroup?: MlModelGroup | null): GenericEntityProperties => {
+        return {
+            name: mlModelGroup && this.displayName(mlModelGroup),
+        };
     };
+
+    useEntityQuery = useGetMlModelGroupQuery;
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -74,7 +91,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             entityType={EntityType.MlmodelGroup}
             useEntityQuery={useGetMlModelGroupQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Models',
@@ -84,45 +101,89 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarDomainSection,
+                    name: 'Lineage',
+                    component: LineageTab,
+                    icon: PartitionOutlined,
                 },
                 {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
-    renderPreview = (_: PreviewType, data: MlModelGroup) => {
-        return <Preview group={data} />;
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
+
+    renderPreview = (previewType: PreviewType, data: MlModelGroup) => {
+        const genericProperties = this.getGenericEntityProperties(data);
+        return (
+            <Preview
+                data={genericProperties}
+                group={data}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+            />
+        );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModelGroup;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
+                data={genericProperties}
                 group={data}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -130,22 +191,28 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     getLineageVizConfig = (entity: MlModelGroup) => {
         return {
             urn: entity.urn,
-            name: entity.name,
+            name: entity && this.displayName(entity),
             type: EntityType.MlmodelGroup,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
+            deprecation: entity?.deprecation,
         };
     };
 
     displayName = (data: MlModelGroup) => {
-        return data.name || data.urn;
+        // eslint-disable-next-line @typescript-eslint/dot-notation
+        return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
+    };
+
+    createdTime = (data: MlModelGroup) => {
+        return data?.properties?.created?.time || data?.properties?.createdAt;
     };
 
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {
         return getDataForEntityType({
             data: mlModelGroup,
             entityType: this.type,
-            getOverrideProperties: (data) => data,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
     };
 

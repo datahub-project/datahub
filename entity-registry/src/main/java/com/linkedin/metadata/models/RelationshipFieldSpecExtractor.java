@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models;
 
+import static com.linkedin.metadata.models.FieldSpecUtils.isNullAnnotation;
+
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
@@ -9,6 +11,7 @@ import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -46,11 +49,11 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
       // Next, check resolved properties for annotations on primitives.
       final Map<String, Object> resolvedProperties =
-          FieldSpecUtils.getResolvedProperties(currentSchema);
+          FieldSpecUtils.getResolvedProperties(currentSchema, Collections.emptyMap());
       final Object resolvedAnnotationObj =
           resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
-      if (resolvedAnnotationObj != null) {
+      if (!isNullAnnotation(resolvedAnnotationObj)) {
         if (currentSchema.isPrimitive()
             && isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
           final PathSpec path = new PathSpec(context.getSchemaPathSpec());

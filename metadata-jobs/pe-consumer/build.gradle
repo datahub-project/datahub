@@ -1,7 +1,9 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'pegasus'
 }
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 configurations {
   avro
@@ -23,7 +25,6 @@ dependencies {
   implementation project(':notifications')
 
   implementation externalDependency.springKafka
-  implementation externalDependency.springActuator
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
@@ -32,8 +33,11 @@ dependencies {
   runtimeOnly externalDependency.logbackJsonClassic
   testImplementation externalDependency.mockito
   testRuntimeOnly externalDependency.logbackClassic
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.testng
   testRuntimeOnly externalDependency.logbackJackson
   testRuntimeOnly externalDependency.logbackJsonClassic
+  testImplementation project(':metadata-operation-context')
 }
 
 task avroSchemaSources(type: Copy) {

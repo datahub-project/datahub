@@ -1,5 +1,6 @@
 import React from 'react';
-import { Avatar, Tooltip } from 'antd';
+import { Avatar } from 'antd';
+import { Tooltip } from '@components';
 import { CorpUser, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import ActorAvatar from '../../../../ActorAvatar';
@@ -8,17 +9,19 @@ import { userExists } from './utils';
 export type Props = {
     users: Array<CorpUser>;
     max?: number;
+    checkExistence?: boolean;
 };
 
-export default function TopUsersFacepile({ users, max }: Props) {
+export default function TopUsersFacepile({ users, max, checkExistence = true }: Props) {
     const displayedUsers = users.filter((user) => userExists(user));
+    const usersList = checkExistence ? displayedUsers : users;
     const entityRegistry = useEntityRegistry();
     return (
         <Avatar.Group maxCount={max}>
-            {displayedUsers?.map((user) => {
+            {usersList?.map((user) => {
                 const userName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
                 return (
-                    <Tooltip title={userName}>
+                    <Tooltip title={userName} showArrow={false}>
                         <ActorAvatar
                             size={26}
                             name={userName}

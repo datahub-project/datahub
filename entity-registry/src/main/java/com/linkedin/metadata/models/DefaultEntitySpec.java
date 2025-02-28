@@ -1,14 +1,11 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -27,6 +24,9 @@ public class DefaultEntitySpec implements EntitySpec {
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
+  private List<SearchableRefFieldSpec> _searchableRefFieldSpecs;
+  private Map<PathSpec, String> searchableFieldPathMap;
+  private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
 
   public DefaultEntitySpec(
       @Nonnull final Collection<AspectSpec> aspectSpecs,
@@ -107,11 +107,37 @@ public class DefaultEntitySpec implements EntitySpec {
   }
 
   @Override
+  public List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
+    if (_searchableRefFieldSpecs == null) {
+      _searchableRefFieldSpecs = EntitySpec.super.getSearchableRefFieldSpecs();
+    }
+    return _searchableRefFieldSpecs;
+  }
+
+  @Override
   public Map<String, Set<SearchableAnnotation.FieldType>> getSearchableFieldTypes() {
     if (searchableFieldTypeMap == null) {
       searchableFieldTypeMap = EntitySpec.super.getSearchableFieldTypes();
     }
 
     return searchableFieldTypeMap;
+  }
+
+  @Override
+  public Map<PathSpec, String> getSearchableFieldPathMap() {
+    if (searchableFieldPathMap == null) {
+      searchableFieldPathMap = EntitySpec.super.getSearchableFieldPathMap();
+    }
+
+    return searchableFieldPathMap;
+  }
+
+  @Override
+  public Map<String, List<PathSpec>> getSearchableFieldsToPathSpecsMap() {
+    if (fieldPathToSearchableFieldMap == null) {
+      fieldPathToSearchableFieldMap = EntitySpec.super.getSearchableFieldsToPathSpecsMap();
+    }
+
+    return fieldPathToSearchableFieldMap;
   }
 }

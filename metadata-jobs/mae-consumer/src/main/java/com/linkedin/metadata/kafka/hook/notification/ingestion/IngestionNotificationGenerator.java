@@ -1,28 +1,27 @@
 package com.linkedin.metadata.kafka.hook.notification.ingestion;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.google.common.collect.ImmutableMap;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceSourceType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,19 +37,19 @@ import lombok.extern.slf4j.Slf4j;
 public class IngestionNotificationGenerator extends BaseMclNotificationGenerator {
 
   public IngestionNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
-      @Nonnull final Authentication systemAuthentication) {
+      @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+        notificationRecipientBuilders);
   }
 
   @Override
@@ -116,6 +115,16 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return;
     }
 
+    if (ingestionSourceInfo.hasSource()
+        && ingestionSourceInfo
+            .getSource()
+            .getType()
+            .equals(DataHubIngestionSourceSourceType.SYSTEM)) {
+      log.debug(
+          "Skipping notifications for system ingestion source with urn {}", ingestionSourceUrn);
+      return;
+    }
+
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("sourceName", ingestionSourceInfo.getName());
     templateParams.put("sourceType", ingestionSourceInfo.getType());
@@ -137,7 +146,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       Urn executionRequestUrn,
       NotificationScenarioType scenarioType) {
     Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(scenarioType, ingestionSourceUrn, null));
+        new HashSet<>(buildRecipients(systemOpContext, scenarioType, ingestionSourceUrn, null));
     if (recipients.isEmpty()) {
       log.warn(
           "Found empty recipients for ingestion source notification for urn {}. Skipping sending..",
@@ -168,6 +177,10 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
         return "failed";
       case Constants.EXECUTION_REQUEST_STATUS_SUCCESS:
         return "completed successfully";
+      case Constants.EXECUTION_REQUEST_STATUS_ABORTED:
+        return "aborted";
+      case Constants.EXECUTION_REQUEST_STATUS_DUPLICATE:
+        return "duplicate";
       default:
         throw new IllegalArgumentException(
             String.format(

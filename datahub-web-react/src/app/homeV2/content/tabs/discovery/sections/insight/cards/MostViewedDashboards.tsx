@@ -1,13 +1,15 @@
 import React from 'react';
-import { EyeTwoTone } from '@ant-design/icons';
+import { EntityType } from '../../../../../../../../types.generated';
 import { SearchListInsightCard } from './SearchListInsightCard';
 import { buildMostViewedDashboardsFilter, buildMostViewedDashboardsSort } from './useGetMostViewedDashboards';
-import { EntityType } from '../../../../../../../../types.generated';
+
+export const MOST_VIEWED_DASHBOARDS_ID = 'MostViewedDashboards';
 
 export const MostViewedDashboardsCard = () => {
     return (
         <SearchListInsightCard
-            icon={<EyeTwoTone twoToneColor="green" />}
+            id={MOST_VIEWED_DASHBOARDS_ID}
+            tip="Dashboards with the most views in the past month"
             types={[EntityType.Dashboard]}
             title="Most Viewed Dashboards"
             filters={buildMostViewedDashboardsFilter()}

@@ -1,0 +1,181 @@
+{
+  "urn:li:dataset:(urn:li:dataPlatform:datahub,com.example.customer.CustomerProfile,PROD)": {
+    "schemaMetadata": {
+      "added": {},
+      "modified": [
+        "fields"
+      ],
+      "modified_details": {
+        "fields": {
+          "added": {
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts.[type=boolean].isVerified": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts.[type=boolean].isVerified",
+              "isPartOfKey": false,
+              "nativeDataType": "boolean",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.BooleanType": {}
+                }
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts.[type=string].emailAddress": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts.[type=string].emailAddress",
+              "isPartOfKey": false,
+              "nativeDataType": "string",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.StringType": {}
+                }
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=enum].type": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=enum].type",
+              "isPartOfKey": false,
+              "nativeDataType": "Enum",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.EnumType": {}
+                }
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=string].countryCode": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=string].countryCode",
+              "isPartOfKey": false,
+              "nativeDataType": "string",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.StringType": {}
+                }
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=string].number": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts.[type=string].number",
+              "isPartOfKey": false,
+              "nativeDataType": "string",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.StringType": {}
+                }
+              }
+            }
+          },
+          "modified": [
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts",
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts",
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].alternativeContacts",
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=union].[type=EmailContact].primaryContact.[type=boolean].isVerified",
+            "[version=2.0].[type=CustomerProfile].[type=array].[type=Address].addresses.[type=enum].type",
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=FrequencyPreference].preferences.[type=boolean].enabled",
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=boolean].value",
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=long].value",
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=string].value",
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument",
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=NationalID].identificationDocument",
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument",
+            "[version=2.0].[type=CustomerProfile].[type=union].identificationDocument"
+          ],
+          "modified_details": {
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts": {
+              "description": {
+                "after": "List of alternative contact methods",
+                "before": "List of alternative contact methods\nField default value: []",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=EmailContact].alternativeContacts"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts": {
+              "description": {
+                "after": "List of alternative contact methods",
+                "before": "List of alternative contact methods\nField default value: []",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].[type=PhoneContact].alternativeContacts"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].alternativeContacts": {
+              "description": {
+                "after": "List of alternative contact methods",
+                "before": "List of alternative contact methods\nField default value: []",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].[type=union].alternativeContacts"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=union].[type=EmailContact].primaryContact.[type=boolean].isVerified": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: False",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=union].[type=EmailContact].primaryContact.[type=boolean].isVerified"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=array].[type=Address].addresses.[type=enum].type": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: RESIDENTIAL",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=array].[type=Address].addresses.[type=enum].type"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=FrequencyPreference].preferences.[type=boolean].enabled": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: True",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=FrequencyPreference].preferences.[type=boolean].enabled"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=boolean].value": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=boolean].value"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=long].value": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=long].value"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=string].value": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=map].[type=union].[type=MetadataValue].metadata.[type=union].[type=string].value"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=NationalID].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=NationalID].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=union].identificationDocument": {
+              "description": {
+                "after": "Customer's identification document - can be passport, driver's license, or national ID\nField default value: null",
+                "before": "Customer's identification document - can be passport, driver's license, or national ID",
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].identificationDocument"
+              }
+            }
+          },
+          "removed": {}
+        }
+      },
+      "removed": {}
+    }
+  }
+}

@@ -1,0 +1,83 @@
+import logging
+from dataclasses import dataclass
+from typing import Optional
+
+from datahub.ingestion.graph.client import DataHubGraph
+
+from datahub_integrations.analytics.models import ConnectionModel
+from datahub_integrations.app import graph
+from datahub_integrations.graphql.connection import (
+    get_connection_json,
+    save_connection_json,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class _FrozenConnectionModel(ConnectionModel, frozen=True):
+    pass
+
+
+class SnowflakeConnection(_FrozenConnectionModel):
+    account: str
+    warehouse: str
+    user: str
+    password: str
+    role: Optional[str]
+
+    @classmethod
+    def from_datahub(cls, graph: DataHubGraph) -> "SnowflakeConnection":
+        obj = get_connection_json(graph=graph, urn="urn:li:datahubConnection:snowflake")
+        if not obj:
+            raise Exception("No snowflake config found")
+
+        config = SnowflakeConnection.parse_obj(obj)
+
+        return config
+
+    def to_datahub(self, graph: DataHubGraph) -> None:
+        save_connection_json(
+            graph=graph,
+            urn="urn:li:datahubConnection:snowflake",
+            platform_urn="urn:li:dataPlatform:snowflake",
+            config=self.dict(),
+        )
+
+
+def _get_current_snowflake_config() -> SnowflakeConnection:
+    """Gets the current snowflake config from DataHub."""
+
+    # For local testing, you can use this instead:
+    # import pathlib
+    # return SlackConnection.parse_obj(
+    #     json.loads(pathlib.Path("slack_details.json").read_text())
+    # )
+
+    return SnowflakeConnection.from_datahub(graph=graph)
+
+
+@dataclass
+class _SnowflakeConfigManager:
+    """A caching wrapper around the Snowflake config."""
+
+    _config: Optional[SnowflakeConnection] = None
+
+    def get_config(self, force_refresh: bool = False) -> SnowflakeConnection:
+        if self._config is None or force_refresh:
+            logger.info("Getting snowflake config")
+            self._config = _get_current_snowflake_config()
+
+        return self._config
+
+    def reload(self) -> SnowflakeConnection:
+        logger.info("Reloading snowflake config")
+        self._config = _get_current_snowflake_config()
+        return self._config
+
+    # def save_config(self, config: SlackConnection) -> None:
+    #     logger.info("Setting slack config")
+    #     self._config = config
+    #     _set_current_slack_config(config)
+
+
+snowflake_config = _SnowflakeConfigManager()

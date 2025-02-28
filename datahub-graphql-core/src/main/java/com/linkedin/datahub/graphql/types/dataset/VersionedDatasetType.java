@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -16,7 +17,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,10 +79,12 @@ public class VersionedDatasetType
     try {
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
+              context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
-              new HashSet<>(versionedUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              versionedUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn.getUrn()))
+                  .collect(Collectors.toSet()),
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (VersionedUrn versionedUrn : versionedUrns) {
@@ -94,7 +96,7 @@ public class VersionedDatasetType
                   gmsDataset == null
                       ? null
                       : DataFetcherResult.<VersionedDataset>newResult()
-                          .data(VersionedDatasetMapper.map(gmsDataset))
+                          .data(VersionedDatasetMapper.map(context, gmsDataset))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import io.datahubproject.metadata.context.OperationContext;
 
 /** Provided as input to GraphQL resolvers; used to carry information about GQL request context. */
 public interface QueryContext {
@@ -25,4 +27,11 @@ public interface QueryContext {
 
   /** Returns the authorizer used to authorize specific actions. */
   Authorizer getAuthorizer();
+
+  /**
+   * @return Returns the operational context
+   */
+  OperationContext getOperationContext();
+
+  DataHubAppConfiguration getDataHubAppConfig();
 }

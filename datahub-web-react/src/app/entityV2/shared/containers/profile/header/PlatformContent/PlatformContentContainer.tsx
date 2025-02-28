@@ -2,7 +2,7 @@ import React from 'react';
 import { Container, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
 import { getPlatformName } from '../../../../utils';
 import ContainerIcon from './ContainerIcon';

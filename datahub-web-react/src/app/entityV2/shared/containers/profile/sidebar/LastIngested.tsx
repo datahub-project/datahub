@@ -1,12 +1,13 @@
 import { green, orange, red } from '@ant-design/colors';
-import { Image, Popover } from 'antd';
+import { Image } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components/macro';
 import moment from 'moment-timezone';
 import React from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getPlatformName } from '../../../utils';
 import { getDisplayedEntityType } from '../header/utils';

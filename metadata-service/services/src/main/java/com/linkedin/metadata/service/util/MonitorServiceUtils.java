@@ -2,6 +2,8 @@ package com.linkedin.metadata.service.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultError;
@@ -19,15 +21,21 @@ import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import com.linkedin.assertion.IncrementingSegmentSpec;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DataHubOperationSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldSpec;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
@@ -255,6 +263,15 @@ public class MonitorServiceUtils {
     return objectNode;
   }
 
+  public static ObjectNode buildDatasetSchemaParametersJson(
+      @Nonnull final DatasetSchemaAssertionParameters parameters) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("sourceType", parameters.getSourceType().toString());
+    return objectNode;
+  }
+
   public static ObjectNode buildAssertionEvaluationParametersJson(
       @Nonnull final AssertionEvaluationParameters parameters) {
     final ObjectMapper objectMapper = new ObjectMapper();
@@ -276,6 +293,11 @@ public class MonitorServiceUtils {
       objectNode.put(
           "datasetFieldParameters",
           buildDatasetFieldParametersJson(parameters.getDatasetFieldParameters()));
+    }
+    if (parameters.hasDatasetSchemaParameters()) {
+      objectNode.put(
+          "datasetSchemaParameters",
+          buildDatasetSchemaParametersJson(parameters.getDatasetSchemaParameters()));
     }
 
     return objectNode;
@@ -488,52 +510,151 @@ public class MonitorServiceUtils {
     return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
   }
 
+  public static String buildTestSchemaAssertionBodyJson(
+      @Nonnull final String type,
+      @Nonnull final String asserteeUrn,
+      @Nonnull final String connectionUrn,
+      @Nonnull final SchemaAssertionInfo schemaAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters)
+      throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    final ObjectNode assertionNode = objectMapper.createObjectNode();
+    final ObjectNode schemaAssertionNode = objectMapper.createObjectNode();
+    final ObjectNode paramNode = objectMapper.createObjectNode();
+
+    schemaAssertionNode.put("compatibility", schemaAssertionInfo.getCompatibility().toString());
+    ArrayNode fields = objectMapper.createArrayNode();
+    schemaAssertionInfo
+        .getSchema()
+        .getFields()
+        .forEach(
+            field -> {
+              fields.add(buildSchemaAssertionFieldJson(field));
+            });
+    schemaAssertionNode.put("fields", fields);
+
+    assertionNode.put("schemaAssertion", schemaAssertionNode);
+    paramNode.put("type", "DATASET_SCHEMA");
+    objectNode.put("type", type);
+    objectNode.put("connectionUrn", connectionUrn);
+    objectNode.put("entityUrn", asserteeUrn);
+    objectNode.put("assertion", assertionNode);
+    objectNode.put("parameters", buildAssertionEvaluationParametersJson(parameters));
+
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
+  public static ObjectNode buildSchemaAssertionFieldJson(@Nonnull final SchemaField field) {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+
+    objectNode.put("path", field.getFieldPath());
+    objectNode.put("type", AssertionUtils.mapSchemaFieldDataType(field.getType()));
+    objectNode.put("nativeType", field.getNativeDataType());
+
+    return objectNode;
+  }
+
   public static AssertionResult buildTestAssertionResult(@Nonnull final String jsonStr) {
     ObjectMapper mapper = new ObjectMapper();
     try {
       ObjectNode json = (ObjectNode) mapper.readTree(jsonStr);
-      final AssertionResult assertionResult = new AssertionResult();
-
-      assertionResult.setType(AssertionResultType.valueOf(json.get("type").asText()));
-      if (json.has("rowCount") && !json.get("rowCount").isNull()) {
-        assertionResult.setRowCount(json.get("rowCount").asLong());
-      }
-      if (json.has("missingCount") && !json.get("missingCount").isNull()) {
-        assertionResult.setMissingCount(json.get("missingCount").asLong());
-      }
-      if (json.has("unexpectedCount") && !json.get("unexpectedCount").isNull()) {
-        assertionResult.setUnexpectedCount(json.get("unexpectedCount").asLong());
-      }
-      if (json.has("actualAggValue") && !json.get("actualAggValue").isNull()) {
-        assertionResult.setActualAggValue(Float.valueOf(json.get("actualAggValue").asText()));
-      }
-      if (json.has("externalUrl") && !json.get("externalUrl").isNull()) {
-        assertionResult.setExternalUrl(json.get("externalUrl").asText());
-      }
-      if (json.has("nativeResults") && !json.get("nativeResults").isNull()) {
-        Map<String, String> properties =
-            mapper.convertValue(
-                json.get("nativeResults"), new TypeReference<Map<String, String>>() {});
-        assertionResult.setNativeResults(new StringMap(properties));
-      }
-      if (json.has("error") && !json.get("error").isNull()) {
-        final AssertionResultError assertionResultError = new AssertionResultError();
-        assertionResultError.setType(
-            AssertionResultErrorType.valueOf(json.get("error").get("type").asText()));
-        if (json.get("error").has("properties") && !json.get("error").get("properties").isNull()) {
-          Map<String, String> properties =
-              mapper.convertValue(
-                  json.get("error").get("properties"), new TypeReference<Map<String, String>>() {});
-          assertionResultError.setProperties(new StringMap(properties));
-        }
-        assertionResult.setError(assertionResultError);
-      }
-
-      return assertionResult;
+      return extractAssertionResult(json);
     } catch (Exception e) {
       throw new IllegalArgumentException(
           "Failed to parse JSON received from the Monitors service! %s");
     }
+  }
+
+  public static String buildRunAssertionsBodyJson(
+      @Nonnull final List<Urn> assertionUrns,
+      final boolean dryRun,
+      @Nonnull final Map<String, String> parameters,
+      final boolean async)
+      throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    final ArrayNode assertionUrnsNode = objectMapper.createArrayNode();
+    for (Urn urn : assertionUrns) {
+      assertionUrnsNode.add(urn.toString());
+    }
+    objectNode.set("urns", assertionUrnsNode);
+    objectNode.set("dryRun", BooleanNode.valueOf(dryRun));
+    objectNode.set("async", BooleanNode.valueOf(async));
+    if (!parameters.isEmpty()) {
+      final ObjectNode parametersNode = objectMapper.createObjectNode();
+      parameters.forEach(parametersNode::put);
+      objectNode.set("parameters", parametersNode);
+    }
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
+  public static Map<Urn, AssertionResult> buildRunAssertionsResult(
+      @Nonnull List<Urn> assertionUrns, @Nonnull final String jsonStr) {
+    final ObjectMapper mapper = new ObjectMapper();
+    final Map<Urn, AssertionResult> results = new HashMap<>();
+    try {
+      ObjectNode json = (ObjectNode) mapper.readTree(jsonStr);
+      ArrayNode assertionResults = (ArrayNode) json.get("results");
+      for (Urn urn : assertionUrns) {
+        for (int i = 0; i < assertionResults.size(); i++) {
+          ObjectNode result = (ObjectNode) assertionResults.get(i);
+          if (result.get("urn").asText().equals(urn.toString())) {
+            results.put(urn, extractAssertionResult((ObjectNode) result.get("result")));
+            break;
+          }
+        }
+      }
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to parse run assertions result received from the Monitors service! %s",
+              e.getMessage()));
+    }
+    return results;
+  }
+
+  private static AssertionResult extractAssertionResult(ObjectNode json) {
+    final ObjectMapper mapper = new ObjectMapper();
+    final AssertionResult assertionResult = new AssertionResult();
+
+    assertionResult.setType(AssertionResultType.valueOf(json.get("type").asText()));
+    if (json.has("rowCount") && !json.get("rowCount").isNull()) {
+      assertionResult.setRowCount(json.get("rowCount").asLong());
+    }
+    if (json.has("missingCount") && !json.get("missingCount").isNull()) {
+      assertionResult.setMissingCount(json.get("missingCount").asLong());
+    }
+    if (json.has("unexpectedCount") && !json.get("unexpectedCount").isNull()) {
+      assertionResult.setUnexpectedCount(json.get("unexpectedCount").asLong());
+    }
+    if (json.has("actualAggValue") && !json.get("actualAggValue").isNull()) {
+      assertionResult.setActualAggValue(Float.valueOf(json.get("actualAggValue").asText()));
+    }
+    if (json.has("externalUrl") && !json.get("externalUrl").isNull()) {
+      assertionResult.setExternalUrl(json.get("externalUrl").asText());
+    }
+    if (json.has("nativeResults") && !json.get("nativeResults").isNull()) {
+      Map<String, String> properties =
+          mapper.convertValue(
+              json.get("nativeResults"), new TypeReference<Map<String, String>>() {});
+      assertionResult.setNativeResults(new StringMap(properties));
+    }
+    if (json.has("error") && !json.get("error").isNull()) {
+      final AssertionResultError assertionResultError = new AssertionResultError();
+      assertionResultError.setType(
+          AssertionResultErrorType.valueOf(json.get("error").get("type").asText()));
+      if (json.get("error").has("properties") && !json.get("error").get("properties").isNull()) {
+        Map<String, String> properties =
+            mapper.convertValue(
+                json.get("error").get("properties"), new TypeReference<Map<String, String>>() {});
+        assertionResultError.setProperties(new StringMap(properties));
+      }
+      assertionResult.setError(assertionResultError);
+    }
+
+    return assertionResult;
   }
 
   private MonitorServiceUtils() {}

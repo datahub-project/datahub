@@ -1,4 +1,13 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
+import React, {
+    useEffect,
+    useMemo,
+    useState,
+    useRef,
+    useCallback,
+    EventHandler,
+    SyntheticEvent,
+    MutableRefObject,
+} from 'react';
 import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -24,6 +33,7 @@ import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -122,6 +132,7 @@ interface Props {
     onFocus?: () => void;
     onBlur?: () => void;
     showViewAllResults?: boolean;
+    searchInputRef?: MutableRefObject<any>;
 }
 
 const defaultProps = {
@@ -151,12 +162,15 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    ...props
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
+    const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -185,7 +199,7 @@ export const SearchBar = ({
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            data?.listRecommendations?.modules.map((module) => ({
+            data?.listRecommendations?.modules?.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
@@ -195,7 +209,7 @@ export const SearchBar = ({
             type: '',
             label: (
                 <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
+                    View all →
                 </Button>
             ),
             style: { marginLeft: 'auto', cursor: 'auto' },
@@ -223,7 +237,9 @@ export const SearchBar = ({
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
-            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
+                combineSiblings: finalCombineSiblings,
+            });
             return {
                 label: <SectionHeader entityType={combinedSuggestion.type} />,
                 options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({
@@ -232,7 +248,7 @@ export const SearchBar = ({
                         <AutoCompleteItem
                             query={effectiveQuery}
                             entity={combinedEntity.entity}
-                            siblings={combineSiblings ? combinedEntity.matchedEntities : undefined}
+                            siblings={finalCombineSiblings ? combinedEntity.matchedEntities : undefined}
                         />
                     ),
                     type: combinedEntity.entity.type,
@@ -240,7 +256,7 @@ export const SearchBar = ({
                 })),
             };
         });
-    }, [combineSiblings, effectiveQuery, suggestions]);
+    }, [finalCombineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -248,7 +264,7 @@ export const SearchBar = ({
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
             onQueryChange(searchQuery);
         }
-    });
+    }, [searchQuery, selectedQuickFilter, previousSelectedQuickFilterValue, onQueryChange]);
 
     // clear quick filters when this search bar is unmounted (ie. going from search results to home page)
     useEffect(() => {
@@ -298,15 +314,21 @@ export const SearchBar = ({
         }
     }
 
-    const searchInputRef = useRef(null);
+    const searchInputFallbackRef: MutableRefObject<any> = useRef(null);
+    const searchInputRef: MutableRefObject<any> = props.searchInputRef || searchInputFallbackRef;
 
     useEffect(() => {
         if (showCommandK) {
             const handleKeyDown = (event) => {
-                // Support command-k to select the search bar.
+                const isMac = (navigator as any).userAgentData
+                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
+                    : navigator.userAgent.toLowerCase().includes('mac');
+
+                // Support command-k to select the search bar on all platforms
+                // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
-                    (searchInputRef?.current as any)?.focus();
+                if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
+                    searchInputRef.current?.focus();
                 }
             };
             document.addEventListener('keydown', handleKeyDown);
@@ -315,7 +337,7 @@ export const SearchBar = ({
             };
         }
         return () => null;
-    }, [showCommandK]);
+    }, [showCommandK, searchInputRef]);
 
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
@@ -372,6 +394,7 @@ export const SearchBar = ({
                 listHeight={480}
             >
                 <StyledSearchBar
+                    ref={searchInputRef}
                     bordered={false}
                     placeholder={placeholderText}
                     onPressEnter={() => {
@@ -420,7 +443,6 @@ export const SearchBar = ({
                             />
                         </>
                     }
-                    ref={searchInputRef}
                     suffix={(showCommandK && !isFocused && <CommandK />) || null}
                 />
             </StyledAutoComplete>

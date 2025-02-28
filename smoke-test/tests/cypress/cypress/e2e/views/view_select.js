@@ -8,17 +8,16 @@ function openViewEditDropDownAndClickId(data_id) {
 describe("view select", () => {
   it("click view select, create view, clear view, make defaults, clear view", () => {
     cy.login();
-    let randomNumber = Math.floor(Math.random() * 100000);
+    const randomNumber = Math.floor(Math.random() * 100000);
     const viewName = `Test View ${randomNumber}`;
     const newViewName = `New View Name ${randomNumber}`;
 
     // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
     const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
+    cy.on(
+      "uncaught:exception",
+      (err) => !err.message.includes(resizeObserverLoopErrRe),
+    );
 
     cy.goToStarSearchList();
 
@@ -42,11 +41,11 @@ describe("view select", () => {
     cy.log("Ensure the View filter has been applied correctly.");
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("cypress_logging_events");
-    cy.contains("of 3 results");
+    cy.contains(/Showing 1 - [2-4] of [2-4]/);
 
     cy.log("Clear the selected view");
     cy.clearView(viewName);
-    cy.ensureTextNotPresent("of 3 results");
+    cy.ensureTextNotPresent(/Showing 1 - [2-4] of [2-4]/);
 
     cy.log("Now edit the view");
     openViewEditDropDownAndClickId("view-dropdown-edit");

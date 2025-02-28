@@ -3,9 +3,15 @@ plugins {
     id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
-    implementation project(':metadata-service:restli-client')
+    implementation platform('software.amazon.awssdk:bom:2.23.6')
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:sts'
+
+    implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-service:auth-impl')
     implementation project(':metadata-service:auth-config')
     implementation project(':metadata-service:configuration')
@@ -22,11 +28,13 @@ dependencies {
     implementation externalDependency.opentelemetryAnnotations
 
     implementation externalDependency.slf4jApi
+    implementation externalDependency.springContext
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
-    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
     testImplementation externalDependency.testng
+    testImplementation externalDependency.mockitoInline
 }
 
 graphqlCodegen {

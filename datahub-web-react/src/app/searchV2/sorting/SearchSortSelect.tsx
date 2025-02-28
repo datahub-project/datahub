@@ -1,16 +1,20 @@
 import React from 'react';
 import { CaretDownFilled } from '@ant-design/icons';
-import { Select, Tooltip } from 'antd';
+import { Select } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
-import { useSearchContext } from '../../search/context/SearchContext';
+import { DEFAULT_SORT_OPTION } from '../context/constants';
+import useGetSortOptions from './useGetSortOptions';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     margin-right: 0px;
-
+    && {
+        padding: 0px;
+        margin: 0px;
+    }
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
         color: ${ANTD_GRAY[8]} !important;
@@ -23,11 +27,14 @@ const SelectWrapper = styled.span`
     }
 `;
 
+type Props = {
+    selectedSortOption: string | undefined;
+    setSelectedSortOption: (option: string) => void;
+};
 
-export default function SearchSortSelect() {
-    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
-
-    const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
+export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
+    const sortOptions = useGetSortOptions();
+    const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
         <Tooltip title="Sort search results" showArrow={false} placement="left">
@@ -37,7 +44,7 @@ export default function SearchSortSelect() {
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}
-                    onChange={(sortOption) => setSelectedSortOption(sortOption)}
+                    onChange={(option) => setSelectedSortOption(option)}
                     dropdownStyle={{ minWidth: 'max-content' }}
                     placement="bottomRight"
                     suffixIcon={<CaretDownFilled />}

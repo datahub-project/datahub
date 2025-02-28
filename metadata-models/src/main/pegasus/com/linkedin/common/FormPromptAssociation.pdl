@@ -20,4 +20,10 @@ record FormPromptAssociation {
      * Optional information about the field-level prompt associations.
      */
     fieldAssociations: optional FormPromptFieldAssociations
+
+    /**
+     * Optional record of what was actually submitted when a user responds to a form prompt.
+     * This should be populated going forward.
+     */
+    response: optional FormPromptResponse
 }

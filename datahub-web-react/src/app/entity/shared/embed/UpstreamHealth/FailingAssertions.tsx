@@ -53,7 +53,7 @@ export default function FailingAssertions({
             assertions
             <FailingDataWrapper>
                 {datasetsWithFailingAssertions.map((dataset) => {
-                    const totalNumAssertions = dataset.assertions?.assertions.length;
+                    const totalNumAssertions = dataset.assertions?.assertions?.length;
                     const numAssertionsFailing = getNumAssertionsFailing(dataset);
 
                     return (

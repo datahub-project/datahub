@@ -13,11 +13,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -113,7 +114,8 @@ public class TrackingService {
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
 
-  public void emitAnalyticsEvent(@Nonnull final JsonNode event) {
+  public void emitAnalyticsEvent(
+      @Nonnull OperationContext opContext, @Nonnull final JsonNode event) {
     final JSONObject sanitizedEvent = sanitizeEvent(event);
     if (sanitizedEvent == null) {
       return;
@@ -129,7 +131,7 @@ public class TrackingService {
 
     try {
       _mixpanelAPI.sendMessage(
-          _mixpanelMessageBuilder.event(getClientId(), eventType, sanitizedEvent));
+          _mixpanelMessageBuilder.event(getClientId(opContext), eventType, sanitizedEvent));
     } catch (IOException e) {
       log.info(
           "Failed to send event to Mixpanel; this does not affect the functionality of the application");
@@ -138,7 +140,7 @@ public class TrackingService {
   }
 
   @Nonnull
-  public String getClientId() {
+  public String getClientId(@Nonnull OperationContext opContext) {
     // Return cached client id if it exists
     if (_clientId != null) {
       return _clientId;
@@ -146,12 +148,13 @@ public class TrackingService {
 
     Urn clientIdUrn = UrnUtils.getUrn(CLIENT_ID_URN);
     // Create a new client id if it doesn't exist
-    if (!_entityService.exists(clientIdUrn, true)) {
-      return createClientIdIfNotPresent(_entityService);
+    if (!_entityService.exists(opContext, clientIdUrn, true)) {
+      return createClientIdIfNotPresent(opContext, _entityService);
     }
 
     // Otherwise, return the existing client id from the metadata store
-    RecordTemplate clientIdTemplate = _entityService.getLatestAspect(clientIdUrn, CLIENT_ID_ASPECT);
+    RecordTemplate clientIdTemplate =
+        _entityService.getLatestAspect(opContext, clientIdUrn, CLIENT_ID_ASPECT);
     // Should always be present here from above, so no need for null check
     _clientId = ((TelemetryClientId) clientIdTemplate).getClientId();
     return _clientId;
@@ -221,14 +224,15 @@ public class TrackingService {
   }
 
   @Nonnull
-  private static String createClientIdIfNotPresent(@Nonnull final EntityService entityService) {
+  private static String createClientIdIfNotPresent(
+      @Nonnull OperationContext opContext, @Nonnull final EntityService entityService) {
     String uuid = UUID.randomUUID().toString();
     TelemetryClientId clientId = new TelemetryClientId().setClientId(uuid);
     final AuditStamp clientIdStamp = new AuditStamp();
     clientIdStamp.setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR));
     clientIdStamp.setTime(System.currentTimeMillis());
     entityService.ingestAspectIfNotPresent(
-        UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp, null);
+        opContext, UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp, null);
     return uuid;
   }
 }

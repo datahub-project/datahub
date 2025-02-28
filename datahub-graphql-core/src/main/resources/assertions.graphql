@@ -25,9 +25,102 @@ extend type Mutation {
   createFieldAssertion(input: CreateFieldAssertionInput!): Assertion!
 
   """
+  Upsert a Custom Assertion
+  """
+  upsertCustomAssertion(
+    """
+    Urn of custom assertion. If not provided, one will be generated.
+    """
+    urn: String
+
+    """
+    Input for upserting a custom assertion.
+    """
+    input: UpsertCustomAssertionInput!
+  ): Assertion!
+
+  """
+  Report result for an assertion
+  """
+  reportAssertionResult(
+    """
+    Urn of custom assertion.
+    """
+    urn: String!
+
+    """
+    Input for reporting result of the assertion
+    """
+    result: AssertionResultInput!
+  ): Boolean!
+
+  """
   Tests a given assertion and returns the result.
   """
   testAssertion(input: TestAssertionInput!): AssertionResult!
+
+  """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertion(
+    """The URN of the assertion to run."""
+    urn: String!
+    """Whether to save the result of the assertion run for viewing through the UI."""
+    saveResult: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertion asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): AssertionResult
+
+  """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertions(
+    """The urns of the assertion to run."""
+    urns: [String!]!
+    """Whether to save the results of the assertion run for viewing through the UI."""
+    saveResults: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): RunAssertionsResult
+
+  """
+  Runs the assertions associated with a specific asset. Any NON-NATIVE assertions associated with the asset
+  will simply be omitted in the result.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertionsForAsset(
+    """The urn of the asset whose assertions should be run"""
+    urn: String!,
+    """An optional set of tags URNs used to filter the assertions that are run"""
+    tagUrns: [String!],
+    """An optional set of custom runtime parameters to inject into any SQL fragment in any assertions for the asset"""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): RunAssertionsResult
 
   """
   Update an existing Dataset Assertion
@@ -38,11 +131,11 @@ extend type Mutation {
   ): Assertion!
 
   """
-  Update the actions for a given assertion.
+  Update basic metadata for a given assertion, including description and actions.
   """
-  updateAssertionActions(
+  updateAssertionMetadata(
     urn: String!
-    input: AssertionActionsInput!
+    input: UpdateAssertionMetadataInput!
   ): Assertion!
 
   """
@@ -105,11 +198,26 @@ extend type Mutation {
     assertionUrn: String,
 
     """
-    Input for creating or updating an SQL assertion.
+    Input for creating or updating an Field assertion.
     """
     input: UpsertDatasetFieldAssertionMonitorInput!
   ): Assertion!
 
+  """
+  Create or Update a new Schema Assertion
+  """
+  upsertDatasetSchemaAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Schema Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating an Schema assertion.
+    """
+    input: UpsertDatasetSchemaAssertionMonitorInput!
+  ): Assertion!
 }
 
 """
@@ -265,7 +373,7 @@ input UpsertDatasetFreshnessAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -342,7 +450,7 @@ input UpsertDatasetVolumeAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -403,7 +511,7 @@ input UpsertDatasetSqlAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
 }
@@ -464,9 +572,146 @@ input UpsertDatasetFieldAssertionMonitorInput {
   mode: MonitorMode!
 
   """
-  Advanced: The executor ID of the remote monitor service, if any.
+  Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
+}
+
+"""
+Input to upsert a new Schema Assertion
+"""
+input UpsertDatasetSchemaAssertionMonitorInput {
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
+
+  """
+  The entity targeted by this schema check.
+  """
+  entityUrn: String!
+
+  """
+  The expected schema of the entity
+  """
+  assertion: SchemaAssertionInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+
+  """
+  The parameters required to evaluate a dataset schema assertion -- Optional since there are no useful options yet.
+  """
+  evaluationParameters: DatasetSchemaAssertionParametersInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  If not provided, a default of every 6 hours will be used.
+  """
+  evaluationSchedule: CronScheduleInput
+}
+
+"""
+Defines a schema field, each with a specified path and type.
+"""
+type SchemaAssertionField {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+Defines a schema input consisting of a list of fields, each with a specified path and type.
+"""
+input SchemaAssertionFieldInput {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+The input model for asserting a schema with compatibility and field definitions.
+"""
+input SchemaAssertionInput {
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
+Defines the required compatibility level for the schema assertion to pass.
+"""
+enum SchemaAssertionCompatibility {
+  """
+  The schema must be exactly the same as the expected schema.
+  """
+  EXACT_MATCH
+
+  """
+  The schema must be a superset of the expected schema.
+  """
+  SUPERSET
+
+  """
+  The schema must be a subset of the expected schema.
+  """
+  SUBSET
+}
+
+"""
+Input for updating basic metadata associated with a particular assertion
+"""
+input UpdateAssertionMetadataInput {
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  An optional set of actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
 }
 
 """
@@ -636,9 +881,19 @@ extend type AssertionInfo {
   schemaAssertion: SchemaAssertionInfo
 
   """
+  Information about Custom assertion
+  """
+  customAssertion: CustomAssertionInfo
+
+  """
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
+
+  """
+  The time that the status last changed and the actor who changed it
+  """
+  lastUpdated: AuditStamp
 }
 
 extend type Assertion {
@@ -646,6 +901,13 @@ extend type Assertion {
   The actions associated with the Assertion
   """
   actions: AssertionActions
+
+  """
+  The details related to an Inferred Assertion
+  available if source is "INFERRED"
+  """
+  inferenceDetails: AssertionInferenceDetails
+
 }
 
 """
@@ -695,6 +957,74 @@ enum AssertionActionType {
   Resolve open incidents related to the assertion.
   """
   RESOLVE_INCIDENT
+}
+
+"""
+The details of an Inferred Assertion
+"""
+type AssertionInferenceDetails {
+  """
+  The id of the assertion prediction model.
+  """
+  modelId: String
+
+  """
+  The version of the model used to make the assertion.
+  """
+  modelVersion: String
+
+  """
+  The confidence of the inference, if available.
+  """
+  confidence: Float
+
+  """
+  The parameters used to make the inference.
+  """
+  parameters: [StringMapEntry!]
+
+  """
+  The settings used to adjust the assertion.
+  """
+  adjustmentSettings: AssertionAdjustmentSettings
+
+  """
+  The time the inferred assertion was generated at in milliseconds.
+  """
+  generatedAt: Long
+}
+
+"""
+A set of settings that can be used to adjust assertion values
+This is mainly applied against inferred assertions
+"""
+type AssertionAdjustmentSettings {
+  """
+  The algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithm: AdjustmentAlgorithm!
+
+  """
+  The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithmName: String
+
+  """
+  The context to use to adjust assertion values
+  """
+  context: [StringMapEntry!]
+
+}
+
+"""
+The algorithm to use to adjust assertion values to power the sensitivity control feature
+"""
+enum AdjustmentAlgorithm {
+  """
+  Custom adjustment algorithm. Refer `algorithmName` for exact algorithm to use.
+  In future, we can use this enum to define exact algorithms.
+  """
+  CUSTOM
 }
 
 """
@@ -755,6 +1085,11 @@ enum FreshnessAssertionScheduleType {
   A scheduled based on a recurring fixed schedule which is used to compute the expected operation window. E.g. "every 24 hours".
   """
   FIXED_INTERVAL
+
+  """
+  A schedule computed based on when the assertion was last evaluated, to the current moment in time.
+  """
+  SINCE_THE_LAST_CHECK
 }
 
 """
@@ -803,6 +1138,30 @@ type AssertionSource {
   The source type
   """
   type: AssertionSourceType!
+  """
+  The time at which the assertion was initially created and the actor who created it
+  """
+  created: AuditStamp
+}
+
+"""
+Information about the field to use in an assertion
+"""
+type SchemaFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
 }
 
 """
@@ -1640,6 +1999,108 @@ input CreateFieldAssertionInput {
 }
 
 """
+Input for upserting a Custom Assertion.
+"""
+input UpsertCustomAssertionInput {
+  """
+  The entity targeted by this assertion.
+  """
+  entityUrn: String!
+
+  """
+  The type of the custom assertion.
+  """
+  type: String!
+
+  """
+  The description of this assertion.
+  """
+  description: String!
+
+  """
+  The dataset field targeted by this assertion, if any.
+  """
+  fieldPath: String
+
+  """
+  The external Platform associated with the assertion
+  """
+  platform: PlatformInput!
+
+  """
+  Native platform URL of the Assertion
+  """
+  externalUrl: String
+
+  """
+  Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
+  """
+  logic: String
+
+}
+
+"""
+Input for reporting result of the assertion
+"""
+input AssertionResultInput {
+  """
+  Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
+  on the current time.
+  """
+  timestampMillis: Long
+
+  """
+  The final result of assertion, e.g. either SUCCESS or FAILURE.
+  """
+  type: AssertionResultType!
+
+  """
+  Additional metadata representing about the native results of the assertion.
+  These will be displayed alongside the result.
+  It should be used to capture additional context that is useful for the user.
+  """
+  properties: [StringMapEntryInput!]
+
+  """
+  Native platform URL of the Assertion Run Event
+  """
+  externalUrl: String
+
+  """
+  Error details, if type is ERROR
+  """
+  error: AssertionResultErrorInput
+}
+
+"""
+Input for reporting an Error during Assertion Run
+"""
+input AssertionResultErrorInput {
+  """
+  The type of error encountered
+  """
+  type: AssertionResultErrorType!
+
+  """
+  The error message with details of error encountered
+  """
+  message: String!
+}
+"""
+Input representing A Data Platform
+"""
+input PlatformInput {
+  """
+  Urn of platform
+  """
+  urn: String
+
+  """
+  Name of platform
+  """
+  name: String
+}
+"""
 Input for a Field Values assertion.
 """
 input FieldValuesAssertionInput {
@@ -1726,6 +2187,26 @@ input FieldMetricAssertionInput {
 }
 
 """
+Input for creating a new Data Schema Assertion.
+"""
+input CreateSchemaAssertionInput {
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
 Input for testing a new Assertion
 """
 input TestAssertionInput {
@@ -1760,6 +2241,11 @@ input TestAssertionInput {
   fieldTestInput: CreateFieldAssertionInput
 
   """
+  Input for testing a Schema assertion. Required if type is DATA_SCHEMA.
+  """
+  schemaTestInput: CreateSchemaAssertionInput
+
+  """
   Parameters required to evaluate the assertion
   """
   parameters: AssertionEvaluationParametersInput
@@ -1775,7 +2261,77 @@ type SchemaAssertionInfo {
   entityUrn: String!
 
   """
-  A definition of the expected structure for the asset
+  A single field in the schema assertion.
   """
-  schema: SchemaMetadata!
+  fields: [SchemaAssertionField!]!
+
+  """
+  A definition of the expected structure for the asset
+  Deprecated! Use the simpler 'fields' instead.
+  """
+  schema: SchemaMetadata
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+}
+
+"""
+Information about a custom assertion
+"""
+type CustomAssertionInfo {
+  """
+  The type of custom assertion.
+  """
+  type: String!
+
+  """
+  The entity targeted by this custom assertion.
+  """
+  entityUrn: String!
+
+  """
+  The field serving as input to the assertion, if any.
+  """
+  field: SchemaFieldRef
+
+  """
+  Logic comprising a raw, unstructured assertion.
+  """
+  logic: String
+}
+
+type RunAssertionsResult {
+  """
+  The number of assertions that passed
+  """
+  passingCount: Int
+
+  """
+  The number of assertions that failed
+  """
+  failingCount: Int
+
+  """
+  The number of assertions that errored
+  """
+  errorCount: Int
+
+  """
+  The result of each assertion
+  """
+  results: [RunAssertionResult!]!
+}
+
+type RunAssertionResult {
+  """
+  The assertion itself
+  """
+  assertion: Assertion!
+
+  """
+  The latest result of the assertion
+  """
+  result: AssertionResult!
 }

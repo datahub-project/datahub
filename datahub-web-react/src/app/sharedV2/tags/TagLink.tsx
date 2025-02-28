@@ -7,8 +7,14 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { TagProfileDrawer } from '../../shared/tags/TagProfileDrawer';
 
 const Container = styled.span`
-    display: inline-block;
-    margin-bottom: 4px;
+    display: block;
+    max-width: fit-content;
+`;
+
+const Name = styled.div`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
 `;
 
 const tagStyle = { cursor: 'pointer' };
@@ -47,7 +53,7 @@ export default function TagLink({ tag, fontSize }: Props) {
                         closable={false}
                         fontSize={fontSize}
                     >
-                        {displayName}
+                        <Name>{displayName}</Name>
                     </StyledTag>
                 </Container>
             </HoverEntityTooltip>

@@ -62,7 +62,7 @@ public class AutoCompleteForMultipleResolver
     final DataHubViewInfo maybeResolvedView =
         (input.getViewUrn() != null)
             ? resolveView(
-                _viewService, UrnUtils.getUrn(input.getViewUrn()), context.getAuthentication())
+                context.getOperationContext(), _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
 
     List<EntityType> types = getEntityTypes(input.getTypes(), maybeResolvedView);

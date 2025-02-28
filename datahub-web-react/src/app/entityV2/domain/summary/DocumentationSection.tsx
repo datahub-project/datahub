@@ -2,7 +2,7 @@ import { EditOutlined, ExpandAltOutlined, FileOutlined } from '@ant-design/icons
 import { Button, Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData, useRefetch, useRouteToTab } from '../../shared/EntityContext';
+import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
 import { AddLinkModal } from '../../shared/components/styled/AddLinkModal';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '../../shared/constants';

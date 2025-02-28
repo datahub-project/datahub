@@ -75,7 +75,7 @@ export const EditorContainer = styled.div`
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: 32px;
+        padding: 16px 32px;
         position: relative;
         outline: 0;
         line-height: 1.5;
@@ -122,6 +122,7 @@ export const EditorContainer = styled.div`
             th:not(.remirror-table-controller),
             td {
                 padding: 16px;
+                min-width: 120px;
             }
         }
     }

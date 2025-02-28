@@ -2,19 +2,27 @@ package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
+import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormState;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.form.FormServiceFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,49 +46,107 @@ import org.springframework.stereotype.Component;
  * <p>3. When a form is hard deleted, any automations used for assigning the form, or validating
  * prompts, are automatically deleted.
  *
- * <p>Note that currently, Datasets, Dashboards, Charts, Data Jobs, Data Flows, Containers, are the
- * only asset types supported for this hook.
- *
  * <p>TODO: In the future, let's decide whether we want to support automations to auto-mark form
  * prompts as "completed" when they do in fact have the correct metadata. (Without user needing to
  * explicitly fill out a form prompt response)
- *
- * <p>TODO: Write a unit test for this class.
  */
 @Slf4j
 @Component
-@Singleton
 @Import({FormServiceFactory.class, SystemAuthenticationFactory.class})
 public class FormAssignmentHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
-  private final FormService _formService;
-  private final boolean _isEnabled;
+  private final FormService formService;
+  private final boolean isEnabled;
+
+  private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public FormAssignmentHook(
       @Nonnull final FormService formService,
-      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled) {
-    _formService = Objects.requireNonNull(formService, "formService is required");
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${forms.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.formService = Objects.requireNonNull(formService, "formService is required");
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public FormAssignmentHook(@Nonnull final FormService formService, @Nonnull Boolean isEnabled) {
+    this(formService, isEnabled, "");
   }
 
   @Override
-  public void init() {}
+  public FormAssignmentHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled && isEligibleForProcessing(event)) {
-      if (isFormDynamicFilterUpdated(event)) {
+    if (isEnabled && isEligibleForProcessing(event)) {
+      if (isFormPromptSetUpdated(event)) {
+        handleFormPromptSetUpdated(event);
+      } else if (isFormDynamicFilterUpdated(event)) {
         handleFormFilterUpdated(event);
+      } else if (isFormDeleted(event)) {
+        handleFormDeleted(event);
       }
+    }
+  }
+
+  /** Handle a form prompt set update by adding or removing new automation for it. */
+  private void handleFormPromptSetUpdated(@Nonnull final MetadataChangeLog event) {
+
+    // 1. Get the new + prev form definitions
+    final FormInfo formDefinition =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), FormInfo.class);
+
+    final FormInfo prevDefinition =
+        event.hasPreviousAspectValue()
+            ? GenericRecordUtils.deserializeAspect(
+                event.getPreviousAspectValue().getValue(),
+                event.getPreviousAspectValue().getContentType(),
+                FormInfo.class)
+            : null;
+
+    // 2. Get the prompts to be added, prompts to be removed. If not in a published state then act
+    // as if there are
+    // no prompts to add. This will result in all prompt tests being removed if they previously
+    // existed.
+    final List<FormPrompt> promptsToUpsert = formDefinition.getPrompts();
+    final boolean isEnabled = FormState.PUBLISHED.equals(formDefinition.getStatus().getState());
+    final Set<String> newPromptIds =
+        isEnabled
+            ? formDefinition.getPrompts().stream()
+                .map(FormPrompt::getId)
+                .collect(Collectors.toSet())
+            : Collections.emptySet();
+    final List<FormPrompt> promptsToRemove =
+        prevDefinition != null
+            ? prevDefinition.getPrompts().stream()
+                .filter(prompt -> !newPromptIds.contains(prompt.getId()))
+                .collect(Collectors.toList())
+            : Collections.emptyList();
+
+    // 3. For each prompt to upsert, generate a new automation
+    formService.upsertFormPromptCompletionAutomation(
+        systemOperationContext, event.getEntityUrn(), promptsToUpsert);
+
+    // 4. Remove tests for any prompts that were removed.
+    for (final FormPrompt prompt : promptsToRemove) {
+      formService.removeFormPromptCompletionAutomation(
+          systemOperationContext, event.getEntityUrn(), prompt);
     }
   }
 
@@ -93,8 +159,19 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             event.getAspect().getContentType(),
             DynamicFormAssignment.class);
 
-    // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentRunner(event.getEntityUrn(), formFilters);
+    // 2. If the form is on an entity that does not match the filter, remove it.
+    formService.removeFormAssignmentAutomation(
+        systemOperationContext, event.getEntityUrn(), formFilters);
+
+    // 3. Register a automation to assign it.
+    formService.upsertFormAssignmentAutomation(
+        systemOperationContext, event.getEntityUrn(), formFilters);
+  }
+
+  /** Handles an form deletion by removing the all automations associated with it. */
+  private void handleFormDeleted(@Nonnull final MetadataChangeLog event) {
+    // Simply delete all automation associated with the form.
+    formService.removeAllFormAutomations(systemOperationContext, event.getEntityUrn());
   }
 
   /**

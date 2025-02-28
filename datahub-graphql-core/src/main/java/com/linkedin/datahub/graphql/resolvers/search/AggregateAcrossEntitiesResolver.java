@@ -1,12 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AggregateAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.AggregateResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -17,12 +16,16 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,41 +53,63 @@ public class AggregateAcrossEntitiesResolver
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
                   ? resolveView(
+                      context.getOperationContext(),
                       _viewService,
-                      UrnUtils.getUrn(input.getViewUrn()),
-                      context.getAuthentication())
+                      UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
           final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  context.getOperationContext(), input.getFormFilter(), _formService);
+          final Filter baseFilter =
+              formFilter != null
+                  ? FilterUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
-          final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          final SearchFlags searchFlags =
+              input.getSearchFlags() != null
+                  ? mapInputFlags(context, input.getSearchFlags())
+                  : new SearchFlags();
 
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
+          // do not include default facets if we're requesting any facets specifically
+          searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
+
+          // do not include default facets if we're requesting any facets specifically
+          searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
+
+          List<String> finalEntities =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntities.size() == 0) {
+            return createEmptyAggregateResults();
+          }
 
           try {
             return mapAggregateResults(
+                context,
                 _entityClient.searchAcrossEntities(
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                        ? FilterUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment),
-                    facets));
+                    Collections.emptyList(),
+                    facets,
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute aggregate across entities: entity types {}, query {}, filters: {}",
@@ -98,16 +123,25 @@ public class AggregateAcrossEntitiesResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  AggregateResults mapAggregateResults(SearchResult searchResult) {
+  static AggregateResults mapAggregateResults(
+      @Nullable QueryContext context, SearchResult searchResult) {
     final AggregateResults results = new AggregateResults();
     results.setFacets(
         searchResult.getMetadata().getAggregations().stream()
-            .map(MapperUtils::mapFacet)
+            .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
 
     return results;
+  }
+
+  AggregateResults createEmptyAggregateResults() {
+    final AggregateResults result = new AggregateResults();
+    result.setFacets(new ArrayList<>());
+    return result;
   }
 }

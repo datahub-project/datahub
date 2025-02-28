@@ -1,9 +1,20 @@
+import moment from 'moment';
 import React from 'react';
 import { Typography } from 'antd';
 import { FilterField, FilterValue, FieldType } from '../types';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getEntityTypeFilterValueDisplayName } from './utils';
 import { UNIT_SEPARATOR } from '../../utils/constants';
+import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
+import { getStructuredPropFilterDisplayName } from '../utils';
+
+function getTextFieldName(field: FilterField, value: FilterValue) {
+    let textFieldName = value.displayName || value.value;
+    if (textFieldName.startsWith('urn:li:schemaField:')) {
+        textFieldName = getV1FieldPathFromSchemaFieldUrn(textFieldName);
+    }
+    return getStructuredPropFilterDisplayName(field.field, value.value, field.entity) || textFieldName;
+}
 
 interface Props {
     field: FilterField;
@@ -17,7 +28,7 @@ export default function ValueName({ field, value }: Props) {
         case FieldType.TEXT:
         case FieldType.BOOLEAN:
         case FieldType.ENUM:
-            return <>{value.value}</>;
+            return <>{getTextFieldName(field, value)}</>;
         case FieldType.ENTITY:
             return (
                 <>{(value.entity && entityRegistry.getDisplayName(value.entity?.type, value.entity)) || undefined}</>
@@ -42,8 +53,11 @@ export default function ValueName({ field, value }: Props) {
                 </>
             );
         }
+        case FieldType.BUCKETED_TIMESTAMP:
+            // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
+            return <>{moment(value.value).format('YYYY-MM-DD')}</>;
         default:
-            console.error(`Unknown field type: ${field.type}`);
+            console.error(`Unknown field type: ${field}`);
             return <>n/a</>;
     }
 }

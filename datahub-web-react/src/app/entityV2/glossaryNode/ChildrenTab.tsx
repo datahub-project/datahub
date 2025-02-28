@@ -1,10 +1,10 @@
 import React from 'react';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import EmptyGlossarySection from '../../glossary/EmptyGlossarySection';
-import GlossaryEntitiesList from '../../glossary/GlossaryEntitiesList';
+import EmptyGlossarySection from '../../glossaryV2/EmptyGlossarySection';
+import GlossaryEntitiesList from '../../glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { sortGlossaryTerms } from '../glossaryTerm/utils';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import { sortGlossaryNodes } from './utils';
 
 function ChildrenTab() {

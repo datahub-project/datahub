@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
 import { AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
 import { AssertionStatusTag } from './AssertionStatusTag';
-import { TestAssertionResult } from './TestAssertionResult';
+import { RunAssertionResult } from './RunAssertionResult';
 import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
 
 const LoadingIcon = styled(LoadingOutlined)`
@@ -43,6 +43,18 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
+    const getErrorMessage = (errorData: any): string => {
+        if ((errorData?.networkError as any)?.statusCode === 503) {
+            return "Oops! The assertion has exceeded the real-time results timeout (30s). Don't worry - we've still kicked off the assertion run. Check back soon to view the results!";
+        }
+
+        if (errorData?.graphQLErrors?.[0]?.extensions?.code === 400) {
+            return `This assertion can not be tested due to: ${errorData.message}`;
+        }
+
+        return 'Oops. An unknown error occurred while testing the assertion! Try again later.';
+    };
+
     return (
         <Modal
             title="Assertion Result"
@@ -62,16 +74,12 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
                     <Row>
                         <AssertionStatusTag assertionResultType={data.testAssertion.type} />
                         <div>
-                            <TestAssertionResult result={data.testAssertion} />
+                            <RunAssertionResult result={data.testAssertion} isTest />
                         </div>
                     </Row>
                 </div>
             )}
-            {error && (
-                <Typography.Paragraph>
-                    An error occurred while testing the assertion. Try again later.
-                </Typography.Paragraph>
-            )}
+            {error && <Typography.Paragraph>{getErrorMessage(error)}</Typography.Paragraph>}
             {loading && <LoadingIcon spin />}
         </Modal>
     );

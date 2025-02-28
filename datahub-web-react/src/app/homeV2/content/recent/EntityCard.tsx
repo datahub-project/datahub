@@ -1,31 +1,26 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
-import { GenericEntityProperties } from '../../../entityV2/shared/types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 import { Entity, EntityType } from '../../../../types.generated';
-import { IconStyleType } from '../../../entityV2/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { navigateToEntityProfile } from '../../shared/navigateToEntityProfile';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { SEARCH_COLORS } from '../../../entityV2/shared/constants';
-
-const Card = styled.div`
-    :hover {
-        cursor: pointer;
-    }
-`;
+import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
 
 const Container = styled.div`
     display: flex;
-    flex-direction: column;
-    padding: 10px 20px 12px 20px;
+    flex-direction: row;
+    padding: 10px 12px 10px 12px;
     background-color: #ffffff;
     border-radius: 10px;
     min-width: 200px;
     max-width: 260px;
     border: 1.5px solid #0000001a;
+    gap: 12px;
+
     :hover {
         border: 1.5px solid ${SEARCH_COLORS.LINK_BLUE};
     }
@@ -44,6 +39,7 @@ const Name = styled.div`
 const Context = styled.div`
     display: flex;
     align-items: center;
+    gap: 8px;
 `;
 
 const SubHeader = styled.div`
@@ -54,18 +50,6 @@ const SubHeader = styled.div`
     text-overflow: ellipsis;
 `;
 
-const Icon = styled.div`
-    margin-right: 8px;
-    border-radius: 4px;
-    background-color: ${ANTD_GRAY[3]};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    width: 24px;
-    height: 24px;
-`;
-
 const Type = styled.div`
     font-size: 14px;
     color: ${ANTD_GRAY[7]};
@@ -74,11 +58,10 @@ const Type = styled.div`
     white-space: nowrap;
 `;
 
-const PreviewImage = styled.img`
-    height: 14px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
+const Text = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-width: 140px;
 `;
 
 type Props = {
@@ -89,34 +72,35 @@ type Props = {
 };
 
 export const EntityCard = ({ entity, subHeader, render, className }: Props) => {
-    const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(entity?.type as EntityType, entity);
     const displayType = getDisplayedEntityType(entity, entityRegistry, entity.type);
 
     const defaultRender = (e: GenericEntityProperties) => {
-        const logo = e.platform?.properties?.logoUrl ? (
-            <PreviewImage src={e.platform?.properties?.logoUrl || undefined} alt={displayName} />
-        ) : (
-            entityRegistry.getIcon(e.type as EntityType, 12, IconStyleType.ACCENT)
-        );
         return (
             <HoverEntityTooltip placement="bottom" entity={entity} showArrow={false}>
                 <Container className={className}>
-                    <Name>{displayName}</Name>
                     <Context>
-                        <Icon>{logo}</Icon>
-                        <Type>{displayType}</Type>
+                        <PlatformIcon
+                            platform={e?.platform}
+                            size={28}
+                            alt={displayName}
+                            entityType={e.type as EntityType}
+                        />
                     </Context>
-                    {subHeader && <SubHeader>{subHeader}</SubHeader>}
+                    <Text>
+                        <Type>{displayType}</Type>
+                        <Name>{displayName}</Name>
+                        {subHeader && <SubHeader>{subHeader}</SubHeader>}
+                    </Text>
                 </Container>
             </HoverEntityTooltip>
         );
     };
 
     return (
-        <Card onClick={() => navigateToEntityProfile(history, entityRegistry, entity)}>
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
             {render ? render(entity) : defaultRender(entity)}
-        </Card>
+        </Link>
     );
 };

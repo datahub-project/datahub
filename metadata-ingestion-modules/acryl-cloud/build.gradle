@@ -1,0 +1,82 @@
+plugins {
+    id 'base'
+}
+
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
+ext {
+  python_executable = 'python3'
+  venv_name = '../../metadata-ingestion/venv'
+}
+
+// Note that reuses metadata-ingestion venv, and does not set up it's own venv.
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
+
+task codegen(type: Exec, dependsOn: [':metadata-ingestion:codegen']) {
+  commandLine 'bash', '-c', 
+    "source ${venv_name}/bin/activate && set -x && " +
+    "./scripts/codegen.sh"
+}
+
+task installPackage(type: Exec, dependsOn: [codegen]) {
+  def sentinel_file = "${venv_name}/.build_install_cloud_package_sentinel"
+  inputs.file file('setup.py')
+  inputs.file file('src/acryl_datahub_cloud/_codegen_config.json')
+  outputs.file(sentinel_file)
+
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev] &&" +
+    "touch ${sentinel_file}"
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(dependsOn: [install, ':metadata-ingestion:installDev'])
+
+task lint(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --diff src/ tests/ && " +
+    "ruff format --check --diff src/ tests/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/"
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/"
+}
+
+task test(type: Exec, dependsOn: installDev) {
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --cov-config=setup.cfg ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+}
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn test
+
+clean {
+  delete 'build'
+  delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
+}
+clean.dependsOn cleanPythonCache
+clean.dependsOn ':metadata-ingestion:clean'

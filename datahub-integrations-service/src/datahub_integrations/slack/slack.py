@@ -1,5 +1,5 @@
-import contextlib
 import functools
+import json
 import re
 from datetime import datetime, timezone
 from typing import Optional, Tuple
@@ -8,34 +8,74 @@ import fastapi
 import slack_bolt
 import slack_sdk.errors
 import slack_sdk.web
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import BaseModel
+from slack_bolt import Ack, Respond, Say
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 from slack_sdk.oauth import AuthorizeUrlGenerator
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
-from datahub_integrations.graphql.social_query import get_entity
+from datahub_integrations.app import DATAHUB_FRONTEND_URL, EXTERNAL_STATIC_PATH, graph
+from datahub_integrations.graphql.incidents import (
+    UPDATE_INCIDENT_PRIORITY_MUTATION,
+    UPDATE_INCIDENT_STATUS_MUTATION,
+)
+from datahub_integrations.graphql.slack import SLACK_GET_ENTITY_QUERY
+from datahub_integrations.graphql.subscription import (
+    CREATE_SUBSCRIPTION,
+    DELETE_SUBSCRIPTION,
+)
 from datahub_integrations.slack.app_manifest import (
+    create_app_with_manifest,
     get_slack_app_manifest,
     slack_bot_scopes,
-    upsert_app_with_manifest,
+    update_app_with_manifest,
 )
+from datahub_integrations.slack.command.router import handle_command
+from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
-from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
-
-_state_store = InMemoryStateStore(expiration_seconds=300)
-
-ACRYL_SLACK_ICON_URL = (
-    f"{DATAHUB_FRONTEND_URL}/integrations/static/acryl-slack-icon.png"
+from datahub_integrations.slack.context import (
+    IncidentContext,
+    IncidentSelectOption,
+    SearchContext,
 )
+from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
+from datahub_integrations.slack.render.constants import ACRYL_COLOR
+from datahub_integrations.slack.render.render_entity import (
+    render_entity_modal,
+    render_entity_preview,
+)
+from datahub_integrations.slack.render.render_resolve_incident import (
+    render_resolve_incident,
+)
+from datahub_integrations.slack.render.render_subscription import (
+    EntityChangeTypeGroup,
+    render_subscription_modal,
+)
+from datahub_integrations.slack.utils.datahub_user import (
+    get_datahub_user,
+    get_user_information,
+    graph_as_system,
+    graph_as_user,
+)
+from datahub_integrations.slack.utils.entity_extract import (
+    ExtractedEntity,
+    get_type_url,
+)
+
+# 7 days because admins may take some time to approve
+_state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
+
+ACRYL_SLACK_ICON_URL = f"{EXTERNAL_STATIC_PATH}/acryl-slack-icon.png"
+
 private_router = fastapi.APIRouter()
 public_router = fastapi.APIRouter()
 
 
 def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
     assert config.app_details
+    assert config.app_details.client_id
 
     return AuthorizeUrlGenerator(
         client_id=config.app_details.client_id,
@@ -52,12 +92,56 @@ def reload_slack_credentials() -> None:
 
 
 @public_router.get("/slack/install")
-def install_slack_app() -> RedirectResponse:
+def install_slack_app(request: Request) -> RedirectResponse:
     config = slack_config.reload()
 
-    # Create / update the Slack app manifest before attempting to install.
-    manifest = get_slack_app_manifest()
-    config = upsert_app_with_manifest(config, manifest)
+    # Get all query parameters as a dict
+    query_params = (
+        dict(request.query_params) if request.query_params is not None else None
+    )
+    is_minimal_slack_permissions = (
+        (query_params["requestMinimalSlackPermissions"] == "true")
+        if query_params is not None
+        else False
+    )
+
+    # Create the Slack app manifest before attempting to install.
+    manifest = get_slack_app_manifest(
+        is_minimal_permissions=is_minimal_slack_permissions
+    )
+    config = create_app_with_manifest(config, manifest)
+    slack_config.save_config(config)
+    assert config.app_details, "App details should be present after provisioning."
+
+    # Generate the OAuth URL and redirect to it.
+    authorize_url_generator = get_oauth_url_generator(config)
+    state = _state_store.issue()
+
+    url = authorize_url_generator.generate(state=state)
+    logger.debug(f"Redirecting to {url}")
+
+    return RedirectResponse(url=url)
+
+
+@public_router.get("/slack/refresh-installation")
+def refresh_slack_app(request: Request) -> RedirectResponse:
+    config = slack_config.reload()
+
+    # Get all query parameters as a dict
+    query_params = (
+        dict(request.query_params) if request.query_params is not None else None
+    )
+    is_minimal_slack_permissions = (
+        (query_params["requestMinimalSlackPermissions"] == "true")
+        if query_params is not None
+        else False
+    )
+
+    # Update the Slack app manifest before attempting to install.
+    manifest = get_slack_app_manifest(
+        is_minimal_permissions=is_minimal_slack_permissions
+    )
+    config = update_app_with_manifest(config, manifest)
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
 
@@ -80,6 +164,12 @@ def oauth_callback(
 ) -> RedirectResponse:
     config = slack_config.get_config()
     assert config.app_details, "App details should be present after provisioning."
+    assert config.app_details.client_id, (
+        "Client id should be present after provisioning"
+    )
+    assert config.app_details.client_secret, (
+        "Client secret should be present after provisioning"
+    )
 
     if not _state_store.consume(state):
         raise fastapi.HTTPException(
@@ -107,7 +197,7 @@ def oauth_callback(
 
     authed_user = oauth_response["authed_user"]
     logger.info(
-        f'Completed app install for team {oauth_response.get("team")}, approved by {authed_user}'
+        f"Completed app install for team {oauth_response.get('team')}, approved by {authed_user}"
     )
 
     # Save the new bot token.
@@ -124,7 +214,7 @@ def oauth_callback(
     app = get_slack_app(new_config)
     app.client.chat_postMessage(
         channel=authed_user["id"],
-        text="Acryl has been connected to Slack!",
+        text="DataHub has been connected to Slack!",
         icon_url=ACRYL_SLACK_ICON_URL,
     )
 
@@ -148,8 +238,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Initializes your app with your bot token and signing secret
     app = slack_bolt.App(
-        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY),
-        token=config.bot_token,
+        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY, token=config.bot_token),
         signing_secret=config.app_details.signing_secret,
         # As per the docs:
         # > One secret is the new Signing Secret, and one is the deprecated verification token.
@@ -166,7 +255,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Listen for unfurl events
     @app.event("link_shared")
-    def handle_link_shared(ack, body):
+    def handle_link_shared(ack: Ack, body: dict) -> None:
         ack()
 
         logger.info(f"Got link unfurl request: {body}")
@@ -181,12 +270,23 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         urn = link_url.split("/")[4]
         logger.debug(f"URN: {urn}")
 
+        variables = {"urn": urn}
+        data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        raw_entity = data["entity"]
+
+        if not raw_entity or not raw_entity["properties"]:
+            # If the entity doesn't exist, GMS may "mint" the entity at read time.
+            # If that happens, we can expect properties to be None.
+            return
+
         # Call the Slack API method to unfurl the link.
         # See https://api.slack.com/docs/message-link-unfurling#link_unfurling_with_api
         response = app.client.chat_unfurl(
             channel=event["channel"],
             ts=event["message_ts"],
-            unfurls={link_url: make_slack_preview(urn)},  # type: ignore
+            unfurls={
+                link_url: {**render_entity_preview(raw_entity), "color": ACRYL_COLOR}
+            },
             # user_auth_url='...',
         )
 
@@ -194,38 +294,391 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         logger.debug(response)
 
     @app.message("test-acryl-bot")
-    def handle_test_message(message, say):
+    def handle_test_message(message: dict, say: Say) -> None:
         logger.info(message)
         say(
-            f'Hey <@{message["user"]}>, Acryl is available in this channel!',
+            f"Hey <@{message['user']}>, DataHub is available in this channel!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
     @app.event("message")
-    def handle_message_events(body):
+    def handle_message_events(body: dict) -> None:
         logger.info(f"message handler: {body}")
         pass
 
     @app.event("app_mention")
-    def handle_app_mention_events(event, say):
+    def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
         say(
-            f'Hey <@{event["user"]}>! Acryl commands are coming soon!',
+            f"Hey <@{event['user']}>! DataHub commands are coming soon!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
-    @app.command("/acryl")
-    def handle_command_events(ack, body):
-        # Reply saying 'Acryl slack commands are coming soon!'
-        logger.info(body)
-        # TODO: How do we set icon_url here?
-        ack("Acryl slash commands are coming soon!")
+    @app.command(re.compile(r"^/acryl.*"))
+    def handle_command_acryl(ack: Ack, respond: Respond, command: dict) -> None:
+        handle_command(app, graph, ack, respond, command)
+
+    @app.command(re.compile(r"^/datahub.*"))
+    def handle_command_datahub(ack: Ack, respond: Respond, command: dict) -> None:
+        handle_command(app, graph, ack, respond, command)
+
+    @app.action("view_details")
+    def handle_view_details(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"action: {action}")
+        logger.debug(f"body: {body}")
+        ack()
+
+        variables = {"urn": action["value"]}
+        data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        logger.debug(f"get entity: {data}")
+        app.client.views_open(
+            trigger_id=body["trigger_id"],
+            view=render_entity_modal(ExtractedEntity(data["entity"])),
+        )
+
+    @app.action(re.compile(r"^search.*"))
+    def handle_search(ack: Ack, respond: Respond, action: dict, body: dict) -> None:
+        logger.debug(f"action: {action}")
+        logger.debug(f"body: {body}")
+        ack()
+
+        user_urn = get_datahub_user(app, body["user"]["id"])
+        # Parse the JSON value
+        return search(
+            graph,
+            ack,
+            respond,
+            body["channel"]["name"],
+            user_urn,
+            context=SearchContext(**json.loads(action["value"])),
+        )
+
+    @app.action("post_search_result")
+    def handle_post_search_result(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        ack()
+
+        value = json.loads(action["value"])
+        variables = {"urn": value["urn"]}
+        data = None
+        try:
+            data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        except Exception as e:
+            logger.error(f"Error fetching entity due to error {e}")
+            raise e
+
+        try:
+            result = respond(
+                blocks=[
+                    {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_section",
+                                "elements": [
+                                    {
+                                        "type": "user",
+                                        "user_id": body["user"]["id"],
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": " shared ",
+                                    },
+                                    {
+                                        "type": "link",
+                                        "url": get_type_url(
+                                            value["entity_type"], value["urn"]
+                                        ),
+                                        "text": value["name"],
+                                    },
+                                    {"type": "text", "text": " on DataHub Cloud:"},
+                                ],
+                            }
+                        ],
+                    },
+                ],
+                attachments=[
+                    {**render_entity_preview(data["entity"]), "color": ACRYL_COLOR}
+                ],
+                replace_original=False,
+                response_type="in_channel",
+            )
+            if result.status_code != 200:
+                logger.error(
+                    f"Respond hook came back with {result.body} status={result.status_code}"
+                )
+        except Exception as e:
+            logger.error(f"Respond faild with {e}")
+
+    @app.action("subscribe")
+    def handle_subscribe(ack: Ack, respond: Respond, action: dict, body: dict) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        variables = {"urn": action["value"]}
+        data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        logger.debug(f"get entity: {data}")
+        app.client.views_open(
+            trigger_id=body["trigger_id"],
+            view=render_subscription_modal(
+                ExtractedEntity(data["entity"]), body["response_url"]
+            ),
+        )
+
+    @app.action("unsubscribe")
+    def handle_unsubscribe(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        variables = {"input": {"subscriptionUrn": action["value"]}}
+        email, user_urn, _ = get_user_information(app, body["user"]["id"])
+        if not user_urn:
+            respond(
+                f"❗ Unsubscribe failed: could not find corresponding DataHub user with email {email}"
+            )
+            return
+
+        impersonation_graph = graph_as_user(user_urn)
+
+        data = impersonation_graph.execute_graphql(
+            DELETE_SUBSCRIPTION,
+            variables=variables,
+        )
+
+        logger.debug(f"delete subscription: {data}")
+        respond(text="✅ Subscription deleted 🔕!", replace_original=False)
+
+    @app.view_submission("subscribe")
+    def handle_view_submission(ack: Ack, body: dict, view: dict) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        private_metadata = json.loads(view["private_metadata"])
+        entity_urn = private_metadata["urn"]
+        respond = Respond(
+            response_url=private_metadata["response_url"],
+            proxy=app.client.proxy,
+            ssl=app.client.ssl,
+        )
+        ack()
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        logger.debug(f"matched user urns: {user_urns}")
+        if not user_urn:
+            respond(
+                f"❗ Subscription failed: could not find corresponding DataHub user with email {email}"
+            )
+            return
+        if len(user_urns) > 1:
+            respond(
+                f"❗ Subscription failed: found multiple corresponding DataHub users with email {email}"
+            )
+            return
+        impersonation_graph = graph_as_user(user_urn)
+
+        options = view["state"]["values"]["ect_block"]["ect_action"]["selected_options"]
+        entity_change_types = [
+            {"entityChangeType": change_type.value}
+            for option in options
+            for change_type in EntityChangeTypeGroup(option["value"]).get_change_types()
+        ]
+        input = {
+            "entityUrn": entity_urn,
+            "subscriptionTypes": ["ENTITY_CHANGE"],
+            "entityChangeTypes": entity_change_types,
+            "notificationConfig": {
+                "notificationSettings": {
+                    "sinkTypes": ["SLACK"],
+                    "slackSettings": {"userHandle": body["user"]["id"]},
+                }
+            },
+        }
+        data = impersonation_graph.execute_graphql(
+            CREATE_SUBSCRIPTION,
+            variables={"input": input},
+        )
+
+        logger.debug(f"create subscription: {data}")
+        respond(text="✅ Subscription created 🔔!", replace_original=False)
+
+    @app.action("resolve_incident")
+    def handle_resolve_incident(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        context = IncidentContext(**json.loads(action["value"]))
+
+        app.client.views_open(
+            trigger_id=body["trigger_id"],
+            view=render_resolve_incident(
+                context.urn, body["response_url"], context.stage, context
+            ),
+        )
+
+    @app.view_submission("resolve_incident")
+    def handle_resolve_incident_submit(ack: Ack, body: dict, view: dict) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        private_metadata = json.loads(view["private_metadata"])
+        incident_urn = private_metadata["urn"]
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        logger.debug(f"matched user urns: {user_urns}")
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Resolving incident as system."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Resolving incident as system."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        note = view["state"]["values"]["incident_message_input"][
+            "incident_message_input_action"
+        ]["value"]
+
+        stage = None
+        if "incident_stage_select" in view["state"]["values"]:
+            select_action = view["state"]["values"]["incident_stage_select"][
+                "select_incident_stage"
+            ]
+            selected_option = IncidentSelectOption(
+                **json.loads(select_action["selected_option"]["value"])
+            )
+            stage = selected_option.value
+
+        input = {"state": "RESOLVED", "message": note, "stage": stage or None}
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": incident_urn, "input": input},
+        )
+
+        logger.debug(f"resolved incident!: {data}")
+
+    @app.action("reopen_incident")
+    def handle_reopen_incident(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        context = IncidentContext(**json.loads(action["value"]))
+        incident_urn = context.urn
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        logger.debug(f"matched user urns: {user_urns}")
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Reopening incident as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Reopening incident as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        input = {
+            "state": "ACTIVE",
+        }
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": incident_urn, "input": input},
+        )
+
+        logger.debug(f"reopened incident!: {data}")
+
+    @app.action("select_incident_stage")
+    def handle_select_incident_stage(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        option = IncidentSelectOption(**json.loads(action["selected_option"]["value"]))
+        context = option.context
+        new_stage = option.value
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Selecting incident stage as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Selecting incident stage as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        input = {"stage": new_stage}
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": context.urn, "input": input},
+        )
+
+        logger.debug(f"updated incident stage: {data}")
+
+    @app.action("select_incident_priority")
+    def handle_select_incident_priority(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        option = IncidentSelectOption(**json.loads(action["selected_option"]["value"]))
+        context = option.context
+        new_priority = option.value
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Updating incident priority as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Updating incident priority as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_PRIORITY_MUTATION,
+            variables={"urn": context.urn, "priority": new_priority},
+        )
+
+        logger.debug(f"updated incident priority: {data}")
+
+    @app.action("external_redirect")
+    def handle_actions(ack: Ack, respond: Respond, _action: dict) -> None:
+        # Main action is to redirect user, this is required to acknowledge the action
+        ack()
 
     @app.shortcut("attach_to_asset")
-    def handle_shortcuts(ack, event, say):
+    def handle_shortcuts(ack: Ack, event: dict, say: Say) -> None:
         ack()
         say(
-            f'Hey <@{event["user"]}>! Acryl shortcut commands are coming soon!',
+            f"Hey <@{event['user']}>! DataHub shortcut commands are coming soon!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
@@ -265,131 +718,6 @@ async def slack_command_endpoint(req: fastapi.Request) -> fastapi.Response:
     logger.debug(f"Received slack command: {body!r}\nHeaders: {req.headers}")
 
     return await get_slack_request_handler().handle(req)
-
-
-def make_slack_preview(urn: str) -> Optional[dict]:
-    entity = get_entity(graph, urn)
-    logger.debug(f"entity: {entity}")
-    if not entity or not entity["properties"]:
-        # If the entity doesn't exist, GMS may "mint" the entity at read time.
-        # If that happens, we can expect properties to be None.
-        return None
-
-    # Example entity:
-    # {'glossaryTerms': None,
-    #  'ownership': None,
-    #  'platform': {'properties': {'displayName': 'BigQuery',
-    #                              'logoUrl': '/assets/platforms/bigquerylogo.png'}},
-    #  'properties': {'description': None, 'name': 'lineage_from_base'},
-    #  'siblings': None,
-    #  'subTypes': {'typeNames': ['Table']},
-    #  'type': 'DATASET',
-    #  'urn': 'urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging.smoke_test_db.lineage_from_base,PROD)'}
-
-    # Generate a rich slack preview.
-    # See here for docs on syntax: https://app.slack.com/block-kit-builder.
-
-    platform_name = entity["platform"]["properties"]["displayName"]
-    platform_icon = entity["platform"]["properties"]["logoUrl"]
-    if platform_icon.startswith("/"):
-        platform_icon = f"{DATAHUB_FRONTEND_URL}{platform_icon}"
-
-    subtype = entity["type"]
-    with contextlib.suppress(KeyError, TypeError):
-        subtype = entity["subTypes"]["typeNames"][0]
-
-    # Set up the unfurling payload.
-    blocks = [
-        # Entity name, type, and logo.
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"{entity['properties']['name']}",
-                "emoji": True,
-            },
-        },
-        {
-            "type": "context",
-            "elements": [
-                {
-                    "type": "image",
-                    "image_url": platform_icon,
-                    "alt_text": "",
-                },
-                {"type": "mrkdwn", "text": f"{platform_name} {subtype}"},
-            ],
-        },
-    ]
-
-    # Description section.
-    description = None
-    with contextlib.suppress(TypeError):
-        description = entity["properties"]["description"]
-    with contextlib.suppress(TypeError):
-        description = entity["editableProperties"]["description"]
-    if description:
-        blocks.append(
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{description}",
-                },
-            }
-        )
-
-    facts = []
-
-    # Domain section.
-    with contextlib.suppress(TypeError):
-        domain = entity["domain"]["domain"]["properties"]["name"]
-        if domain:
-            facts.append(
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Domain*: {domain}",
-                }
-            )
-
-    # Owners section.
-    with contextlib.suppress(TypeError):
-        # TODO: Replace these with mentions? We'd need to be careful not to spam people though.
-        owners = entity["ownership"]["owners"]
-        facts.append(
-            {
-                "type": "mrkdwn",
-                "text": f"*Owners*: {', '.join(owner['owner']['properties']['displayName'] for owner in owners)}",
-            }
-        )
-
-    # Terms section.
-    with contextlib.suppress(TypeError):
-        terms = entity["glossaryTerms"]["terms"]
-        facts.append(
-            {
-                "type": "mrkdwn",
-                "text": f"*Terms*: {', '.join(term['term']['properties']['name'] for term in terms)}",
-            }
-        )
-
-    if facts:
-        blocks.append({"type": "divider"})
-        blocks.append(
-            {
-                "type": "section",
-                "fields": facts,
-            }
-        )
-
-    return {
-        "blocks": blocks,
-        # Optional: We can customize the message composer preview too.
-        # "preview": {
-        #     "title": {"type": "plain_text", "text": "custom preview"},
-        #     "icon_url": "...",
-        # },
-    }
 
 
 def parse_slack_message_url(url: str) -> Optional[Tuple[str, str, str, Optional[str]]]:

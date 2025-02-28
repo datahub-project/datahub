@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ResultsType;
 import com.linkedin.datahub.graphql.generated.StringBox;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class ResultsTypeMapper
@@ -10,12 +12,14 @@ public class ResultsTypeMapper
 
   public static final ResultsTypeMapper INSTANCE = new ResultsTypeMapper();
 
-  public static ResultsType map(@NonNull final com.linkedin.ml.metadata.ResultsType input) {
-    return INSTANCE.apply(input);
+  public static ResultsType map(
+      @Nullable QueryContext context, @NonNull final com.linkedin.ml.metadata.ResultsType input) {
+    return INSTANCE.apply(context, input);
   }
 
   @Override
-  public ResultsType apply(@NonNull final com.linkedin.ml.metadata.ResultsType input) {
+  public ResultsType apply(
+      @Nullable QueryContext context, @NonNull final com.linkedin.ml.metadata.ResultsType input) {
     final ResultsType result;
     if (input.isString()) {
       result = new StringBox(input.getString());

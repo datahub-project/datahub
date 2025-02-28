@@ -6,6 +6,9 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestStatusChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeAssociationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeInfoChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
@@ -22,21 +25,24 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 @Configuration
 public class EntityChangeEventGeneratorRegistryFactory {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
-  @DependsOn({"systemEntityClient"})
   @Nonnull
-  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
+  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
     final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
     final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
@@ -54,6 +60,11 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
         new EditableDatasetPropertiesChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, new BusinessAttributeInfoChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
+    registry.register(BUSINESS_ATTRIBUTE_ASPECT, new BusinessAttributesChangeEventGenerator());
 
     // Entity Lifecycle change event generators
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
@@ -65,9 +76,12 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(DOMAIN_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(TAG_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(GLOSSARY_TERM_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
+    registry.register(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertyChangeEventGenerator());
     registry.register(CORP_GROUP_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
+    registry.register(BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
 
     // Assertion change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
@@ -75,7 +89,8 @@ public class EntityChangeEventGeneratorRegistryFactory {
     // Data Process Instance change event generators
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(entityClient));
+        new DataProcessInstanceRunEventChangeEventGenerator(
+            systemOperationContext, systemEntityClient));
 
     // Action Request change event generators
     registry.register(

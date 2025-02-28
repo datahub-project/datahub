@@ -46,7 +46,7 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
       if (_aspectClient.getAspectOrNull(
-              nodeUrn.toString(), "glossaryNodeKey", 0L, context.getAuthentication())
+              context.getOperationContext(), nodeUrn.toString(), "glossaryNodeKey", 0L)
           == null) {
         throw new DataHubGraphQLException(
             String.format("Failed to create constraint. %s does not exist.", nodeUrn),
@@ -77,7 +77,7 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, CONSTRAINT_ENTITY_NAME, CONSTRAINT_INFO_ASPECT_NAME, info);
-              return _aspectClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _aspectClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException("Failed to create constraint", e);
             }

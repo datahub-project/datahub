@@ -164,7 +164,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 <Button disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button disabled={!stepComplete} onClick={onClickNext}>
+                <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
                     Next
                 </Button>
             </ControlsContainer>

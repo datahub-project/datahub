@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { BookFilled, BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -18,6 +18,9 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { FetchedEntity } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { PageRoutes } from '../../../conf/Global';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -29,15 +32,15 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookOutlined style={{ fontSize, color }} />;
+            return <BookmarkSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarkSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <BookOutlined
+            <BookmarkSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
@@ -59,6 +62,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     getCollectionName = () => 'Glossary Terms';
 
     getEntityName = () => 'Glossary Term';
+
+    useEntityQuery = useGetGlossaryTermQuery;
+
+    getCustomCardUrlPath = () => PageRoutes.GLOSSARY;
 
     renderProfile = (urn) => {
         return (
@@ -108,24 +115,32 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: PropertiesTab,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                    {
-                        component: SidebarDomainSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+    ];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

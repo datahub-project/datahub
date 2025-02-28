@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
 import { ANTD_GRAY_V2 } from '../../../../../constants';
 import { SectionHeader } from './components';
 import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
 import { UsageBar } from '../../utils/useUsageStatsRenderer';
 import { SchemaField } from '../../../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 const USAGE_BAR_MAX_WIDTH = 100;
 
@@ -55,7 +56,9 @@ export default function FieldUsageStats({ expandedField }: Props) {
                 <UsageBarBackground>
                     <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
                 </UsageBarBackground>
-                <UsageTextWrapper>{relevantUsageStats.count || 0} queries / month</UsageTextWrapper>
+                <UsageTextWrapper>
+                    {formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month
+                </UsageTextWrapper>
             </UsageBarWrapper>
         </UsageSection>
     );

@@ -17,7 +17,7 @@ interface Props {
     type?: 'card' | 'default';
     includeSubTypes?: boolean;
     includeCount?: boolean;
-    alignRight?: boolean;
+    className?: string;
 }
 
 export default function EntityTypeMenu({
@@ -29,7 +29,7 @@ export default function EntityTypeMenu({
     onApply,
     includeSubTypes = true,
     includeCount = false,
-    alignRight,
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -39,7 +39,7 @@ export default function EntityTypeMenu({
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
     const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
-    
+
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
@@ -64,7 +64,9 @@ export default function EntityTypeMenu({
                     value: option.value,
                     count: option.count,
                     entity: option.entity,
+                    displayName: option.displayName,
                 },
+                includeCount,
                 entityRegistry,
                 selectedFilterOptions: values.map((value) => {
                     return { field: field.field, value: value.value };
@@ -88,7 +90,7 @@ export default function EntityTypeMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             type={type}
-            alignRight={alignRight}
+            className={className}
         />
     );
 }

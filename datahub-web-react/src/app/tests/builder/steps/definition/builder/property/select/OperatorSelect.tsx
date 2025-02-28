@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Select, Tooltip, Typography } from 'antd';
+import { Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Operator } from '../types/operators';
 
 const StyledSelect = styled(Select)`
-    width: 120px;
+    max-width: 160px;
     margin-right: 12px;
 `;
 

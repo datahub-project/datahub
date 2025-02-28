@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Lineage Impact Analysis
+# Lineage Impact Analysis
 
 <FeatureAvailability/>
 
@@ -71,7 +71,7 @@ Follow these simple steps to understand the full dependency chain of your data e
 * [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
 * [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
 
-Looking for an example of how to use `searchAcrossLineage` to read lineage? Look [here](../api/tutorials/lineage.md#read-lineage)
+Looking for an example of how to use `searchAcrossLineage` to read data lineage? Look [here](../api/tutorials/lineage.md#read-lineage)
 
 ### DataHub Blog
 
@@ -88,7 +88,7 @@ This means you have not yet ingested Lineage metadata for that entity. Please se
 
 We currently limit the list of dependencies to 10,000 records; we suggest applying filters to narrow the result set if you hit that limit.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

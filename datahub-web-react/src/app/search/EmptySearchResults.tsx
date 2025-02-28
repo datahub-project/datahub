@@ -36,30 +36,37 @@ function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | nul
 
 interface Props {
     suggestions: SearchSuggestion[];
+    onClickExploreAll?: () => any;
+    onClickClearFilters?: () => any;
 }
 
-export default function EmptySearchResults({ suggestions }: Props) {
+export default function EmptySearchResults({ suggestions, onClickExploreAll, onClickClearFilters }: Props) {
     const { query, filters, viewUrn } = useGetSearchQueryInputs();
     const history = useHistory();
     const userContext = useUserContext();
     const suggestText = suggestions.length > 0 ? suggestions[0].text : '';
     const refineSearchText = getRefineSearchText(filters, viewUrn);
 
-    const onClickExploreAll = useCallback(() => {
+    const handleClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
-        navigateToSearchUrl({ query: '*', history });
-    }, [history]);
+        if (onClickExploreAll) onClickExploreAll();
+        else navigateToSearchUrl({ query: '*', history });
+    }, [history, onClickExploreAll]);
 
     const searchForSuggestion = () => {
         navigateToSearchUrl({ query: suggestText, history });
     };
 
-    const clearFiltersAndView = () => {
-        navigateToSearchUrl({ query, history });
-        userContext.updateLocalState({
-            ...userContext.localState,
-            selectedViewUrn: undefined,
-        });
+    const handleClearFiltersAndView = () => {
+        if (onClickClearFilters) {
+            onClickClearFilters();
+        } else {
+            navigateToSearchUrl({ query, history });
+            userContext.updateLocalState({
+                ...userContext.localState,
+                selectedViewUrn: undefined,
+            });
+        }
     };
 
     return (
@@ -67,7 +74,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
             <Section>No results found for &quot;{query}&quot;</Section>
             {refineSearchText && (
                 <>
-                    Try <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
+                    Try <SuggestedText onClick={handleClearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
                     {suggestText && (
                         <>
                             or searching for <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
@@ -81,8 +88,8 @@ export default function EmptySearchResults({ suggestions }: Props) {
                 </>
             )}
             {!refineSearchText && !suggestText && (
-                <Button onClick={onClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                <Button onClick={handleClickExploreAll}>
+                    <RocketOutlined /> View all
                 </Button>
             )}
         </NoDataContainer>

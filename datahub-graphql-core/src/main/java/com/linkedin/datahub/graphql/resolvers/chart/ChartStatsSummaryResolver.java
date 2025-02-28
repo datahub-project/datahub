@@ -51,7 +51,7 @@ public class ChartStatsSummaryResolver
         () -> {
           try {
             // TODO: We don't have a chart specific priv
-            if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+            if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
               log.debug(
                   "User {} is not authorized to view usage information for {}",
                   context.getActorUrn(),
@@ -87,7 +87,9 @@ public class ChartStatsSummaryResolver
     try {
       EntityResponse response =
           this.systemEntityClient.getV2(
-              datasetUrn, ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
+              context.getOperationContext(),
+              datasetUrn,
+              ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
 
       if (response != null
           && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)) {

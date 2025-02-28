@@ -1,11 +1,11 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,12 +27,17 @@ import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetFieldUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -49,16 +54,20 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -69,14 +78,23 @@ public class AssertionActionsHookTest {
   private static final Urn TEST_ANOMALY_URN = UrnUtils.getUrn("urn:li:anomaly:test-2");
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
+  private static OperationContext mockOperationContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(ENTITY_REGISTRY);
+  }
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, false);
+        new AssertionActionsHook(
+            entityClient,
+            Mockito.mock(GraphClient.class),
+            false,
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -89,18 +107,24 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
   }
 
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     // Case 1: Incorrect aspect --- Assertion Info
     MetadataChangeLog event =
@@ -108,11 +132,13 @@ public class AssertionActionsHookTest {
             TEST_ASSERTION_URN, ASSERTION_INFO_ASPECT_NAME, ChangeType.UPSERT, new AssertionInfo());
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
 
     // Case 2: Run Event But Delete
     event =
@@ -124,27 +150,27 @@ public class AssertionActionsHookTest {
                 TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
 
     // Case 3: Status aspect but for the wrong entity type
     event =
         buildMetadataChangeLog(
-            TEST_DATASET_URN,
-            STATUS_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
+            TEST_DATASET_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, new Status().setRemoved(true));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
 
     // Case 4: Run event but not complete
     event =
@@ -156,11 +182,13 @@ public class AssertionActionsHookTest {
                 TEST_ASSERTION_URN, AssertionRunStatus.$UNKNOWN, AssertionResultType.SUCCESS));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
   }
 
   @Test
@@ -180,7 +208,14 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -195,32 +230,32 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion actions correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
-            Mockito.any(SortCriterion.class),
+            Mockito.any(List.class),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // No ingestion to perform
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -245,7 +280,14 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -260,32 +302,32 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion actions correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested in this case
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -293,7 +335,7 @@ public class AssertionActionsHookTest {
   public void testInvokeAssertionRunEventSuccessActionsActiveIncident() throws Exception {
     IncidentInfo activeIncidentInfo =
         new IncidentInfo()
-            .setType(IncidentType.DATASET_COLUMN)
+            .setType(IncidentType.CUSTOM)
             .setPriority(2)
             .setTitle("Test Title")
             .setDescription("Test description")
@@ -327,7 +369,14 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -342,26 +391,26 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            nullable(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.nullable(OperationContext.class),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     IncidentInfo expectedInfo = new IncidentInfo(activeIncidentInfo.data());
     expectedInfo.setStatus(
@@ -373,11 +422,11 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AssertionActionsHookIncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -398,7 +447,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -413,33 +469,33 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion actions correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested in this case -- no anomalies to ingest since it was a
     // success.
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -475,7 +531,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -490,26 +553,26 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     AnomalyInfo expectedInfo = new AnomalyInfo(activeAnomalyInfo.data());
     expectedInfo.setStatus(
@@ -519,11 +582,11 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AssertionActionsHookAnomalyInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -544,7 +607,14 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -559,48 +629,58 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion actions correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
-            Mockito.any(SortCriterion.class),
+            Mockito.any(List.class),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // No ingestion to perform
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
   @Test
   public void testInvokeAssertionRunEventFailureActionsNoIncident() throws Exception {
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(TEST_DATASET_URN)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                    .setOperator(AssertionStdOperator.NOT_NULL)
+                    .setFields(
+                        new UrnArray(
+                            new DatasetFieldUrn(
+                                new DatasetUrn(
+                                    new DataPlatformUrn("hive"), "name", FabricType.PROD),
+                                "id"))));
+
     SystemEntityClient entityClient =
         mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)),
+            assertionInfo,
             new AssertionActions()
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(
@@ -608,51 +688,58 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
+
+    AssertionRunEvent testEvent =
+        buildAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
-            TEST_ASSERTION_URN,
-            ASSERTION_RUN_EVENT_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE));
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, testEvent);
 
     hook.invoke(event);
 
     // Ensure that we looked up the assertion actions correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     IncidentInfo expectedInfo = new IncidentInfo();
-    expectedInfo.setType(IncidentType.DATASET_COLUMN);
-    expectedInfo.setTitle("A External Assertion is failing for this asset.");
-    expectedInfo.setDescription(
+    expectedInfo.setType(IncidentType.CUSTOM);
+    expectedInfo.setTitle(
         String.format(
-                "A External Assertion has failed for this data asset: '%s'. ",
-                TEST_ASSERTION_URN.toString())
-            + "This may indicate that the asset is unhealthy or unfit for consumption!");
-    expectedInfo.setPriority(0);
+            "%s Assertion `%s` has failed",
+            AssertionUtils.getAssertionTypeName(assertionInfo.getType().toString()),
+            AssertionUtils.buildAssertionDescription(TEST_ASSERTION_URN, assertionInfo)));
+    expectedInfo.setDescription(
+        AssertionUtils.buildAssertionResultReason(TEST_ASSERTION_URN, assertionInfo, testEvent));
     expectedInfo.setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)));
     expectedInfo.setSource(
         new IncidentSource()
@@ -669,11 +756,11 @@ public class AssertionActionsHookTest {
     // Verify that a new assertion was created
     Mockito.verify(entityClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AssertionActionsHookIncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -691,7 +778,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
@@ -711,7 +798,14 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -726,32 +820,32 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested due to existing active incident
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -773,7 +867,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -788,26 +889,26 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     AnomalyInfo expectedInfo = new AnomalyInfo();
     expectedInfo.setType(AnomalyType.DATASET_COLUMN);
@@ -826,11 +927,11 @@ public class AssertionActionsHookTest {
     // Verify that a new anomaly was created
     Mockito.verify(entityClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new AssertionActionsHookAnomalyInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -865,7 +966,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -880,32 +988,32 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(2))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that no anomaly is raised since one already exists!
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -925,7 +1033,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
@@ -942,7 +1050,14 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -952,32 +1067,32 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active incidents.
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
   }
 
   @Test
@@ -996,7 +1111,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
@@ -1013,7 +1128,14 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1023,32 +1145,32 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active incidents.
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
   }
 
   @Test
@@ -1081,7 +1203,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1091,32 +1220,32 @@ public class AssertionActionsHookTest {
 
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active anomalies.
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
   }
 
   @Test
@@ -1149,7 +1278,14 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1160,32 +1296,32 @@ public class AssertionActionsHookTest {
     // Ensure that we looked up the assertion info correctly.
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active anomalies.
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
   }
 
   private SystemEntityClient mockSystemEntityClient(
@@ -1196,14 +1332,13 @@ public class AssertionActionsHookTest {
       AssertionActions assertionActions)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (incidentUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(INCIDENT_ENTITY_NAME),
               Mockito.eq(incidentUrn),
-              Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+              Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(incidentUrn)
@@ -1219,14 +1354,15 @@ public class AssertionActionsHookTest {
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
               Mockito.eq(assertionUrn),
               Mockito.eq(
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                      GLOBAL_TAGS_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1250,14 +1386,13 @@ public class AssertionActionsHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(incidentUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -1272,14 +1407,13 @@ public class AssertionActionsHookTest {
       Urn anomalyUrn, AnomalyInfo anomalyInfo, Urn assertionUrn, AssertionInfo assertionInfo)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (anomalyUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ANOMALY_ENTITY_NAME),
               Mockito.eq(anomalyUrn),
-              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(anomalyUrn)
@@ -1295,14 +1429,15 @@ public class AssertionActionsHookTest {
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
               Mockito.eq(assertionUrn),
               Mockito.eq(
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                      GLOBAL_TAGS_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1322,14 +1457,13 @@ public class AssertionActionsHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)

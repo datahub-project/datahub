@@ -3,10 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +33,8 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
         () -> {
           try {
             GlobalSettingsInfo globalSettings =
-                SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
-            return _settingsMapper.mapGlobalSettings(globalSettings);
+                SettingsMapper.getGlobalSettings(context.getOperationContext(), _entityClient);
+            return _settingsMapper.mapGlobalSettings(context, globalSettings);
           } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve Global Settings", e);
           }

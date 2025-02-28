@@ -1,36 +1,29 @@
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
 import styled from 'styled-components/macro';
 import { Dropdown, MenuProps } from 'antd';
-import { BellFilled, BellOutlined } from '@ant-design/icons';
-import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
+import { Pill, Text } from '@src/alchemy-components';
+import { useEntityData, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import { Bell } from '@phosphor-icons/react';
+import TooltipHeader, { SubTitle } from '@src/alchemy-components/components/Tooltip2/TooltipHeader';
+import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
+import { UsersThree } from 'phosphor-react';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import useSubscription from '../useSubscription';
-import useDeleteSubscription from '../useDeleteSubscription';
+import { formatNumber } from '../../formatNumber';
+import CustomAvatar from '../../avatar/CustomAvatar';
+import { ShowMoreButton } from '../../ShowMoreSection';
 import useSubscriptionSummary from '../useSubscriptionSummary';
 import useGroupRelationships from '../useGroupRelationships';
+import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
+import useDeleteSubscription from '../useDeleteSubscription';
 import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
-import { useEntityData, useMutationUrn } from '../../../entityV2/shared/EntityContext';
-
-const StyledBellFilled = styled(BellFilled)`
-    && {
-        height: 100%;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-`;
-
-const StyledBellOutlined = styled(BellOutlined)`
-    && {
-        height: 100%;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-`;
-
-const HoverDropdown = styled(Dropdown)``;
+import { EntityType } from '../../../../types.generated';
+import Loading from '../../Loading';
 
 const DROPDOWN_KEYS = {
     SUBSCRIBE_ME: 'SUBSCRIBE_ME',
@@ -38,24 +31,83 @@ const DROPDOWN_KEYS = {
     UNSUBSCRIBE_ME: 'UNSUBSCRIBE_ME',
 } as const;
 
-export default function SubscribeMenuAction() {
+const PillsContainer = styled.div`
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-height: 100px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+        width: 4px;
+    }
+`;
+
+const IconContainer = styled.div`
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    border: 1px red solid;
+    padding: 10px;
+`;
+
+export const SubscribeMenuAction = () => {
+    const entityRegistry = useEntityRegistry();
     const { entityData, entityType } = useEntityData();
-    const primaryEntityUrn = useMutationUrn();
+    const entityUrn = useMutationUrn();
+
     const entityName = entityData?.name || '';
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
+    const isEntityExists = entityType === EntityType.Dataset ? entityData?.exists : true;
 
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
     const { subscription, isSubscribed, canManageSubscription, refetchSubscription } = useSubscription({
         isPersonal,
-        entityUrn: primaryEntityUrn,
+        entityUrn,
         groupUrn,
+        isEntityExists,
     });
 
-    const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary } = useSubscriptionSummary({
-        entityUrn: primaryEntityUrn,
-    });
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const isSiblingMode = (entityData?.siblingsSearch?.total && !isSeparateSiblingsMode) || false;
+
+    const {
+        isUserSubscribed,
+        numUserSubscriptions,
+        numGroupSubscriptions,
+        subscribedGroups,
+        subscribedUsers,
+        setIsUserSubscribed,
+        refetchSubscriptionSummary,
+        fetchMoreGroups,
+        fetchMoreUsers,
+        isFetchingSubscriptionSummary,
+    } = useSubscriptionSummary({ entityUrn, isEntityExists });
+
+    const renderSubscribeIcon = () => {
+        if (isFetchingSubscriptionSummary) {
+            return (
+                <IconContainer data-testid="subscribe-action">
+                    <Loading height={20} marginTop={0} />
+                </IconContainer>
+            );
+        }
+        if (isUserSubscribed) {
+            return (
+                <IconContainer data-testid="subscribe-action">
+                    <Bell weight="fill" size={14} />
+                </IconContainer>
+            );
+        }
+        return (
+            <IconContainer data-testid="subscribe-action">
+                <Bell />
+            </IconContainer>
+        );
+    };
 
     const handleUpsertSubscription = () => setIsUserSubscribed(true);
 
@@ -92,9 +144,10 @@ export default function SubscribeMenuAction() {
     };
 
     return (
-        <ActionMenuItem key="subscribe">
-            <HoverDropdown
-                data-testid="entity-menu-subscribe-button"
+        <ActionMenuItem key="subscribe" id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
+            <Dropdown
+                disabled={isSiblingMode}
+                trigger={['click']}
                 menu={{
                     items: [
                         ...(isUserSubscribed
@@ -121,15 +174,129 @@ export default function SubscribeMenuAction() {
                     onClick: onClickMenuItem,
                 }}
             >
-                {isUserSubscribed ? <StyledBellFilled /> : <StyledBellOutlined />}
-            </HoverDropdown>
+                {!isSiblingMode ? (
+                    <Tooltip2
+                        header={() => <TooltipHeader title="Subscribers" />}
+                        placement="leftBottom"
+                        width={250}
+                        sections={[
+                            {
+                                title: 'Users',
+                                titleSuffix: (
+                                    <Pill label={formatNumber(numUserSubscriptions)} size="xs" clickable={false} />
+                                ),
+                                content: (
+                                    <>
+                                        <PillsContainer>
+                                            {subscribedUsers && subscribedUsers.length ? (
+                                                subscribedUsers.map((user) => {
+                                                    const name =
+                                                        user &&
+                                                        entityRegistry.getDisplayName(EntityType.CorpUser, user);
+                                                    const avatarUrl =
+                                                        user?.editableProperties?.pictureLink || undefined;
+                                                    return (
+                                                        <Link
+                                                            to={`${entityRegistry.getEntityUrl(
+                                                                EntityType.CorpUser,
+                                                                user?.urn,
+                                                            )}`}
+                                                        >
+                                                            <CreatedByContainer>
+                                                                <CustomAvatar
+                                                                    size={16}
+                                                                    photoUrl={avatarUrl}
+                                                                    name={name}
+                                                                    hideTooltip
+                                                                />
+                                                                <Text
+                                                                    type="div"
+                                                                    color="gray"
+                                                                    size="xs"
+                                                                    weight="semiBold"
+                                                                >
+                                                                    {name}
+                                                                </Text>
+                                                            </CreatedByContainer>
+                                                        </Link>
+                                                    );
+                                                })
+                                            ) : (
+                                                <SubTitle>No users subscribed yet</SubTitle>
+                                            )}
+                                        </PillsContainer>
+                                        {fetchMoreUsers && !!subscribedUsers.length && (
+                                            <ShowMoreButton onClick={fetchMoreUsers}>View more</ShowMoreButton>
+                                        )}
+                                    </>
+                                ),
+                            },
+                            {
+                                title: 'Groups',
+                                titleSuffix: (
+                                    <Pill label={formatNumber(numGroupSubscriptions)} size="xs" clickable={false} />
+                                ),
+                                content: (
+                                    <>
+                                        <PillsContainer>
+                                            {subscribedGroups && subscribedGroups.length ? (
+                                                subscribedGroups.map((group) => {
+                                                    const name =
+                                                        group &&
+                                                        entityRegistry.getDisplayName(EntityType.CorpGroup, group);
+                                                    return (
+                                                        <Link
+                                                            to={`${entityRegistry.getEntityUrl(
+                                                                EntityType.CorpGroup,
+                                                                group?.urn,
+                                                            )}`}
+                                                        >
+                                                            <CreatedByContainer>
+                                                                <UsersThree size="12" color={colors.gray[1700]} />
+                                                                <Text color="gray" size="xs" weight="semiBold">
+                                                                    {name}
+                                                                </Text>
+                                                            </CreatedByContainer>
+                                                        </Link>
+                                                    );
+                                                })
+                                            ) : (
+                                                <SubTitle>No groups subscribed yet</SubTitle>
+                                            )}
+                                        </PillsContainer>
+                                        {fetchMoreGroups && subscribedGroups.length && (
+                                            <ShowMoreButton onClick={fetchMoreGroups}>View more</ShowMoreButton>
+                                        )}
+                                    </>
+                                ),
+                            },
+                        ]}
+                    >
+                        {renderSubscribeIcon()}
+                    </Tooltip2>
+                ) : (
+                    <Tooltip2
+                        title={
+                            <>
+                                You cannot subscribe to a group of assets. <br />
+                                <br />
+                                Please subscribe to the assets that this group is <b>composed of</b> by navigating to
+                                them in the sidebar below.
+                            </>
+                        }
+                        placement="leftBottom"
+                    >
+                        {renderSubscribeIcon()}
+                    </Tooltip2>
+                )}
+            </Dropdown>
             <SubscriptionDrawer
                 isOpen={isDrawerOpen}
                 onClose={onCloseDrawer}
                 isPersonal={isPersonal}
                 groupUrn={groupUrn}
                 setGroupUrn={setGroupUrn}
-                entityUrn={primaryEntityUrn}
+                entityUrn={entityUrn}
                 entityName={entityName}
                 entityType={entityType}
                 isSubscribed={isSubscribed}
@@ -141,4 +308,4 @@ export default function SubscribeMenuAction() {
             />
         </ActionMenuItem>
     );
-}
+};

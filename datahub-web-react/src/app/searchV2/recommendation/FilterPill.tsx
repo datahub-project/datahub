@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { RecommendedFilter } from './types';
 import { getFilterColor } from './utils';
 
@@ -11,7 +11,6 @@ const Pill = styled.div<{ color: string }>`
     margin-right: 0px;
     border: 2px solid white;
     :hover {
-        color: ${(props) => props.color};
         opacity: 1;
         cursor: pointer;
         border-color: ${(props) => props.color};

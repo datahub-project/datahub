@@ -11,8 +11,8 @@ import { SearchBar } from '../../../search/SearchBar';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { DomainsPaginationContainer } from '../../../domain/DomainsList';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
+import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
 import CreateDataProductModal from './CreateDataProductModal';
@@ -22,10 +22,16 @@ const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
 `;
 
 const ResultsWrapper = styled.div`
-    flex: 1;
-    background-color: ${ANTD_GRAY[2]};
-    padding: 16px;
+    height: auto;
     overflow: auto;
+    flex: 1;
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    background: ${REDESIGN_COLORS.BACKGROUND};
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
@@ -41,6 +47,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -68,9 +75,10 @@ export default function DataProductsTab() {
                 searchFlags: { skipCache: true },
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const totalResults = data?.searchAcrossEntities?.total || 0;
-    const searchResults = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    const searchResults = data?.searchAcrossEntities?.searchResults?.map((r) => r.entity) || [];
     const dataProducts = [...createdDataProducts, ...searchResults];
     const displayedDataProducts = dataProducts
         .map(
@@ -87,6 +95,7 @@ export default function DataProductsTab() {
 
     function onCreateDataProduct(dataProduct: DataProduct) {
         setCreatedDataProducts([dataProduct, ...createdDataProducts]);
+        setTimeout(() => refetch(), 3000);
     }
 
     function onUpdateDataProduct(dataProduct: DataProduct) {

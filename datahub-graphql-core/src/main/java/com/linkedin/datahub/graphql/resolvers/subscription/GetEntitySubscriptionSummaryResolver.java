@@ -4,14 +4,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.CorpGroup;
-import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.GetEntitySubscriptionSummaryInput;
+import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -23,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class GetEntitySubscriptionSummaryResolver
     implements DataFetcher<CompletableFuture<EntitySubscriptionSummary>> {
   private static final int DEFAULT_SUBSCRIPTION_COUNT = 100;
+  private static final int DEFAULT_USER_COUNT = 50;
   private static final int DEFAULT_GROUP_COUNT = 5;
   private final SubscriptionService _subscriptionService;
   private final GroupService _groupService;
@@ -41,6 +39,12 @@ public class GetEntitySubscriptionSummaryResolver
             : input.getSubscriptionCount();
     final Integer numExampleGroups =
         input.getNumExampleGroups() == null ? DEFAULT_GROUP_COUNT : input.getNumExampleGroups();
+    final Integer numSubscribedUsers =
+        input.getNumSubscribedUsers() == null ? DEFAULT_USER_COUNT : input.getNumSubscribedUsers();
+    final Integer numSubscribedGroups =
+        input.getNumSubscribedGroups() == null
+            ? DEFAULT_GROUP_COUNT
+            : input.getNumSubscribedGroups();
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -49,26 +53,47 @@ public class GetEntitySubscriptionSummaryResolver
 
             final EntitySubscriptionSummary summary = new EntitySubscriptionSummary();
             summary.setIsUserSubscribed(
-                _subscriptionService.isUserSubscribed(entityUrn, actorUrn, authentication));
+                _subscriptionService.isActorSubscribed(
+                    context.getOperationContext(), entityUrn, actorUrn));
 
             final List<Urn> userGroupUrns =
-                _groupService.getGroupsForUser(actorUrn, authentication);
+                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
             summary.setIsUserSubscribedViaGroup(
                 _subscriptionService.isAnyGroupSubscribed(
-                    entityUrn, userGroupUrns, authentication));
+                    context.getOperationContext(), entityUrn, userGroupUrns));
 
             summary.setUserSubscriptionCount(
                 _subscriptionService.getNumUserSubscriptionsForEntity(
-                    entityUrn, numMaxSubscriptions, authentication));
+                    context.getOperationContext(), entityUrn, numMaxSubscriptions));
 
-            // Maxes out at 100 groups.
             summary.setGroupSubscriptionCount(
                 _subscriptionService.getNumGroupSubscriptionsForEntity(
-                    entityUrn, numMaxSubscriptions, authentication));
+                    context.getOperationContext(), entityUrn, numMaxSubscriptions));
+
+            final List<Urn> subscribedGroupUrns =
+                _subscriptionService.getGroupSubscribersForEntity(
+                    context.getOperationContext(), entityUrn, numSubscribedGroups);
 
             final List<Urn> exampleGroupUrns =
                 _subscriptionService.getGroupSubscribersForEntity(
-                    entityUrn, numExampleGroups, authentication);
+                    context.getOperationContext(), entityUrn, numExampleGroups);
+
+            final List<Urn> subscribedUsersUrns =
+                _subscriptionService.getSubscribedUsersForEntity(
+                    context.getOperationContext(), entityUrn, numSubscribedUsers);
+
+            final List<CorpGroup> subscribedGroups =
+                subscribedGroupUrns.stream()
+                    .map(
+                        urn -> {
+                          final CorpGroup group = new CorpGroup();
+                          group.setUrn(urn.toString());
+                          group.setType(EntityType.CORP_GROUP);
+                          return group;
+                        })
+                    .collect(Collectors.toList());
+            summary.setSubscribedGroups(subscribedGroups);
+
             final List<CorpGroup> exampleGroups =
                 exampleGroupUrns.stream()
                     .map(
@@ -80,6 +105,18 @@ public class GetEntitySubscriptionSummaryResolver
                         })
                     .collect(Collectors.toList());
             summary.setExampleGroups(exampleGroups);
+
+            final List<CorpUser> subscribedUsers =
+                subscribedUsersUrns.stream()
+                    .map(
+                        urn -> {
+                          final CorpUser user = new CorpUser();
+                          user.setUrn(urn.toString());
+                          user.setType(EntityType.CORP_USER);
+                          return user;
+                        })
+                    .collect(Collectors.toList());
+            summary.setSubscribedUsers(subscribedUsers);
 
             return summary;
           } catch (Exception e) {

@@ -1,0 +1,32 @@
+[
+  {
+    "_source": {
+      "source": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_0,PROD)"
+      },
+      "destination": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_1,PROD)"
+      }
+    }
+  },
+  {
+    "_source": {
+      "source": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_2,PROD)"
+      },
+      "destination": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_1,PROD)"
+      }
+    }
+  },
+  {
+    "_source": {
+      "source": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_3,PROD)"
+      },
+      "destination": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_0,PROD)"
+      }
+    }
+  }
+]

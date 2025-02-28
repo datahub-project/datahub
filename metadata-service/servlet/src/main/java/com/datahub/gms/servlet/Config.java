@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -97,7 +98,7 @@ public class Config extends HttpServlet {
 
     GitVersion version = getGitVersion(ctx);
     Map<String, Object> versionConfig = new HashMap<>();
-    versionConfig.put("linkedin/datahub", version.toConfig());
+    versionConfig.put("acryldata/datahub", version.toConfig());
     config.put("versions", versionConfig);
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);
@@ -129,6 +130,15 @@ public class Config extends HttpServlet {
           }
         };
     config.put("datahub", datahubConfig);
+
+    ExecutorConfiguration executorConfig = configProvider.getExecutors();
+    Map<String, Object> remoteExecutorBackendConfig =
+        new HashMap<String, Object>() {
+          {
+            put("revision", executorConfig.getBackendRevision());
+          }
+        };
+    config.put("remoteExecutorBackend", remoteExecutorBackendConfig);
 
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();

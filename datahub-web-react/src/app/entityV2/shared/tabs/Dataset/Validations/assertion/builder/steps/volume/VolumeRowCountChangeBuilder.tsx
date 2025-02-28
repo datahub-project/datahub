@@ -8,8 +8,8 @@ import {
     AssertionValueChangeType,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { getPropertyFromVolumeType } from './utils';
 import { VolumeNumberInput } from './VolumeNumberInput';
+import { getPropertyFromVolumeType } from '../../../../utils';
 
 const Container = styled.div`
     display: flex;
@@ -80,6 +80,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.value"
                         placeholder="Number"
+                        enableNegatives
                         value={value?.value?.value ? parseInt(value.value.value, 10) : undefined}
                         onChange={(newValue) => handleValueChange(newValue as number)}
                         disabled={disabled}
@@ -109,6 +110,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.minValue"
                         placeholder="Min"
+                        enableNegatives
                         value={value?.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
                         onChange={(newValue) => handleMinValueChange(newValue as number)}
                         disabled={disabled}
@@ -137,10 +139,11 @@ export const VolumeRowCountChangeBuilder = ({
                             }),
                         ]}
                     />
-                    <Typography.Text strong>Or more than</Typography.Text>
+                    <Typography.Text strong>Or at most</Typography.Text>
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"
+                        enableNegatives
                         value={value?.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
                         onChange={(newValue) => handleMaxValueChange(newValue as number)}
                         disabled={disabled}

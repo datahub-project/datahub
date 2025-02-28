@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 
 public class AssertionRunEventChangeEventGenerator
     extends EntityChangeEventGenerator<AssertionRunEvent> {
+
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,

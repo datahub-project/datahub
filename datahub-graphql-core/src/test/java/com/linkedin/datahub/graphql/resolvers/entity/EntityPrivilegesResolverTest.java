@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -55,6 +56,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanShareEntity());
   }
 
   @Test
@@ -70,6 +72,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanManageEntity());
     assertTrue(result.getCanManageChildren());
+    assertTrue(result.getCanShareEntity());
   }
 
   private DataFetchingEnvironment setUpTestWithoutPermissions(Entity entity) {
@@ -93,6 +96,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -108,6 +112,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanManageEntity());
     assertFalse(result.getCanManageChildren());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -121,10 +126,7 @@ public class EntityPrivilegesResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .getV2(
-            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            any(), Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME), Mockito.any(), Mockito.any());
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -282,6 +284,7 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditLinks());
     assertTrue(result.getCanEditAssertions());
     assertTrue(result.getCanEditIncidents());
+    assertTrue(result.getCanShareEntity());
   }
 
   public void validateMissingCommonEntityPrivileges(EntityPrivileges result) {
@@ -296,5 +299,6 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanEditLinks());
     assertFalse(result.getCanEditAssertions());
     assertFalse(result.getCanEditIncidents());
+    assertFalse(result.getCanShareEntity());
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';

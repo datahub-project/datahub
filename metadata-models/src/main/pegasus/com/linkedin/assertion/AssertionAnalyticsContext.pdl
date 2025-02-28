@@ -1,0 +1,107 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.common.TagAssociation
+
+/**
+ * Tracks extra context around an assertion
+ * Useful for doing realtime analytic queries to ES
+ */
+record AssertionAnalyticsContext {
+
+  /**
+    * Type of assertion.
+    */
+  @TimeseriesField = {}
+  type: AssertionType
+
+  /**
+   * The Domains attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "parentDomains",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasParentDomain",
+      "addToFilters": true,
+      "filterNameOverride": "In Parent Domain"
+    }
+  }
+  @TimeseriesField = {}
+  parentDomains: optional array[Urn]
+
+
+  /**
+   * The Data Products attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "domains",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasParentDataProduct",
+      "addToFilters": true,
+      "filterNameOverride": "In Parent Data Product"
+    }
+  }
+  @TimeseriesField = {}
+  parentDataProducts: optional array[Urn]
+
+  /**
+   * The Tags attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*/tag": {
+      "fieldName": "tags",
+      "fieldType": "URN",
+      "boostScore": 0.5,
+      "queryByDefault": true,
+      "addToFilters": true,
+      "hasValuesFieldName": "hasParentTags",
+      "filterNameOverride": "Parent Tagged With"
+    }
+  }
+  @TimeseriesField = {}
+  parentGlobalTags: optional array[TagAssociation]
+
+
+  /**
+   * Parent Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name
+   * (Caveat: only corpuser is currently supported in the frontend.)
+   */
+  @Searchable = {
+    "/*": {
+        "fieldName": "parentOwners",
+        "fieldType": "URN",
+        "addToFilters": true,
+        "hasValuesFieldName": "hasParentOwners",
+        "queryByDefault": false,
+        "filterNameOverride": "Parent Owned By"
+    }
+  }
+  @TimeseriesField = {}
+  parentOwners: optional array[Urn]
+
+  /**
+   * Data Platform for parent
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Parent Platform"
+  }
+  @TimeseriesField = {}
+  parentDataPlatform: optional Urn
+
+  /**
+   * Instance of the parent's data platform (e.g. db instance)
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Parent Platform Instance"
+    "fieldName": "parentPlatformInstance"
+  }
+  @TimeseriesField = {}
+  parentDataPlatformInstance: optional Urn
+
+}

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import styled from 'styled-components';
+import { AssertionType } from '@src/types.generated';
 
 import { Assertion, AssertionResult, DataContract, Monitor } from '../../../../../../../../types.generated';
 import { AssertionDescription } from './summary/AssertionDescription';
@@ -65,6 +66,7 @@ export const AssertionProfileHeader = ({
     close,
     refetch,
 }: Props) => {
+    const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
     return (
         <>
             <NavBar>
@@ -82,7 +84,19 @@ export const AssertionProfileHeader = ({
                 </ActionsWrapper>
             </NavBar>
             <Container>
-                <Title>{(assertion && <AssertionDescription assertion={assertion} />) || 'Assertion details'}</Title>
+                <Title>
+                    {(assertion && (
+                        <AssertionDescription
+                            assertion={assertion}
+                            monitor={monitor}
+                            options={{
+                                noSecondarySpacing: isFieldAssertion,
+                                showColumnTag: isFieldAssertion,
+                            }}
+                        />
+                    )) ||
+                        'Assertion details'}
+                </Title>
                 <Status>
                     <AssertionResultPill result={result} />
                 </Status>

@@ -1,6 +1,6 @@
 view: customer_facts {
   derived_table: {
-sql:
+    sql:
       SELECT
         customer_id,
         SUM(sale_price) AS lifetime_spend

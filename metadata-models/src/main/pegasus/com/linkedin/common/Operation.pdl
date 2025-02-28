@@ -38,14 +38,20 @@ record Operation includes TimeseriesAspectBase {
   /**
    * Which other datasets were affected by this operation.
    */
-  @TimeseriesFieldCollection = {"key":"datasetName"}
   affectedDatasets: optional array[Urn]
 
   /**
-   * Source Type
+   * Source Type - E.g. which process produced this operation. Note that this field will be superseded by the richer information
+    * provided inside the "source" field (e.g source > producerType)
    */
    @TimeseriesField = {}
+   @deprecated
    sourceType: optional OperationSourceType
+
+   /**
+    * More detailed information about the source of the operation.
+    */
+   source: optional OperationSourceDetails
 
   /**
    * Custom properties
@@ -55,7 +61,7 @@ record Operation includes TimeseriesAspectBase {
   /**
    * The time at which the operation occurred. Would be better named 'operationTime'
    */
-  @TimeseriesField = {}
+  @TimeseriesField = { "fieldType": "DATETIME" }
   @Searchable = { "fieldType": "DATETIME", "fieldName": "lastOperationTime" }
   lastUpdatedTimestamp: long
 }

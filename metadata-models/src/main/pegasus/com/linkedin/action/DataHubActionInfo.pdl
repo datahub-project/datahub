@@ -24,12 +24,61 @@ record DataHubActionInfo {
   type: string
 
   /**
+   * The category of the action
+   */
+  category: optional string
+
+  /**
+   * The description of the action
+   */
+  description: optional string
+
+  /**
   * Parameters associated with the Action
   */
   config: record DataHubActionConfig {
     /**
-     * The JSON recipe to use for ingestion
+     * The JSON recipe to use for the automation
      */
      recipe: string
+
+     /**
+      * The id of the executor pool to use to execute the automation. Defaults to 'embedded' (runs locally)
+      */
+     executorId: optional string
   }
+
+  /**
+  * The intended state of the action
+  */
+  state: optional enum DataHubActionState {
+    /**
+     * The action is supposed to be active
+     */
+    ACTIVE
+    /**
+     * The action should be inactive
+    */
+    INACTIVE
+  } = "ACTIVE"
+
+   /**
+    * The source or origin of the Action
+    *
+    * Currently CLI and UI do not provide an explicit source.
+    */
+    source: optional record DataHubActionSource {
+         /**
+          * The source type of the ingestion source
+          */
+          @Searchable = {
+            "fieldName": "sourceType"
+          }
+          type: enum DataHubActionRequestSource {
+             /**
+              * A system internal source, e.g. for running search indexing operations, feature computation, etc.
+              */
+             SYSTEM
+          }
+    }
 }

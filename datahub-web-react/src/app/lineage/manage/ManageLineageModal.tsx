@@ -107,8 +107,8 @@ export default function ManageLineageModal({
                     });
                 }
             })
-            .catch(() => {
-                message.error('Error updating lineage');
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 
@@ -117,7 +117,7 @@ export default function ManageLineageModal({
     return (
         <StyledModal
             title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
-            visible
+            open
             onCancel={closeModal}
             keyboard
             footer={

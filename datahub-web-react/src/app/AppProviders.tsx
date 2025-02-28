@@ -5,8 +5,8 @@ import UserContextProvider from './context/UserContextProvider';
 import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import EntityRegistryProvider from './EntityRegistryProvider';
-import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 import GlobalSettingsContextProvider from './context/GlobalSettings/GlobalSettingsContextProvider';
+import { NavBarProvider } from './homeV2/layout/navBarRedesign/NavBarContext';
 
 interface Props {
     children: React.ReactNode;
@@ -14,20 +14,20 @@ interface Props {
 
 export default function AppProviders({ children }: Props) {
     return (
-        <AppConfigProvider>
-            <UserContextProvider>
-                <EntityRegistryProvider>
-                    <BrowserTitleProvider>
+        <GlobalSettingsContextProvider>
+            <AppConfigProvider>
+                <UserContextProvider>
+                    <EntityRegistryProvider>
                         <EducationStepsProvider>
                             <QuickFiltersProvider>
                                 <SearchContextProvider>
-                                    <GlobalSettingsContextProvider>{children}</GlobalSettingsContextProvider>
+                                    <NavBarProvider>{children}</NavBarProvider>
                                 </SearchContextProvider>
                             </QuickFiltersProvider>
                         </EducationStepsProvider>
-                    </BrowserTitleProvider>
-                </EntityRegistryProvider>
-            </UserContextProvider>
-        </AppConfigProvider>
+                    </EntityRegistryProvider>
+                </UserContextProvider>
+            </AppConfigProvider>
+        </GlobalSettingsContextProvider>
     );
 }

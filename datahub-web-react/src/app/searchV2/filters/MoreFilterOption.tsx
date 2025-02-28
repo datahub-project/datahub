@@ -1,18 +1,28 @@
 import { RightOutlined } from '@ant-design/icons';
+import React, { useRef } from 'react';
 import styled from 'styled-components';
-import React from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { IconWrapper } from './SearchFilterView';
-import { getFilterDropdownIcon } from './utils';
 import { MoreFilterOptionLabel } from './styledComponents';
 import { FilterPredicate } from './types';
+import useSearchFilterDropdown from './useSearchFilterDropdown';
+import { getFilterDropdownIcon, useElementDimensions, useFilterDisplayName } from './utils';
 import ValueSelector from './value/ValueSelector';
 
 const IconNameWrapper = styled.span`
     display: flex;
     align-items: center;
+`;
+
+const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
+    position: absolute;
+    top: -${(props) => props.height}px;
+    ${(props) => (props.isElementOutsideWindow ? 'right' : 'left')}: ${(props) => props.width}px;
+`;
+
+const StyledRightOutlined = styled(RightOutlined)`
+    font-size: 12px;
+    height: 12px;
 `;
 
 interface Props {
@@ -23,42 +33,46 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
-    const {
-        updateFilters,
-        numActiveFilters,
-    } = useSearchFilterDropdown({
+    const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
     });
+    const displayName = useFilterDisplayName(filter);
     const filterIcon = getFilterDropdownIcon(filter.field);
+    const labelRef = useRef<HTMLDivElement>(null);
+    const elementDimensions = useElementDimensions(labelRef);
 
     const onChangeFilterValues = (currentFilterPredicate: FilterPredicate, newValues) => {
-        if(currentFilterPredicate.values !== newValues) {
+        if (currentFilterPredicate.values !== newValues) {
             updateFilters(newValues);
         }
     };
 
-    const currentFilterPredicate = filterPredicates?.find(obj => obj.field.field.includes(filter.field)) as FilterPredicate
-    
+    const currentFilterPredicate = filterPredicates?.find((obj) =>
+        obj.field.field.includes(filter.field),
+    ) as FilterPredicate;
+
     return (
-        <ValueSelector
+        <StyledValueSelector
             field={currentFilterPredicate?.field}
             values={currentFilterPredicate?.values}
-            defaultOptions={currentFilterPredicate?.defaultValueOptions}
+            defaultOptions={finalAggregations}
             onChangeValues={(newValues) => onChangeFilterValues(currentFilterPredicate, newValues)}
-            alignRight
+            manuallyUpdateFilters={manuallyUpdateFilters}
+            {...elementDimensions}
         >
             <MoreFilterOptionLabel
-                    isActive={!!numActiveFilters}
-                    data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)}`}
-                >
+                $isActive={!!numActiveFilters}
+                data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
+                ref={labelRef}
+            >
                 <IconNameWrapper>
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
+                <StyledRightOutlined />
             </MoreFilterOptionLabel>
-        </ValueSelector>
+        </StyledValueSelector>
     );
 }

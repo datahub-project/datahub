@@ -1,10 +1,10 @@
 import { Button } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 
 import SidebarBackArrow from '../../../../../../images/sidebarBackArrow.svg?react';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { SEARCH_COLORS } from '../../../constants';
 

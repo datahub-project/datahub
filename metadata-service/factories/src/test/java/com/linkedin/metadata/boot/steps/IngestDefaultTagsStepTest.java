@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -28,13 +29,14 @@ public class IngestDefaultTagsStepTest {
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags.json");
 
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     TagProperties expectedResult = new TagProperties();
     expectedResult.setName("Test Tag");
 
     Mockito.verify(entityService, times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.eq(buildCreateTagProposal(expectedResult)),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -48,10 +50,11 @@ public class IngestDefaultTagsStepTest {
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags.json");
 
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     Mockito.verify(entityService, times(0))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -63,7 +66,7 @@ public class IngestDefaultTagsStepTest {
     configureEntityServiceMock(entityService, null);
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags_invalid_json.json");
-    Assert.assertThrows(RuntimeException.class, step::execute);
+    Assert.assertThrows(RuntimeException.class, () -> step.execute(mock(OperationContext.class)));
     // Verify no interactions
     verifyNoInteractions(entityService);
   }
@@ -74,14 +77,16 @@ public class IngestDefaultTagsStepTest {
     configureEntityServiceMock(entityService, null);
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags_invalid_model.json");
-    Assert.assertThrows(RuntimeException.class, step::execute);
+    Assert.assertThrows(RuntimeException.class, () -> step.execute(mock(OperationContext.class)));
   }
 
   private static void configureEntityServiceMock(
       final EntityService mockService, final TagProperties props) {
     Mockito.when(
             mockService.getLatestAspect(
-                Mockito.eq(TEST_TAG_URN), Mockito.eq(TAG_PROPERTIES_ASPECT_NAME)))
+                any(OperationContext.class),
+                Mockito.eq(TEST_TAG_URN),
+                Mockito.eq(TAG_PROPERTIES_ASPECT_NAME)))
         .thenReturn(props);
   }
 

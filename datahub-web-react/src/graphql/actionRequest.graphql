@@ -25,6 +25,7 @@ query listActionRequests($input: ListActionRequestsInput!) {
                             logoUrl
                         }
                     }
+                    ...datasetSchema
                 }
                 ... on Dashboard {
                     tool
@@ -204,6 +205,33 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         }
                     }
                 }
+                structuredPropertyProposal {
+                    structuredProperties {
+                        ...structuredPropertiesFields
+                    }
+                }
+                domainProposal {
+                    domain {
+                        ... on Domain {
+                            urn
+                            properties {
+                                name
+                                description
+                            }
+                        }
+                    }
+                }
+                ownerProposal {
+                    owners {
+                        ...owner
+                        ownershipType {
+                            urn
+                            info {
+                                name
+                            }
+                        }
+                    }
+                }
             }
             created {
                 time
@@ -239,14 +267,19 @@ query listActionRequests($input: ListActionRequestsInput!) {
                     }
                 }
             }
+            origin
+            inferenceMetadata {
+                confidenceLevel
+                lastInferredAt
+            }
         }
     }
 }
 
-mutation acceptProposal($urn: String!) {
-    acceptProposal(urn: $urn)
+mutation acceptProposals($urns: [String!]!) {
+    acceptProposals(urns: $urns)
 }
 
-mutation rejectProposal($urn: String!) {
-    rejectProposal(urn: $urn)
+mutation rejectProposals($urns: [String!]!) {
+    rejectProposals(urns: $urns)
 }

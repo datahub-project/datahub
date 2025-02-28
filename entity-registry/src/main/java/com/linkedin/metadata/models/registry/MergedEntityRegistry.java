@@ -5,6 +5,7 @@ import com.linkedin.data.schema.compatibility.CompatibilityOptions;
 import com.linkedin.data.schema.compatibility.CompatibilityResult;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -14,8 +15,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +31,11 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, EventSpec> eventNameToSpec;
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
-  @Nonnull private PluginFactory pluginFactory;
+
+  @Getter @Nonnull private PluginFactory pluginFactory;
+
+  @Getter @Nullable
+  private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
@@ -51,6 +58,7 @@ public class MergedEntityRegistry implements EntityRegistry {
     } else {
       this.pluginFactory = PluginFactory.empty();
     }
+    this.pluginFactoryProvider = baseEntityRegistry.getPluginFactoryProvider();
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -73,6 +81,13 @@ public class MergedEntityRegistry implements EntityRegistry {
               validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
+    // Merge Aspect Specs
+    // (Fixed issue where custom defined aspects are not included in the API specification.)
+    //
+    if (!patchEntityRegistry.getAspectSpecs().isEmpty()) {
+      _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
+    }
+
     // Merge Entity Specs
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
       if (entityNameToSpec.containsKey(e2Entry.getKey())) {
@@ -93,7 +108,8 @@ public class MergedEntityRegistry implements EntityRegistry {
 
     // Merge Plugins
     this.pluginFactory =
-        PluginFactory.merge(this.pluginFactory, patchEntityRegistry.getPluginFactory());
+        PluginFactory.merge(
+            this.pluginFactory, patchEntityRegistry.getPluginFactory(), this.pluginFactoryProvider);
 
     return this;
   }
@@ -211,12 +227,6 @@ public class MergedEntityRegistry implements EntityRegistry {
   @Override
   public AspectTemplateEngine getAspectTemplateEngine() {
     return _aspectTemplateEngine;
-  }
-
-  @Nonnull
-  @Override
-  public PluginFactory getPluginFactory() {
-    return this.pluginFactory;
   }
 
   @Setter

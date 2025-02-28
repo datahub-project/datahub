@@ -6,6 +6,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.EntityProfileParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,13 +26,15 @@ public interface EntityRecommendationSource extends RecommendationSource {
   }
 
   default Stream<RecommendationContent> buildContent(
-      @Nonnull List<String> entityUrns, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityUrns,
+      EntityService<?> entityService) {
     List<Urn> entities =
         entityUrns.stream()
             .map(UrnUtils::getUrn)
             .filter(urn -> getSupportedEntityTypes().contains(urn.getEntityType()))
             .collect(Collectors.toList());
-    Set<Urn> existingNonRemoved = entityService.exists(entities, false);
+    Set<Urn> existingNonRemoved = entityService.exists(opContext, entities, false);
 
     return entities.stream().filter(existingNonRemoved::contains).map(this::buildContent);
   }

@@ -1,47 +1,50 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.metadata.aspect.batch.MCLBatchItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.mycompany.dq.DataQualityRuleEvent;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
 
-  public CustomDataQualityRulesMCLSideEffect(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
-  protected Stream<MCLBatchItem> applyMCLSideEffect(
-      @Nonnull MCLBatchItem input, @Nonnull AspectRetriever aspectRetriever) {
+  protected Stream<MCLItem> applyMCLSideEffect(
+      @Nonnull Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+    return mclItems.stream()
+        .map(
+            item -> {
+              // Generate Timeseries event aspect based on non-Timeseries aspect
+              MetadataChangeLog originMCP = item.getMetadataChangeLog();
 
-    // Generate Timeseries event aspect based on non-Timeseries aspect
-    MetadataChangeLog originMCP = input.getMetadataChangeLog();
-
-    Optional<MCLBatchItem> timeseriesOptional =
-        buildEvent(originMCP)
-            .map(
-                event -> {
-                  try {
-                    MetadataChangeLog eventMCP = originMCP.clone();
-                    eventMCP.setAspect(GenericRecordUtils.serializeAspect(event));
-                    eventMCP.setAspectName("customDataQualityRuleEvent");
-                    return eventMCP;
-                  } catch (CloneNotSupportedException e) {
-                    throw new RuntimeException(e);
-                  }
-                })
-            .map(
-                eventMCP ->
-                    MCLBatchItemImpl.builder().metadataChangeLog(eventMCP).build(aspectRetriever));
-
-    return timeseriesOptional.stream();
+              return buildEvent(originMCP)
+                  .map(
+                      event -> {
+                        try {
+                          MetadataChangeLog eventMCP = originMCP.clone();
+                          eventMCP.setAspect(GenericRecordUtils.serializeAspect(event));
+                          eventMCP.setAspectName("customDataQualityRuleEvent");
+                          return eventMCP;
+                        } catch (CloneNotSupportedException e) {
+                          throw new RuntimeException(e);
+                        }
+                      })
+                  .map(
+                      eventMCP ->
+                          MCLItemImpl.builder()
+                              .metadataChangeLog(eventMCP)
+                              .build(retrieverContext.getAspectRetriever()));
+            })
+        .filter(Optional::isPresent)
+        .map(Optional::get);
   }
 
   private Optional<DataQualityRuleEvent> buildEvent(MetadataChangeLog originMCP) {
@@ -63,5 +66,17 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
     }
 
     return Optional.empty();
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMCLSideEffect setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

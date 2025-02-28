@@ -8,6 +8,10 @@ import { DeleteAction } from './DeleteAction';
 import { ContractAction } from './ContractAction';
 import { CopyLinkAction } from './CopyLinkAction';
 import { CopyUrnAction } from './CopyUrnAction';
+import { SubscribeAction } from './SubscribeAction';
+import { RunAction } from './RunAction';
+import { ExternalUrlAction } from './ExternalUrlAction';
+import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
 
 const ActionList = styled.div`
     display: flex;
@@ -23,7 +27,7 @@ type Props = {
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 export const Actions = ({
@@ -35,16 +39,19 @@ export const Actions = ({
     canEditContract,
     refetch,
 }: Props) => {
+    const isSiblingsView = useIsOnSiblingsView();
+
     return (
         <ActionList>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
-            <ContractAction
-                assertion={assertion}
-                monitor={monitor}
-                contract={contract}
-                canEdit={canEditContract}
-                refetch={refetch}
-            />
+            <ExternalUrlAction assertion={assertion} />
+            <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+            <SubscribeAction assertion={assertion} refetch={refetch} />
+            {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
+            {(isSiblingsView && (
+                <ContractAction assertion={assertion} contract={contract} canEdit={canEditContract} refetch={refetch} />
+            )) ||
+                null}
             <CopyLinkAction assertion={assertion} />
             <CopyUrnAction assertion={assertion} />
             <DeleteAction

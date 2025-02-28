@@ -185,7 +185,7 @@ type MonitorInfo {
     status: MonitorStatus!
 
     """
-    Advanced: The executor ID of the remote monitor service, if any.
+    Advanced: The executor pool id of the remote monitor service, if any.
     """
     executorId: String
 }
@@ -228,6 +228,17 @@ type AssertionEvaluationSpec {
     Parameters required to evaluate the assertion
     """
     parameters: AssertionEvaluationParameters
+
+    """
+    Additional context about assertion being evaluated.
+    """
+    context: AssertionEvaluationContext
+
+    """
+    JSON string containing payload of AssertionEvaluationParameters which can be readily used with Python Client.
+    Currently used to populate parameters in AssertionRunEvent aspect in monitors service.
+    """
+    rawParameters: String
 }
 
 """
@@ -253,6 +264,65 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset Field (Column) Assertion
   """
   DATASET_FIELD
+
+  """
+  Parameters required to evaluate a Dataset Schema Assertion
+  """
+  DATASET_SCHEMA
+}
+
+"""
+Additional context about assertion being evaluated.
+"""
+type AssertionEvaluationContext {
+  """
+  Currently used for Smart Assertions
+  An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
+  if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
+  """
+  embeddedAssertions:  [EmbeddedAssertion!]
+
+  """
+  The standard deviation that was used to calculate the threshold for the assertion
+  """
+  stdDev: Float
+}
+
+"""
+  Embedded assertion to be evaluated
+"""
+type EmbeddedAssertion {
+  """
+  Specs for each assertion to evaluate
+  """
+  assertion: AssertionInfo!
+
+  """
+  Validity period of the assertion, ie the window of time where it should be used in evaluation
+  """
+  evaluationTimeWindow: EvaluationTimeWindow
+
+  """
+  JSON string containing AssertionInfo aspect's payload which can be readily used with Python Client.
+  Currently used to update AssertionInfo aspect for Smart Assertions in monitors service.
+  """
+  rawAssertion: String!
+}
+
+
+"""
+Represents the time window in which an assertion is valid.
+"""
+type EvaluationTimeWindow {
+    """
+    The starting time of the assertion validity window.
+    """
+    startTimeMillis: Long!
+
+    """
+    The ending time of the assertion validity window.
+    """
+    endTimeMillis: Long!
 }
 
 """
@@ -278,6 +348,11 @@ type AssertionEvaluationParameters {
   The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
   """
   datasetFieldParameters: DatasetFieldAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+  """
+  datasetSchemaParameters: DatasetSchemaAssertionParameters
 }
 
 """
@@ -336,26 +411,6 @@ enum DatasetFreshnessSourceType {
 }
 
 """
-Information about the field to use in an assertion
-"""
-type SchemaFieldSpec {
-  """
-  The field path
-  """
-  path: String!
-
-  """
-  The DataHub standard schema field type.
-  """
-  type: String!
-
-  """
-  The native field type
-  """
-  nativeType: String!
-}
-
-"""
 Information about the field to use in a Freshness assertion
 """
 type FreshnessFieldSpec {
@@ -405,21 +460,6 @@ type AuditLogSpec {
   Optional: The user name associated with the operation.
   """
   userName: String
-}
-
-"""
-A cron schedule
-"""
-type CronSchedule {
-  """
-  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
-  """
-  cron: String!
-
-  """
-  Timezone in which the cron interval applies, e.g. America/Los_Angeles
-  """
-  timezone: String!
 }
 
 """
@@ -491,6 +531,11 @@ input AssertionEvaluationParametersInput {
     The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
     """
     datasetFieldParameters: DatasetFieldAssertionParametersInput
+
+    """
+    The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+    """
+    datasetSchemaParameters: DatasetSchemaAssertionParametersInput
 }
 
 """
@@ -526,6 +571,36 @@ input DatasetVolumeAssertionParametersInput {
     The source of the volume source type
     """
     sourceType: DatasetVolumeSourceType!
+}
+
+"""
+Define the source type for the actual schema used to evaluate the assertion
+"""
+enum DatasetSchemaSourceType {
+    """
+    Use the DataHub latest schema metadata to determine the schema
+    """
+    DATAHUB_SCHEMA
+}
+
+"""
+Information about the information used to evaluate a schema assertion - where the schema comes from.
+"""
+type DatasetSchemaAssertionParameters {
+    """
+    The source of the information used to evaluate schema assertion - where the schema comes from.
+    """
+    sourceType: DatasetSchemaSourceType!
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
+"""
+input DatasetSchemaAssertionParametersInput {
+    """
+    The source of the schema source type
+    """
+    sourceType: DatasetSchemaSourceType!
 }
 
 """
@@ -630,7 +705,7 @@ input CreateAssertionMonitorInput {
     parameters: AssertionEvaluationParametersInput
 
     """
-    Advanced: The executor ID of the remote monitor service, if any.
+    Advanced: The executor pool id of the remote monitor service, if any.
     """
     executorId: String
 }
@@ -731,4 +806,11 @@ input DatasetFieldAssertionParametersInput {
   This should be present when sourceType is CHANGED_ROWS_QUERY.
   """
   changedRowsField: FreshnessFieldSpecInput
+}
+
+extend type Assertion {
+    """
+    Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
+    """
+    monitor: Monitor
 }

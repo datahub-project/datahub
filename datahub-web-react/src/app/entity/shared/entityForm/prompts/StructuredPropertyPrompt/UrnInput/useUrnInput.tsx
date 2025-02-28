@@ -1,13 +1,16 @@
 import { Tag } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import { isEqual } from 'lodash';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Entity, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../graphql/search.generated';
-import { useEntityData } from '../../../../EntityContext';
-import { getInitialEntitiesForUrnPrompt } from '../utils';
-import SelectedEntity from './SelectedEntity';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../../../../../../graphql/search.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
 import usePrevious from '../../../../../../shared/usePrevious';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { useEntityData } from '../../../../EntityContext';
+import SelectedEntity from './SelectedEntity';
 
 const StyleTag = styled(Tag)`
     margin: 2px;
@@ -24,43 +27,61 @@ const StyleTag = styled(Tag)`
 `;
 
 interface Props {
-    structuredProperty: StructuredPropertyEntity;
     selectedValues: any[];
     updateSelectedValues: (values: any[]) => void;
+    initialEntities: Entity[];
+    allowedEntities?: Entity[];
+    allowedEntityTypes?: EntityType[];
+    isMultiple: boolean;
 }
 
-export default function useUrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+export default function useUrnInput({
+    initialEntities,
+    allowedEntities,
+    selectedValues,
+    updateSelectedValues,
+    allowedEntityTypes,
+    isMultiple,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
-    const initialEntities = useMemo(
-        () => getInitialEntitiesForUrnPrompt(structuredProperty.urn, entityData, selectedValues),
-        [structuredProperty.urn, entityData, selectedValues],
-    );
 
     // we store the selected entity objects here to render display name, platform, etc.
     // selectedValues contains a list of urns that we store for the structured property values
+    const [isFocused, setIsFocused] = useState(false);
+    const [searchValue, setSearchValue] = useState<string>('');
     const [selectedEntities, setSelectedEntities] = useState<Entity[]>(initialEntities);
-    const [searchAcrossEntities, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
-    const searchResults =
-        searchData?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const allowedEntityTypes = structuredProperty.definition.typeQualifier?.allowedTypes?.map(
-        (allowedType) => allowedType.info.type,
-    );
+    const { data: initialData } = useGetSearchResultsForMultipleQuery({
+        variables: { input: { query: '*', types: allowedEntityTypes, count: 5 } },
+        skip: !!allowedEntities?.length,
+    });
+    const [getAutoCompleteResults, { data: autoCompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    let entityOptions: Entity[] =
+        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((result) => result.entities) ||
+        allowedEntities?.filter((e) =>
+            entityRegistry.getDisplayName(e.type, e).toLocaleLowerCase().includes(searchValue.toLocaleLowerCase()),
+        ) ||
+        [];
+    if (!entityOptions.length && !searchValue) {
+        entityOptions = initialData?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    }
     const entityTypeNames: string[] | undefined = allowedEntityTypes?.map(
-        (entityType) => entityRegistry.getEntityName(entityType) || '',
+        (entityType) => entityRegistry.getCollectionName(entityType) || '',
     );
-    const isMultiple = structuredProperty.definition.cardinality === PropertyCardinality.Multiple;
 
     const previousEntityUrn = usePrevious(entityData?.urn);
+    const previousInitial = usePrevious(initialEntities);
+
     useEffect(() => {
-        if (entityData?.urn !== previousEntityUrn) {
+        if (entityData?.urn !== previousEntityUrn || !isEqual(previousInitial, initialEntities)) {
             setSelectedEntities(initialEntities || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialEntities]);
+    }, [entityData?.urn, previousEntityUrn, initialEntities, previousInitial]);
 
     function handleSearch(query: string) {
-        if (query.length > 0) {
-            searchAcrossEntities({ variables: { input: { query, types: allowedEntityTypes } } });
+        setSearchValue(query);
+        if (!allowedEntities?.length && query.length > 0) {
+            getAutoCompleteResults({ variables: { input: { query, types: allowedEntityTypes } } });
         }
     }
 
@@ -68,8 +89,17 @@ export default function useUrnInput({ structuredProperty, selectedValues, update
         const newValues = isMultiple ? [...selectedValues, urn] : [urn];
         updateSelectedValues(newValues);
 
-        const selectedEntity = searchResults?.find((result) => result.urn === urn) as Entity;
+        const selectedEntity = entityOptions?.find((result) => result.urn === urn) as Entity;
+
         const newEntities = isMultiple ? [...selectedEntities, selectedEntity] : [selectedEntity];
+        setSelectedEntities(newEntities);
+    };
+
+    const onSelectEntity = (entity: Entity) => {
+        const newValues = isMultiple ? [...selectedValues, entity.urn] : [entity.urn];
+        updateSelectedValues(newValues);
+
+        const newEntities = isMultiple ? [...selectedEntities, entity] : [entity];
         setSelectedEntities(newEntities);
     };
 
@@ -99,10 +129,15 @@ export default function useUrnInput({ structuredProperty, selectedValues, update
         tagRender,
         handleSearch,
         onSelectValue,
+        onSelectEntity,
         onDeselectValue,
         selectedEntities,
-        searchResults,
+        entityOptions,
         loading,
         entityTypeNames,
+        searchValue,
+        setSearchValue,
+        isFocused,
+        setIsFocused,
     };
 }

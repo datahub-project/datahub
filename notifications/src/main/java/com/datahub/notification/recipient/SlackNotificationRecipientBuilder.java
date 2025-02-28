@@ -1,11 +1,9 @@
 package com.datahub.notification.recipient;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationSinkType;
@@ -14,6 +12,7 @@ import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.subscription.SubscriptionInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,27 +27,29 @@ import lombok.extern.slf4j.Slf4j;
 public class SlackNotificationRecipientBuilder extends NotificationRecipientBuilder {
   private static final Predicate<? super NotificationSettings> PREDICATE =
       NotificationSettings::hasSlackSettings;
-  private static final String SLACK_CHANNEL_CUSTOM_TYPE = "SLACK_CHANNEL";
-  private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
 
-  public SlackNotificationRecipientBuilder(
-      @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull EntityClient entityClient,
-      @Nonnull Authentication authentication) {
-    super(settingsProvider, entityClient, authentication, PREDICATE);
+  public SlackNotificationRecipientBuilder(@Nonnull final SettingsProvider settingsProvider) {
+    super(settingsProvider, PREDICATE);
+  }
+
+  private NotificationRecipient buildChannelRecipientWithParams(@Nonnull String recipientId) {
+    return buildRecipient(NotificationRecipientType.SLACK_CHANNEL, recipientId, null);
+  }
+
+  private NotificationRecipient buildDMRecipientWithParams(
+      @Nonnull String recipientId, @Nullable Urn actorUrn) {
+    return buildRecipient(NotificationRecipientType.SLACK_DM, recipientId, actorUrn);
   }
 
   @Override
   public List<NotificationRecipient> buildGlobalRecipients(
-      @Nonnull final NotificationScenarioType type) {
-    final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+      @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type) {
+    final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings(opContext);
     final NotificationSetting setting =
         globalSettingsInfo.getNotifications().getSettings().get(type.toString());
 
     // If notifications are disabled for this notification type, skip.
-    if (!isSlackEnabled(globalSettingsInfo)
-        || (hasParam(setting.getParams(), "slack.enabled")
-            && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("slack.enabled"))))) {
+    if (!isSlackEnabled(globalSettingsInfo) || !isSlackNotificationEnabled(setting)) {
       // Skip notification type.
       return Collections.emptyList();
     }
@@ -59,11 +60,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
             : getDefaultSlackChanel(globalSettingsInfo);
 
     if (maybeSlackChannel != null) {
-      return ImmutableList.of(
-          new NotificationRecipient()
-              .setId(maybeSlackChannel)
-              .setType(NotificationRecipientType.CUSTOM)
-              .setCustomType("SLACK_CHANNEL"));
+      return ImmutableList.of(buildChannelRecipientWithParams(maybeSlackChannel));
     } else {
       // No Resolved slack channel -- warn!
       log.warn(
@@ -116,13 +113,10 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
             entry -> {
               // first, ensure slack is enabled for the user
               if (isSlackEnabledForActor(userToNotificationSettings, entry.getKey())) {
-                NotificationRecipient notificationRecipient =
-                    new NotificationRecipient()
-                        .setType(NotificationRecipientType.CUSTOM)
-                        .setCustomType(SLACK_DM_CUSTOM_TYPE);
+                String recipientId = null;
                 String recipientIdFromSubscription = getUserRecipientIdFromSubscription(entry);
                 if (recipientIdFromSubscription != null) {
-                  notificationRecipient.setId(recipientIdFromSubscription);
+                  recipientId = recipientIdFromSubscription;
                 } else {
                   NotificationSettings notificationSettings =
                       userToNotificationSettings.get(entry.getKey());
@@ -133,10 +127,12 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
                             entry.getKey()));
                     return;
                   }
-                  notificationRecipient.setId(
+                  recipientId =
                       Objects.requireNonNull(
-                          notificationSettings.getSlackSettings().getUserHandle()));
+                          notificationSettings.getSlackSettings().getUserHandle());
                 }
+                NotificationRecipient notificationRecipient =
+                    buildDMRecipientWithParams(recipientId, entry.getKey());
                 notificationRecipients.add(notificationRecipient);
               }
             });
@@ -185,11 +181,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
                     && recipientIdsFromSubscription.size() > 0) {
                   recipientIdsFromSubscription.forEach(
                       id -> {
-                        notificationRecipients.add(
-                            new NotificationRecipient()
-                                .setId(id)
-                                .setType(NotificationRecipientType.CUSTOM)
-                                .setCustomType(SLACK_CHANNEL_CUSTOM_TYPE));
+                        notificationRecipients.add(buildChannelRecipientWithParams(id));
                       });
                 } else {
                   NotificationSettings notificationSettings =
@@ -207,11 +199,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
                       .getChannels()
                       .forEach(
                           channel -> {
-                            notificationRecipients.add(
-                                new NotificationRecipient()
-                                    .setId(channel)
-                                    .setType(NotificationRecipientType.CUSTOM)
-                                    .setCustomType(SLACK_CHANNEL_CUSTOM_TYPE));
+                            notificationRecipients.add(buildChannelRecipientWithParams(channel));
                           });
                 }
               }
@@ -223,6 +211,11 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
     return globalSettingsInfo != null
         && globalSettingsInfo.getIntegrations().hasSlackSettings()
         && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled();
+  }
+
+  private boolean isSlackNotificationEnabled(@Nonnull final NotificationSetting setting) {
+    return hasParam(setting.getParams(), "slack.enabled")
+        && Boolean.parseBoolean(setting.getParams().get("slack.enabled"));
   }
 
   private String getDefaultSlackChanel(@Nullable final GlobalSettingsInfo globalSettingsInfo) {

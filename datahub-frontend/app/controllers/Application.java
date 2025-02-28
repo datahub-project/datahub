@@ -9,12 +9,15 @@ import akka.stream.Materializer;
 import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +37,7 @@ import play.libs.ws.StandaloneWSClient;
 import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
 import play.mvc.Http;
+import play.mvc.Http.Cookie;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Security;
@@ -44,16 +48,16 @@ import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
 import utils.ConfigUtil;
 
 public class Application extends Controller {
-  private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
-  private final Config _config;
-  private final StandaloneWSClient _ws;
-  private final Environment _environment;
+  private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
+  private final Config config;
+  private final StandaloneWSClient ws;
+  private final Environment environment;
 
   @Inject
   public Application(Environment environment, @Nonnull Config config) {
-    _config = config;
-    _ws = createWsClient();
-    _environment = environment;
+    this.config = config;
+    ws = createWsClient();
+    this.environment = environment;
   }
 
   /**
@@ -65,10 +69,10 @@ public class Application extends Controller {
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
-      InputStream indexHtml = _environment.resourceAsStream("public/index.html");
+      InputStream indexHtml = environment.resourceAsStream("public/index.html");
       return ok(indexHtml).withHeader("Cache-Control", "no-cache").as("text/html");
     } catch (Exception e) {
-      _logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
+      logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
       return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
     }
   }
@@ -102,17 +106,17 @@ public class Application extends Controller {
 
     final String metadataServiceHost =
         ConfigUtil.getString(
-            _config,
+            config,
             ConfigUtil.METADATA_SERVICE_HOST_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
     final int metadataServicePort =
         ConfigUtil.getInt(
-            _config,
+            config,
             ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
     final boolean metadataServiceUseSsl =
         ConfigUtil.getBoolean(
-            _config,
+            config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
 
@@ -132,7 +136,10 @@ public class Application extends Controller {
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
 
-    return _ws.url(
+    // Get the current time to measure the duration of the request
+    Instant start = Instant.now();
+
+    return ws.url(
             String.format(
                 "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))
         .setMethod(request.method())
@@ -155,11 +162,21 @@ public class Application extends Controller {
         .setBody(
             new InMemoryBodyWritable(
                 ByteString.fromByteBuffer(request.body().asBytes().asByteBuffer()),
-                "application/json"))
+                request.contentType().orElse("application/json")))
         .setRequestTimeout(Duration.ofSeconds(120))
         .execute()
         .thenApply(
             apiResponse -> {
+              // Log the query if it takes longer than the configured threshold and verbose logging
+              // is enabled
+              boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
+              int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
+              Instant finish = Instant.now();
+              long timeElapsed = Duration.between(start, finish).toMillis();
+              if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
+                logSlowQuery(request, resolvedUri, timeElapsed);
+              }
+
               final ResponseHeader header =
                   new ResponseHeader(
                       apiResponse.getStatus(),
@@ -190,32 +207,32 @@ public class Application extends Controller {
   public Result appConfig() {
     final ObjectNode config = Json.newObject();
     config.put("application", "datahub-frontend");
-    config.put("appVersion", _config.getString("app.version"));
-    config.put("isInternal", _config.getBoolean("linkedin.internal"));
-    config.put("shouldShowDatasetLineage", _config.getBoolean("linkedin.show.dataset.lineage"));
+    config.put("appVersion", this.config.getString("app.version"));
+    config.put("isInternal", this.config.getBoolean("linkedin.internal"));
+    config.put("shouldShowDatasetLineage", this.config.getBoolean("linkedin.show.dataset.lineage"));
     config.put(
         "suggestionConfidenceThreshold",
-        Integer.valueOf(_config.getString("linkedin.suggestion.confidence.threshold")));
+        Integer.valueOf(this.config.getString("linkedin.suggestion.confidence.threshold")));
     config.set("wikiLinks", wikiLinks());
     config.set("tracking", trackingInfo());
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based
     // on
     // such config and alert users that their changes will not affect production data
-    config.put("isStagingBanner", _config.getBoolean("ui.show.staging.banner"));
-    config.put("isLiveDataWarning", _config.getBoolean("ui.show.live.data.banner"));
-    config.put("showChangeManagement", _config.getBoolean("ui.show.CM.banner"));
+    config.put("isStagingBanner", this.config.getBoolean("ui.show.staging.banner"));
+    config.put("isLiveDataWarning", this.config.getBoolean("ui.show.live.data.banner"));
+    config.put("showChangeManagement", this.config.getBoolean("ui.show.CM.banner"));
     // Flag to enable people entity elements
-    config.put("showPeople", _config.getBoolean("ui.show.people"));
-    config.put("changeManagementLink", _config.getString("ui.show.CM.link"));
+    config.put("showPeople", this.config.getBoolean("ui.show.people"));
+    config.put("changeManagementLink", this.config.getString("ui.show.CM.link"));
     // Flag set in order to warn users that search is experiencing issues
-    config.put("isStaleSearch", _config.getBoolean("ui.show.stale.search"));
-    config.put("showAdvancedSearch", _config.getBoolean("ui.show.advanced.search"));
+    config.put("isStaleSearch", this.config.getBoolean("ui.show.stale.search"));
+    config.put("showAdvancedSearch", this.config.getBoolean("ui.show.advanced.search"));
     // Flag to use the new api for browsing datasets
-    config.put("useNewBrowseDataset", _config.getBoolean("ui.new.browse.dataset"));
+    config.put("useNewBrowseDataset", this.config.getBoolean("ui.new.browse.dataset"));
     // show lineage graph in relationships tabs
-    config.put("showLineageGraph", _config.getBoolean("ui.show.lineage.graph"));
+    config.put("showLineageGraph", this.config.getBoolean("ui.show.lineage.graph"));
     // show institutional memory for available entities
-    config.put("showInstitutionalMemory", _config.getBoolean("ui.show.institutional.memory"));
+    config.put("showInstitutionalMemory", this.config.getBoolean("ui.show.institutional.memory"));
 
     // Insert properties for user profile operations
     config.set("userEntityProps", userEntityProps());
@@ -234,8 +251,8 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode userEntityProps() {
     final ObjectNode props = Json.newObject();
-    props.put("aviUrlPrimary", _config.getString("linkedin.links.avi.urlPrimary"));
-    props.put("aviUrlFallback", _config.getString("linkedin.links.avi.urlFallback"));
+    props.put("aviUrlPrimary", config.getString("linkedin.links.avi.urlPrimary"));
+    props.put("aviUrlFallback", config.getString("linkedin.links.avi.urlFallback"));
     return props;
   }
 
@@ -245,19 +262,19 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode wikiLinks() {
     final ObjectNode wikiLinks = Json.newObject();
-    wikiLinks.put("appHelp", _config.getString("links.wiki.appHelp"));
-    wikiLinks.put("gdprPii", _config.getString("links.wiki.gdprPii"));
-    wikiLinks.put("tmsSchema", _config.getString("links.wiki.tmsSchema"));
-    wikiLinks.put("gdprTaxonomy", _config.getString("links.wiki.gdprTaxonomy"));
-    wikiLinks.put("staleSearchIndex", _config.getString("links.wiki.staleSearchIndex"));
-    wikiLinks.put("dht", _config.getString("links.wiki.dht"));
-    wikiLinks.put("purgePolicies", _config.getString("links.wiki.purgePolicies"));
-    wikiLinks.put("jitAcl", _config.getString("links.wiki.jitAcl"));
-    wikiLinks.put("metadataCustomRegex", _config.getString("links.wiki.metadataCustomRegex"));
-    wikiLinks.put("exportPolicy", _config.getString("links.wiki.exportPolicy"));
-    wikiLinks.put("metadataHealth", _config.getString("links.wiki.metadataHealth"));
-    wikiLinks.put("purgeKey", _config.getString("links.wiki.purgeKey"));
-    wikiLinks.put("datasetDecommission", _config.getString("links.wiki.datasetDecommission"));
+    wikiLinks.put("appHelp", config.getString("links.wiki.appHelp"));
+    wikiLinks.put("gdprPii", config.getString("links.wiki.gdprPii"));
+    wikiLinks.put("tmsSchema", config.getString("links.wiki.tmsSchema"));
+    wikiLinks.put("gdprTaxonomy", config.getString("links.wiki.gdprTaxonomy"));
+    wikiLinks.put("staleSearchIndex", config.getString("links.wiki.staleSearchIndex"));
+    wikiLinks.put("dht", config.getString("links.wiki.dht"));
+    wikiLinks.put("purgePolicies", config.getString("links.wiki.purgePolicies"));
+    wikiLinks.put("jitAcl", config.getString("links.wiki.jitAcl"));
+    wikiLinks.put("metadataCustomRegex", config.getString("links.wiki.metadataCustomRegex"));
+    wikiLinks.put("exportPolicy", config.getString("links.wiki.exportPolicy"));
+    wikiLinks.put("metadataHealth", config.getString("links.wiki.metadataHealth"));
+    wikiLinks.put("purgeKey", config.getString("links.wiki.purgeKey"));
+    wikiLinks.put("datasetDecommission", config.getString("links.wiki.datasetDecommission"));
     return wikiLinks;
   }
 
@@ -267,8 +284,8 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode trackingInfo() {
     final ObjectNode piwik = Json.newObject();
-    piwik.put("piwikSiteId", Integer.valueOf(_config.getString("tracking.piwik.siteid")));
-    piwik.put("piwikUrl", _config.getString("tracking.piwik.url"));
+    piwik.put("piwikSiteId", Integer.valueOf(config.getString("tracking.piwik.siteid")));
+    piwik.put("piwikUrl", config.getString("tracking.piwik.url"));
 
     final ObjectNode trackers = Json.newObject();
     trackers.set("piwik", piwik);
@@ -358,5 +375,36 @@ public class Application extends Controller {
 
     // Otherwise, return original path
     return path;
+  }
+
+  /**
+   * Called if verbose logging is enabled and request takes longer that the slow query milliseconds
+   * defined in the config
+   *
+   * @param request GraphQL request that was made
+   * @param resolvedUri URI that was requested
+   * @param duration How long the query took to complete
+   */
+  private void logSlowQuery(Http.Request request, String resolvedUri, float duration) {
+    StringBuilder jsonBody = new StringBuilder();
+    Optional<Cookie> actorCookie = request.getCookie("actor");
+    String actorValue = actorCookie.isPresent() ? actorCookie.get().value() : "N/A";
+
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode jsonNode = request.body().asJson();
+      ((ObjectNode) jsonNode).remove("query");
+      jsonBody.append(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode));
+    } catch (Exception e) {
+      logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
+    }
+    String jsonBodyStr = jsonBody.toString();
+    logger.info(
+        "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
+        resolvedUri,
+        request.queryString(),
+        actorValue,
+        jsonBodyStr,
+        duration);
   }
 }

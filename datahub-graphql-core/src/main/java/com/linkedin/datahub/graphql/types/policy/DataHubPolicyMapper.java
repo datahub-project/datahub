@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -26,28 +27,32 @@ import com.linkedin.policy.DataHubResourceFilter;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubPolicy> {
 
   public static final DataHubPolicyMapper INSTANCE = new DataHubPolicyMapper();
 
-  public static DataHubPolicy map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataHubPolicy map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public DataHubPolicy apply(@Nonnull final EntityResponse entityResponse) {
+  public DataHubPolicy apply(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataHubPolicy result = new DataHubPolicy();
 
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATAHUB_POLICY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataHubPolicy> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(DATAHUB_POLICY_INFO_ASPECT_NAME, this::mapDataHubPolicyInfo);
+    mappingHelper.mapToResult(context, DATAHUB_POLICY_INFO_ASPECT_NAME, this::mapDataHubPolicyInfo);
     return mappingHelper.getResult();
   }
 
-  private void mapDataHubPolicyInfo(@Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
+  private void mapDataHubPolicyInfo(
+      @Nullable QueryContext context, @Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
     DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
     policy.setDescription(policyInfo.getDescription());
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
@@ -58,7 +63,7 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     policy.setActors(mapActors(policyInfo.getActors()));
     policy.setEditable(policyInfo.isEditable());
     if (policyInfo.hasResources()) {
-      policy.setResources(mapResources(policyInfo.getResources()));
+      policy.setResources(mapResources(context, policyInfo.getResources()));
     }
   }
 
@@ -88,7 +93,8 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     return result;
   }
 
-  private ResourceFilter mapResources(final DataHubResourceFilter resourceFilter) {
+  private ResourceFilter mapResources(
+      @Nullable QueryContext context, final DataHubResourceFilter resourceFilter) {
     final ResourceFilter result = new ResourceFilter();
     result.setAllResources(resourceFilter.isAllResources());
     if (resourceFilter.hasType()) {
@@ -98,12 +104,13 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       result.setResources(resourceFilter.getResources());
     }
     if (resourceFilter.hasFilter()) {
-      result.setFilter(mapFilter(resourceFilter.getFilter()));
+      result.setFilter(mapFilter(context, resourceFilter.getFilter()));
     }
     return result;
   }
 
-  private PolicyMatchFilter mapFilter(final com.linkedin.policy.PolicyMatchFilter filter) {
+  private PolicyMatchFilter mapFilter(
+      @Nullable QueryContext context, final com.linkedin.policy.PolicyMatchFilter filter) {
     return PolicyMatchFilter.builder()
         .setCriteria(
             filter.getCriteria().stream()
@@ -113,7 +120,7 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
                             .setField(criterion.getField())
                             .setValues(
                                 criterion.getValues().stream()
-                                    .map(this::mapValue)
+                                    .map(c -> mapValue(context, c))
                                     .collect(Collectors.toList()))
                             .setCondition(
                                 PolicyMatchCondition.valueOf(criterion.getCondition().name()))
@@ -122,13 +129,13 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
         .build();
   }
 
-  private PolicyMatchCriterionValue mapValue(final String value) {
+  private PolicyMatchCriterionValue mapValue(@Nullable QueryContext context, final String value) {
     try {
       // If value is urn, set entity field
       Urn urn = Urn.createFromString(value);
       return PolicyMatchCriterionValue.builder()
           .setValue(value)
-          .setEntity(UrnToEntityMapper.map(urn))
+          .setEntity(UrnToEntityMapper.map(context, urn))
           .build();
     } catch (URISyntaxException e) {
       // Value is not an urn. Just set value

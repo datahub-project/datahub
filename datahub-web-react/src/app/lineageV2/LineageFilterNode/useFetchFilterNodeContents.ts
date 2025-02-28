@@ -1,7 +1,13 @@
-import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
-import { AggregationMetadata } from '../../../types.generated';
-import { PLATFORM_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../../searchV2/utils/constants';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { LineageNodesContext } from '@app/lineageV2/common';
+import computeOrFilters from '@app/lineageV2/LineageFilterNode/computeOrFilters';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+import { useContext } from 'react';
 import { PlatformFieldsFragment } from '../../../graphql/fragments.generated';
+import { useAggregateAcrossLineageQuery } from '../../../graphql/search.generated';
+import { AggregationMetadata, EntityType, LineageDirection } from '../../../types.generated';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 
 export type PlatformAggregate = readonly [string, number, PlatformFieldsFragment];
 export type SubtypeAggregate = readonly [string, number];
@@ -9,43 +15,71 @@ export type SubtypeAggregate = readonly [string, number];
 interface Return {
     platforms: PlatformAggregate[];
     subtypes: SubtypeAggregate[];
+    total?: number;
 }
 
-export default function useFetchFilterNodeContents(urns: string[]): Return {
-    const { data } = useAggregateAcrossEntitiesQuery({
+export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection, skip: boolean): Return {
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const { hideTransformations, showDataProcessInstances } = useContext(LineageNodesContext);
+
+    const orFilters = computeOrFilters(
+        [{ field: DEGREE_FILTER_NAME, values: ['1'] }],
+        hideTransformations,
+        showDataProcessInstances,
+    );
+    const { data } = useAggregateAcrossLineageQuery({
+        skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
+                urn: parent,
                 query: '*',
-                facets: [TYPE_NAMES_FILTER_NAME, PLATFORM_FILTER_NAME],
-                orFilters: [
-                    {
-                        and: [
-                            {
-                                field: 'urn',
-                                values: urns,
-                            },
-                        ],
-                    },
-                ],
+                direction,
+                orFilters,
+                lineageFlags: {
+                    startTimeMillis,
+                    endTimeMillis,
+                    ignoreAsHops: [
+                        {
+                            entityType: EntityType.Dataset,
+                            platforms: [DBT_URN],
+                        },
+                        { entityType: EntityType.DataJob },
+                    ],
+                },
+                searchFlags: {
+                    skipCache: true, // TODO: Figure how to get around not needing this
+                },
             },
         },
     });
 
     const platformAgg =
-        data?.aggregateAcrossEntities?.facets?.find((facet) => facet.field === PLATFORM_FILTER_NAME)?.aggregations ||
-        [];
+        data?.searchAcrossLineage?.facets?.find((facet) => facet.field === PLATFORM_FILTER_NAME)?.aggregations || [];
     const platforms = platformAgg
-        .filter(
-            (agg): agg is AggregationMetadata & { entity: PlatformFieldsFragment } =>
-                agg?.entity?.__typename === 'DataPlatform',
-        )
+        .filter((agg): agg is AggregationMetadata & { entity: PlatformFieldsFragment } => {
+            return agg?.entity?.__typename === 'DataPlatform' && !!agg.count;
+        })
         .map((agg) => [agg.value, agg.count, agg.entity] as const);
+    platforms.sort(sortByCount);
 
     const subtypeAgg =
-        data?.aggregateAcrossEntities?.facets?.find((facet) => facet.field === TYPE_NAMES_FILTER_NAME)?.aggregations ||
+        data?.searchAcrossLineage?.facets?.find((facet) => facet.field === ENTITY_SUB_TYPE_FILTER_NAME)?.aggregations ||
         [];
-    const subtypes = subtypeAgg.map((agg) => [agg.value, agg.count] as const);
+    const subtypesMap = new Map(subtypeAgg.map((agg) => [agg.value, agg.count]));
+    Array.from(subtypesMap).forEach(([filterValue, count]) => {
+        if (filterValue.includes(FILTER_DELIMITER)) {
+            const [platform] = filterValue.split(FILTER_DELIMITER);
+            subtypesMap.set(platform, (subtypesMap.get(platform) || 0) - count);
+        }
+    });
 
-    return { platforms, subtypes };
+    const subtypes = Array.from(subtypesMap).filter(([, count]) => count > 0);
+    subtypes.sort(sortByCount);
+
+    return { total: data?.searchAcrossLineage?.total, platforms, subtypes };
+}
+
+function sortByCount(a: readonly [string, number, any?], b: readonly [string, number, any?]) {
+    return b[1] - a[1];
 }

@@ -5,26 +5,27 @@ import styled from 'styled-components';
 import { EntityType, GlossaryTermAssociation } from '../../../../types.generated';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import TermContent from '../../../shared/tags/term/TermContent';
+import TermContent from './TermContent';
+import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
 
-const TermLink = styled(Link)<{ showOneAndCount?: boolean }>`
+const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;
-    margin-bottom: 4px;
+    max-width: inherit;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
-            width: 70%;
+            width: 90%;
             max-width: max-content;
         `}
 `;
 
-const TermWrapper = styled.span<{ showOneAndCount?: boolean }>`
+const TermWrapper = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
-    margin-bottom: 4px;
+    max-width: inherit;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
-            width: 70%;
+            width: 90%;
             max-width: max-content;
         `}
 `;
@@ -40,16 +41,18 @@ interface Props {
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
+    context?: string | null;
 }
 
 export default function Term(props: Props) {
     const { term, readOnly, showOneAndCount } = props;
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (readOnly) {
         return (
             <HoverEntityTooltip entity={term.term}>
-                <TermWrapper showOneAndCount={showOneAndCount}>
+                <TermWrapper $showOneAndCount={showOneAndCount}>
                     <TermContent {...props} />
                 </TermWrapper>
             </HoverEntityTooltip>
@@ -57,11 +60,12 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip entity={term.term}>
+        <HoverEntityTooltip entity={term.term} width={250}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}
-                showOneAndCount={showOneAndCount}
+                $showOneAndCount={showOneAndCount}
+                {...linkProps}
             >
                 <TermContent {...props} />
             </TermLink>

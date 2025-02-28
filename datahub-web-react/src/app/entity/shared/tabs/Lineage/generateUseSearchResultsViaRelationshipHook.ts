@@ -14,6 +14,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
     endTimeMillis,
     skipCache,
     setSkipCache,
+    setIsLoading,
 }: {
     urn: string;
     direction: LineageDirection;
@@ -21,11 +22,12 @@ export default function generateUseSearchResultsViaRelationshipHook({
     endTimeMillis?: number;
     skipCache?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
-                input: { types, query, start, count, filters, orFilters },
+                input: { types, query, start, count, filters, orFilters, sortInput },
             },
         } = params;
         const inputFields = {
@@ -39,6 +41,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
             orFilters,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
+            sortInput,
         };
 
         const { data, loading, error, refetch } = useSearchAcrossLineageQuery({
@@ -51,8 +54,11 @@ export default function generateUseSearchResultsViaRelationshipHook({
 
         useEffect(() => {
             if (skipCache) {
+                setIsLoading?.(true);
                 refetch({
                     input: { ...inputFields, searchFlags: { skipCache: true, fulltext: true } },
+                }).finally(() => {
+                    setIsLoading?.(false);
                 });
                 setSkipCache?.(false);
             }

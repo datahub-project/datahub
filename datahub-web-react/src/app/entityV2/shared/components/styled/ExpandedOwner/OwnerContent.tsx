@@ -1,5 +1,6 @@
 import React from 'react';
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components/macro';
 import { Owner } from '../../../../../../types.generated';
 import { CustomAvatar } from '../../../../../shared/avatar';
@@ -10,11 +11,22 @@ import { REDESIGN_COLORS } from '../../../constants';
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
     color: ${REDESIGN_COLORS.DARK_GREY};
+
+    max-width: 150px;
+    text-overflow: ellipsis;
+    overflow: hidden;
 `;
 
 const ContentWrapper = styled.span`
     display: flex;
     align-items: center;
+    gap: 4px;
+
+    max-width: inherit;
+`;
+
+const AvatarWrapper = styled.div`
+    min-width: 24px;
 `;
 
 const OwnerPopoverTitleContainer = styled.div`
@@ -22,6 +34,7 @@ const OwnerPopoverTitleContainer = styled.div`
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
+    gap: 6px;
 `;
 
 const OwnerEntityTypeText = styled(Typography.Text)`
@@ -35,6 +48,9 @@ const OwnerPopoverContentContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+
+    text-overflow: ellipsis;
+    overflow: hidden;
 `;
 
 const OwnerNameText = styled(Typography.Text)`
@@ -89,7 +105,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
             photoUrl={pictureLink}
             useDefaultAvatar={false}
             hideTooltip
-            style={{ marginRight: 4 }}
+            style={{ marginRight: 0 }}
         />
     );
 
@@ -97,13 +113,14 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
 
     return (
         <ContentWrapper>
-            {avatar}
+            <AvatarWrapper>{avatar}</AvatarWrapper>
             {hidePopOver ? (
                 <TextWrapper fontSize={fontSize}>{name}</TextWrapper>
             ) : (
                 <Popover
                     overlayStyle={{ maxWidth: 200 }}
                     placement="left"
+                    showArrow={false}
                     title={
                         <OwnerPopoverTitleContainer>
                             {avatar}

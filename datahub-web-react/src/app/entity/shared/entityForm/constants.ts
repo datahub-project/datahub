@@ -1,3 +1,7 @@
 import { FormPromptType } from '../../../../types.generated';
 
-export const SCHEMA_FIELD_PROMPT_TYPES = [FormPromptType.FieldsStructuredProperty];
+export const SCHEMA_FIELD_PROMPT_TYPES = [
+    FormPromptType.FieldsStructuredProperty,
+    FormPromptType.FieldsDocumentation,
+    FormPromptType.FieldsGlossaryTerms,
+];

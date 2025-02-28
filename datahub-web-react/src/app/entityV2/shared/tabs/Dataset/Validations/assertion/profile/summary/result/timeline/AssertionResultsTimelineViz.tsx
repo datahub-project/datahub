@@ -1,56 +1,112 @@
 import React from 'react';
 
+import styled from 'styled-components';
+import { Typography } from 'antd';
 import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
-    DataPlatform,
 } from '../../../../../../../../../../../types.generated';
-import { AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
-import { AssertionResultPopoverContent } from '../../../shared/result/AssertionResultPopoverContent';
+import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
+import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
+import { getAssertionResultChartData } from './transformers';
+import { getBestChartTypeForAssertion } from './charts/utils';
+import { StatusOverTimeAssertionResultChart } from './charts/StatusOverTimeAssertionResultChart';
+import { ANTD_GRAY } from '../../../../../../../../constants';
+import { getTimeRangeDisplay } from './utils';
+import { FreshnessResultChart } from './charts/FreshnessResultChart';
 
-const RESULT_CHART_WIDTH_PX = 540;
+const VIZ_CONTAINER_TITLE_HEIGHT = 36;
+
+const getVisualizationContainer = (height: number) => styled.div`
+    border-radius: 4px;
+    height: ${height}px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+`;
+
+const VizHeader = styled.div`
+    width: 100%;
+    height: ${VIZ_CONTAINER_TITLE_HEIGHT}px;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+`;
+
+const VizHeaderTitle = styled(Typography.Text)`
+    margin-bottom: 20px;
+    margin-top: 4px;
+    color: ${ANTD_GRAY[9]};
+    font-size: 16px;
+    font-weight: 600;
+`;
 
 type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
-    platform?: DataPlatform | null;
+    isInitializing: boolean;
+    parentDimensions: { width: number; height: number };
 };
 
-export const AssertionResultsTimelineViz = ({ assertion, results, platform, timeRange }: Props) => {
+export const AssertionResultsTimelineViz = ({
+    assertion,
+    results,
+    timeRange,
+    parentDimensions,
+    isInitializing,
+}: Props) => {
+    // Run event data
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
-    /**
-     * Data for the timeline of assertion results.
-     */
-    const timelineData =
-        completedRuns
-            .filter((runEvent) => !!runEvent.result)
-            .map((runEvent) => {
-                const { result } = runEvent;
-                if (!result) throw new Error('Completed assertion run event does not have a result.');
-                const resultUrl = result.externalUrl;
-                /**
-                 * Create a "result" to render in the timeline chart.
-                 */
-                return {
-                    time: runEvent.timestampMillis,
-                    result: {
-                        type: result.type,
-                        resultUrl,
-                        title: undefined,
-                        content: (
-                            <AssertionResultPopoverContent
-                                assertion={assertion}
-                                run={runEvent}
-                                platform={platform || undefined}
-                            />
-                        ),
-                    },
-                };
-            }) || [];
+    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(assertion, completedRuns);
 
-    return <AssertionResultTimelineChart width={RESULT_CHART_WIDTH_PX} data={timelineData} timeRange={timeRange} />;
+    // render
+    const chartDimensions = {
+        height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
+        width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
+    };
+
+    const renderChartTitle = (title?: string) => (
+        <VizHeader>
+            <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
+        </VizHeader>
+    );
+
+    const renderChart = (): JSX.Element | undefined => {
+        switch (getBestChartTypeForAssertion(assertion.info)) {
+            case AssertionChartType.ValuesOverTime:
+                return (
+                    <ValuesOverTimeAssertionResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
+            case AssertionChartType.Freshness:
+                return (
+                    <FreshnessResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
+            default:
+                return (
+                    <StatusOverTimeAssertionResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
+        }
+    };
+
+    const VisualizationContainer = getVisualizationContainer(parentDimensions.height);
+    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>{renderChart()}</VisualizationContainer>;
 };

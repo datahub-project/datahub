@@ -23,7 +23,8 @@ public class JsonElasticEvent extends ElasticEvent {
     try {
       builder = XContentFactory.jsonBuilder().prettyPrint();
       XContentParser parser =
-          XContentFactory.xContent(XContentType.JSON)
+          XContentType.JSON
+              .xContent()
               .createParser(
                   NamedXContentRegistry.EMPTY,
                   DeprecationHandler.THROW_UNSUPPORTED_OPERATION,

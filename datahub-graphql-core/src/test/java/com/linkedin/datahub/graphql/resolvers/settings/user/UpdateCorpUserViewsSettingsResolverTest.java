@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings.user;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -46,12 +46,12 @@ public class UpdateCorpUserViewsSettingsResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(
+            any(),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(
                 new CorpUserSettings()
                     .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true))
-                    .setViews(new CorpUserViewsSettings().setDefaultView(TEST_URN))),
-            Mockito.any(Authentication.class));
+                    .setViews(new CorpUserViewsSettings().setDefaultView(TEST_URN))));
   }
 
   @Test
@@ -76,12 +76,12 @@ public class UpdateCorpUserViewsSettingsResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(
+            any(),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(
                 new CorpUserSettings()
                     .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true))
-                    .setViews(new CorpUserViewsSettings().setDefaultView(TEST_URN))),
-            Mockito.any(Authentication.class));
+                    .setViews(new CorpUserViewsSettings().setDefaultView(TEST_URN))));
   }
 
   @Test
@@ -106,13 +106,13 @@ public class UpdateCorpUserViewsSettingsResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(
+            any(),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(
                 new CorpUserSettings()
                     .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true))
                     .setViews(
-                        new CorpUserViewsSettings().setDefaultView(null, SetMode.IGNORE_NULL))),
-            Mockito.any(Authentication.class));
+                        new CorpUserViewsSettings().setDefaultView(null, SetMode.IGNORE_NULL))));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class UpdateCorpUserViewsSettingsResolverTest {
     SettingsService mockService = Mockito.mock(SettingsService.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .getCorpUserSettings(Mockito.eq(TEST_USER_URN), Mockito.any(Authentication.class));
+        .getCorpUserSettings(any(), Mockito.eq(TEST_USER_URN));
 
     UpdateCorpUserViewsSettingsResolver resolver =
         new UpdateCorpUserViewsSettingsResolver(mockService);
@@ -139,9 +139,7 @@ public class UpdateCorpUserViewsSettingsResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .updateCorpUserSettings(
-            Mockito.eq(TEST_USER_URN),
-            Mockito.any(CorpUserSettings.class),
-            Mockito.any(Authentication.class));
+            any(), Mockito.eq(TEST_USER_URN), Mockito.any(CorpUserSettings.class));
 
     UpdateCorpUserViewsSettingsResolver resolver =
         new UpdateCorpUserViewsSettingsResolver(mockService);
@@ -157,8 +155,7 @@ public class UpdateCorpUserViewsSettingsResolverTest {
   private static SettingsService initSettingsService(Urn user, CorpUserSettings existingSettings) {
     SettingsService mockService = Mockito.mock(SettingsService.class);
 
-    Mockito.when(
-            mockService.getCorpUserSettings(Mockito.eq(user), Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getCorpUserSettings(any(), Mockito.eq(user)))
         .thenReturn(existingSettings);
 
     return mockService;

@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGroupInput;
 import com.linkedin.metadata.key.CorpGroupKey;
@@ -36,7 +37,7 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
     final CreateGroupInput input =
         bindArgument(environment.getArgument("input"), CreateGroupInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // First, check if the group already exists.
@@ -46,10 +47,12 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
             final String description = input.getDescription() != null ? input.getDescription() : "";
             key.setName(id); // 'name' in the key really reflects nothing more than a stable "id".
             return _groupService.createNativeGroup(
-                key, input.getName(), description, authentication);
+                context.getOperationContext(), key, input.getName(), description);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create group", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

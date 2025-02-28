@@ -4,7 +4,7 @@ import { Modal, message } from 'antd';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { EMPTY_MESSAGES } from '../../../../constants';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { SetDomainModal } from './SetDomainModal';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../sharedV2/tags/DomainLink';

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.container;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -42,6 +44,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ContainerKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -102,7 +105,7 @@ public class ContainerTypeTest {
   @Test
   public void testBatchLoad() throws Exception {
 
-    EntityClient client = Mockito.mock(EntityClient.class);
+    EntityClient client = mock(EntityClient.class);
 
     Urn containerUrn1 = Urn.createFromString(TEST_CONTAINER_1_URN);
     Urn containerUrn2 = Urn.createFromString(TEST_CONTAINER_2_URN);
@@ -143,10 +146,10 @@ public class ContainerTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_CONTAINER.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(containerUrn1, containerUrn2))),
-                Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ContainerType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 containerUrn1,
@@ -157,18 +160,21 @@ public class ContainerTypeTest {
 
     ContainerType type = new ContainerType(client);
 
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    QueryContext mockContext = mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
     List<DataFetcherResult<Container>> result =
         type.batchLoad(ImmutableList.of(TEST_CONTAINER_1_URN, TEST_CONTAINER_2_URN), mockContext);
 
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(containerUrn1, containerUrn2)),
-            Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ContainerType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -200,19 +206,15 @@ public class ContainerTypeTest {
 
   @Test
   public void testBatchLoadClientException() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     ContainerType type = new ContainerType(mockClient);
 
     // Execute Batch load
-    QueryContext context = Mockito.mock(QueryContext.class);
-    Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    QueryContext context = mock(QueryContext.class);
+    Mockito.when(context.getAuthentication()).thenReturn(mock(Authentication.class));
     assertThrows(
         RuntimeException.class,
         () ->

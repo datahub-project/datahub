@@ -1,5 +1,6 @@
 import { EnterOutlined } from '@ant-design/icons';
-import { Divider, Popover, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import RowIcon from '../../../../../../../../images/row-icon.svg?react';
@@ -7,9 +8,8 @@ import { REDESIGN_COLORS } from '../../../../../constants';
 
 const FieldPathWrapper = styled.div`
     display: flex;
-    align-self: flex-end;
+    align-self: center;
     stroke: ${REDESIGN_COLORS.WHITE};
-    margin-bottom: 5px;
 `;
 
 const PopoverContentWrapper = styled.span`

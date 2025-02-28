@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image } from 'antd';
+import { isEqual } from 'lodash';
+import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image, Modal } from 'antd';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { blue, green } from '@ant-design/colors';
+import { Link } from 'react-router-dom';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
     useGetIntegrationSettingsQuery,
@@ -10,7 +16,12 @@ import slackLogo from '../../../../images/slacklogo.png';
 import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
 import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
-import { decodeSlackConnection, encodeSlackConnection, redirectToSlackInstall } from './utils';
+import {
+    decodeSlackConnection,
+    encodeSlackConnection,
+    redirectToSlackInstall,
+    redirectToSlackRefreshInstallation,
+} from './utils';
 import { SlackConnection } from './types';
 import {
     APP_CONFIG_SELECT_ID,
@@ -25,6 +36,7 @@ import {
 import { SlackInstructions } from './SlackInstructions';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';
+import { SlackIntegrationHint } from './SlackIntegrationHint';
 
 const Page = styled.div`
     width: 100%;
@@ -59,6 +71,10 @@ const StyledInput = styled(Input)`
     width: 240px;
 `;
 
+const StyledPasswordInput = styled(Input.Password)`
+    width: 240px;
+`;
+
 const PlatformLogo = styled(Image)`
     max-height: 16px;
     margin-right: 8px;
@@ -68,28 +84,67 @@ const PlatformLogo = styled(Image)`
     background-color: transparent;
 `;
 
+const InfoIcon = styled(InfoCircleFilled)`
+    color: ${green[6]};
+    margin-right: 8px;
+`;
+
+const GlobalNotificationsBanner = styled.div`
+    background-color: ${green[0]};
+    border-radius: 8px;
+    border: 1px solid ${green[6]};
+    padding: 8px 16px;
+    margin: 18px 0 25px;
+    font-size: 14px;
+`;
+
+const TroubleshootLabel = styled(Typography.Text)`
+    font-size: 12px;
+    color: ${ANTD_GRAY[8]};
+    margin-top: 16px;
+    display: block;
+`;
+
+const NewInstallButton = styled(Button)`
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+    padding-left: 0px;
+    color: ${blue[4]};
+`;
+
+const OBFUSCATED_STARS = '***';
+
 export const SlackIntegration = () => {
+    const appConfig = useAppConfig();
+
+    const isBotTokensTabVisible = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
     const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
     const [selectTypeValue, setSelectTypeValue] = useState<string>(APP_CONFIG_SELECT_ID);
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
-    const { data: connData } = useConnectionQuery({
+    const { data: connData, loading: connLoading } = useConnectionQuery({
         variables: {
             urn: SLACK_CONNECTION_URN,
         },
     });
     const [upsertConnection] = useUpsertConnectionMutation();
 
-    const slackConnData =
-        connData?.connection?.details?.json && decodeSlackConnection(connData.connection?.details?.json.blob as string);
+    const existingConnJson = connData?.connection?.details?.json;
+    const slackConnData = existingConnJson && decodeSlackConnection(existingConnJson.blob as string);
+    const isConnected = slackConnData?.botToken || settings.botToken;
 
     useEffect(() => {
         if (slackConnData && connection === DEFAULT_CONNECTION) {
             setConnection(slackConnData);
+            // render bot token tab if there bot token and no app token
+            if (!slackConnData.appConfigToken && slackConnData.botToken && isBotTokensTabVisible) {
+                setSelectTypeValue(BOT_TOKEN_SELECT_ID);
+            }
         }
-    }, [slackConnData, connection]);
+    }, [slackConnData, connection, isBotTokensTabVisible]);
 
     useEffect(() => {
         if (data?.globalSettings?.integrationSettings?.slackSettings) {
@@ -97,7 +152,7 @@ export const SlackIntegration = () => {
         }
     }, [data, setSettings]);
 
-    const updateSlackConnection = () => {
+    const updateSlackConnection = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         upsertConnection({
             variables: {
                 input: {
@@ -105,19 +160,16 @@ export const SlackIntegration = () => {
                     platformUrn: SLACK_PLATFORM_URN,
                     type: DataHubConnectionDetailsType.Json,
                     json: {
-                        blob: encodeSlackConnection(connection),
+                        blob: encodeSlackConnection(connection, isUsingAppConfigTokens),
                     },
                 },
             },
         })
             .then(() => {
                 analytics.event({ type: EventType.SlackIntegrationSuccessEvent, configType: selectTypeValue });
-                message.success({ content: 'Updated Slack Settings!', duration: 2 });
+                message.success({ content: 'Updated Slack Settings!', duration: 4 });
                 refetch?.();
-                // If we are doing app-token path, redirect.
-                if (selectTypeValue === APP_CONFIG_SELECT_ID) {
-                    redirectToSlackInstall();
-                }
+                onComplete?.();
             })
             .catch((e: unknown) => {
                 analytics.event({ type: EventType.SlackIntegrationErrorEvent, configType: selectTypeValue });
@@ -131,17 +183,22 @@ export const SlackIntegration = () => {
             });
     };
 
-    const updateSlackSettings = () => {
+    const updateSlackSettings = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         updateGlobalIntegrationSettings({
             variables: {
                 input: {
                     slackSettings: {
-                        defaultChannelName: settings.defaultChannelName,
+                        defaultChannelName: settings.defaultChannelName || '',
                     },
                 },
             },
         })
-            .then(() => updateSlackConnection())
+            .then(() => {
+                // If the connection has changed OR we are in the app tokens tab, update it.
+                if (!isEqual(connection, slackConnData) || selectTypeValue === APP_CONFIG_SELECT_ID) {
+                    updateSlackConnection(isUsingAppConfigTokens, onComplete);
+                }
+            })
             .catch((e: unknown) => {
                 analytics.event({ type: EventType.SlackIntegrationErrorEvent, configType: selectTypeValue });
                 message.destroy();
@@ -154,10 +211,89 @@ export const SlackIntegration = () => {
             });
     };
 
-    const isConnected =
-        (slackConnData?.appConfigToken && slackConnData?.appConfigRefreshToken) ||
-        slackConnData?.botToken ||
-        settings.botToken;
+    const renderConnectionButton = (): JSX.Element => {
+        const isOnBotTokenTab = selectTypeValue === BOT_TOKEN_SELECT_ID;
+        const isOnAppConfigTab = selectTypeValue === APP_CONFIG_SELECT_ID;
+
+        // check if the input values are obfuscated so we can disable the connect button
+        // NOTE: if user has manually entered new values then this will be set to false
+        let isInputValuesObfuscated = false;
+        if (isOnAppConfigTab) {
+            isInputValuesObfuscated =
+                !!connection.appConfigToken?.includes(OBFUSCATED_STARS) ||
+                !!connection.appConfigRefreshToken?.includes(OBFUSCATED_STARS);
+        } else {
+            isInputValuesObfuscated =
+                !!connection.botToken?.includes(OBFUSCATED_STARS) ||
+                !!connection.signingSecret?.includes(OBFUSCATED_STARS);
+        }
+
+        // disable slack button if there is no app & refresh token for only App config tab
+        const disableSlackButton =
+            (isOnAppConfigTab && (!connection.appConfigToken || !connection.appConfigRefreshToken)) ||
+            isInputValuesObfuscated;
+
+        let slackButtonName = isConnected ? 'Reconnect to Slack' : 'Connect to Slack';
+        if (isOnBotTokenTab && isConnected) {
+            slackButtonName = 'Update Configuration';
+        }
+
+        return (
+            <>
+                <Button
+                    onClick={() =>
+                        updateSlackSettings(isOnAppConfigTab, () => {
+                            // If we are using the app-token path, redirect once settings are updated.
+                            if (isOnAppConfigTab) {
+                                if (isConnected) {
+                                    redirectToSlackRefreshInstallation();
+                                } else {
+                                    redirectToSlackInstall();
+                                }
+                            }
+                        })
+                    }
+                    data-testid="connect-to-slack-button"
+                    disabled={disableSlackButton}
+                    style={{ display: 'block' }}
+                >
+                    <PlatformLogo preview={false} src={slackLogo} alt="slack-logo" />
+                    {slackButtonName}
+                </Button>
+                {/* If bot is installed and user's on app config tab, give them a way to troubleshoot/re-install */}
+                {isOnAppConfigTab && isConnected && (
+                    <TroubleshootLabel>
+                        Having trouble?{' '}
+                        <a
+                            href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-troubleshoot"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            Read the docs
+                        </a>{' '}
+                        or{' '}
+                        <NewInstallButton
+                            onClick={() =>
+                                Modal.confirm({
+                                    title: `Install a new Slack App?`,
+                                    content: `This will create and install a new Slack app with the currently set App Tokens.\nEnsure the tokens entered are up-to-date.`,
+                                    onOk() {
+                                        updateSlackSettings(true, redirectToSlackInstall);
+                                    },
+                                    onCancel() {},
+                                    okText: 'Continue',
+                                    maskClosable: true,
+                                    closable: true,
+                                })
+                            }
+                        >
+                            create a new installation
+                        </NewInstallButton>
+                    </TroubleshootLabel>
+                )}
+            </>
+        );
+    };
 
     return (
         <Page>
@@ -168,41 +304,95 @@ export const SlackIntegration = () => {
                 <Typography.Title level={3}>Slack</Typography.Title>
                 <Typography.Text type="secondary">Configure an integration with Slack</Typography.Text>
                 <Divider />
+                {isConnected ? (
+                    <GlobalNotificationsBanner>
+                        <InfoIcon />
+                        The Slack integration is ready! Now switch to the{' '}
+                        <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
+                    </GlobalNotificationsBanner>
+                ) : (
+                    !connLoading && <SlackIntegrationHint visible={!isConnected} />
+                )}
                 <Content>
                     <FormColumn>
                         <Form layout="vertical">
-                            <Form.Item label={<Typography.Text strong>Token Type</Typography.Text>}>
-                                <Typography.Text type="secondary">
-                                    Select a token type to use to configure the integration with Slack.
-                                </Typography.Text>
-                                <SettingValueContainer>
-                                    <Radio.Group
-                                        options={SLACK_CONNECTION_OPTIONS}
-                                        onChange={(e) => setSelectTypeValue(e.target.value)}
-                                        value={selectTypeValue}
-                                        optionType="button"
-                                        buttonStyle="solid"
-                                    />
-                                </SettingValueContainer>
-                            </Form.Item>
-                            {selectTypeValue === BOT_TOKEN_SELECT_ID && (
-                                <Form.Item required label={<Typography.Text strong>Bot Token</Typography.Text>}>
+                            {isBotTokensTabVisible ? (
+                                <Form.Item label={<Typography.Text strong>Token Type</Typography.Text>}>
                                     <Typography.Text type="secondary">
-                                        Enter a Slack bot token for your workspace.
+                                        Select a token type to use to configure the integration with Slack.
                                     </Typography.Text>
                                     <SettingValueContainer>
-                                        <StyledInput
-                                            value={connection.botToken || settings.botToken || ''}
-                                            placeholder="xoya-1402430190679-2634909095557-smkeDaPL3T8KafKXiR5gjPVU"
-                                            data-testid="bot-token-input"
-                                            onChange={(e) => setConnection({ ...connection, botToken: e.target.value })}
+                                        <Radio.Group
+                                            options={SLACK_CONNECTION_OPTIONS}
+                                            onChange={(e) => setSelectTypeValue(e.target.value)}
+                                            value={selectTypeValue}
+                                            optionType="button"
+                                            buttonStyle="solid"
                                         />
                                     </SettingValueContainer>
                                 </Form.Item>
+                            ) : null}
+                            {selectTypeValue === BOT_TOKEN_SELECT_ID && (
+                                <>
+                                    <Form.Item
+                                        requiredMark="optional"
+                                        required
+                                        label={<Typography.Text strong>Bot Token</Typography.Text>}
+                                    >
+                                        <Typography.Text type="secondary">
+                                            Enter a Slack bot token for your workspace.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledPasswordInput
+                                                value={connection.botToken || settings.botToken || ''}
+                                                placeholder="xoya-1402430190679-2634909095557-smkeDaPL3T8KafKXiR5gjPVU"
+                                                data-testid="bot-token-input"
+                                                onChange={(e) =>
+                                                    setConnection({ ...connection, botToken: e.target.value })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                    <Form.Item label={<Typography.Text strong>Signing Secret</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            Enter the Slack bot signing secret, which you can find at{' '}
+                                            <a href="https://api.slack.com/apps">api.slack.com/apps</a>.<br />
+                                            This is required for interactive actions.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledPasswordInput
+                                                value={connection.signingSecret || ''}
+                                                placeholder="6c698655ad405e243b298b966f20a3r3"
+                                                data-testid="signing-secrets-input"
+                                                onChange={(e) =>
+                                                    setConnection({ ...connection, signingSecret: e.target.value })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                    <Form.Item label={<Typography.Text strong>App ID</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            Enter the Slack bot App ID, which you can find at{' '}
+                                            <a href="https://api.slack.com/apps">api.slack.com/apps</a>.<br />
+                                            This is required for maintaining the installation.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledInput
+                                                value={connection.appId || ''}
+                                                placeholder="A07D8SSHMDZ"
+                                                data-testid="app-id-input"
+                                                onChange={(e) =>
+                                                    setConnection({ ...connection, appId: e.target.value })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                </>
                             )}
                             {selectTypeValue === APP_CONFIG_SELECT_ID && (
                                 <>
                                     <Form.Item
+                                        requiredMark="optional"
                                         required
                                         label={<Typography.Text strong>App Configuration Token</Typography.Text>}
                                     >
@@ -223,6 +413,7 @@ export const SlackIntegration = () => {
                                         </SettingValueContainer>
                                     </Form.Item>
                                     <Form.Item
+                                        requiredMark="optional"
                                         required
                                         label={
                                             <Typography.Text strong>App Configuration Refresh Token</Typography.Text>
@@ -246,29 +437,10 @@ export const SlackIntegration = () => {
                                     </Form.Item>
                                 </>
                             )}
-                            <Form.Item label={<Typography.Text strong>Default Channel</Typography.Text>}>
-                                <Typography.Text type="secondary">
-                                    Set a default channel. This is where notifications will be routed by default.
-                                </Typography.Text>
-                                <SettingValueContainer>
-                                    <StyledInput
-                                        value={settings.defaultChannelName || ''}
-                                        placeholder="datahub-slack-notifications"
-                                        data-testid="default-channel-input"
-                                        onChange={(e) =>
-                                            setSettings({ ...settings, defaultChannelName: e.target.value })
-                                        }
-                                    />
-                                </SettingValueContainer>
-                            </Form.Item>
                         </Form>
-
-                        <Button onClick={() => updateSlackSettings()} data-testid="connect-to-slack-button">
-                            <PlatformLogo preview={false} src={slackLogo} alt="slack-logo" />
-                            {isConnected ? 'Re-connect to Slack' : 'Connect to Slack'}
-                        </Button>
+                        {renderConnectionButton()}
                     </FormColumn>
-                    <InstructionColumn>
+                    <InstructionColumn style={{ display: 'none' }}>
                         <SlackInstructions />
                     </InstructionColumn>
                 </Content>

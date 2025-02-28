@@ -1,6 +1,8 @@
 package com.datahub.notification;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
@@ -12,12 +14,13 @@ import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -26,19 +29,20 @@ public class SettingsProviderTest {
 
   @Test
   public void testGetGlobalSettings() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
                 Mockito.eq(GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
         .thenReturn(mockSettingsResponse());
 
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final SettingsProvider settingsProvider = new SettingsProvider(mockClient, mockAuthentication);
+    final Authentication mockAuthentication = mock(Authentication.class);
+    final SettingsProvider settingsProvider = new SettingsProvider(mockClient);
 
-    final GlobalSettingsInfo globalSettingsInfo = settingsProvider.getGlobalSettings();
+    final GlobalSettingsInfo globalSettingsInfo =
+        settingsProvider.getGlobalSettings(mock(OperationContext.class));
 
     // Simply verify that global settings has been returned, and that the correct APIs were invoked.
     verifySettings(globalSettingsInfo);
@@ -46,20 +50,22 @@ public class SettingsProviderTest {
 
   @Test
   public void testGetGlobalSettingsFailure() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
                 Mockito.eq(GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final SettingsProvider settingsProvider = new SettingsProvider(mockClient, mockAuthentication);
+    final Authentication mockAuthentication = mock(Authentication.class);
+    final SettingsProvider settingsProvider = new SettingsProvider(mockClient);
 
     // Simply verify that global settings has been returned, and that the correct APIs were invoked.
-    Assert.assertThrows(RuntimeException.class, settingsProvider::getGlobalSettings);
+    Assert.assertThrows(
+        RuntimeException.class,
+        () -> settingsProvider.getGlobalSettings(mock(OperationContext.class)));
   }
 
   private void verifySettings(final GlobalSettingsInfo globalSettings) {

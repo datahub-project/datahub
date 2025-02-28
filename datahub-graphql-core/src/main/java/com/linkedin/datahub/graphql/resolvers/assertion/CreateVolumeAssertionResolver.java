@@ -42,18 +42,19 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
             // First create the new assertion.
             final Urn assertionUrn =
                 _assertionService.createVolumeAssertion(
+                    context.getOperationContext(),
                     asserteeUrn,
                     VolumeAssertionType.valueOf(input.getType().toString()),
                     VolumeAssertionUtils.createVolumeAssertionInfo(input),
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null,
-                    context.getAuthentication());
+                        : null);
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");

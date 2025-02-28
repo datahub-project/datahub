@@ -4,20 +4,22 @@ import static com.linkedin.metadata.Constants.*;
 import static org.testng.AssertJUnit.*;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -35,7 +37,18 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     final Aspect<IncidentInfo> oldIncident =
         new Aspect<>(null, SystemMetadataUtils.createDefaultSystemMetadata());
     final IncidentInfo info = new IncidentInfo();
-    info.setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
+    final String incidentDescription = "Some description";
+    final String incidentTitle = "Some Title";
+    final String incidentStatusMessage = "Incident opened because reasons";
+    info.setType(IncidentType.FRESHNESS);
+    info.setTitle(incidentTitle);
+    info.setDescription(incidentDescription);
+    IncidentStatus status = new IncidentStatus();
+    status.setStage(IncidentStage.INVESTIGATION);
+    status.setState(IncidentState.ACTIVE);
+    status.setMessage(incidentStatusMessage);
+    info.setStatus(status);
+
     info.setEntities(
         new UrnArray(
             ImmutableList.of(
@@ -54,7 +67,14 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.ACTIVE, changeEvent.getOperation());
 
-    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF, info.getEntities());
+    Map<String, Object> expectedParameters = new HashMap<>();
+    expectedParameters.put(ENTITY_REF, info.getEntities().toString());
+    expectedParameters.put(INCIDENT_TYPE, info.getType().toString());
+    expectedParameters.put(INCIDENT_TITLE, info.getTitle());
+    expectedParameters.put(INCIDENT_DESCRIPTION, info.getDescription());
+    expectedParameters.put(INCIDENT_STATUS_MESSAGE, info.getStatus().getMessage());
+    expectedParameters.put(INCIDENT_STATUS_STAGE, info.getStatus().getStage().toString());
+
     assertEquals(expectedParameters, changeEvent.getParameters());
   }
 
@@ -63,6 +83,7 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     final IncidentInfoChangeEventGenerator test = new IncidentInfoChangeEventGenerator();
     final IncidentInfo oldInfo = new IncidentInfo();
     oldInfo.setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
+    oldInfo.setType(IncidentType.FRESHNESS);
     oldInfo.setEntities(
         new UrnArray(
             ImmutableList.of(
@@ -86,7 +107,10 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.RESOLVED, changeEvent.getOperation());
 
-    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF, newInfo.getEntities());
+    Map<String, Object> expectedParameters = new HashMap<>();
+    expectedParameters.put(ENTITY_REF, newInfo.getEntities().toString());
+    expectedParameters.put(INCIDENT_TYPE, newInfo.getType().toString());
+
     assertEquals(expectedParameters, changeEvent.getParameters());
   }
 
@@ -95,6 +119,7 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     final IncidentInfoChangeEventGenerator test = new IncidentInfoChangeEventGenerator();
     final IncidentInfo oldInfo = new IncidentInfo();
     oldInfo.setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
+    oldInfo.setType(IncidentType.FRESHNESS);
     oldInfo.setEntities(
         new UrnArray(
             ImmutableList.of(

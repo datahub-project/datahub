@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Collapse, Input, Typography } from 'antd';
+import { Typography } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 
 import { AssertionMonitorBuilderState } from '../../types';
-import { updateExecutorIdState } from '../utils';
+import { AssertionType } from '../../../../../../../../../../types.generated';
 
 const Section = styled.div`
     display: flex;
@@ -16,13 +16,18 @@ const Section = styled.div`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
+    onValidityChange?: (isValid: boolean) => void;
 };
 
 /**
  * Final step in assertion creation flow: Give it a name / description.
  */
-export const FinishUpBuilder = ({ state, updateState }: Props) => {
+export const FinishUpBuilder = ({ state, updateState, onValidityChange }: Props) => {
     const description = state.assertion?.description;
+    const isDescriptionRequired = state.assertion?.type === AssertionType.Sql;
+    useEffect(() => {
+        onValidityChange?.(!isDescriptionRequired || !!description?.length);
+    }, [description, isDescriptionRequired, onValidityChange]);
 
     const updateDescription = (newDescription: string) => {
         const finalDescription = newDescription || null;
@@ -41,28 +46,14 @@ export const FinishUpBuilder = ({ state, updateState }: Props) => {
                 <Typography.Title level={5}>Name</Typography.Title>
                 <TextArea
                     value={description || ''}
-                    placeholder="Give this assertion a name (optional)"
+                    placeholder={`Give this assertion a name${isDescriptionRequired ? '' : ' (optional)'}`}
                     onChange={(e) => updateDescription(e.target.value)}
                 />
                 <Typography.Paragraph style={{ marginTop: 4 }} type="secondary">
-                    If not specified, a name will be generated from the assertion settings.
+                    {isDescriptionRequired
+                        ? 'Required for this assertion type.'
+                        : 'If not specified, a name will be generated from the assertion settings.'}
                 </Typography.Paragraph>
-            </Section>
-            <Section>
-                <Collapse>
-                    <Collapse.Panel key="Advanced" header="Advanced">
-                        <Typography.Title level={5}>Executor Id (Optional)</Typography.Title>
-                        <Typography.Paragraph type="secondary">
-                            Configure monitoring using a remote executor by providing a custom executor id. You should
-                            only change this field if a remote executor has been configured.
-                        </Typography.Paragraph>
-                        <Input
-                            value={state.executorId || ''}
-                            onChange={(e) => updateState(updateExecutorIdState(state, e.target.value))}
-                            placeholder="default"
-                        />
-                    </Collapse.Panel>
-                </Collapse>
             </Section>
         </div>
     );

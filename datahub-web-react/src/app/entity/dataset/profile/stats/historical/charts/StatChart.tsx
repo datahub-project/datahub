@@ -73,7 +73,7 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
     return (
         <>
             <Col sm={24} md={24} lg={8} xl={8}>
-                <ChartCard shouldScroll={false}>
+                <ChartCard $shouldScroll={false}>
                     <ChartContainer>
                         <ChartTitle level={5}>{chartData.title}</ChartTitle>
                         <ThinDivider />

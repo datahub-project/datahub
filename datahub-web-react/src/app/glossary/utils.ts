@@ -12,8 +12,8 @@ export function getGlossaryRootToUpdate(entityType: EntityType) {
 // Get the urns or special constants for root nodes or terms (above) that need to be refreshed in the Glossary
 // sidebar when making updates (edit name, create term/term group, delete term/term group, move entity)
 export function getParentNodeToUpdate(entityData: GenericEntityProperties | null, entityType: EntityType) {
-    return entityData?.parentNodes?.nodes.length
-        ? entityData?.parentNodes?.nodes[0].urn
+    return entityData?.parentNodes?.nodes?.length
+        ? entityData?.parentNodes?.nodes[0]?.urn
         : getGlossaryRootToUpdate(entityType);
 }
 

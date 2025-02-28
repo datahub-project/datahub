@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.QuerySource;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -42,11 +41,12 @@ public class ListQueriesResolverTest {
   private static final Urn TEST_QUERY_URN = Urn.createFromTuple("query", "test-id");
 
   private static final ListQueriesInput TEST_INPUT_FULL_FILTERS =
-      new ListQueriesInput(0, 20, null, QuerySource.MANUAL, TEST_DATASET_URN.toString());
+      new ListQueriesInput(
+          0, 20, null, QuerySource.MANUAL, TEST_DATASET_URN.toString(), null, null);
   private static final ListQueriesInput TEST_INPUT_SOURCE_FILTER =
-      new ListQueriesInput(0, 30, null, QuerySource.MANUAL, null);
+      new ListQueriesInput(0, 30, null, QuerySource.MANUAL, null, null, null);
   private static final ListQueriesInput TEST_INPUT_ENTITY_FILTER =
-      new ListQueriesInput(0, 40, null, null, TEST_DATASET_URN.toString());
+      new ListQueriesInput(0, 40, null, null, TEST_DATASET_URN.toString(), null, null);
 
   @DataProvider(name = "inputs")
   public static Object[][] inputs() {
@@ -62,6 +62,7 @@ public class ListQueriesResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.QUERY_ENTITY_NAME),
                 Mockito.eq(
                     input.getQuery() == null
@@ -69,13 +70,12 @@ public class ListQueriesResolverTest {
                         : input.getQuery()),
                 Mockito.eq(buildFilter(input.getSource(), input.getDatasetUrn())),
                 Mockito.eq(
-                    new SortCriterion()
-                        .setField(ListQueriesResolver.CREATED_AT_FIELD)
-                        .setOrder(SortOrder.DESCENDING)),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(ListQueriesResolver.CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(input.getStart()),
-                Mockito.eq(input.getCount()),
-                Mockito.any(Authentication.class),
-                Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true))))
+                Mockito.eq(input.getCount())))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -116,13 +116,12 @@ public class ListQueriesResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
+            Mockito.anyInt());
   }
 
   @Test
@@ -132,13 +131,12 @@ public class ListQueriesResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
+            Mockito.anyInt());
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
     // Execute resolver

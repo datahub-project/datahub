@@ -1,3 +1,30 @@
+extend type Mutation {
+    """
+    Upsert structured properties onto a given asset
+    """
+    upsertStructuredProperties(input: UpsertStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Upsert structured properties onto a given asset
+    """
+    removeStructuredProperties(input: RemoveStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Create a new structured property
+    """
+    createStructuredProperty(input: CreateStructuredPropertyInput!): StructuredPropertyEntity!
+
+    """
+    Update an existing structured property
+    """
+    updateStructuredProperty(input: UpdateStructuredPropertyInput!): StructuredPropertyEntity!
+
+    """
+    Delete an existing structured property
+    """
+    deleteStructuredProperty(input: DeleteStructuredPropertyInput!): Boolean!
+}
+
 """
 A structured property that can be shared between different entities
 """
@@ -13,14 +40,29 @@ type StructuredPropertyEntity implements Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Definition of this structured property including its name
     """
     definition: StructuredPropertyDefinition!
 
     """
+    Definition of this structured property including its name
+    """
+    settings: StructuredPropertySettings
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -68,6 +110,57 @@ type StructuredPropertyDefinition {
     Entity types that this structured property can be applied to
     """
     entityTypes: [EntityTypeEntity!]!
+
+    """
+    Whether or not this structured property is immutable
+    """
+    immutable: Boolean!
+
+    """
+    Audit stamp for when this structured property was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this structured property was last modified
+    """
+    lastModified: ResolvedAuditStamp
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    Deprecated! Use structuredPropertySettings.showInSearchFilters instead
+    """
+    filterStatus: StructuredPropertyFilterStatus! @deprecated(reason: "Use structuredPropertySettings.showInSearchFilters instead")
+}
+
+"""
+Settings specific to a structured property entity
+"""
+type StructuredPropertySettings {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean!
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean!
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean!
 }
 
 """
@@ -138,6 +231,22 @@ The value of a property
 union PropertyValue = StringValue | NumberValue
 
 """
+The filter status of this structured property - whether it will show up in search filters or not
+"""
+enum StructuredPropertyFilterStatus {
+    """
+    This structured property will show up in search filters
+    """
+    ENABLED
+
+    """
+    This structured property will not show up in search filters
+    """
+    DISABLED
+}
+
+
+"""
 An entry in an structured properties list represented as a tuple
 """
 type StructuredPropertiesEntry {
@@ -155,6 +264,41 @@ type StructuredPropertiesEntry {
     The optional entities associated with the values if the values are entity urns
     """
     valueEntities: [Entity]
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+}
+
+"""
+Input for upserting structured properties on a given asset
+"""
+input UpsertStructuredPropertiesInput {
+    """
+    The urn of the asset that we are updating
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to upsert on this asset
+    """
+    structuredPropertyInputParams: [StructuredPropertyInputParams!]!
+}
+
+"""
+Input for removing structured properties on a given asset
+"""
+input RemoveStructuredPropertiesInput {
+    """
+    The urn of the asset that we are removing properties from
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to remove from this asset
+    """
+    structuredPropertyUrns: [String!]!
 }
 
 """
@@ -241,3 +385,214 @@ type DataTypeInfo {
     """
     description: String
 }
+
+"""
+Input for creating a new structured property entity
+"""
+input CreateStructuredPropertyInput {
+    """
+    (Advanced) An optional unique ID to use when creating the urn of this entity
+    """
+    id: String
+
+    """
+    The unique fully qualified name of this structured property, dot delimited.
+    This will be required to match the ID of this structured property.
+    """
+    qualifiedName: String
+
+    """
+    The optional display name for this property
+    """
+    displayName: String
+
+    """
+    The optional description for this property
+    """
+    description: String
+
+    """
+    Whether the property will be mutable once it is applied or not. Default is false.
+    """
+    immutable: Boolean
+
+    """
+    The urn of the value type that this structured property accepts.
+    For example: urn:li:dataType:datahub.string or urn:li:dataType:datahub.date
+    """
+    valueType: String!
+
+    """
+    The optional input for specifying specific entity types as values
+    """
+    typeQualifier: TypeQualifierInput
+
+    """
+    The optional input for specifying a list of allowed values
+    """
+    allowedValues: [AllowedValueInput!]
+
+    """
+    The optional input for specifying if one or multiple values can be applied.
+    Default is one value (single cardinality)
+    """
+    cardinality: PropertyCardinality
+
+    """
+    The list of entity types that this property can be applied to.
+    For example: ["urn:li:entityType:datahub.dataset"]
+    """
+    entityTypes: [String!]!
+
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
+}
+
+"""
+Input for specifying specific entity types as values
+"""
+input TypeQualifierInput {
+    """
+    The list of allowed entity types as urns (ie. ["urn:li:entityType:datahub.corpuser"])
+    """
+    allowedTypes: [String!]
+}
+
+"""
+An input entry for an allowed value for a structured property
+"""
+input AllowedValueInput {
+    """
+    The allowed string value if the value is of type string
+    Either this or numberValue is required.
+    """
+    stringValue: String
+
+    """
+    The allowed number value if the value is of type number.
+    Either this or stringValue is required.
+    """
+    numberValue: Float
+
+    """
+    The description of this allowed value
+    """
+    description: String
+}
+
+"""
+Input for updating an existing structured property entity
+"""
+input UpdateStructuredPropertyInput {
+    """
+    The urn of the structured property being updated
+    """
+    urn: String!
+
+    """
+    The optional display name for this property
+    """
+    displayName: String
+
+    """
+    The optional description for this property
+    """
+    description: String
+
+    """
+    Whether the property will be mutable once it is applied or not. Default is false.
+    """
+    immutable: Boolean
+
+    """
+    The optional input for specifying specific entity types as values
+    """
+    typeQualifier: UpdateTypeQualifierInput
+
+    """
+    Append to the list of allowed values for this property.
+    For backwards compatibility, this is append only.
+    """
+    newAllowedValues: [AllowedValueInput!]
+
+    """
+    Set to true if you want to change the cardinality of this structured property
+    to multiple. Cannot change from multiple to single for backwards compatibility reasons.
+    """
+    setCardinalityAsMultiple: Boolean
+
+    """
+    Append to the list of entity types that this property can be applied to.
+    For backwards compatibility, this is append only.
+    """
+    newEntityTypes: [String!]
+
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
+}
+
+"""
+Input for updating specifying specific entity types as values
+"""
+input UpdateTypeQualifierInput {
+    """
+    Append to the list of allowed entity types as urns for this property (ie. ["urn:li:entityType:datahub.corpuser"])
+    For backwards compatibility, this is append only.
+    """
+    newAllowedTypes: [String!]
+}
+
+"""
+Input for deleting a form
+"""
+input DeleteStructuredPropertyInput {
+    """
+    The urn of the structured properties that is being deleted
+    """
+    urn: String!
+}
+
+"""
+Settings for a structured property
+"""
+input StructuredPropertySettingsInput {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean
+}
+

@@ -30,11 +30,7 @@ public class DataProductAuthorizationUtils {
                         PoliciesConfig.EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToManageDataProducts(
@@ -47,11 +43,7 @@ public class DataProductAuthorizationUtils {
                     ImmutableList.of(PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        domainUrn.getEntityType(),
-        domainUrn.toString(),
-        orPrivilegeGroups);
+        context, domainUrn.getEntityType(), domainUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToEditDataProduct(
@@ -60,10 +52,6 @@ public class DataProductAuthorizationUtils {
         new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_PRIVILEGES_GROUP));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        dataProductUrn.getEntityType(),
-        dataProductUrn.toString(),
-        orPrivilegeGroups);
+        context, dataProductUrn.getEntityType(), dataProductUrn.toString(), orPrivilegeGroups);
   }
 }

@@ -1,3 +1,4 @@
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { useListPostsQuery } from '../../../../graphql/post.generated';
 import { PostContentType, PostType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
@@ -15,6 +16,7 @@ const useGetAnnouncementsExists = (): ActiveTab | null => {
             input: {
                 start: 0,
                 count: 30,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: 'cache-first',

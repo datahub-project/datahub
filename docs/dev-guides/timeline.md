@@ -33,6 +33,7 @@ based on timestamp. A `ChangeEvent` consists of:
 - `elementId`: Optional, the ID of the element being applied to the target
 - `description`: A human readable description of the change produced by the `Differ` type computing the diff
 - `changeDetails`: A loose property map of additional details about the change
+- `modificationCategory`: Specifies the type of modification made to a schema field within an Entity change event. Options are `RENAME`, `TYPE_CHANGE` and `OTHER`.
 
 ### Change Event Examples
 - A tag was applied to a *field* of a dataset through the UI:
@@ -41,12 +42,14 @@ based on timestamp. A `ChangeEvent` consists of:
   - `category`: `TAG` 
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
+  - `modificationCategory`: `OTHER`
 - A tag was added directly at the top-level to a dataset through the UI:
   - `changeType`: `ADD`
   - `target`: `urn:li:dataset:(urn:li:dataPlatform:<platform>,<name>,<fabric_type>)` -> The dataset the tag is being added to
   - `category`: `TAG`
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
+  - `modificationCategory`: `OTHER`
 
 Note the `target` and `elementId` fields in the examples above to familiarize yourself with the semantics.
 
@@ -81,7 +84,7 @@ Took 1.077 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=TECHNICAL_SCHEMA&start=1644874316591&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=TECHNICAL_SCHEMA&start=1644874316591&end=2682397800000
 2022-02-24 15:31:53 - 0.0.0-computed
 	ADD TECHNICAL_SCHEMA dataset:hive:testTimelineDataset (field:property_id): A forwards & backwards compatible change due to the newly added field 'property_id'.
 	ADD TECHNICAL_SCHEMA dataset:hive:testTimelineDataset (field:service): A forwards & backwards compatible change due to the newly added field 'service'.
@@ -115,7 +118,7 @@ Took 1.087 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874829027&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874829027&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
@@ -127,7 +130,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874831456&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874831456&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
@@ -161,7 +164,7 @@ Took 0.626 seconds to hard delete 9 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=TAG&start=1644875047911&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=TAG&start=1644875047911&end=2682397800000
 2022-02-24 15:44:05 - 0.0.0-computed
 	ADD TAG dataset:hive:testTimelineDataset (urn:li:tag:Legacy): A new tag 'Legacy' for the entity 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 2022-02-24 15:44:06 - 0.1.0-computed
@@ -189,7 +192,7 @@ Took 0.578 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=DOCUMENTATION&start=1644875157616&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=DOCUMENTATION&start=1644875157616&end=2682397800000
 2022-02-24 15:45:55 - 0.0.0-computed
 	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://www.linkedin.com): The institutionalMemory 'https://www.linkedin.com' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 2022-02-24 15:45:56 - 0.1.0-computed
@@ -218,7 +221,7 @@ Took 0.443 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=GLOSSARY_TERM&start=1644875100605&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=GLOSSARY_TERM&start=1644875100605&end=2682397800000
 1969-12-31 18:00:00 - 0.0.0-computed
 	None None  : java.lang.NullPointerException:null
 2022-02-24 15:44:58 - 0.1.0-computed

@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -43,7 +44,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
     final Urn parentNode =
         input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
             try {
@@ -54,8 +55,8 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
               key.setName(id);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_NODE_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_NODE_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Glossary Node already exists!");
               }
 
@@ -67,7 +68,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
                       mapGlossaryNodeInfo(input));
 
               String glossaryNodeUrn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
                   context, glossaryNodeUrn, OwnerEntityType.CORP_USER, _entityService);
@@ -87,7 +88,9 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private GlossaryNodeInfo mapGlossaryNodeInfo(final CreateGlossaryEntityInput input) {

@@ -5,7 +5,7 @@ import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import EntityContext from '../../../EntityContext';
+import { EntityContext } from '../../../../../entity/shared/EntityContext';
 import { getShouldShowProposeButton } from '../components/DescriptionEditor';
 import { DocumentationTab } from '../DocumentationTab';
 
@@ -26,6 +26,10 @@ describe('SchemaDescriptionField', () => {
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
+                            refetch: vi.fn(),
                         }}
                     >
                         <DocumentationTab />
@@ -45,7 +49,9 @@ describe('SchemaDescriptionField', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 editableProperties: {
                                     description: 'Edited description',
                                 },
@@ -53,6 +59,10 @@ describe('SchemaDescriptionField', () => {
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <DocumentationTab />

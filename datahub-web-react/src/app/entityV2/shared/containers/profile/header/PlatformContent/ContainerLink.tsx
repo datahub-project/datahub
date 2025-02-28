@@ -6,6 +6,7 @@ import { Container, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import ContainerIcon from './ContainerIcon';
 import { ANTD_GRAY } from '../../../../constants';
+import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const ContainerText = styled.span`
     font-size: 14px;
@@ -30,6 +31,7 @@ interface Props {
 function ContainerLink(props: Props) {
     const { container } = props;
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (!container) return null;
 
@@ -37,7 +39,7 @@ function ContainerLink(props: Props) {
     const containerName = entityRegistry.getDisplayName(EntityType.Container, container);
 
     return (
-        <StyledLink to={containerUrl} data-testid="container">
+        <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
             <ContainerIcon container={props.container} />
             <ContainerText>{containerName}</ContainerText>
         </StyledLink>

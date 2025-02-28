@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Divider, Skeleton } from 'antd';
 
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
@@ -34,28 +35,49 @@ const LastIngestedSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
 `;
 
+const LoadingWrapper = styled.div`
+    padding-top: 20px;
+`;
+
+const SkeletonDivider = styled(Divider)`
+    margin: 10px 0 20px 0;
+`;
+
 type Props = {
     sidebarSections: EntitySidebarSection[];
     topSection?: EntitySidebarSection;
+    loading?: boolean;
 };
 
-export const EntitySidebar = <T,>({ sidebarSections, topSection }: Props) => {
+export const EntitySidebar = <T,>({ sidebarSections, topSection, loading }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
+
+    if (loading) {
+        return (
+            <LoadingWrapper>
+                <Skeleton active />
+                <SkeletonDivider />
+                <Skeleton active />
+                <SkeletonDivider />
+                <Skeleton active />
+                <SkeletonDivider />
+                <Skeleton active />
+            </LoadingWrapper>
+        );
+    }
 
     return (
         <>
             {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
-            {entityData?.lastIngested && (
+            {!!entityData?.lastIngested && (
                 <LastIngestedSection>
                     <LastIngested lastIngested={entityData.lastIngested} />
                 </LastIngestedSection>
             )}
             <ContentContainer>
                 {sidebarSections?.map((section) => {
-                    if (section.display?.visible(entityData, baseEntity) !== true) {
-                        return null;
-                    }
+                    if (section.display?.visible(entityData, baseEntity) !== true) return null;
                     return <section.component key={`${section.component}`} properties={section.properties} />;
                 })}
             </ContentContainer>

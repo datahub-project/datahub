@@ -1,3 +1,5 @@
+import { AndFilterInput, FilterOperator } from '@src/types.generated';
+import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from './types';
 import { AndPredicate, NotPredicate, OrPredicate, Predicate, TestPredicate } from '../../../../types';
 import { AND, NOT, OR } from '../constants';
@@ -142,3 +144,74 @@ export const convertTestPredicateToLogicalPredicate = (
     // Builder Property Predicate -- These happen to be exactly the same.
     return predicate as PropertyPredicate;
 };
+
+function mapOperator(operator: string): FilterOperator {
+    const operatorMap: { [key: string]: FilterOperator } = {
+        contains: FilterOperator.Contain,
+        equals: FilterOperator.Equal,
+        equal: FilterOperator.Equal,
+        exists: FilterOperator.Exists,
+        greaterthan: FilterOperator.GreaterThan,
+        greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
+        in: FilterOperator.In,
+        lessthan: FilterOperator.LessThan,
+        lessthanorequalto: FilterOperator.LessThanOrEqualTo,
+    };
+
+    const normalizedOperator = operator.toLowerCase().replace(/[_\s]/g, '');
+    const mappedOperator = operatorMap[normalizedOperator];
+
+    if (!mappedOperator) {
+        throw new Error(`Unsupported operator: ${operator}`);
+    }
+
+    return mappedOperator;
+}
+
+/**
+ * Recursively converts a logcal prediate into disjunctive normal form that we expect for our
+ * orFilters: AndFilterInput[]
+ *
+ * @param predicate a LogicalPredicate received from asset selector or some other localtion
+ */
+export function convertLogicalPredicateToOrFilters(
+    pred: LogicalPredicate | PropertyPredicate,
+    isNegated = false,
+): AndFilterInput[] {
+    if (pred && 'property' in pred) {
+        // it's a PropertyPredicate
+        return [
+            {
+                and: [
+                    {
+                        field: pred.property || '',
+                        values: pred.values || [],
+                        condition: pred.operator ? mapOperator(pred.operator) : undefined,
+                        ...(isNegated && { negated: true }),
+                    },
+                ],
+            },
+        ];
+    }
+    // it's a LogicalPredicate
+    switch (pred.operator) {
+        case LogicalOperatorType.AND: {
+            const andResults = (pred as LogicalPredicate).operands.map((op) =>
+                convertLogicalPredicateToOrFilters(op, isNegated),
+            );
+            return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+        }
+        case LogicalOperatorType.OR:
+            return (pred as LogicalPredicate).operands.flatMap((op) =>
+                convertLogicalPredicateToOrFilters(op, isNegated),
+            );
+        case LogicalOperatorType.NOT: {
+            const notResults = (pred as LogicalPredicate).operands.map((op) =>
+                convertLogicalPredicateToOrFilters(op, !isNegated),
+            );
+            return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+        }
+        default:
+            throw new Error(`Unknown operator: ${pred.operator}`);
+    }
+}

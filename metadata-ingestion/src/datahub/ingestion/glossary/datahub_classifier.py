@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo
@@ -10,6 +9,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.glossary.classifier import Classifier
+from datahub.utilities.str_enum import StrEnum
 
 
 class NameFactorConfig(ConfigModel):
@@ -33,7 +33,7 @@ class DataTypeFactorConfig(ConfigModel):
     )
 
 
-class ValuePredictionType(str, Enum):
+class ValuePredictionType(StrEnum):
     REGEX = "regex"
     LIBRARY = "library"
 
@@ -148,9 +148,9 @@ class DataHubClassifierConfig(ConfigModel):
                 weight,
             ) in custom_infotype_config.Prediction_Factors_and_Weights.dict().items():
                 if weight > 0:
-                    assert (
-                        getattr(custom_infotype_config, factor) is not None
-                    ), f"Missing Configuration for Prediction Factor {factor} for Custom Info Type {custom_infotype}"
+                    assert getattr(custom_infotype_config, factor) is not None, (
+                        f"Missing Configuration for Prediction Factor {factor} for Custom Info Type {custom_infotype}"
+                    )
 
             # Custom infotype supports only regex based prediction for column values
             if custom_infotype_config.Prediction_Factors_and_Weights.Values > 0:
@@ -158,7 +158,9 @@ class DataHubClassifierConfig(ConfigModel):
                 assert (
                     custom_infotype_config.Values.prediction_type
                     == ValuePredictionType.REGEX
-                ), f"Invalid Prediction Type for Values for Custom Info Type {custom_infotype}. Only `regex` is supported."
+                ), (
+                    f"Invalid Prediction Type for Values for Custom Info Type {custom_infotype}. Only `regex` is supported."
+                )
 
         return info_types_config
 

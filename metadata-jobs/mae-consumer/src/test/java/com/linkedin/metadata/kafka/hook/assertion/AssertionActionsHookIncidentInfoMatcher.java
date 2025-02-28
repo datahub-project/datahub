@@ -33,27 +33,34 @@ public class AssertionActionsHookIncidentInfoMatcher
         GenericRecordUtils.deserializeAspect(
             right.getValue(), "application/json", IncidentInfo.class);
 
+    System.out.println(String.format("COMPARING LEFT %s", leftProps));
+    System.out.println(String.format("COMPARING RIGHT %s", leftProps));
+
     // Omit timestamp comparison.
     return leftProps.getTitle(GetMode.NULL).equals(rightProps.getTitle(GetMode.NULL))
-        && leftProps.getDescription(GetMode.NULL).equals(rightProps.getDescription(GetMode.NULL))
-        && leftProps.getType().equals(rightProps.getType())
-        && leftProps.getPriority(GetMode.NULL).equals(rightProps.getPriority(GetMode.NULL))
-        && leftProps.getEntities(GetMode.NULL).equals(rightProps.getEntities(GetMode.NULL))
-        && leftProps.getStatus().getState().equals(rightProps.getStatus().getState())
-        && leftProps
-            .getStatus()
-            .getMessage(GetMode.NULL)
-            .equals(rightProps.getStatus().getMessage(GetMode.NULL))
-        && leftProps
-            .getStatus()
-            .getLastUpdated()
-            .getActor()
-            .equals(rightProps.getStatus().getLastUpdated().getActor())
-        && leftProps.getSource().getType().equals(rightProps.getSource().getType())
-        && leftProps
-            .getSource()
-            .getSourceUrn(GetMode.NULL)
-            .equals(rightProps.getSource().getSourceUrn(GetMode.NULL))
-        && leftProps.getCreated().getActor().equals(rightProps.getCreated().getActor());
+            && leftProps
+                .getDescription(GetMode.NULL)
+                .equals(rightProps.getDescription(GetMode.NULL))
+            && leftProps.getType().equals(rightProps.getType())
+            && leftProps.getEntities(GetMode.NULL).equals(rightProps.getEntities(GetMode.NULL))
+            && leftProps.getStatus().getState().equals(rightProps.getStatus().getState())
+            && leftProps
+                .getStatus()
+                .getMessage(GetMode.NULL)
+                .equals(rightProps.getStatus().getMessage(GetMode.NULL))
+            && leftProps
+                .getStatus()
+                .getLastUpdated()
+                .getActor()
+                .equals(rightProps.getStatus().getLastUpdated().getActor())
+            && leftProps.getSource().getType().equals(rightProps.getSource().getType())
+            && leftProps
+                .getSource()
+                .getSourceUrn(GetMode.NULL)
+                .equals(rightProps.getSource().getSourceUrn(GetMode.NULL))
+            && leftProps.getCreated().getActor().equals(rightProps.getCreated().getActor())
+            && leftProps.hasPriority()
+        ? leftProps.getPriority().equals(rightProps.getPriority(GetMode.NULL))
+        : true;
   }
 }

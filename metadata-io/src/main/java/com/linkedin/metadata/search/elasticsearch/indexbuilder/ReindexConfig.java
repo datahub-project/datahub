@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PROPERTIES;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TYPE;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -8,6 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.util.Pair;
+import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +64,7 @@ public class ReindexConfig {
   private final Map<String, Object> targetMappings;
   private final boolean enableIndexMappingsReindex;
   private final boolean enableIndexSettingsReindex;
+  private final boolean enableStructuredPropertiesReindex;
   private final String version;
 
   /* Calculated */
@@ -67,7 +74,8 @@ public class ReindexConfig {
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
-  private final boolean isPureStructuredProperty;
+  private final boolean isPureStructuredPropertyAddition;
+  private final boolean hasRemovedStructuredProperty;
 
   public static ReindexConfigBuilder builder() {
     return new CalculatedBuilder();
@@ -99,7 +107,11 @@ public class ReindexConfig {
       return this;
     }
 
-    private ReindexConfigBuilder isPureStructuredProperty(boolean ignored) {
+    private ReindexConfigBuilder isPureStructuredPropertyAddition(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder hasRemovedStructuredProperty(boolean ignored) {
       return this;
     }
 
@@ -146,13 +158,14 @@ public class ReindexConfig {
       if (super.exists) {
         /* Consider mapping changes */
         MapDifference<String, Object> mappingsDiff =
-            Maps.difference(
-                getOrDefault(super.currentMappings, List.of("properties")),
-                getOrDefault(super.targetMappings, List.of("properties")));
+            calculateMapDifference(
+                getOrDefault(super.currentMappings, List.of(PROPERTIES)),
+                getOrDefault(super.targetMappings, List.of(PROPERTIES)));
+
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
                 || !mappingsDiff.entriesOnlyOnRight().isEmpty();
-        super.isPureStructuredProperty =
+        super.isPureStructuredPropertyAddition =
             mappingsDiff
                     .entriesDiffering()
                     .keySet()
@@ -165,6 +178,22 @@ public class ReindexConfig {
             super.requiresApplyMappings
                 && mappingsDiff.entriesDiffering().isEmpty()
                 && !mappingsDiff.entriesOnlyOnRight().isEmpty();
+        super.hasNewStructuredProperty =
+            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+                    || mappingsDiff
+                        .entriesOnlyOnRight()
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
+                        .getSecond()
+                    > 0;
+        super.hasRemovedStructuredProperty =
+            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+                    || mappingsDiff
+                        .entriesOnlyOnLeft()
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
+                        .getFirst()
+                    > 0;
 
         if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(
@@ -177,19 +206,6 @@ public class ReindexConfig {
               super.name,
               mappingsDiff.entriesDiffering());
         }
-        super.hasNewStructuredProperty =
-            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
-                    || mappingsDiff
-                        .entriesOnlyOnRight()
-                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                && getOrDefault(
-                            super.currentMappings,
-                            List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-                        .size()
-                    < getOrDefault(
-                            super.targetMappings,
-                            List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-                        .size();
 
         /* Consider analysis and settings changes */
         super.requiresApplySettings = !isSettingsEqual() || !isAnalysisEqual();
@@ -204,7 +220,26 @@ public class ReindexConfig {
                 "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                 super.name);
           }
+        } else if (super.hasRemovedStructuredProperty) {
+          if (super.enableIndexMappingsReindex
+              && super.enableIndexMappingsReindex
+              && super.enableStructuredPropertiesReindex) {
+            super.requiresApplyMappings = true;
+            super.requiresReindex = true;
+          } else {
+            if (!super.enableIndexMappingsReindex) {
+              log.warn(
+                  "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
+                  super.name);
+            }
+            if (!super.enableIndexMappingsReindex) {
+              log.warn(
+                  "Index: {} - There's a removed Structured Property, however Structured Property reindexing is DISABLED.",
+                  super.name);
+            }
+          }
         }
+
         if (super.isSettingsReindex) {
           try {
             if (!isAnalysisEqual()) {
@@ -249,6 +284,46 @@ public class ReindexConfig {
       } else {
         return getOrDefault(item, path.subList(1, path.size()));
       }
+    }
+
+    /**
+     * Return counts for removed and added structured properties based on the difference between the
+     * existing mapping configuration and the target configuration
+     *
+     * @return count of structured properties to be removed and added to the index mapping
+     */
+    private static Pair<Long, Long> structuredPropertiesDiffCount(
+        Map<String, Object> current, Map<String, Object> target) {
+      Set<String> currentStructuredProperties = new HashSet<>();
+      Set<String> targetStructuredProperties = new HashSet<>();
+
+      // add non-versioned property ids
+      currentStructuredProperties.addAll(
+          getOrDefault(
+                  current, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+              .keySet()
+              .stream()
+              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
+              .collect(Collectors.toSet()));
+      targetStructuredProperties.addAll(
+          getOrDefault(
+                  target, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+              .keySet()
+              .stream()
+              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
+              .collect(Collectors.toSet()));
+
+      // Extract versioned/typed property ids
+      currentStructuredProperties.addAll(getVersionedStructuredPropertyIds(current));
+      targetStructuredProperties.addAll(getVersionedStructuredPropertyIds(target));
+
+      return Pair.of(
+          currentStructuredProperties.stream()
+              .filter(p -> !targetStructuredProperties.contains(p))
+              .count(),
+          targetStructuredProperties.stream()
+              .filter(p -> !currentStructuredProperties.contains(p))
+              .count());
     }
 
     private boolean isAnalysisEqual() {
@@ -298,6 +373,70 @@ public class ReindexConfig {
               (Map<String, Object>) indexSettings.get("analysis"),
               super.currentSettings.getByPrefix("index.analysis."));
     }
+
+    /**
+     * Dynamic fields should not be considered as part of the difference. This might need to be
+     * improved in the future for nested object fields.
+     *
+     * @param currentMappings current mappings
+     * @param targetMappings target mappings
+     * @return difference map
+     */
+    private static MapDifference<String, Object> calculateMapDifference(
+        Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+
+      // Identify dynamic object fields in target
+      Set<String> targetObjectFields =
+          targetMappings.entrySet().stream()
+              .filter(
+                  entry ->
+                      ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
+                          && ((Map<String, Object>) entry.getValue())
+                              .get(TYPE)
+                              .equals(ESUtils.OBJECT_FIELD_TYPE))
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toSet());
+
+      if (!targetObjectFields.isEmpty()) {
+        log.debug("Object fields filtered from comparison: {}", targetObjectFields);
+        Map<String, Object> filteredCurrentMappings =
+            removeKeys(currentMappings, targetObjectFields);
+        Map<String, Object> filteredTargetMappings = removeKeys(targetMappings, targetObjectFields);
+        return Maps.difference(filteredCurrentMappings, filteredTargetMappings);
+      }
+
+      return Maps.difference(currentMappings, targetMappings);
+    }
+
+    /**
+     * Given a mapping return a unique string for each version/typed structured property
+     *
+     * @param mappings Elastic mappings
+     * @return set of unique ids for each versioned/typed structured property
+     */
+    private static Set<String> getVersionedStructuredPropertyIds(Map<String, Object> mappings) {
+      Map<String, Object> versionedMappings =
+          getOrDefault(
+              mappings,
+              List.of(
+                  "properties",
+                  STRUCTURED_PROPERTY_MAPPING_FIELD,
+                  "properties",
+                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
+                  "properties"));
+
+      return flattenStructuredPropertyPath(
+              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
+          .map(Map.Entry::getKey)
+          .collect(Collectors.toSet());
+    }
+  }
+
+  private static Map<String, Object> removeKeys(
+      Map<String, Object> mapObject, Set<String> keysToRemove) {
+    return mapObject.entrySet().stream()
+        .filter(entry -> !keysToRemove.contains(entry.getKey()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private static boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
@@ -327,5 +466,23 @@ public class ReindexConfig {
       }
     }
     return true;
+  }
+
+  /**
+   * Return a map with dot delimited path as keys
+   *
+   * @param entry for root map
+   * @return dot delimited key path map
+   */
+  private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyPath(
+      Map.Entry<String, Object> entry, int depth) {
+    if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
+      Map<String, Object> nested = (Map<String, Object>) entry.getValue();
+
+      return nested.entrySet().stream()
+          .map(e -> new AbstractMap.SimpleEntry(entry.getKey() + "." + e.getKey(), e.getValue()))
+          .flatMap(e -> flattenStructuredPropertyPath(e, depth + 1));
+    }
+    return Stream.of(entry);
   }
 }

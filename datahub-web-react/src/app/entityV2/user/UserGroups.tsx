@@ -1,4 +1,5 @@
-import { Col, Pagination, Row, Tooltip } from 'antd';
+import { Col, Pagination, Row } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -48,6 +49,7 @@ const GroupItem = styled.div`
     .description-row {
         padding: 2px 13px;
     }
+    overflow: hidden;
 `;
 
 const GroupTitle = styled.span`
@@ -55,6 +57,9 @@ const GroupTitle = styled.span`
     line-height: 22px;
     font-weight: bold;
     color: #262626;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 `;
 
 const GroupMember = styled.span`
@@ -72,9 +77,10 @@ const GroupDescription = styled.span`
     color: #262626;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     max-width: 100%;
-    height: 43px;
 `;
+
 export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();

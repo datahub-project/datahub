@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
-import { useVT } from 'virtualizedtableforantd4';
 import ResizeObserver from 'rc-resize-observer';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { useVT } from 'virtualizedtableforantd4';
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -11,20 +11,27 @@ import {
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
 import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
-import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
-import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
-import ExpandIcon from './components/ExpandIcon';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { SchemaRow } from './components/SchemaRow';
-import { FkContext } from './utils/selectedFkContext';
-import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
+import ExpandIcon from './components/ExpandIcon';
 import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { SchemaRow } from './components/SchemaRow';
+import { FkContext } from './utils/selectedFkContext';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
+import useDescriptionRenderer from './utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
+import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
+import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
+import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
+import { useGetTableColumnProperties } from './useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './useGetStructuredPropColumns';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -89,6 +96,7 @@ export default function SchemaTable({
     hasProperties,
     inputFields,
 }: Props): JSX.Element {
+    const businessAttributesFlag = useBusinessAttributesFlag();
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
@@ -119,8 +127,15 @@ export default function SchemaTable({
         filterText,
         false,
     );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
+
+    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
     const fieldColumn = {
         width: '22%',
@@ -140,6 +155,9 @@ export default function SchemaTable({
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
+        sorter: (sourceA, sourceB) =>
+            (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+            (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
     };
 
     const tagColumn = {
@@ -148,14 +166,29 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
     };
 
     const termColumn = {
         width: '13%',
         title: 'Glossary Terms',
         dataIndex: 'globalTags',
-        key: 'tag',
+        key: 'term',
         render: termRenderer,
+        sorter: (sourceA, sourceB) =>
+            extractFieldGlossaryTermsInfo(sourceA).numberOfTerms - extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
+    };
+
+    const businessAttributeColumn = {
+        width: '18%',
+        title: 'Business Attribute',
+        dataIndex: 'businessAttribute',
+        key: 'businessAttribute',
+        render: businessAttributeRenderer,
+        sorter: (sourceA, sourceB) =>
+            (sourceA?.schemaFieldEntity?.businessAttributes?.length ?? 0) -
+            (sourceB?.schemaFieldEntity?.businessAttributes?.length ?? 0),
     };
 
     const blameColumn = {
@@ -176,10 +209,10 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.find((field) => {
+            usageStats?.aggregations?.fields?.find((field) => {
                 return field?.fieldName === fieldPath;
             });
-        return data && data.count;
+        return (data && data.count) ?? 0;
     }
 
     const usageColumn = {
@@ -197,12 +230,23 @@ export default function SchemaTable({
         dataIndex: '',
         key: 'menu',
         render: (field: SchemaField) => <PropertiesColumn field={field} />,
+        sorter: (sourceA, sourceB) =>
+            (sourceA?.schemaFieldEntity?.structuredProperties?.properties?.length ?? 0) -
+            (sourceB?.schemaFieldEntity?.structuredProperties?.properties?.length ?? 0),
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
 
+    if (businessAttributesFlag) {
+        allColumns = [...allColumns, businessAttributeColumn];
+    }
+
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];
+    }
+
+    if (structuredPropColumns) {
+        allColumns = [...allColumns, ...structuredPropColumns];
     }
 
     if (hasUsageStats) {

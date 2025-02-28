@@ -6,13 +6,13 @@ import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionRe
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.UpdateSubscriptionInput;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
@@ -45,7 +45,7 @@ public class UpdateSubscriptionResolver
             final EntityChangeDetailsArray entityChangeTypes =
                 input.getEntityChangeTypes() == null
                     ? null
-                    : mapEntityChangeTypes(input.getEntityChangeTypes());
+                    : mapEntityChangeDetails(input.getEntityChangeTypes());
             final SubscriptionNotificationConfig notificationConfig =
                 input.getNotificationConfig() == null
                     ? null
@@ -54,7 +54,8 @@ public class UpdateSubscriptionResolver
             final Urn subscriptionUrn = UrnUtils.getUrn(subscriptionUrnString);
 
             final SubscriptionInfo subscriptionInfo =
-                _subscriptionService.getSubscriptionInfo(subscriptionUrn, authentication);
+                _subscriptionService.getSubscriptionInfo(
+                    context.getOperationContext(), subscriptionUrn);
             final Urn actorUrn = subscriptionInfo.getActorUrn();
             if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME)
                 && !canManageGroupSubscriptions(actorUrn.toString(), context)) {
@@ -71,15 +72,15 @@ public class UpdateSubscriptionResolver
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
                 _subscriptionService.updateSubscription(
+                    context.getOperationContext(),
                     actorUrn,
                     subscriptionUrn,
                     subscriptionInfo,
                     subscriptionTypes,
                     entityChangeTypes,
-                    notificationConfig,
-                    authentication);
+                    notificationConfig);
 
-            return DataHubSubscriptionMapper.map(subscription);
+            return DataHubSubscriptionMapper.map(context, subscription);
           } catch (Exception e) {
             throw new RuntimeException("Failed to update subscriptions", e);
           }

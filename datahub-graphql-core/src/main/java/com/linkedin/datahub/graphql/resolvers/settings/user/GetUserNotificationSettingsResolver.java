@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.settings.user;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -24,7 +23,7 @@ public class GetUserNotificationSettingsResolver
   public CompletableFuture<NotificationSettings> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
+
     final String userUrnString = context.getActorUrn();
 
     return CompletableFuture.supplyAsync(
@@ -32,14 +31,14 @@ public class GetUserNotificationSettingsResolver
           try {
             final Urn userUrn = UrnUtils.getUrn(userUrnString);
             final CorpUserSettings userSettings =
-                _settingsService.getCorpUserSettings(userUrn, authentication);
+                _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
             if (userSettings == null || !userSettings.hasNotificationSettings()) {
               return null;
             }
 
             final com.linkedin.event.notification.settings.NotificationSettings
                 notificationSettings = userSettings.getNotificationSettings();
-            return NotificationSettingsMapper.map(notificationSettings);
+            return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to get notification settings for user %s", userUrnString), e);

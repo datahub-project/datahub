@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   spark-iceberg:
     image: tabulario/spark-iceberg:3.3.2_1.3.0
@@ -19,7 +17,7 @@ services:
       - AWS_REGION=us-east-1
     ports:
       - 8888:8888
-      - 8080:8080
+      - 28080:8080
       - 10000:10000
       - 10001:10001
   rest:

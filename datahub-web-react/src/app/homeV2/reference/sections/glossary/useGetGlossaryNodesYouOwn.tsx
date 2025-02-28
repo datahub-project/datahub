@@ -28,7 +28,6 @@ export const useGetGlossaryNodesYouOwn = (user?: CorpUser | null, count = MAX_AS
         },
         skip: !user,
         fetchPolicy: 'cache-first',
-
     });
 
     const entityRegistry = useEntityRegistry();

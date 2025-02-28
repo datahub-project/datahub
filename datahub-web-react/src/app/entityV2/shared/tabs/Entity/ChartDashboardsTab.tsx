@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBaseEntity } from '../../EntityContext';
+import { useBaseEntity } from '../../../../entity/shared/EntityContext';
 import { EntityType } from '../../../../../types.generated';
 import { EntityList } from './components/EntityList';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 export const ChartDashboardsTab = () => {
     const entity = useBaseEntity() as any;
     const chart = entity && entity.chart;
-    const dashboards = chart?.dashboards?.relationships.map((relationship) => relationship.entity);
+    const dashboards = chart?.dashboards?.relationships?.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
     const totalDashboards = chart?.dashboards?.total || 0;
     const title = `Found in ${totalDashboards} ${

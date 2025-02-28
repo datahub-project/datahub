@@ -2,16 +2,17 @@ import React from 'react';
 import Icon from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import GlossaryTermIcon from '../../../src/images/glossary_collections_bookmark.svg?react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import ActiveGlossaryTermIcon from '../../../src/images/glossary_bookmark_added.svg?react';
 import ApprovedGlossaryTermIcon from '../../../src/images/glossary_verified.svg?react';
 import OwnersIcon from '../../../src/images/glossary_account_circle.svg?react';
+import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
 
 const StatusWrapper = styled.div`
-    background-color: #887fae;
+    background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE_2};
     border-radius: 9px;
-    border: 1px solid #fff;
-    background: #fff;
+    border: 1px solid ${ANTD_GRAY[1]};
+    background: ${ANTD_GRAY[1]};
     margin-bottom: 10px;
     display: flex;
     justify-content: space-around;
@@ -24,7 +25,7 @@ const IconWrapper = styled.div`
 `;
 
 const CountTerms = styled.div`
-    color: #171723;
+    color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
     font-family: Mulish;
     font-size: 20px;
     font-style: normal;
@@ -34,7 +35,7 @@ const CountTerms = styled.div`
 `;
 
 const HeaderTitle = styled(Typography)`
-    color: #171723;
+    color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
     text-align: center;
     font-family: Mulish;
     font-size: 12px;
@@ -57,7 +58,7 @@ const GlossaryStatsProvider = (props: Props) => {
         <StatusWrapper>
             <div>
                 <IconWrapper>
-                    <Icon style={{ fontSize: 26 }} component={GlossaryTermIcon} />
+                    <BookmarksSimple style={{ fontSize: 26 }} />
                     <CountTerms>{totalGlossaryTerms} +</CountTerms>
                 </IconWrapper>
                 <HeaderTitle>Total Glossary Terms</HeaderTitle>

@@ -1,3 +1,5 @@
+import { FilterOperator } from '@src/types.generated';
+import { FrontendFilterOperator } from '../../filters/types';
 import {
     DOMAINS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
@@ -104,6 +106,62 @@ describe('generateOrFilters', () => {
         expect(orFilters).toMatchObject([
             {
                 and: [{ field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] }],
+            },
+        ]);
+    });
+
+    it('should split a criterion if the operator is ALL_EQUALS', () => {
+        const filters = [
+            {
+                field: TAGS_FILTER_NAME,
+                values: ['urn:li:tag:tag1', 'urn:li:tag:tag2', 'urn:li:tag:tag3'],
+                condition: FrontendFilterOperator.AllEqual,
+            },
+        ];
+        const orFilters = generateOrFilters(UnionType.AND, filters);
+
+        expect(orFilters).toMatchObject([
+            {
+                and: [
+                    { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'], condition: FilterOperator.Equal },
+                    { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag2'], condition: FilterOperator.Equal },
+                    { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag3'], condition: FilterOperator.Equal },
+                ],
+            },
+        ]);
+    });
+
+    it('should split a criterion if the operator is ALL_EQUALS along with other filters', () => {
+        const filters = [
+            { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            {
+                field: TAGS_FILTER_NAME,
+                values: ['urn:li:tag:tag1', 'urn:li:tag:tag2', 'urn:li:tag:tag3'],
+                condition: FrontendFilterOperator.AllEqual,
+            },
+        ];
+        const orFilters = generateOrFilters(UnionType.AND, filters);
+
+        expect(orFilters).toMatchObject([
+            {
+                and: [
+                    { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+                    {
+                        field: TAGS_FILTER_NAME,
+                        values: ['urn:li:tag:tag1'],
+                        condition: FilterOperator.Equal,
+                    },
+                    {
+                        field: TAGS_FILTER_NAME,
+                        values: ['urn:li:tag:tag2'],
+                        condition: FilterOperator.Equal,
+                    },
+                    {
+                        field: TAGS_FILTER_NAME,
+                        values: ['urn:li:tag:tag3'],
+                        condition: FilterOperator.Equal,
+                    },
+                ],
             },
         ]);
     });

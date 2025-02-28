@@ -89,6 +89,8 @@ public class MockEntitySpec implements EntitySpec {
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
         type.schema(),
         (Class<RecordTemplate>) type.getClass().asSubclass(RecordTemplate.class));
   }

@@ -11,9 +11,6 @@ record UsageFeatures {
    * Usage count in the last 30 days
    * This field is for Dashboard usage
    */
-  @SearchScore = {
-    "modifier": "LOG"
-  }
   @Searchable = {
     "fieldName": "viewCountLast30DaysFeature",
     "fieldType": "COUNT"
@@ -33,14 +30,15 @@ record UsageFeatures {
   /**
    * Percentile rank of the dashboard views based on the the last 30 days view count on a platform
    */
+  @Searchable = {
+    "fieldName": "viewCountPercentileLast30Days",
+    "fieldType": "COUNT"
+  }
   viewCountPercentileLast30Days: optional int
 
   /**
    * Deprecated - Use queryCountLast30Days instead. Usage count in the last 30 days
    */
-  @SearchScore = {
-    "modifier": "LOG"
-  }
   @Searchable = {
     "fieldName": "usageCountLast30DaysFeature",
     "fieldType": "COUNT"
@@ -59,9 +57,6 @@ record UsageFeatures {
   /**
    * Unique user count in the last 30 days
    */
-  @SearchScore = {
-    "modifier": "LOG"
-  }
   @Searchable = {
     "fieldName": "uniqueUserCountLast30DaysFeature",
     "fieldType": "COUNT"
@@ -80,6 +75,10 @@ record UsageFeatures {
   /**
    * Percentile rank of the dataset based on the the last 30 days usage count on a platform
    */
+  @Searchable = {
+    "fieldName": "queryCountPercentileLast30Days",
+    "fieldType": "COUNT"
+  }
   queryCountPercentileLast30Days: optional int
   
   /**
@@ -91,6 +90,10 @@ record UsageFeatures {
   /**
    * Percentile rank of the dataset based on the the last 30 days of select queries by unique users on a platform
    */
+  @Searchable = {
+    "fieldName": "uniqueUserPercentileLast30Days",
+    "fieldType": "COUNT"
+  }
   uniqueUserPercentileLast30Days: optional int
   
   /**
@@ -130,4 +133,27 @@ record UsageFeatures {
    * Deprecated - use StorageFeatures.pdl instead. The percentile of row count relative to other assets from the data platform instance.
    */
   rowCountPercentile: optional int
+
+  /**
+   * Multiplier for search score coming from usage
+   */
+   usageSearchScoreMultiplier: optional float
+
+  /**
+   * Multiplier for search score coming from freshness
+   */
+   usageFreshnessScoreMultiplier: optional float
+
+  /**
+   * Multiplier for search score coming from property based adjustment- e.g. URN
+   */
+   customDatahubScoreMultiplier: optional float
+
+  /**
+   * Combined score of all multipliers
+   */
+  @Searchable = {
+    "fieldName": "combinedSearchRankingMultiplier",
+  }
+   combinedSearchRankingMultiplier: optional float
 }

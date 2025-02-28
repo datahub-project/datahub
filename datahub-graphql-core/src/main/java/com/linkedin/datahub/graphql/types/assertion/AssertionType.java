@@ -28,7 +28,10 @@ public class AssertionType
           Constants.ASSERTION_KEY_ASPECT_NAME,
           Constants.ASSERTION_INFO_ASPECT_NAME,
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-          Constants.ASSERTION_ACTIONS_ASPECT_NAME);
+          Constants.ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+          Constants.LINEAGE_FEATURES_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public AssertionType(final EntityClient entityClient) {
@@ -58,12 +61,12 @@ public class AssertionType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.ASSERTION_ENTITY_NAME,
               new HashSet<>(assertionUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : assertionUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -73,7 +76,7 @@ public class AssertionType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Assertion>newResult()
-                          .data(AssertionMapper.map(gmsResult))
+                          .data(AssertionMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

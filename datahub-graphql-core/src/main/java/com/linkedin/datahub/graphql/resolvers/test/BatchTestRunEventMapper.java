@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchTestRunResult;
 import com.linkedin.datahub.graphql.generated.BatchTestRunStatus;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
@@ -14,13 +15,13 @@ public class BatchTestRunEventMapper
   public static final BatchTestRunEventMapper INSTANCE = new BatchTestRunEventMapper();
 
   public static com.linkedin.datahub.graphql.generated.BatchTestRunEvent map(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
-    return INSTANCE.apply(envelopedAspect);
+      @Nonnull final QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
+    return INSTANCE.apply(context, envelopedAspect);
   }
 
   @Override
   public com.linkedin.datahub.graphql.generated.BatchTestRunEvent apply(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
+      @Nonnull final QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
 
     BatchTestRunEvent gmsRunEvent =
         GenericRecordUtils.deserializeAspect(

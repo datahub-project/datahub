@@ -18,10 +18,14 @@ record NotificationRequest {
   recipients: array[NotificationRecipient]
 
   /**
-   * Optional: A specific sink / set of sinks to send to.
-   *
-   * If not provided and the recipient type is USER, then default sink type(s) will be sourced from settings.
-   * If not provided and the recipient type is CUSTOM, each notification sink will be tried when sinking the message.
+   * Optional: A specific sink / set of sinks to send to. If not specified, all enabled sinks
+   * will be attemped and will be expected to handle the notification if they are able to send
+   * to a given recipient type.
    */
   sinks: optional array[NotificationSink]
+
+  /**
+   * Additional context about the notification.
+   */
+  context: optional NotificationContext
 }

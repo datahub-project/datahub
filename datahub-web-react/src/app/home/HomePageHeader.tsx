@@ -221,7 +221,7 @@ export const HomePageHeader = () => {
     const searchResultsToShow = useMemo(() => {
         let result: string[] | undefined = [];
         if (searchResultsData) {
-            const entities = searchResultsData?.searchAcrossEntities?.searchResults.map((searchResult) => {
+            const entities = searchResultsData?.searchAcrossEntities?.searchResults?.map((searchResult) => {
                 return searchResult?.entity;
             });
 
@@ -237,9 +237,9 @@ export const HomePageHeader = () => {
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
                     {!!user && (
-                        <>
+                        <div data-testid="home-page-welcome">
                             Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
-                        </>
+                        </div>
                     )}
                 </WelcomeText>
                 <NavGroup>
@@ -285,7 +285,7 @@ export const HomePageHeader = () => {
                             <SuggestionsHeader>
                                 <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
                                 <ExploreAllButton type="link" onClick={onClickExploreAll}>
-                                    Explore all <StyledRightOutlined />
+                                    View all <StyledRightOutlined />
                                 </ExploreAllButton>
                             </SuggestionsHeader>
                             <SuggestionTagContainer>

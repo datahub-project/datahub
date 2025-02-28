@@ -8,18 +8,18 @@ const MenuItem = styled.div`
     color: #262626;
 `;
 
-export const ActionMenuItem = styled(Button)<{ disabled?: boolean }>`
+export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: number; excludeMargin?: boolean }>`
     border-radius: 20px;
-    width: 28px;
-    height: 28px;
-    margin: 0px 4px;
+    width: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
+    height: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
+    margin: 0px ${(props) => (props.excludeMargin ? '0px' : '4px')};
     padding: 0px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     border: none;
-    background-color: #f7f7f7;
+    background-color: 'white';
     border: 1px solid #eee;
     color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
     box-shadow: none;

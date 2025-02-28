@@ -10,13 +10,22 @@ const QuickFiltersWrapper = styled.div`
     flex-flow: wrap;
 `;
 
-export default function QuickFilters() {
+interface Props {
+    searchQuery?: string;
+    setIsDropdownVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+export default function QuickFilters({ searchQuery, setIsDropdownVisible }: Props) {
     const { quickFilters } = useQuickFiltersContext();
 
     return (
         <QuickFiltersWrapper>
             {quickFilters?.map((quickFilter) => (
-                <QuickFilter key={quickFilter.value} quickFilter={quickFilter} />
+                <QuickFilter
+                    key={quickFilter.value}
+                    quickFilter={quickFilter}
+                    searchQuery={searchQuery}
+                    setIsDropdownVisible={setIsDropdownVisible}
+                />
             ))}
         </QuickFiltersWrapper>
     );

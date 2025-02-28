@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -38,10 +40,12 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetSuccessNoExistingDomains() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -49,22 +53,23 @@ public class BatchSetDomainResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+        .thenReturn(true);
+
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -93,7 +98,7 @@ public class BatchSetDomainResolverTest {
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true));
   }
 
   @Test
@@ -102,10 +107,12 @@ public class BatchSetDomainResolverTest {
         new Domains()
             .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -113,22 +120,23 @@ public class BatchSetDomainResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(originalDomain);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+        .thenReturn(true);
+
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -162,7 +170,7 @@ public class BatchSetDomainResolverTest {
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true));
   }
 
   @Test
@@ -171,10 +179,12 @@ public class BatchSetDomainResolverTest {
         new Domains()
             .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -182,22 +192,23 @@ public class BatchSetDomainResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(originalDomain);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+        .thenReturn(true);
+
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -226,21 +237,23 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetFailureDomainDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(false);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -260,29 +273,32 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(true);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -302,9 +318,10 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -324,13 +341,14 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
-    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

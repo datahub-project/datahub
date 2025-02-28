@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
-import { Button, message, Typography } from 'antd';
-import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
+import { Button, message, Typography } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { useDebounce } from 'react-use';
 
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import { SearchCfg } from '../../../../../../conf';
-import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { isListSubset } from '../../../utils';
+import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchBar } from '../../../../../search/SearchBar';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
-import { EntityAndType } from '../../../types';
-import { SearchSelectBar } from './SearchSelectBar';
+import { isListSubset } from '../../../utils';
 import TabToolbar from '../TabToolbar';
+import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
+import { SearchSelectBar } from './SearchSelectBar';
 
 const Container = styled.span`
     display: flex;
@@ -45,6 +48,7 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    limit?: number;
 };
 
 /**
@@ -54,16 +58,27 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    limit,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [sortOption, setSortOption] = useState<string | undefined>();
+    const sortInput = useSortInput(sortOption);
+
+    useDebounce(() => setSearchQuery(query), 300, [query]);
 
     // Compute search filters
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -86,10 +101,11 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
         variables: {
             input: {
                 types: finalEntityTypes,
-                query,
+                query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],
+                sortInput,
             },
         },
     });
@@ -159,6 +175,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
                 />
+                <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>
             <TabToolbar>
                 <SearchSelectBar
@@ -168,6 +185,8 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     showActions={false}
                     refetch={refetch}
                     selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
+                    limit={limit}
                 />
             </TabToolbar>
             <EmbeddedListSearchResults
@@ -186,6 +205,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                selectLimit={limit}
             />
         </Container>
     );

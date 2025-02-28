@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Modal, Typography } from 'antd';
+import { Modal, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
 import { Assertion } from '../../../../../../../../types.generated';
 import { AssertionDetails } from './details/AssertionDetails';
 import { ANTD_GRAY } from '../../../../../constants';
@@ -31,11 +32,7 @@ type Props = {
 export const AssertionViewDetailsModal = ({ assertion, onCancel }: Props) => (
     <Modal
         width={840}
-        footer={
-            <Button type="primary" onClick={onCancel}>
-                Close
-            </Button>
-        }
+        footer={<Button onClick={onCancel}>Close</Button>}
         title={
             <TitleContainer>
                 <Typography.Text>Assertion Details</Typography.Text>

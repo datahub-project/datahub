@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.authentication.Authentication;
@@ -16,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +30,8 @@ public class ParentDomainsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -70,26 +74,26 @@ public class ParentDomainsResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(domainUrn.getEntityType()),
                 Mockito.eq(domainUrn),
-                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(domainAspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentDomain1.getParentDomain().getEntityType()),
                 Mockito.eq(parentDomain1.getParentDomain()),
-                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentDomain1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentDomain2.getParentDomain().getEntityType()),
                 Mockito.eq(parentDomain2.getParentDomain()),
-                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentDomain2Aspects)));
 
     ParentDomainsResolver resolver = new ParentDomainsResolver(mockClient);

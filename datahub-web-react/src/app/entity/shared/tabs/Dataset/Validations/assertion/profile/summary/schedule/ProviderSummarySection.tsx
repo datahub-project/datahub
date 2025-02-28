@@ -18,10 +18,18 @@ type Props = {
 };
 
 export const ProviderSummarySection = ({ assertion, showDivider = true }: Props) => {
-    const platformName = assertion?.platform?.properties?.displayName;
+    const platformName = assertion?.platform?.properties?.displayName || assertion?.platform?.name;
+    const hasPlatformLogo = !!assertion?.platform?.properties?.logoUrl;
     return (
         <AssertionScheduleSummarySection
-            icon={(platformName && <AssertionPlatformAvatar platform={assertion.platform} />) || <StyledApiOutlined />}
+            icon={
+                (hasPlatformLogo && (
+                    <AssertionPlatformAvatar
+                        platform={assertion.platform}
+                        externalUrl={assertion?.info?.externalUrl || undefined}
+                    />
+                )) || <StyledApiOutlined />
+            }
             title={`Provided by ${platformName || 'an external platform'}`}
             subtitle={`This assertion and its results are provided by ${
                 platformName || 'an external data quality tool'

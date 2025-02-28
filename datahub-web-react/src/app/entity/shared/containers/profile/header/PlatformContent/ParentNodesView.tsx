@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Tooltip } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { FolderOutlined, RightOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../../constants';
 import { EntityType, GlossaryNode } from '../../../../../../../types.generated';

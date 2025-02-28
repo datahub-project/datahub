@@ -30,18 +30,8 @@ const DataProductTitle = styled.div`
     max-width: 200px;
 `;
 
-const DomainContents = styled.div`
-    font-size: 12px;
-    font-weight: 400;
-    color: ${ANTD_GRAY[7]};
-    font-family: Mulish;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    visibility: hidden;
-`;
-
 const Card = styled.div`
+    align-self: stretch;
     align-items: center;
     background-color: ${ANTD_GRAY[1]};
     border: 1.5px solid ${ANTD_GRAY_V2[5]};
@@ -50,8 +40,9 @@ const Card = styled.div`
     justify-content: start;
     min-width: 160px;
     padding: 16px;
+    height: 100%;
     :hover {
-        border: 2px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
         cursor: pointer;
     }
 `;
@@ -65,7 +56,6 @@ export const DataProductMiniPreviewAddDataProduct = ({ onAdd }: { onAdd: () => v
                     Add Data Product
                 </DataProductTitle>
                 <DataProductDescription>Share your knowledge</DataProductDescription>
-                <DomainContents>...</DomainContents>
             </DomainInfoContainer>
         </Card>
     );

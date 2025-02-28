@@ -43,7 +43,8 @@ public class UpdateDatasetAssertionResolver implements DataFetcher<CompletableFu
     return CompletableFuture.supplyAsync(
         () -> {
           // Check whether the current user is allowed to update the assertion.
-          final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
+          final AssertionInfo info =
+              _assertionService.getAssertionInfo(context.getOperationContext(), assertionUrn);
 
           if (info == null) {
             throw new IllegalArgumentException(
@@ -58,6 +59,7 @@ public class UpdateDatasetAssertionResolver implements DataFetcher<CompletableFu
 
             // First update the existing assertion.
             _assertionService.updateDatasetAssertion(
+                context.getOperationContext(),
                 assertionUrn,
                 DatasetAssertionScope.valueOf(input.getScope().toString()),
                 input.getFieldUrns() != null
@@ -74,13 +76,13 @@ public class UpdateDatasetAssertionResolver implements DataFetcher<CompletableFu
                     : null,
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
-                    : null,
-                context.getAuthentication());
+                    : null);
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");

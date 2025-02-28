@@ -1,3 +1,4 @@
+import { countries } from 'country-data-list';
 import React from 'react';
 import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -10,6 +11,8 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     display: ${(props) => (props.width ? 'block' : 'none')};
     background-color: #fff;
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
 `;
 
 export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick?: () => void }) {
@@ -23,4 +26,22 @@ export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick
             onClick={onClick}
         />
     );
+}
+
+export function getCountryName(countryCode: string) {
+    let countryName;
+    const findCountryName = (code) => {
+        try {
+            countryName = countries[code].name;
+        } catch (error) {
+            countryName = null;
+        }
+    };
+
+    if (countryCode === '' || countryCode === undefined || countryCode == null) {
+        return null;
+    }
+
+    findCountryName(countryCode);
+    return countryName;
 }

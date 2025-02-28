@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
@@ -96,7 +97,7 @@ public class RestoreStorageStep implements UpgradeStep {
       context.report().addLine("BACKUP_READER: " + backupReaderName.toString());
       if (!backupReaderName.isPresent() || !_backupReaders.containsKey(backupReaderName.get())) {
         context.report().addLine("BACKUP_READER is not set or is not valid");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       Class<? extends BackupReader<? extends ReaderWrapper>> clazz =
@@ -141,7 +142,7 @@ public class RestoreStorageStep implements UpgradeStep {
       }
 
       context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
@@ -185,8 +186,10 @@ public class RestoreStorageStep implements UpgradeStep {
       final RecordTemplate aspectRecord;
       try {
         aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toSystemAspect(
+                    context.opContext().getRetrieverContext(), aspect.toEntityAspect(), false)
+                .get()
+                .getRecordTemplate();
       } catch (Exception e) {
         context
             .report()
@@ -221,7 +224,11 @@ public class RestoreStorageStep implements UpgradeStep {
               () ->
                   _entityService
                       .ingestAspects(
-                          urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null)
+                          context.opContext(),
+                          urn,
+                          List.of(Pair.of(aspectName, aspectRecord)),
+                          auditStamp,
+                          null)
                       .get(0)
                       .getNewValue()));
       if (numRows % REPORT_BATCH_SIZE == 0) {

@@ -7,7 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
-from datahub.metadata._schema_classes import _Aspect
+from datahub.metadata.schema_classes import _Aspect
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,17 @@ class DataHubApiReader:
         self.report = report
         self.graph = graph
 
-    def get_aspects(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def get_urns(self) -> Iterable[str]:
         urns = self.graph.get_urns_by_filter(
-            status=RemovedStatusFilter.ALL,
+            status=RemovedStatusFilter.ALL
+            if self.config.include_soft_deleted_entities
+            else RemovedStatusFilter.NOT_SOFT_DELETED,
             batch_size=self.config.database_query_batch_size,
         )
+        return urns
+
+    def get_aspects(self) -> Iterable[MetadataChangeProposalWrapper]:
+        urns = self.get_urns()
         tasks: List[futures.Future[Iterable[MetadataChangeProposalWrapper]]] = []
         with futures.ThreadPoolExecutor(
             max_workers=self.config.max_workers
@@ -43,6 +49,9 @@ class DataHubApiReader:
     def _get_aspects_for_urn(self, urn: str) -> Iterable[MetadataChangeProposalWrapper]:
         aspects: Dict[str, _Aspect] = self.graph.get_entity_semityped(urn)  # type: ignore
         for aspect in aspects.values():
+            if aspect.get_aspect_name().lower() in self.config.exclude_aspects:
+                continue
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=aspect,

@@ -7,6 +7,7 @@ import { SectionHeader, StyledDivider } from './components';
 import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
 import { UsageBar } from '../../utils/useUsageStatsRenderer';
 import { SchemaField } from '../../../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 const USAGE_BAR_MAX_WIDTH = 100;
 
@@ -49,9 +50,16 @@ export default function FieldUsageStats({ expandedField }: Props) {
             <SectionHeader>Usage</SectionHeader>
             <UsageBarWrapper>
                 <UsageBarBackground>
-                    <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
+                    <UsageBar
+                        width={Math.max(
+                            ((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH,
+                            4,
+                        )}
+                    />
                 </UsageBarBackground>
-                <UsageTextWrapper>{relevantUsageStats.count || 0} queries / month</UsageTextWrapper>
+                <UsageTextWrapper>
+                    {formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month
+                </UsageTextWrapper>
             </UsageBarWrapper>
             <StyledDivider />
         </>

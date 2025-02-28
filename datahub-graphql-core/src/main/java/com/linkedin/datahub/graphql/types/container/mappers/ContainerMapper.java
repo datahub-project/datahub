@@ -2,47 +2,61 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Access;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
 
 public class ContainerMapper {
 
   @Nullable
-  public static Container map(final EntityResponse entityResponse) {
+  public static Container map(
+      @Nullable final QueryContext context, final EntityResponse entityResponse) {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspects);
     result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());
@@ -54,7 +68,7 @@ public class ContainerMapper {
       final DataMap data = envelopedPlatformInstance.getValue().data();
       result.setPlatform(mapPlatform(new DataPlatformInstance(data)));
       result.setDataPlatformInstance(
-          DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(data)));
+          DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
     } else {
       final DataPlatform unknownPlatform = new DataPlatform();
       unknownPlatform.setUrn(UNKNOWN_DATA_PLATFORM);
@@ -81,20 +95,27 @@ public class ContainerMapper {
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
     if (envelopedOwnership != null) {
       result.setOwnership(
-          OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data()), entityUrn));
+          OwnershipMapper.map(
+              context, new Ownership(envelopedOwnership.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect envelopedTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     if (envelopedTags != null) {
       com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-          GlobalTagsMapper.map(new GlobalTags(envelopedTags.getValue().data()), entityUrn);
+          GlobalTagsMapper.map(context, new GlobalTags(envelopedTags.getValue().data()), entityUrn);
       result.setTags(globalTags);
     }
 
     final EnvelopedAspect envelopedTerms = aspects.get(Constants.GLOSSARY_TERMS_ASPECT_NAME);
     if (envelopedTerms != null) {
       result.setGlossaryTerms(
-          GlossaryTermsMapper.map(new GlossaryTerms(envelopedTerms.getValue().data()), entityUrn));
+          GlossaryTermsMapper.map(
+              context, new GlossaryTerms(envelopedTerms.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect accessAspect = aspects.get(ACCESS_ASPECT_NAME);
+    if (accessAspect != null) {
+      result.setAccess(AccessMapper.map(new Access(accessAspect.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect envelopedInstitutionalMemory =
@@ -102,17 +123,20 @@ public class ContainerMapper {
     if (envelopedInstitutionalMemory != null) {
       result.setInstitutionalMemory(
           InstitutionalMemoryMapper.map(
-              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
+              context,
+              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()),
+              entityUrn));
     }
 
     final EnvelopedAspect statusAspect = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (statusAspect != null) {
-      result.setStatus(StatusMapper.map(new Status(statusAspect.getValue().data())));
+      result.setStatus(StatusMapper.map(context, new Status(statusAspect.getValue().data())));
     }
 
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     if (envelopedSubTypes != null) {
-      result.setSubTypes(SubTypesMapper.map(new SubTypes(envelopedSubTypes.getValue().data())));
+      result.setSubTypes(
+          SubTypesMapper.map(context, new SubTypes(envelopedSubTypes.getValue().data())));
     }
 
     final EnvelopedAspect envelopedContainer = aspects.get(Constants.CONTAINER_ASPECT_NAME);
@@ -130,13 +154,46 @@ public class ContainerMapper {
     if (envelopedDomains != null) {
       final Domains domains = new Domains(envelopedDomains.getValue().data());
       // Currently we only take the first domain if it exists.
-      result.setDomain(DomainAssociationMapper.map(domains, entityUrn.toString()));
+      result.setDomain(DomainAssociationMapper.map(context, domains, entityUrn.toString()));
     }
 
     final EnvelopedAspect envelopedDeprecation = aspects.get(Constants.DEPRECATION_ASPECT_NAME);
     if (envelopedDeprecation != null) {
       result.setDeprecation(
-          DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
+          DeprecationMapper.map(context, new Deprecation(envelopedDeprecation.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (envelopedStructuredProps != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(
+              context,
+              new StructuredProperties(envelopedStructuredProps.getValue().data()),
+              entityUrn));
+    }
+
+    final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);
+    if (envelopedForms != null) {
+      result.setForms(
+          FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
+    }
+
+    final EnvelopedAspect envelopedBrowsePathsV2 = aspects.get(BROWSE_PATHS_V2_ASPECT_NAME);
+    if (envelopedBrowsePathsV2 != null) {
+      result.setBrowsePathV2(
+          BrowsePathsV2Mapper.map(
+              context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOrigin = aspects.get(ORIGIN_ASPECT_NAME);
+    if (envelopedOrigin != null) {
+      result.setAssetOrigin(
+          OriginMapper.map(context, new Origin(envelopedOrigin.getValue().data())));
     }
 
     return result;

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 
 import { ANTD_GRAY } from '../../../../../../constants';
 
@@ -42,7 +42,14 @@ type Props = {
 export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, onClick }: Props) => {
     return (
         <Tooltip title={tooltip} placement="left" showArrow={false}>
-            <Button disabled={disabled} onClick={onClick} style={style}>
+            <Button
+                disabled={disabled}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onClick();
+                }}
+                style={style}
+            >
                 {(icon && <Icon>{icon}</Icon>) || null}
                 {title}
             </Button>

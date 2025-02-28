@@ -1,6 +1,8 @@
 import React from 'react';
 import { FacetFilterInput, LineageDirection } from '../../../../../types.generated';
-import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
+import generateUseSearchResultsViaRelationshipHook, {
+    generateUseSearchResultsCountViaRelationshipHook,
+} from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
 import { EmbeddedListSearchEmbed } from '../../components/styled/search/EmbeddedListSearchEmbed';
 import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
@@ -20,6 +22,7 @@ type Props = {
     showFilterBar?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const ImpactAnalysis = ({
@@ -36,63 +39,48 @@ export const ImpactAnalysis = ({
     showFilterBar = true,
     setSkipCache,
     resetShouldRefetch,
+    setIsLoading,
 }: Props) => {
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;
+
+    const Component = type === 'default' ? EmbeddedListSearchSection : EmbeddedListSearchEmbed;
+
     return (
-        <>
-            {(type === 'default' && (
-                <EmbeddedListSearchSection
-                    useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
-                        urn,
-                        direction,
-                        startTimeMillis: finalStartTimeMillis,
-                        endTimeMillis: finalEndTimeMillis,
-                        skipCache,
-                        setSkipCache,
-                    })}
-                    useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
-                        urn,
-                        direction,
-                        startTimeMillis: finalStartTimeMillis,
-                        endTimeMillis: finalEndTimeMillis,
-                        skipCache,
-                        setSkipCache,
-                    })}
-                    defaultShowFilters={defaultShowFilters}
-                    fixedFilters={fixedFilters}
-                    defaultFilters={defaultFilters || [{ field: 'degree', values: ['1'] }]}
-                    shouldRefetch={shouldRefetch}
-                    resetShouldRefetch={resetShouldRefetch}
-                    placeholderText="Search related assets..."
-                />
-            )) || (
-                <EmbeddedListSearchEmbed
-                    useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
-                        urn,
-                        direction,
-                        startTimeMillis: finalStartTimeMillis,
-                        endTimeMillis: finalEndTimeMillis,
-                        skipCache,
-                        setSkipCache,
-                    })}
-                    useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
-                        urn,
-                        direction,
-                        startTimeMillis: finalStartTimeMillis,
-                        endTimeMillis: finalEndTimeMillis,
-                        skipCache,
-                        setSkipCache,
-                    })}
-                    defaultShowFilters={defaultShowFilters}
-                    fixedFilters={fixedFilters}
-                    defaultFilters={defaultFilters || [{ field: 'degree', values: ['1'] }]}
-                    shouldRefetch={shouldRefetch}
-                    resetShouldRefetch={resetShouldRefetch}
-                    placeholderText="Search related assets..."
-                    showFilterBar={showFilterBar}
-                />
-            )}
-        </>
+        <Component
+            useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+                setIsLoading,
+            })}
+            useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            useGetSearchCountResult={generateUseSearchResultsCountViaRelationshipHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            defaultShowFilters={defaultShowFilters}
+            fixedFilters={fixedFilters}
+            defaultFilters={defaultFilters || [{ field: 'degree', values: ['1'] }]}
+            shouldRefetch={shouldRefetch}
+            resetShouldRefetch={resetShouldRefetch}
+            placeholderText="Search related assets..."
+            showFilterBar={showFilterBar}
+            applyView
+        />
     );
 };

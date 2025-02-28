@@ -6,9 +6,10 @@ import {
     AssertionStdParameters,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { getIsRowCountChange, getParameterBuilderTitle, getPropertyFromVolumeType } from './utils';
+import { getParameterBuilderTitle } from './utils';
 import { VolumeRowCountTotalBuilder } from './VolumeRowCountTotalBuilder';
 import { VolumeRowCountChangeBuilder } from './VolumeRowCountChangeBuilder';
+import { getIsRowCountChange, getPropertyFromVolumeType } from '../../../../utils';
 
 const FormDiv = styled.div`
     margin: 16px 0 24px;

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.siblings;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -22,8 +23,6 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -38,11 +37,12 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +53,6 @@ import org.springframework.stereotype.Component;
 /** This hook associates dbt datasets with their sibling entities */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   RestliEntityClientFactory.class,
@@ -71,21 +70,30 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   public static final String SOURCE_SUBTYPE_V1 = "source";
   public static final String SOURCE_SUBTYPE_V2 = "Source";
 
-  private final EntityRegistry _entityRegistry;
-  private final SystemEntityClient _entityClient;
-  private final EntitySearchService _searchService;
-  private final boolean _isEnabled;
+  private final SystemEntityClient systemEntityClient;
+  private final EntitySearchService entitySearchService;
+  private final boolean isEnabled;
+  private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public SiblingAssociationHook(
-      @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled) {
-    _entityRegistry = entityRegistry;
-    _entityClient = entityClient;
-    _searchService = searchService;
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${siblings.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.systemEntityClient = systemEntityClient;
+    entitySearchService = searchService;
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public SiblingAssociationHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final EntitySearchService searchService,
+      @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, searchService, isEnabled, "");
   }
 
   @Value("${siblings.enabled:false}")
@@ -97,18 +105,24 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {}
+  public SiblingAssociationHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull MetadataChangeLog event) {
     if (enabled && isEligibleForProcessing(event)) {
 
-      log.info("Urn {} received by Sibling Hook.", event.getEntityUrn());
+      log.info(
+          "Urn {} with aspect {} received by Sibling Hook.",
+          event.getEntityUrn(),
+          event.getAspectName());
 
       final Urn urn = getUrnFromEvent(event);
 
@@ -135,14 +149,16 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
     Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
     final SearchResult searchResult =
-        _searchService.search(
+        entitySearchService.search(
+            systemOperationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(DATASET_ENTITY_NAME),
             "*",
             entitiesWithYouAsSiblingFilter,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+            10);
 
     // we have a match of an entity with you as a sibling, associate yourself back
     searchResult
@@ -265,7 +281,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
     try {
-      _entityClient.ingestProposal(dbtSiblingProposal, true);
+      systemEntityClient.ingestProposal(systemOperationContext, dbtSiblingProposal, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
@@ -290,7 +306,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             .filter(
                 urn -> {
                   try {
-                    return _entityClient.exists(urn);
+                    return systemEntityClient.exists(systemOperationContext, urn);
                   } catch (RemoteInvocationException e) {
                     log.error("Error while checking existence of {}: {}", urn, e.toString());
                     throw new RuntimeException("Error checking existence. Skipping processing.", e);
@@ -312,7 +328,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
     try {
-      _entityClient.ingestProposal(sourceSiblingProposal, true);
+      systemEntityClient.ingestProposal(systemOperationContext, sourceSiblingProposal, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
@@ -338,7 +354,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private Urn getUrnFromEvent(final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -359,7 +375,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
 
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -383,7 +399,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
 
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -410,10 +426,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion urnCriterion = new Criterion();
-    urnCriterion.setField("siblings.keyword");
-    urnCriterion.setValue(entityUrn.toString());
-    urnCriterion.setCondition(Condition.EQUAL);
+    final Criterion urnCriterion =
+        buildCriterion("siblings.keyword", Condition.EQUAL, entityUrn.toString());
+
     andCriterion.add(urnCriterion);
 
     conjunction.setAnd(andCriterion);
@@ -427,7 +442,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private SubTypes getSubtypesFromEntityClient(final Urn urn) {
     try {
       EntityResponse entityResponse =
-          _entityClient.getV2(urn, ImmutableSet.of(SUB_TYPES_ASPECT_NAME));
+          systemEntityClient.getV2(
+              systemOperationContext, urn, ImmutableSet.of(SUB_TYPES_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -445,7 +461,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private UpstreamLineage getUpstreamLineageFromEntityClient(final Urn urn) {
     try {
       EntityResponse entityResponse =
-          _entityClient.getV2(urn, ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME));
+          systemEntityClient.getV2(
+              systemOperationContext, urn, ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -467,7 +484,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private Siblings getSiblingsFromEntityClient(final Urn urn) {
     try {
       EntityResponse entityResponse =
-          _entityClient.getV2(urn, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+          systemEntityClient.getV2(
+              systemOperationContext, urn, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()

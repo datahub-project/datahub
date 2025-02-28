@@ -1,9 +1,10 @@
 import React from 'react';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
+import { Dropdown, message, Modal } from 'antd';
 import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
 import { useDeletePostMutation } from '../../../graphql/post.generated';
 import handleGraphQLError from '../../shared/handleGraphQLError';
+import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
 
 type Props = {
     urn: string;
@@ -50,20 +51,27 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         });
     };
 
+    const items = [
+        {
+            key: 'delete',
+            label: (
+                <MenuItemStyle onClick={onConfirmDelete}>
+                    <DeleteOutlined /> &nbsp;Delete
+                </MenuItemStyle>
+            ),
+        },
+        {
+            key: 'edit',
+            label: (
+                <MenuItemStyle onClick={onEdit}>
+                    <EditOutlined /> &nbsp;Edit
+                </MenuItemStyle>
+            ),
+        },
+    ];
+
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <Menu>
-                    <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
-                    </Menu.Item>
-                    <Menu.Item onClick={onEdit} key="edit">
-                        <EditOutlined /> &nbsp;Edit
-                    </Menu.Item>
-                </Menu>
-            }
-        >
+        <Dropdown trigger={['click']} menu={{ items }}>
             <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
         </Dropdown>
     );

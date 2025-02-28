@@ -1,0 +1,15 @@
+namespace com.linkedin.executorglobalconfig
+
+/**
+ * Global singleton storing configs for remote executor pools.
+ */
+@Aspect = {
+  "name": "dataHubRemoteExecutorPoolGlobalConfig"
+}
+record RemoteExecutorPoolGlobalConfig {
+    /**
+     * The default pool to use for tasks that require remote executors.
+     * References 'id' in com.linkedin.metadata.key.RemoteExecutorPoolKey
+     */
+    defaultExecutorPoolId: string
+}

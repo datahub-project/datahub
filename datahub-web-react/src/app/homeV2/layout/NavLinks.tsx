@@ -3,10 +3,9 @@ import styled from 'styled-components';
 import { NavLinksMenu } from './NavLinksMenu';
 
 const Container = styled.div`
-    border-radius: 40px;
-    background-color: rgba(255, 255, 255, 0.2);
-    padding-top: 20px;
-    padding-bottom: 20px;
+    border-radius: 47px;
+    background-color: #7262d9;
+    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
 `;
 
 export const NavLinks = () => {

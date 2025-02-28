@@ -15,6 +15,7 @@ export const ENTITY_PROFILE_TAGS_ID = 'entity-profile-tags';
 export const ENTITY_PROFILE_GLOSSARY_TERMS_ID = 'entity-profile-glossary-terms';
 export const ENTITY_PROFILE_DOMAINS_ID = 'entity-profile-domains';
 export const ENTITY_PROFILE_SUBSCRIPTION_ID = 'entity-profile-subscriptions';
+export const ENTITY_PROFILE_V2_SIDEBAR_ID = 'entity-profile-v2-sidebar';
 
 export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
@@ -64,18 +65,22 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_LINEAGE_ID,
         selector: `[id^='rc-tabs'][id$='Lineage']`,
-        title: 'Lineage Tab',
+        title: 'Lineage 🕸️',
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can view an entity&apos;s <strong>Lineage</strong> on this tab.
+                    Visualize an asset&apos;s <strong>Lineage</strong> and analyze <strong>Impact</strong>.
                 </p>
                 <p>
                     Data <strong>Lineage</strong> allows you to visualize and understand both the upstream dependencies
                     and downstream consumers of this entity.
                 </p>
                 <p>
-                    If this tab is disabled, <strong>Lineage</strong> have not been ingested for this entity.
+                    <strong>Impact Analysis</strong> allows you to understand the impact of changes to this asset (and
+                    its fields) on downstream and upstream assets.
+                </p>
+                <p>
+                    If this tab is disabled, <strong>Lineage</strong> has not been detected for this entity.
                 </p>
             </Typography.Paragraph>
         ),
@@ -194,6 +199,20 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
             <Typography.Paragraph>
                 You can now subscribe yourself or your group to data entities to stay up-to-date with important changes
                 such as failed assertions, schema changes, documentation updates, and more.
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: ENTITY_PROFILE_V2_SIDEBAR_ID,
+        selector: `#${ENTITY_PROFILE_V2_SIDEBAR_ID}`,
+        title: 'Introducing the Asset Sidebar',
+        content: (
+            <Typography.Paragraph>
+                <p>
+                    The asset sidebar is a vertically organized set of important information about an asset. It shows up
+                    on the right side of the screen when you view an asset, a search result, a lineage entry and a host
+                    of other places.
+                </p>
             </Typography.Paragraph>
         ),
     },

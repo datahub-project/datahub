@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 
-import { DescriptionBuilder } from '../steps/sql/DescriptionBuilder';
+import { DescriptionBuilder } from './DescriptionBuilder';
 
 const Container = styled.div`
     display: flex;
@@ -32,7 +32,7 @@ const StyledDivider = styled(Divider)`
 type Props = {
     description?: string;
     action?: React.ReactNode;
-    editing?: boolean;
+    descriptionDisabled?: boolean;
     showDivider: boolean;
     onChangeDescription: (newValue: string) => void;
 };
@@ -44,7 +44,7 @@ export const AssertionSettingsHeader = ({
     description,
     showDivider,
     action,
-    editing = false,
+    descriptionDisabled,
     onChangeDescription,
 }: Props) => {
     return (
@@ -52,7 +52,11 @@ export const AssertionSettingsHeader = ({
             <Container>
                 <LeftColumn>
                     <DescriptionWrapper>
-                        <DescriptionBuilder value={description} onChange={onChangeDescription} disabled={!editing} />
+                        <DescriptionBuilder
+                            value={description}
+                            onChange={onChangeDescription}
+                            disabled={!!descriptionDisabled}
+                        />
                     </DescriptionWrapper>
                 </LeftColumn>
                 <RightColumn>{action}</RightColumn>

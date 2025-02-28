@@ -1,6 +1,6 @@
 import { Key, useMemo } from 'react';
 import { useDrawerDispatch } from './context';
-import { ActionTypes, ChannelSelection, InitializeActionPayload } from './types';
+import { ActionTypes, ChannelSelection, InitializeActionPayload, SlackState } from './types';
 
 const useDrawerActions = () => {
     const dispatch = useDrawerDispatch();
@@ -16,14 +16,32 @@ const useDrawerActions = () => {
             setSlackEnabled: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SLACK_ENABLED, payload });
             },
-            setChannelSelection: (payload: ChannelSelection) => {
-                dispatch({ type: ActionTypes.SET_CHANNEL_SELECTION, payload });
+            setSlackChannelSelection: (payload: ChannelSelection) => {
+                dispatch({ type: ActionTypes.SET_SLACK_CHANNEL_SELECTION, payload });
             },
-            setSubscriptionChannel: (payload: string) => {
-                dispatch({ type: ActionTypes.SET_SUBSCRIPTION_CHANNEL, payload });
+            setSlackSubscriptionChannel: (payload: string) => {
+                dispatch({ type: ActionTypes.SET_SLACK_SUBSCRIPTION_CHANNEL, payload });
             },
-            setSaveAsDefault: (payload: boolean) => {
-                dispatch({ type: ActionTypes.SET_SAVE_AS_DEFAULT, payload });
+            setSlackSaveAsDefault: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_SLACK_SAVE_AS_DEFAULT, payload });
+            },
+            setWholeSlackObject: (payload: SlackState) => {
+                dispatch({ type: ActionTypes.SET_SLACK_OBJECT, payload });
+            },
+            setEmailEnabled: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_ENABLED, payload });
+            },
+            setEmailChannelSelection: (payload: ChannelSelection) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_CHANNEL_SELECTION, payload });
+            },
+            setEmailSubscriptionChannel: (payload: string) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_SUBSCRIPTION_CHANNEL, payload });
+            },
+            setEmailSaveAsDefault: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT, payload });
+            },
+            setWholeEmailObject: (payload: SlackState) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_OBJECT, payload });
             },
             setSubscribeToUpstream: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM, payload });
@@ -33,6 +51,9 @@ const useDrawerActions = () => {
             },
             setExpandedNotificationTypes: (payload: Array<Key>) => {
                 dispatch({ type: ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES, payload });
+            },
+            setNotificationTypesWithFiltersCleared: (payload: Array<Key>) => {
+                dispatch({ type: ActionTypes.SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED, payload });
             },
         }),
         [dispatch],

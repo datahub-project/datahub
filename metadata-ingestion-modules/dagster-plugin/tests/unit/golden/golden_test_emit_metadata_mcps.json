@@ -1,0 +1,658 @@
+[
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "etl",
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "etl",
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0fa780ff92120ac3bf49d0bc070bbda2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "job_snapshot_id": "28d03bf7b3138bea153a21f70f29e7c3ffa6ab0a",
+          "execution_plan_snapshot_id": "0f504b218cd28750ffa8d90a40e9647acba72021",
+          "has_repository_load_data": "False",
+          "tags": "{}",
+          "steps_succeeded": "2",
+          "steps_failed": "0",
+          "materializations": "0",
+          "expectations": "0",
+          "start_time": "1720681200.0",
+          "end_time": "1720681200.0"
+        },
+        "name": "12345678123456781234567812345678",
+        "type": "BATCH_SCHEDULED",
+        "created": {
+          "time": 1720681200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0fa780ff92120ac3bf49d0bc070bbda2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "json": {
+        "parentTemplate": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+        "upstreamInstances": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0fa780ff92120ac3bf49d0bc070bbda2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "STARTED"
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0fa780ff92120ac3bf49d0bc070bbda2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "COMPLETE",
+        "result": {
+          "type": "SUCCESS",
+          "nativeResultType": "dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "output_result": "{}"
+        },
+        "name": "extract",
+        "type": {
+          "string": "COMMAND"
+        },
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [],
+        "outputDatasets": [],
+        "inputDatajobs": [],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "output_result": "{}"
+        },
+        "name": "extract",
+        "type": {
+          "string": "COMMAND"
+        },
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [],
+        "outputDatasets": [],
+        "inputDatajobs": [],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e047f916b20c89e1874518890d6ff7e",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "step_key": "extract",
+          "attempts": "1",
+          "start_time": "1720681200.0",
+          "end_time": "1720681200.0"
+        },
+        "name": "12345678123456781234567812345678.prod/extract",
+        "type": "BATCH_SCHEDULED",
+        "created": {
+          "time": 1720681200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e047f916b20c89e1874518890d6ff7e",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "json": {
+        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+        "upstreamInstances": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e047f916b20c89e1874518890d6ff7e",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "STARTED"
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e047f916b20c89e1874518890d6ff7e",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "COMPLETE",
+        "result": {
+          "type": "SUCCESS",
+          "nativeResultType": "dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "input.data": "{}",
+          "output_result": "{}"
+        },
+        "name": "transform",
+        "type": {
+          "string": "COMMAND"
+        },
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
+        ],
+        "outputDatasets": [],
+        "inputDatajobs": [],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake",
+        "name": "tableA",
+        "origin": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "input.data": "{}",
+          "output_result": "{}"
+        },
+        "name": "transform",
+        "type": {
+          "string": "COMMAND"
+        },
+        "env": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
+        ],
+        "outputDatasets": [],
+        "inputDatajobs": [],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake",
+        "name": "tableA",
+        "origin": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:dagster"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6d553b12b2e5bf4cff8dc527e12e7116",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "step_key": "transform",
+          "attempts": "1",
+          "start_time": "1720681200.0",
+          "end_time": "1720681200.0"
+        },
+        "name": "12345678123456781234567812345678.prod/transform",
+        "type": "BATCH_SCHEDULED",
+        "created": {
+          "time": 1720681200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6d553b12b2e5bf4cff8dc527e12e7116",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "json": {
+        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+        "upstreamInstances": []
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6d553b12b2e5bf4cff8dc527e12e7116",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+      "json": {
+        "inputs": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake",
+        "name": "tableA",
+        "origin": "PROD"
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6d553b12b2e5bf4cff8dc527e12e7116",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "STARTED"
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6d553b12b2e5bf4cff8dc527e12e7116",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1720681200000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "COMPLETE",
+        "result": {
+          "type": "SUCCESS",
+          "nativeResultType": "dagster"
+        }
+      }
+    }
+  }
+]

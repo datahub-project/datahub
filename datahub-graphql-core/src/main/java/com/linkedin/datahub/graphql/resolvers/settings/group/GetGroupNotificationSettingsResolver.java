@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.settings.group;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,7 +26,7 @@ public class GetGroupNotificationSettingsResolver
   public CompletableFuture<NotificationSettings> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
+
     final GetGroupNotificationSettingsInput input =
         bindArgument(environment.getArgument("input"), GetGroupNotificationSettingsInput.class);
     final String groupUrnString = input.getGroupUrn();
@@ -37,12 +36,12 @@ public class GetGroupNotificationSettingsResolver
           try {
             final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
             final CorpGroupSettings groupSettings =
-                _settingsService.getCorpGroupSettings(groupUrn, authentication);
+                _settingsService.getCorpGroupSettings(context.getOperationContext(), groupUrn);
             if (groupSettings == null || !groupSettings.hasNotificationSettings()) {
               return null;
             }
 
-            return NotificationSettingsMapper.map(groupSettings.getNotificationSettings());
+            return NotificationSettingsMapper.map(context, groupSettings.getNotificationSettings());
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to get notification settings for group %s", groupUrnString),

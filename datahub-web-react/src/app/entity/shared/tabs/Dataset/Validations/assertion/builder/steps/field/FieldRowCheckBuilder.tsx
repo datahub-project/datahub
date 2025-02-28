@@ -1,7 +1,8 @@
 import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import { Radio, RadioChangeEvent, Tooltip } from 'antd';
+import { Radio, RadioChangeEvent } from 'antd';
+import { Tooltip } from '@components';
 import { AssertionMonitorBuilderState } from '../../types';
 import { DatasetFieldAssertionSourceType } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
@@ -21,10 +22,10 @@ const RadioGroup = styled(Radio.Group)`
 `;
 
 const RadioContainer = styled.div`
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${ANTD_GRAY[1]};
     border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 8px;
-    padding: 8px 16px;
+    border-radius: 12px;
+    padding: 16px 16px;
     display: flex;
     align-items: center;
 `;

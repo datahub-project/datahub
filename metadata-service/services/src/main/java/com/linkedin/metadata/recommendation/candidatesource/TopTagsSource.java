@@ -4,11 +4,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.RecommendationModuleKey;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TopTagsSource extends EntitySearchAggregationSource
     implements RecommendationSourceWithOffline {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final boolean _fetchOffline;
 
   private static final String TAGS = "tags";
@@ -30,8 +32,9 @@ public class TopTagsSource extends EntitySearchAggregationSource
   public TopTagsSource(
       EntitySearchService entitySearchService,
       EntityService<?> entityService,
+      EntityRegistry entityRegistry,
       boolean fetchOffline) {
-    super(entitySearchService, entityService.getEntityRegistry());
+    super(entitySearchService, entityRegistry);
     _entityService = entityService;
     _fetchOffline = fetchOffline;
   }
@@ -53,7 +56,7 @@ public class TopTagsSource extends EntitySearchAggregationSource
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME
         || requestContext.getScenario() == ScenarioType.SEARCH_RESULTS;
   }
@@ -74,7 +77,7 @@ public class TopTagsSource extends EntitySearchAggregationSource
   }
 
   @Override
-  public EntityService getEntityService() {
+  public EntityService<?> getEntityService() {
     return _entityService;
   }
 
@@ -85,7 +88,7 @@ public class TopTagsSource extends EntitySearchAggregationSource
 
   @Override
   public Urn getRecommendationModuleUrn(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return MODULE_URN;
   }
 }

@@ -1,14 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
@@ -36,8 +38,10 @@ import com.linkedin.query.QueryStatement;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
+import com.linkedin.util.Pair;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Optional;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -87,6 +91,7 @@ public class CreateQueryResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .createQuery(
+            any(),
             Mockito.eq(TEST_INPUT.getProperties().getName()),
             Mockito.eq(TEST_INPUT.getProperties().getDescription()),
             Mockito.eq(QuerySource.MANUAL),
@@ -97,7 +102,6 @@ public class CreateQueryResolverTest {
                         com.linkedin.query.QueryLanguage.valueOf(
                             TEST_INPUT.getProperties().getStatement().getLanguage().toString()))),
             Mockito.eq(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -115,8 +119,7 @@ public class CreateQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -126,12 +129,12 @@ public class CreateQueryResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createQuery(
+            any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
 
     CreateQueryResolver resolver = new CreateQueryResolver(mockService);
@@ -149,6 +152,7 @@ public class CreateQueryResolverTest {
     QueryService service = Mockito.mock(QueryService.class);
     Mockito.when(
             service.createQuery(
+                any(),
                 Mockito.eq(TEST_INPUT.getProperties().getName()),
                 Mockito.eq(TEST_INPUT.getProperties().getDescription()),
                 Mockito.eq(QuerySource.MANUAL),
@@ -163,7 +167,6 @@ public class CreateQueryResolverTest {
                                     .getLanguage()
                                     .toString()))),
                 Mockito.eq(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))),
-                Mockito.any(Authentication.class),
                 Mockito.anyLong()))
         .thenReturn(TEST_QUERY_URN);
 
@@ -187,9 +190,7 @@ public class CreateQueryResolverTest {
                 new QuerySubjectArray(
                     ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))));
 
-    Mockito.when(
-            service.getQueryEntityResponse(
-                Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(service.getQueryEntityResponse(any(), Mockito.eq(TEST_QUERY_URN)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_QUERY_URN)
@@ -215,22 +216,7 @@ public class CreateQueryResolverTest {
   private QueryContext getMockQueryContext(boolean allowEditEntityQueries) {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
-
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-
-    AuthorizationRequest editQueriesRequest =
-        new AuthorizationRequest(
-            TEST_ACTOR_URN.toString(),
-            PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-            Optional.of(
-                new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())));
-
-    AuthorizationRequest editAllRequest =
-        new AuthorizationRequest(
-            TEST_ACTOR_URN.toString(),
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
-            Optional.of(
-                new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     AuthorizationResult editQueriesResult = Mockito.mock(AuthorizationResult.class);
     Mockito.when(editQueriesResult.getType())
@@ -238,8 +224,6 @@ public class CreateQueryResolverTest {
             allowEditEntityQueries
                 ? AuthorizationResult.Type.ALLOW
                 : AuthorizationResult.Type.DENY);
-    Mockito.when(mockAuthorizer.authorize(Mockito.eq(editQueriesRequest)))
-        .thenReturn(editQueriesResult);
 
     AuthorizationResult editAllResult = Mockito.mock(AuthorizationResult.class);
     Mockito.when(editAllResult.getType())
@@ -247,9 +231,25 @@ public class CreateQueryResolverTest {
             allowEditEntityQueries
                 ? AuthorizationResult.Type.ALLOW
                 : AuthorizationResult.Type.DENY);
-    Mockito.when(mockAuthorizer.authorize(Mockito.eq(editAllRequest))).thenReturn(editAllResult);
 
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    Map<Pair<String, EntitySpec>, AuthorizationResult> responses =
+        Map.of(
+            Pair.of(
+                    PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
+                    new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
+                editQueriesResult,
+            Pair.of(
+                    PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+                    new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
+                editAllResult);
+
+    when(mockContext.getOperationContext().authorize(any(), any()))
+        .thenAnswer(
+            args ->
+                responses.getOrDefault(
+                    Pair.of(args.getArgument(0), args.getArgument(1)),
+                    new AuthorizationResult(null, AuthorizationResult.Type.DENY, "")));
+
     Mockito.when(mockContext.getAuthentication())
         .thenReturn(new Authentication(new Actor(ActorType.USER, TEST_ACTOR_URN.getId()), "creds"));
     return mockContext;

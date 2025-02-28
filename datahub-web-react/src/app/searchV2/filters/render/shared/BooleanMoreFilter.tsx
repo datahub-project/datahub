@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { RightOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
-import { MoreFilterOptionLabel } from '../../styledComponents';
-import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
+import React, { useRef, useState } from 'react';
+import styled from 'styled-components';
 import FilterOption from '../../FilterOption';
+import { MoreFilterOptionLabel } from '../../styledComponents';
+import { useElementDimensions } from '../../utils';
+import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
 
 const IconNameWrapper = styled.span`
     display: flex;
@@ -27,6 +28,8 @@ interface Props {
 export default function BooleanMoreFilter({ icon, title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
+    const labelRef = useRef<HTMLDivElement>(null);
+    const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
 
     function updateSelected() {
         onUpdate(isSelected);
@@ -56,14 +59,23 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
             open={isMenuOpen}
             onOpenChange={(open) => setIsMenuOpen(open)}
             dropdownRender={(menuOption) => (
-                <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} alignRight />
+                <BooleanSearchFilterMenu
+                    menuOption={menuOption}
+                    onUpdate={updateSelected}
+                    style={{
+                        position: 'absolute',
+                        top: -height,
+                        [isElementOutsideWindow ? 'right' : 'left']: width,
+                    }}
+                />
             )}
         >
             <MoreFilterOptionLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 isOpen={isMenuOpen}
-                isActive={isSelected}
-                data-testid={`more-filter-${title}`}
+                $isActive={isSelected}
+                data-testid={`more-filter-${title.replace(/\s/g, '-')}`}
+                ref={labelRef}
             >
                 <IconNameWrapper>
                     {icon && <IconWrapper>{icon}</IconWrapper>}

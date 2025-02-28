@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.monitor.MonitorMode;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -51,6 +53,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
             environment.getArgument("input"), UpsertDatasetFreshnessAssertionMonitorInput.class);
 
     final Urn entityUrn, monitorUrn, assertionUrn;
+    final AssertionSource assertionSource;
 
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
@@ -58,16 +61,22 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
       if (input.getEntityUrn() == null) {
         throw new IllegalArgumentException("Failed to create Assertion. entityUrn is required.");
       }
-      entityUrn = UrnUtils.getUrn(input.getEntityUrn());
       assertionUrn = _assertionService.generateAssertionUrn();
+      assertionSource = null;
+      entityUrn = UrnUtils.getUrn(input.getEntityUrn());
       log.debug(String.format("Creating assertion with urn %s ...", assertionUrn));
+
       monitorUrn = _monitorService.generateMonitorUrn(entityUrn);
     } else {
       // Update Assertion - only assertionUrn is known. Extract entityUrn and monitorUrn using
       // assertionUrn.
       log.debug(String.format("Updating assertion with urn %s ...", maybeAssertionUrn));
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
-      entityUrn = getEntityUrnForFreshnessAssertion(assertionUrn, input);
+      AssertionInfo info =
+          getAssertionInfoForFreshnessAssertion(context.getOperationContext(), assertionUrn);
+      assertionSource = info.getSource();
+      entityUrn = getEntityUrnForFreshnessAssertion(assertionUrn, info, input);
+
       monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
@@ -79,6 +88,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
               && isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
             // First upsert the assertion.
             _assertionService.upsertDatasetFreshnessAssertion(
+                context.getOperationContext(),
                 assertionUrn,
                 entityUrn,
                 input.getDescription(),
@@ -89,26 +99,26 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                context.getAuthentication());
+                assertionSource);
 
             // Then, upsert the monitor
             try {
               _monitorService.upsertAssertionMonitor(
+                  context.getOperationContext(),
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
                   createCronSchedule(input.getEvaluationSchedule()),
                   createFreshnessAssertionEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
-                  input.getExecutorId(),
-                  context.getAuthentication());
+                  input.getExecutorId());
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {
                 log.info(
                     String.format(
                         "Deleting partially created native assertion with urn %s ", assertionUrn));
-                _assertionService.tryDeleteAssertion(assertionUrn, context.getAuthentication());
+                _assertionService.tryDeleteAssertion(context.getOperationContext(), assertionUrn);
               }
               throw new DataHubGraphQLException(
                   String.format(
@@ -119,18 +129,18 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
         });
   }
 
-  private Urn getEntityUrnForFreshnessAssertion(
-      Urn assertionUrn, UpsertDatasetFreshnessAssertionMonitorInput input) {
-    final Urn entityUrn;
-    final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
+  private AssertionInfo getAssertionInfoForFreshnessAssertion(
+      @Nonnull OperationContext opContext, Urn assertionUrn) {
+    final AssertionInfo info = _assertionService.getAssertionInfo(opContext, assertionUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format(
@@ -142,6 +152,12 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
               "Failed to update Assertion. Assertion with urn %s is not a freshness assertion.",
               assertionUrn));
     }
+    return info;
+  }
+
+  private Urn getEntityUrnForFreshnessAssertion(
+      Urn assertionUrn, AssertionInfo info, UpsertDatasetFreshnessAssertionMonitorInput input) {
+    final Urn entityUrn;
     entityUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
     if (input.getEntityUrn() != null && !input.getEntityUrn().equals(entityUrn.toString())) {
       throw new IllegalArgumentException(

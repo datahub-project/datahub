@@ -1,6 +1,6 @@
 import datetime
 from pathlib import Path
-from typing import Any, TypeVar, Union
+from typing import Any, Union
 
 import pytest
 from mlflow import MlflowClient
@@ -10,8 +10,6 @@ from mlflow.store.entities import PagedList
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mlflow import MLflowConfig, MLflowSource
-
-T = TypeVar("T")
 
 
 @pytest.fixture
@@ -46,7 +44,7 @@ def model_version(
     )
 
 
-def dummy_search_func(page_token: Union[None, str], **kwargs: Any) -> PagedList[T]:
+def dummy_search_func(page_token: Union[None, str], **kwargs: Any) -> PagedList[str]:
     dummy_pages = dict(
         page_1=PagedList(items=["a", "b"], token="page_2"),
         page_2=PagedList(items=["c", "d"], token="page_3"),
@@ -72,7 +70,7 @@ def test_stages(source):
         None,
     }
     workunits = source._get_tags_workunits()
-    names = [wu.get_metadata()["metadata"].aspect.name for wu in workunits]
+    names = [wu.metadata.aspect.name for wu in workunits]
 
     assert len(names) == len(mlflow_registered_model_stages)
     assert set(names) == {
@@ -100,7 +98,7 @@ def test_model_without_run(source, registered_model, model_version):
         model_version=model_version,
         run=run,
     )
-    aspect = wu.get_metadata()["metadata"].aspect
+    aspect = wu.metadata.aspect
 
     assert aspect.hyperParams is None
     assert aspect.trainingMetrics is None
@@ -134,6 +132,19 @@ def test_make_external_link_remote(source, model_version):
     tracking_uri_remote = "https://dummy-mlflow-tracking-server.org"
     source.client = MlflowClient(tracking_uri=tracking_uri_remote)
     expected_url = f"{tracking_uri_remote}/#/models/{model_version.name}/versions/{model_version.version}"
+
+    url = source._make_external_url(model_version)
+
+    assert url == expected_url
+
+
+def test_make_external_link_remote_via_config(source, model_version):
+    custom_base_url = "https://custom-server.org"
+    source.config.base_external_url = custom_base_url
+    source.client = MlflowClient(
+        tracking_uri="https://dummy-mlflow-tracking-server.org"
+    )
+    expected_url = f"{custom_base_url}/#/models/{model_version.name}/versions/{model_version.version}"
 
     url = source._make_external_url(model_version)
 

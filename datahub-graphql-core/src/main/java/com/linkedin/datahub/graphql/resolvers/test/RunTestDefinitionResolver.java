@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.RunTestDefinitionResult;
 import com.linkedin.datahub.graphql.generated.RunTestDefinitionStatus;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
@@ -28,6 +29,7 @@ public class RunTestDefinitionResolver
   @Override
   public CompletableFuture<RunTestDefinitionResult> get(final DataFetchingEnvironment environment)
       throws Exception {
+    final QueryContext context = environment.getContext();
     final String urnStr = environment.getArgument("urn");
     final Urn urn = UrnUtils.getUrn(urnStr);
     final TestDefinitionInput test =
@@ -39,6 +41,7 @@ public class RunTestDefinitionResolver
           final TestResults testResults =
               _testEngine
                   .evaluateTests(
+                      context.getOperationContext(),
                       Set.of(urn),
                       ImmutableSet.of(parsedDefinition),
                       TestEngine.EvaluationMode.EVALUATE_ONLY)

@@ -25,10 +25,18 @@ import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBr
 import useFilterMode from './filters/useFilterMode';
 import { useSelectedSortOption } from '../search/context/SearchContext';
 import { useUpdateEducationStepsAllowList } from '../onboarding/useUpdateEducationStepsAllowList';
+import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../onboarding/config/EntityProfileOnboardingConfig';
+import {
+    ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
+} from '../onboarding/configV2/EntityProfileOnboardingConfig';
 
 const Container = styled.span`
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: auto;
 `;
 
@@ -41,7 +49,7 @@ export const SearchPage = () => {
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
     const history = useHistory();
-    const { query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput } = useGetSearchQueryInputs();
+    const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
     const { filterModeRef } = useFilterMode(filters, unionType);
     const selectedSortOption = useSelectedSortOption();
 
@@ -65,7 +73,7 @@ export const SearchPage = () => {
                 orFilters,
                 viewUrn,
                 sortInput,
-                searchFlags: { getSuggestions: true },
+                searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
             },
         },
         fetchPolicy: 'cache-and-network',
@@ -105,7 +113,6 @@ export const SearchPage = () => {
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: 1,
@@ -122,7 +129,6 @@ export const SearchPage = () => {
 
     const onChangeUnionType = (newUnionType: UnionType) => {
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: 1,
@@ -135,7 +141,6 @@ export const SearchPage = () => {
     const onChangePage = (newPage: number) => {
         scrollToTop();
         navigateToSearchUrl({
-            type: activeType,
             query,
             selectedSortOption,
             page: newPage,
@@ -186,8 +191,7 @@ export const SearchPage = () => {
             total,
             entityTypes,
             filterFields,
-            filterCount: filters.length,
-            // Only track changes to the filters, ignore toggling the mode by itself
+            filterCount: filters.length, // Only track changes to the filters, ignore toggling the mode by itself
             filterMode: filterModeRef.current,
             searchVersion,
         });
@@ -218,6 +222,11 @@ export const SearchPage = () => {
                         SEARCH_RESULTS_FILTERS_ID,
                         SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
                         SEARCH_RESULTS_FILTERS_V2_INTRO,
+                        ENTITY_PROFILE_V2_SIDEBAR_ID,
+                        ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+                        ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+                        ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+                        ENTITY_SIDEBAR_V2_PROPERTIES_ID,
                     ]}
                 />
             )}

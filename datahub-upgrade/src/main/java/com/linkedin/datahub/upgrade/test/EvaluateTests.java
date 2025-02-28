@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.test;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
@@ -9,23 +8,23 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 
 /** This upgrade evaluates tests for all entities */
 public class EvaluateTests implements Upgrade {
 
-  public static final String ELASTIC_TIMEOUT_ENV_NAME = "METADATA_TEST_ELASTIC_TIMEOUT";
-  public static final String EXECUTOR_POOL_SIZE = "EXECUTOR_POOL_SIZE";
-
   private final List<UpgradeStep> _steps;
+  private final OperationContext systemOpContext;
 
   public EvaluateTests(
+      final OperationContext systemOpContext,
       final SystemEntityClient entityClient,
       final EntitySearchService entitySearchService,
-      final TestEngine testEngine,
-      final Authentication systemAuthentication) {
-    _steps = buildSteps(entityClient, entitySearchService, testEngine, systemAuthentication);
+      final TestEngine testEngine) {
+    this.systemOpContext = systemOpContext;
+    _steps = buildSteps(entityClient, entitySearchService, testEngine);
   }
 
   @Override
@@ -41,11 +40,11 @@ public class EvaluateTests implements Upgrade {
   private List<UpgradeStep> buildSteps(
       final EntityClient entityClient,
       final EntitySearchService entitySearchService,
-      final TestEngine testEngine,
-      final Authentication systemAuthentication) {
+      final TestEngine testEngine) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(
-        new EvaluateTestsStep(entityClient, entitySearchService, testEngine, systemAuthentication));
+        new EvaluateTestsStep(systemOpContext, entityClient, entitySearchService, testEngine));
+    steps.add(new WaitForTestActionsStep(testEngine));
     return steps;
   }
 

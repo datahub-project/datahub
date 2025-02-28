@@ -3,6 +3,8 @@ plugins {
   id 'pegasus'
 }
 
+apply from: "../../gradle/coverage/java-coverage.gradle"
+
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')

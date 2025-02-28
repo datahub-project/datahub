@@ -1,0 +1,47 @@
+namespace com.linkedin.common
+
+import com.linkedin.structured.PrimitivePropertyValue
+
+/**
+ * A record of what was actually submitted when a user responds to a form prompt
+ */
+record FormPromptResponse {
+    /**
+     * Response for a structured property type prompt
+     */
+    structuredPropertyResponse: optional record StructuredPropertyPromptResponse {
+        /**
+        * Which property was applied from this prompt response
+        */
+        propertyUrn: Urn
+        /**
+        * Which values for the given property were applied from this prompt response
+        */
+        values: array[PrimitivePropertyValue]
+    }
+
+    /**
+     * Response for an ownership type prompt
+     */
+    ownershipResponse: optional OwnershipPromptResponse
+
+    /**
+     * Response for a documentation type prompt
+     */
+    documentationResponse: optional record DocumentationPromptResponse {
+        /**
+        * The documentation provided for this specific response
+        */
+        documentation: string
+    }
+
+    /**
+     * Response for a glossary terms type prompt
+     */
+    glossaryTermsResponse: optional GlossaryTermsPromptResponse
+
+    /**
+     * Response for a domain type prompt
+     */
+    domainResponse: optional DomainPromptResponse
+}

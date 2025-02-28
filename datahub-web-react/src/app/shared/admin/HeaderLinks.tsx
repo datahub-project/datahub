@@ -1,33 +1,44 @@
-import styled from 'styled-components/macro';
-import * as React from 'react';
 import {
     ApiOutlined,
     BarChartOutlined,
-    InboxOutlined,
-    BookOutlined,
-    SettingOutlined,
-    FileDoneOutlined,
-    SolutionOutlined,
+    DatabaseOutlined,
     DownOutlined,
     EyeOutlined,
-    DatabaseOutlined,
+    FileDoneOutlined,
+    FormOutlined,
+    GlobalOutlined,
+    InboxOutlined,
+    SettingOutlined,
+    SolutionOutlined,
+    UnorderedListOutlined,
 } from '@ant-design/icons';
+import { Button, Dropdown, Menu } from 'antd';
+import { Tooltip } from '@components';
+import { BookBookmark } from '@phosphor-icons/react';
+import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig } from '../../useAppConfig';
+import styled from 'styled-components/macro';
+import { PageRoutes } from '../../../conf/Global';
+import { useUserContext } from '../../context/useUserContext';
+import DomainIcon from '../../domain/DomainIcon';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
-import { useUserContext } from '../../context/useUserContext';
-import { PageRoutes } from '../../../conf/Global';
-import DomainIcon from '../../domain/DomainIcon';
+import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '../../useAppConfig';
 import HelpDropdown from './HelpDropdown';
+import { TaskCenterLink } from './TaskCenterLink';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
+
+    span {
+        padding: 0;
+    }
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    display: flex;
+    align-items: center;
     opacity: 1;
     white-space: nowrap;
     transition: opacity 0.5s;
@@ -53,8 +64,13 @@ const NavTitleContainer = styled.span`
     padding: 2px;
 `;
 
+const NavSubItemTitleContainer = styled(NavTitleContainer)`
+    line-height: 20px;
+`;
+
 const NavTitleText = styled.span`
     margin-left: 6px;
+    font-weight: bold;
 `;
 
 const NavTitleDescription = styled.div`
@@ -78,27 +94,171 @@ export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     // SaaS Only
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
-    const isTestsEnabled = config?.testsConfig.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;
     const showIngestion =
-        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
+        isIngestionEnabled && me && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     // SaaS only
-    const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests =
+        (!isDocumentationFormsEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) ||
+        false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
+
+    const items = [
+        {
+            key: 0,
+            label: (
+                <Link to="/glossary">
+                    <NavSubItemTitleContainer>
+                        <BookBookmark style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                        <NavTitleText>Glossary</NavTitleText>
+                    </NavSubItemTitleContainer>
+                    <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                </Link>
+            ),
+        },
+        {
+            key: 1,
+            label: (
+                <Link to="/domains">
+                    <NavSubItemTitleContainer>
+                        <DomainIcon
+                            style={{
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                            }}
+                        />
+                        <NavTitleText>Domains</NavTitleText>
+                    </NavSubItemTitleContainer>
+                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                </Link>
+            ),
+        },
+        ...(businessAttributesFlag
+            ? [
+                  {
+                      key: 2,
+                      label: (
+                          <Link to="/business-attribute">
+                              <NavSubItemTitleContainer>
+                                  <GlobalOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Business Attribute</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 5,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavSubItemTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showTests
+            ? [
+                  {
+                      key: 3,
+                      label: (
+                          <Link to="/tests">
+                              <NavSubItemTitleContainer>
+                                  <FileDoneOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Tests</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>
+                                  Monitor policies & automate actions across data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showDocumentationCenter
+            ? [
+                  {
+                      key: 4,
+                      label: (
+                          <Link to="/govern/dashboard">
+                              <NavSubItemTitleContainer>
+                                  <FormOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Compliance Forms</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>
+                                  Manage compliance initiatives for your data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 5,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavSubItemTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+    ];
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -125,49 +285,8 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <MenuItem key="0">
-                            <Link to="/glossary">
-                                <NavTitleContainer>
-                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        <MenuItem key="1">
-                            <Link to="/domains">
-                                <NavTitleContainer>
-                                    <DomainIcon
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Domains</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        {showTests && (
-                            <MenuItem key="2">
-                                <Link to="/tests">
-                                    <NavTitleContainer>
-                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Tests</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>
-                                        Monitor policies & automate actions across data assets
-                                    </NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                    </Menu>
-                }
-            >
+            {isDocumentationFormsEnabled && <TaskCenterLink />}
+            <Dropdown trigger={['click']} menu={{ items }}>
                 <LinkWrapper>
                     <Button type="text">
                         <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
@@ -182,10 +301,10 @@ export function HeaderLinks(props: Props) {
                             {showDatasetHealth && (
                                 <MenuItem key="1">
                                     <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
-                                        <NavTitleContainer>
+                                        <NavSubItemTitleContainer>
                                             <StyledDatabaseOutlined />
                                             <NavTitleText>Dataset Health</NavTitleText>
-                                        </NavTitleContainer>
+                                        </NavSubItemTitleContainer>
                                         <NavTitleDescription>
                                             Monitor active incidents & failing assertions across your
                                             organization&apos;s datasets

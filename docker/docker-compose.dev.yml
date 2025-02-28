@@ -8,32 +8,31 @@
 # To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
 # port to this file.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:head
     ports:
-      - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
-      - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+    - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
       args:
         APP_ENV: dev
     environment:
-      - SENTRY_ENVIRONMENT=dev
-        # copy DSN from here https://sentry.io/settings/acryl-data/projects/frontend/keys/ in case you wish to try this locally
-      - SENTRY_DSN=
-      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
-      - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
+    - SENTRY_ENVIRONMENT=dev
+      # copy DSN from here https://sentry.io/settings/acryl-data/projects/frontend/keys/ in case you wish to try this locally
+    - SENTRY_DSN=
+    - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
+    - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
     - ../datahub-frontend/build/stage/main:/datahub-frontend
     - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
   datahub-gms:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:debug
     ports:
-      - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
-      - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+    - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     build:
       context: datahub-gms
       dockerfile: Dockerfile
@@ -52,19 +51,33 @@ services:
     - SEARCH_SERVICE_ENABLE_CACHE=false
     - LINEAGE_SEARCH_CACHE_ENABLED=false
     - SHOW_BROWSE_V2=true
+    - ER_MODEL_RELATIONSHIP_FEATURE_ENABLED=false
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    - THEME_V2_ENABLED=${THEME_V2_ENABLED:-true}
+    - THEME_V2_TOGGLEABLE=${THEME_V2_TOGGLEABLE:-true}
+    - SHOW_NAV_BAR_REDESIGN=${SHOW_NAV_BAR_REDESIGN:-true}
+    - PLATFORM_BROWSE_V2=${PLATFORM_BROWSE_V2:-true}
     # Saas
-    - METADATA_TESTS_ENABLED=${METADATA_TESTS_ENABLED:-false}
+    - METADATA_TESTS_ENABLED=${METADATA_TESTS_ENABLED:-true}
     - ASSERTION_MONITORS_ENABLED=${ASSERTION_MONITORS_ENABLED:-true}
     - DATASET_HEALTH_DASHBOARD_ENABLED=${DATASET_HEALTH_DASHBOARD_ENABLED:-false}
     - DOCUMENTATION_AI_ENABLED=${DOCUMENTATION_AI_ENABLED:-false}
+    - FEATURE_DOCUMENTATION_FORMS_ENABLED=${FEATURE_DOCUMENTATION_FORMS_ENABLED:-true}
+    - SHOW_FORM_ANALYTICS=${SHOW_FORM_ANALYTICS:-true}
+    - METADATA_SHARE_ENABLED=${METADATA_SHARE_ENABLED:-true}
+    - FORM_CREATION_ENABLED=${FORM_CREATION_ENABLED:-true}
+    - SCHEMA_FIELD_CLL_ENABLED=${SCHEMA_FIELD_CLL_ENABLED:-true}
+    - SHOW_MANAGE_STRUCTURED_PROPERTIES=${SHOW_MANAGE_STRUCTURED_PROPERTIES:-true}
+    - SHOW_STATS_TAB_REDESIGN=${SHOW_STATS_TAB_REDESIGN:-true}
+    # Classification
+    - CLASSIFICATION_CONFIG_ENABLED=${CLASSIFICATION_CONFIG_ENABLED:-true}
+    - CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED=${CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED:-true}
     volumes:
-      - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-      - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
-      - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
-      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
-      - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
+    - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+    - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade:debug
     ports:
@@ -81,12 +94,12 @@ services:
     - REPROCESS_DEFAULT_BROWSE_PATHS_V2=${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003
     volumes:
-      - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
-      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
+    - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   # Pre-creates the search indices using local mapping/settings.json
   elasticsearch-setup:
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup:head
     build:
       context: elasticsearch-setup
       dockerfile: Dockerfile
@@ -96,5 +109,5 @@ services:
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
-      - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
+    - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
+    - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index

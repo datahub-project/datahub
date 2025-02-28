@@ -1,0 +1,42 @@
+namespace com.linkedin.common
+
+/**
+ * Captures the serialized value of a (usually) schema-d blob.
+ */
+record SerializedValue {
+    /**
+     * The serialized blob value.
+     */
+    blob: bytes
+
+    /**
+     * The content-type of the serialized blob value.
+     */
+    contentType: enum SerializedValueContentType {
+        JSON,
+        BINARY
+    } = "JSON"
+
+    /**
+     * The schema type for the schema that models the object that was serialized
+       into the blob.
+     * Absence of this field indicates that the schema is not known.
+     * If the schema is known, the value should be set to the appropriate schema
+     * type.
+     * Use the NONE value if the existing schema categories do not apply.
+     */
+    schemaType: optional enum SerializedValueSchemaType {
+        AVRO
+        PROTOBUF
+        PEGASUS
+        THRIFT
+        JSON
+        NONE
+    }
+
+    /**
+     * An optional reference to the schema that models the object.
+     * e.g., 'com.linkedin.platformresource.slack.SlackConversation'
+     */
+    schemaRef: optional string
+}

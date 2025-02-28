@@ -15,20 +15,22 @@ import {
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
 import { useUserContext } from '../context/useUserContext';
-import GlossaryStatsProvider from './GlossaryStatsProvider';
 import GlossaryContentProvider from './GlossaryContentProvider';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const GlossaryWrapper = styled.div`
+const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
-    max-height: inherit;
+    height: 100%;
     background-color: white;
-    border-radius: 8px;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']}`}
 `;
 
-const MainWrapper = styled.div`
+const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
-    margin-right: 16px;
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
 `;
 
 const BusinessGlossaryPage = () => {
@@ -51,10 +53,10 @@ const BusinessGlossaryPage = () => {
         setEntityData(null);
     }, [setEntityData]);
 
-    const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
+    const terms = termsData?.getRootGlossaryTerms?.terms?.sort((termA, termB) =>
         sortGlossaryTerms(entityRegistry, termA, termB),
     );
-    const nodes = nodesData?.getRootGlossaryNodes?.nodes.sort((nodeA, nodeB) =>
+    const nodes = nodesData?.getRootGlossaryNodes?.nodes?.sort((nodeA, nodeB) =>
         sortGlossaryNodes(entityRegistry, nodeA, nodeB),
     );
 
@@ -65,6 +67,7 @@ const BusinessGlossaryPage = () => {
 
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <>
@@ -75,17 +78,17 @@ const BusinessGlossaryPage = () => {
                     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
                 ]}
             />
-            <MainWrapper>
+            <MainWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {/* TODO: Once the api for getting the stats data is available, we need to change this condition accordingly */}
-                {termsData?.getRootGlossaryTerms?.total !== 0 && (
+                {/* {termsData?.getRootGlossaryTerms?.total !== 0 && (
                     <GlossaryStatsProvider
                         totalGlossaryTerms={200}
                         activeGlossaryTerms={90}
                         owners={10}
                         approvedGlossaryTerms={2}
                     />
-                )}
-                <GlossaryWrapper>
+                )} */}
+                <GlossaryWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {(termsLoading || nodesLoading) && (
                         <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
                     )}
@@ -94,11 +97,9 @@ const BusinessGlossaryPage = () => {
                     )}
                     <GlossaryContentProvider
                         setIsCreateNodeModalVisible={setIsCreateNodeModalVisible}
-                        setIsCreateTermModalVisible={setIsCreateTermModalVisible}
                         hasTermsOrNodes={hasTermsOrNodes}
                         nodes={nodes || []}
                         terms={terms || []}
-                        termsData={termsData}
                         termsLoading={termsLoading}
                         nodesLoading={nodesLoading}
                         refetchForNodes={refetchForNodes}
@@ -120,6 +121,7 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                    canSelectParentUrn={false}
                 />
             )}
         </>

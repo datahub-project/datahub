@@ -1,8 +1,0 @@
-namespace com.linkedin.common
-
-/**
- * A resource-defined string representing the resource state for the purpose of concurrency control
- */
-record VersionTag {
-  versionTag: optional string
-}

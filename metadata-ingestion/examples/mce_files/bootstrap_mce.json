@@ -3,52 +3,6 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-        "urn": "urn:li:corpuser:datahub",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-              "active": true,
-              "displayName": {
-                "string": "Data Hub"
-              },
-              "email": "datahub@linkedin.com",
-              "title": {
-                "string": "CEO"
-              },
-              "managerUrn": null,
-              "departmentId": null,
-              "departmentName": null,
-              "firstName": null,
-              "lastName": null,
-              "fullName": {
-                "string": "Data Hub"
-              },
-              "countryCode": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-              "status": "ACTIVE",
-              "lastModified": {
-                "time": 1674291843000,
-                "actor": "urn:li:corpuser:__datahub_system"
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
         "urn": "urn:li:corpuser:jdoe",
         "aspects": [
           {
@@ -91,10 +45,16 @@
           {
             "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
               "email": "jdoe@linkedin.com",
-              "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-              "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+              "admins": [
+                "urn:li:corpuser:jdoe",
+                "urn:li:corpuser:datahub"
+              ],
+              "members": [
+                "urn:li:corpuser:jdoe",
+                "urn:li:corpuser:datahub"
+              ],
               "groups": [],
-              "slack":  "bfoo-squad"
+              "slack": "bfoo-squad"
             }
           },
           {
@@ -116,9 +76,17 @@
           {
             "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
               "email": "bfoo@linkedin.com",
-              "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-              "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-              "groups": ["urn:li:corpGroup:jdoe"],
+              "admins": [
+                "urn:li:corpuser:jdoe",
+                "urn:li:corpuser:datahub"
+              ],
+              "members": [
+                "urn:li:corpuser:jdoe",
+                "urn:li:corpuser:datahub"
+              ],
+              "groups": [
+                "urn:li:corpGroup:jdoe"
+              ],
               "description": "This group is full of bfoos!"
             }
           },
@@ -140,7 +108,9 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/kafka/SampleKafkaDataset"]
+              "paths": [
+                "/prod/kafka/SampleKafkaDataset"
+              ]
             }
           },
           {
@@ -230,7 +200,11 @@
                   },
                   "nativeDataType": "varchar(100)",
                   "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:NeedsDocumentation"
+                      }
+                    ]
                   },
                   "recursive": false
                 },
@@ -292,7 +266,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/hdfs/SampleHdfsDataset"]
+              "paths": [
+                "/prod/hdfs/SampleHdfsDataset"
+              ]
             }
           },
           {
@@ -367,7 +343,13 @@
               "editableSchemaFieldInfo": [
                 {
                   "fieldPath": "shipment_info",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Legacy"
+                      }
+                    ]
+                  }
                 }
               ]
             }
@@ -648,7 +630,18 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Legacy" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Legacy"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Subtypes": {
+              "typeNames": [
+                "table"
+              ]
             }
           }
         ]
@@ -876,13 +869,19 @@
                   "type": "TRANSFORMED"
                 }
               ],
-              "fineGrainedLineages": [{
-                "upstreamType": "FIELD_SET",
-                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
-                "downstreamType": "FIELD",
-                "downstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
-                "confidenceScore": 1.0
-              }]
+              "fineGrainedLineages": [
+                {
+                  "upstreamType": "FIELD_SET",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"
+                  ],
+                  "downstreamType": "FIELD",
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"
+                  ],
+                  "confidenceScore": 1.0
+                }
+              ]
             }
           },
           {
@@ -931,7 +930,7 @@
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "Id of the user created"
+                    "string": ""
                   },
                   "type": {
                     "type": {
@@ -946,7 +945,7 @@
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "Name of the user who signed up"
+                    "string": ""
                   },
                   "type": {
                     "type": {
@@ -959,16 +958,18 @@
               ],
               "primaryKeys": null,
               "foreignKeysSpecs": null,
-              "foreignKeys": [{
-                "name": "user id",
-                "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
-                ],
-                "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
-                ],
-                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-              }]
+              "foreignKeys": [
+                {
+                  "name": "user id",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                }
+              ]
             }
           }
         ]
@@ -1174,18 +1175,22 @@
                   "recursive": false
                 }
               ],
-              "primaryKeys": ["user_name"],
+              "primaryKeys": [
+                "user_name"
+              ],
               "foreignKeysSpecs": null,
-              "foreignKeys": [{
-                "name": "user session",
-                "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
-                ],
-                "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
-                ],
-                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
-              }]
+              "foreignKeys": [
+                {
+                  "name": "user session",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+                }
+              ]
             }
           }
         ]
@@ -1374,7 +1379,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Legacy" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Legacy"
+                }
+              ]
             }
           }
         ]
@@ -1518,7 +1527,9 @@
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
               "description": "A sample model for predicting some outcome.",
               "date": null,
-              "tags": ["Sample"],
+              "tags": [
+                "Sample"
+              ],
               "version": null,
               "type": "Naive Bayes classifier"
             }
@@ -1529,7 +1540,9 @@
                 {
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
                   "motivation": "For science!",
-                  "preProcessing": ["Aggregation"]
+                  "preProcessing": [
+                    "Aggregation"
+                  ]
                 }
               ]
             }
@@ -1560,30 +1573,53 @@
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
-              "primaryUses": ["Sample Model", "Primary Use"],
-              "primaryUsers": ["ENTERPRISE"],
-              "outOfScopeUses": ["Production Deployment"]
+              "primaryUses": [
+                "Sample Model",
+                "Primary Use"
+              ],
+              "primaryUsers": [
+                "ENTERPRISE"
+              ],
+              "outOfScopeUses": [
+                "Production Deployment"
+              ]
             }
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
-              "performanceMeasures": ["performanceMeasures"],
-              "decisionThreshold": ["decisionThreshold"]
+              "performanceMeasures": [
+                "performanceMeasures"
+              ],
+              "decisionThreshold": [
+                "decisionThreshold"
+              ]
             }
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
-              "data": ["data"],
-              "humanLife": ["humanLife"],
-              "mitigations": ["mitigations"],
-              "risksAndHarms": ["risksAndHarms"],
-              "useCases": ["useCases"]
+              "data": [
+                "data"
+              ],
+              "humanLife": [
+                "humanLife"
+              ],
+              "mitigations": [
+                "mitigations"
+              ],
+              "risksAndHarms": [
+                "risksAndHarms"
+              ],
+              "useCases": [
+                "useCases"
+              ]
             }
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
               "recommendations": "recommendations",
-              "idealDatasetCharacteristics": ["idealDatasetCharacteristics"]
+              "idealDatasetCharacteristics": [
+                "idealDatasetCharacteristics"
+              ]
             }
           },
           {
@@ -2270,6 +2306,25 @@
     },
     "proposedDelta": null
   },
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "activeListingBasics"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00"
+    }
+},
   {
     "auditHeader": null,
     "proposedSnapshot": {
@@ -2647,7 +2702,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_all_feature_dtypes"]
+              "paths": [
+                "/feast/test_feature_table_all_feature_dtypes"
+              ]
             }
           },
           {
@@ -2746,7 +2803,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_no_labels"]
+              "paths": [
+                "/feast/test_feature_table_no_labels"
+              ]
             }
           },
           {
@@ -2831,7 +2890,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_single_feature"]
+              "paths": [
+                "/feast/test_feature_table_single_feature"
+              ]
             }
           },
           {
@@ -2994,7 +3055,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/user_features"]
+              "paths": [
+                "/feast/user_features"
+              ]
             }
           },
           {
@@ -3082,14 +3145,18 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/user_analytics"]
+              "paths": [
+                "/feast/user_analytics"
+              ]
             }
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
               "customProperties": {},
               "description": null,
-              "mlFeatures": ["urn:li:mlFeature:(user_analytics,date_joined)"],
+              "mlFeatures": [
+                "urn:li:mlFeature:(user_analytics,date_joined)"
+              ],
               "mlPrimaryKeys": [
                 "urn:li:mlPrimaryKey:(user_analytics,user_name)"
               ]
@@ -3100,92 +3167,97 @@
     },
     "proposedDelta": null
   },
-	{
-		"auditHeader": null,
-		"proposedSnapshot": {
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:CustomerAccount",
-            "aspects": [
-              {
-                "com.linkedin.pegasus2avro.common.Status": {
-                  "removed": false
-                }
-              },
-              {
-                "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                  "definition": "account that represents an identified, named collection of balances and cumulative totals used to summarize customer transaction-related activity over a designated period of time",
-                  "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
-                  "sourceRef": "FIBO",
-                  "termSource": "EXTERNAL",
-                  "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
-                  "customProperties": {
-                    "FQDN": "CustomerAccount"
-                  }
-                }
-              },
-              {
-                "com.linkedin.pegasus2avro.common.Ownership": {
-                  "owners": [{
-                    "owner": "urn:li:corpuser:jdoe",
-                    "type": "DATAOWNER"
-                  }],
-                  "lastModified": {
-                    "time": 1674291843000,
-                    "actor": "urn:li:corpuser:jdoe"
-                  }
-                }
-              }
-            ]
-          }
-        },
-      "proposedDelta": null
-	},
-	{
-      "auditHeader": null,
-      "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-          "urn": "urn:li:glossaryTerm:SavingAccount",
-          "aspects": [
-            {
-              "com.linkedin.pegasus2avro.common.Status": {
-                "removed": false
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
-                "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
-                "sourceRef": "FIBO",
-                "termSource": "EXTERNAL",
-                "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
-                "customProperties": {
-                  "FQDN": "SavingAccount"
-                }
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.common.Ownership": {
-                "owners": [{
-                  "owner": "urn:li:corpuser:jdoe",
-                  "type": "DATAOWNER"
-                }],
-                "lastModified": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe"
-                }
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CustomerAccount",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "account that represents an identified, named collection of balances and cumulative totals used to summarize customer transaction-related activity over a designated period of time",
+              "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
+              "customProperties": {
+                "FQDN": "CustomerAccount"
               }
             }
-          ]
-        }
-      },
-      "proposedDelta": null
-	},
-	{
-      "auditHeader": null,
-      "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-          "urn": "urn:li:glossaryTerm:AccountBalance",
-          "aspects": [{
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:SavingAccount",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
+              "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:AccountBalance",
+        "aspects": [
+          {
             "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
               "definition": "amount of money available or owed",
               "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
@@ -3197,257 +3269,262 @@
               }
             }
           },
-            {
-              "com.linkedin.pegasus2avro.common.Ownership": {
-                "owners": [{
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
                   "owner": "urn:li:corpuser:jdoe",
                   "type": "DATAOWNER"
-                }],
-                "lastModified": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe"
                 }
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.common.Status": {
-                "removed": false
+              ],
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
-          ]
-        }
-      },
-      "proposedDelta": null
-	},
-	{
-      "auditHeader": null,
-      "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-          "urn": "urn:li:glossaryNode:ClientsAndAccounts",
-          "aspects": [{
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:ClientsAndAccounts",
+        "aspects": [
+          {
             "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
               "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
             }
           },
-            {
-              "com.linkedin.pegasus2avro.common.Ownership": {
-                "owners": [{
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
                   "owner": "urn:li:corpuser:jdoe",
                   "type": "DATAOWNER"
-                }],
-                "lastModified": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe"
                 }
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.common.Status": {
-                "removed": false
+              ],
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
-          ]
-        }
-      },
-      "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
     },
-    {
-      "auditHeader": null,
-      "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project/root/events/logging_events_bckp,PROD)",
-          "aspects": [
-            {
-              "com.linkedin.pegasus2avro.common.Status": {
-                "removed": false
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                "description": "s3 backup of logging events",
-                "uri": null,
-                "tags": [],
-                "customProperties": {
-                  "encoding": "utf-8"
-                }
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.common.Ownership": {
-                "owners": [
-                  {
-                    "owner": "urn:li:corpuser:jdoe",
-                    "type": "DATAOWNER",
-                    "source": null
-                  },
-                  {
-                    "owner": "urn:li:corpuser:datahub",
-                    "type": "DATAOWNER",
-                    "source": null
-                  }
-                ],
-                "lastModified": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
-                }
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                "upstreams": [
-                  {
-                    "auditStamp": {
-                      "time": 1674291843000,
-                      "actor": "urn:li:corpuser:jdoe",
-                      "impersonator": null
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-                    "type": "COPY"
-                  }
-                ]
-              }
-            },
-            {
-              "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                "schemaName": "SampleHiveSchema",
-                "platform": "urn:li:dataPlatform:hive",
-                "version": 0,
-                "created": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
-                },
-                "lastModified": {
-                  "time": 1674291843000,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
-                },
-                "deleted": null,
-                "dataset": null,
-                "cluster": null,
-                "hash": "",
-                "platformSchema": {
-                  "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}",
-                    "documentSchemaType": "AVRO"
-                  }
-                },
-                "fields": [
-                  {
-                    "fieldPath": "event_name",
-                    "jsonPath": null,
-                    "nullable": false,
-                    "description": {
-                      "string": "Name of your logging event"
-                    },
-                    "type": {
-                      "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                      }
-                    },
-                    "nativeDataType": "varchar(100)",
-                    "recursive": false
-                  },
-                  {
-                    "fieldPath": "event_data",
-                    "jsonPath": null,
-                    "nullable": false,
-                    "description": {
-                      "string": "Data of your event"
-                    },
-                    "type": {
-                      "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                      }
-                    },
-                    "nativeDataType": "boolean",
-                    "recursive": false
-                  },
-                  {
-                    "fieldPath": "timestamp",
-                    "jsonPath": null,
-                    "nullable": false,
-                    "description": {
-                      "string": "TS the event was ingested"
-                    },
-                    "type": {
-                      "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                      }
-                    },
-                    "nativeDataType": "boolean",
-                    "recursive": false
-                  },
-                  {
-                    "fieldPath": "browser",
-                    "jsonPath": null,
-                    "nullable": false,
-                    "type": {
-                      "type": {
-                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                      }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false
-                  }
-                ],
-                "primaryKeys": null,
-                "foreignKeysSpecs": null
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project/root/events/logging_events_bckp,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "s3 backup of logging events",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
               }
             }
-          ]
-        }
-      },
-      "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1674291843000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+                  "type": "COPY"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1674291843000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}",
+                  "documentSchemaType": "AVRO"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of your logging event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Data of your event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "TS the event was ingested"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-  {
-    "auditHeader":null,
-    "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"datasetProfile",
-    "aspect":{
-      "value":"{\"timestampMillis\": 1679515693000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
-      "contentType":"application/json"
-    },
-    "systemMetadata":null
+    "proposedDelta": null
   },
   {
-    "auditHeader":null,
-    "entityType":"dataset",
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"datasetProfile",
-    "aspect":{
-      "value":"{\"timestampMillis\": 1684786093000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1735823280000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"dataset",
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"operation",
-    "aspect":{
-      "value":"{\"timestampMillis\": 1679515693000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1723488954865, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"dataset",
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"operation",
-    "aspect":{
-      "value":"{\"timestampMillis\": 1629107200000, \"operationType\": \"UPDATE\", \"lastUpdatedTimestamp\": 1625097200000 }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1711138093000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1629107200000, \"operationType\": \"UPDATE\", \"lastUpdatedTimestamp\": 1625097200000 }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -3469,100 +3546,100 @@
     }
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:DATABASE",
-    "changeType":"UPSERT",
-    "aspectName":"containerProperties",
-    "aspect":{
-      "value":"{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:DATABASE",
-    "changeType":"UPSERT",
-    "aspectName":"subTypes",
-    "aspect":{
-      "value":"{\"typeNames\": [ \"Database\" ] }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [ \"Database\" ] }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:DATABASE",
-    "changeType":"UPSERT",
-    "aspectName":"dataPlatformInstance",
-    "aspect":{
-      "value":"{\"platform\": \"urn:li:dataPlatform:hive\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:hive\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:SCHEMA",
-    "changeType":"UPSERT",
-    "aspectName":"containerProperties",
-    "aspect":{
-      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:SCHEMA",
-    "changeType":"UPSERT",
-    "aspectName":"dataPlatformInstance",
-    "aspect":{
-      "value":"{\"platform\": \"urn:li:dataPlatform:hive\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:hive\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:SCHEMA",
-    "changeType":"UPSERT",
-    "aspectName":"subTypes",
-    "aspect":{
-      "value":"{\"typeNames\": [ \"Schema\" ] }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [ \"Schema\" ] }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"dataset",
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"container",
-    "aspect":{
-      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
-    "auditHeader":null,
-    "entityType":"container",
+    "auditHeader": null,
+    "entityType": "container",
     "entityUrn": "urn:li:container:SCHEMA",
-    "changeType":"UPSERT",
-    "aspectName":"container",
-    "aspect":{
-      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
-      "contentType":"application/json"
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:DATABASE\" }",
+      "contentType": "application/json"
     },
-    "systemMetadata":null
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -3598,7 +3675,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+      "value": "{\"timestampMillis\": 1730554659000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -3662,5 +3739,86 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:f3a68539-f7e4-4c41-a4fd-9e57c085d8dd",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "Join DataHub Slack",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
+                  }
+              },
+              "created": 1712547125049,
+              "lastModified": 1712547125049
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844816,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:e9c7e4a5-b7b0-4390-bd94-9a0fe8acd6bf",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "View Docs",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/docs",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
+                  }
+              },
+              "created": 1712547164761,
+              "lastModified": 1712547164761
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844816,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:326e42b3-2965-47d1-9660-50e513af7d6e",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "Upcoming Events",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/events",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://datahubproject.io/img/acryl-logo-transparent-mark.svg"
+                  }
+              },
+              "created": 1712547268882,
+              "lastModified": 1712547268882
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844817,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
   }
 ]

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Domains
+# Domains
 
 <FeatureAvailability/>
 
@@ -202,6 +202,16 @@ mutation createDomain {
 
 This query will return an `urn` which you can use to fetch the Domain details. 
 
+## Create a Nested Domain
+
+```graphql
+mutation createDomain {
+  createDomain(input: { name: "Verticals", description: "An optional description", parentDomain: "urn:li:domain:marketing" })
+}
+```
+
+This query will create a new domain, "Verticals", under the "Marketing" domain.
+
 **Fetching a Domain by Urn**
 
 ```graphql
@@ -242,7 +252,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 - **Tags**: Informal, loosely controlled labels that serve as a tool for search & discovery. Assets may have multiple tags. No formal, central management.
 - **Glossary Terms**: A controlled vocabulary, with optional hierarchy. Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
 - **Domains**: A set of top-level categories. Usually aligned to business units / disciplines to which the assets are most relevant. Central or distributed management. Single Domain assignment per data asset.
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

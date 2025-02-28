@@ -23,27 +23,50 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
+export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
+    return {
+        displayName: displayName || qualifiedName,
+        qualifiedName,
+        values: mapStructuredPropertyValues(structuredPropertiesEntry),
+        dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
+        structuredProperty: structuredPropertiesEntry.structuredProperty,
+        type:
+            structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
+                ? {
+                      type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
+                      nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
+                  }
+                : undefined,
+        associatedUrn: structuredPropertiesEntry.associatedUrn,
+    };
+}
+
 // map the properties map into a list of PropertyRow objects to render in a table
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    entityData?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
-        structuredPropertyRows.push({
-            displayName: displayName || qualifiedName,
-            qualifiedName,
-            values: mapStructuredPropertyValues(structuredPropertiesEntry),
-            dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
-            structuredProperty: structuredPropertiesEntry.structuredProperty,
-            type:
-                structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
-                    ? {
-                          type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
-                          nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
-                      }
-                    : undefined,
+    entityData?.structuredProperties?.properties
+        ?.filter((prop) => prop.structuredProperty.exists)
+        .forEach((structuredPropertiesEntry) => {
+            const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
+            structuredPropertyRows.push({
+                displayName: displayName || qualifiedName,
+                qualifiedName,
+                values: mapStructuredPropertyValues(structuredPropertiesEntry),
+                dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
+                structuredProperty: structuredPropertiesEntry.structuredProperty,
+                type:
+                    structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
+                        ? {
+                              type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
+                              nativeDataType:
+                                  typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
+                          }
+                        : undefined,
+                associatedUrn: structuredPropertiesEntry.associatedUrn,
+            });
         });
-    });
 
     return structuredPropertyRows;
 }
@@ -99,10 +122,10 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
         // that would tell us to nest. If the count is not equal, we should nest the child properties.
         for (let index = 0; index < substrings.length; index++) {
             const token = substrings[index];
-            const currentCount = qualifiedNames.filter((name) => name.startsWith(token)).length;
+            const currentCount = qualifiedNames.filter((name) => name.startsWith(`${token}.`)).length;
 
-            // If we're at the beginning of the path and there is no nesting, break
-            if (index === 0 && currentCount === 1) {
+            // If there's only one child, don't nest it
+            if (currentCount === 1) {
                 break;
             }
 

@@ -1,10 +1,10 @@
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import React, { useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
-import { SchemaField } from '../../../../../../../../types.generated';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { pluralize } from '../../../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';
+import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 
 const HeaderWrapper = styled.div`
     position: absolute;
@@ -32,6 +32,7 @@ const StyledIcon = styled.div`
     justify-content: center;
     background: transparent;
     border: none;
+
     &&:hover {
         cursor: pointer;
         stroke: ${REDESIGN_COLORS.DARK_GREY};
@@ -54,66 +55,34 @@ const FieldIndexText = styled.span`
 
 const ButtonsWrapper = styled.div`
     display: flex;
+    flex-direction: column;
     align-items: center;
 `;
 
 interface Props {
-    schemaFields?: SchemaField[];
     expandedFieldIndex?: number;
-    setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
+    selectPreviousField: () => void;
+    selectNextField: () => void;
+    displayedRows: ExtendedSchemaFields[];
 }
 
-export default function DrawerFooter({ schemaFields = [], expandedFieldIndex = 0, setExpandedDrawerFieldPath }: Props) {
-    function showNextField() {
-        if (expandedFieldIndex !== undefined && expandedFieldIndex !== -1) {
-            if (expandedFieldIndex === schemaFields.length - 1) {
-                const newField = schemaFields[0];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            } else {
-                const newField = schemaFields[expandedFieldIndex + 1];
-                const { fieldPath } = newField;
-                setExpandedDrawerFieldPath(fieldPath);
-            }
-        }
-    }
-
-    function showPreviousField() {
-        if (expandedFieldIndex !== undefined && expandedFieldIndex !== -1) {
-            if (expandedFieldIndex === 0) {
-                const newField = schemaFields[schemaFields.length - 1];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            } else {
-                const newField = schemaFields[expandedFieldIndex - 1];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            }
-        }
-    }
-
-    function handleArrowKeys(event: KeyboardEvent) {
-        if (event.code === 'ArrowUp' || event.code === 'ArrowLeft') {
-            showPreviousField();
-        } else if (event.code === 'ArrowDown' || event.code === 'ArrowRight') {
-            showNextField();
-        }
-    }
-
-    useEffect(() => {
-        document.addEventListener('keydown', handleArrowKeys);
-
-        return () => document.removeEventListener('keydown', handleArrowKeys);
-    });
-
+export default function DrawerFooter({
+    expandedFieldIndex = 0,
+    selectPreviousField,
+    selectNextField,
+    displayedRows,
+}: Props) {
     return (
         <HeaderWrapper>
             <ButtonsWrapper>
-                <StyledIcon onClick={showPreviousField}>
-                    <KeyboardArrowLeftIcon />
+                <StyledIcon onClick={selectPreviousField}>
+                    <KeyboardArrowUpIcon />
                 </StyledIcon>
                 <FieldIndexText>
-                    {expandedFieldIndex + 1} of {schemaFields.length} {pluralize(schemaFields.length, 'field')}
+                    {expandedFieldIndex + 1} of {displayedRows.length} {pluralize(displayedRows.length, 'field')}
                 </FieldIndexText>
-                <StyledIcon onClick={showNextField}>
-                    <KeyboardArrowRightIcon />
+                <StyledIcon onClick={selectNextField}>
+                    <KeyboardArrowDownIcon />
                 </StyledIcon>
             </ButtonsWrapper>
         </HeaderWrapper>

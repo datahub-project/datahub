@@ -79,6 +79,41 @@ You can now see `Marketing` domain has been created under `Govern > Domains`.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/domain-created.png"/>
 </p>
 
+### Creating a Nested Domain
+
+You can also create a nested domain, or a domain within another domain.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+mutation createDomain {
+  createDomain(input: { name: "Verticals", description: "An optional description", parentDomain: "urn:li:domain:marketing" })
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation createDomain { createDomain(input: { name: \"Verticals\", description: \"Entities related to the verticals sub-domain.\", parentDomain: \"urn:li:domain:marketing\" }) }", "variables":{}}'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/create_nested_domain.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+This query will create a new domain, "Verticals", under the "Marketing" domain.
+
 
 ## Read Domains
 

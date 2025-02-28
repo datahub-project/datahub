@@ -44,7 +44,7 @@ describe('SchemaDescriptionField', () => {
         fireEvent.click(getByRole('img'));
         await waitFor(() => expect(getByText('Update description')).toBeInTheDocument());
         expect(getByText('Cancel')).toBeInTheDocument();
-        expect(getByText('Update')).toBeInTheDocument();
+        expect(getByText('Publish')).toBeInTheDocument();
         expect(getByText('Original:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());

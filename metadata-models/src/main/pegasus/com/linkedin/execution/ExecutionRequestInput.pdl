@@ -1,5 +1,7 @@
 namespace com.linkedin.execution
 
+import com.linkedin.common.Urn
+
 /**
  * An request to execution some remote logic or action.
  * TODO: Determine who is responsible for emitting execution request success or failure. Executor?
@@ -19,8 +21,13 @@ record ExecutionRequestInput {
   args: map[string, string]
 
   /**
-  * Advanced: specify a specific executor to route the request to. If none is provided, a "default" executor is used.
+  * Advanced: specify a specific executor pool to route the request to. If none is provided, a "embedded" executor is used.
   */
+  @Searchable = {
+    "fieldName": "executorId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
   executorId: string
 
   /**
@@ -37,4 +44,17 @@ record ExecutionRequestInput {
     "queryByDefault": false
   }
   requestedAt: long
+
+  /**
+   * Urn of the actor who created this execution request.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  actorUrn: optional Urn
+
+  /**
+  * Field tracking number of previously unsuccessful attempts for the given execution request
+  */
+  attempts: optional long
 }

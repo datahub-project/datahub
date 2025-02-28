@@ -11,6 +11,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateTestInput;
 import com.linkedin.entity.client.EntityClient;
@@ -36,7 +37,7 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
     final Authentication authentication = context.getAuthentication();
     final Actor actor = authentication.getActor();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (canManageTests(context)) {
 
@@ -59,7 +60,8 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
                     UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
             String ingestResult;
             try {
-              ingestResult = _entityClient.ingestProposal(proposal, authentication, false);
+              ingestResult =
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against Test with urn %s", input), e);
@@ -70,7 +72,9 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static TestInfo mapUpdateTestInput(final UpdateTestInput input, final Actor actor) {

@@ -1,0 +1,363 @@
+{
+  "args": {
+    "cache_selected_only": false,
+    "defer": false,
+    "enable_legacy_logger": false,
+    "exclude": [],
+    "favor_state": false,
+    "include_saved_query": false,
+    "indirect_selection": "eager",
+    "introspect": true,
+    "invocation_command": "dbt build --profiles-dir .",
+    "log_file_max_bytes": 10485760,
+    "log_format": "default",
+    "log_format_file": "debug",
+    "log_level": "info",
+    "log_level_file": "debug",
+    "log_path": "/Users/hsheth/projects/sample-dbt/logs",
+    "macro_debugging": false,
+    "partial_parse": true,
+    "partial_parse_file_diff": true,
+    "populate_cache": true,
+    "print": true,
+    "printer_width": 80,
+    "profiles_dir": ".",
+    "project_dir": "/Users/hsheth/projects/sample-dbt",
+    "quiet": false,
+    "resource_types": [],
+    "select": [],
+    "send_anonymous_usage_stats": true,
+    "show": false,
+    "show_resource_report": false,
+    "static_parser": true,
+    "strict_mode": false,
+    "use_colors": true,
+    "use_colors_file": true,
+    "vars": {},
+    "version_check": true,
+    "warn_error_options": {
+      "exclude": [],
+      "include": []
+    },
+    "which": "build",
+    "write_json": true
+  },
+  "elapsed_time": 3.1415,
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+    "dbt_version": "1.7.3",
+    "env": {},
+    "generated_at": "2021-06-18T21:38:36.384613Z",
+    "invocation_id": "just-some-random-id"
+  },
+  "results": [
+    {
+      "adapter_response": {
+        "_message": "CREATE VIEW",
+        "code": "CREATE VIEW",
+        "rows_affected": -1
+      },
+      "compiled": true,
+      "compiled_code": "\n\nwith payments as (\n\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_01\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_03\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_04\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_05\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_06\"\n)\n\nselect *\nfrom payments",
+      "execution_time": 0.023441791534423828,
+      "failures": null,
+      "message": "CREATE VIEW",
+      "relation_name": "\"pagila\".\"public\".\"an_aliased_view_for_payments\"",
+      "status": "success",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "model.sample_dbt.payments_base"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 599",
+        "code": "SELECT",
+        "rows_affected": 599
+      },
+      "compiled": true,
+      "compiled_code": "\n\n\n\nselect * from \"pagila\".\"public\".\"customer\"\n",
+      "execution_time": 0.023441791534423828,
+      "failures": null,
+      "message": "SELECT 599",
+      "relation_name": "\"pagila\".\"public\".\"customer_snapshot\"",
+      "status": "success",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "snapshot.sample_dbt.customer_snapshot"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "select\n    *\nfrom \"pagila\".\"public\".\"actor\"\nwhere last_update < (now() - interval '100 years')",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.assert_source_actor_last_update_is_recent"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect actor_id\nfrom \"pagila\".\"public\".\"actor\"\nwhere actor_id is null\n\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\nselect\n    actor_id as unique_field,\n    count(*) as n_records\n\nfrom \"pagila\".\"public\".\"actor\"\nwhere actor_id is not null\ngroup by actor_id\nhaving count(*) > 1\n\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 2466",
+        "code": "SELECT",
+        "rows_affected": 2466
+      },
+      "compiled": true,
+      "compiled_code": "\n\nSELECT\n    date_trunc('month', payment_date) as \"BillingMonth\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"public\".\"an_aliased_view_for_payments\"\nGROUP BY\n    \"BillingMonth\",\n    customer_id",
+      "execution_time": 0.023441791534423828,
+      "failures": null,
+      "message": "SELECT 2466",
+      "relation_name": "\"pagila\".\"public\".\"payments_by_customer_by_month\"",
+      "status": "success",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "model.sample_dbt.payments_by_customer_by_month"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 2466",
+        "code": "SELECT",
+        "rows_affected": 2466
+      },
+      "compiled": true,
+      "compiled_code": "\n\nwith __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n) SELECT \n    pbc.\"BillingMonth\" as billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"public\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__cte__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.\"BillingMonth\"",
+      "execution_time": 0.023441791534423828,
+      "failures": null,
+      "message": "SELECT 2466",
+      "relation_name": "\"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"",
+      "status": "success",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "model.sample_dbt.monthly_billing_with_cust"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n\n    select *\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where email not like '%@%'\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect billing_month\nfrom \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\nwhere billing_month is null\n\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect email\nfrom \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\nwhere email is null\n\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13"
+    },
+    {
+      "adapter_response": {
+        "_message": "SELECT 1",
+        "code": "SELECT",
+        "rows_affected": 1
+      },
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\nwith  __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n), child as (\n    select customer_id as from_field\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where customer_id is not null\n),\n\nparent as (\n    select customer_id as to_field\n    from __dbt__cte__customer_details\n)\n\nselect\n    from_field\n\nfrom child\nleft join parent\n    on child.from_field = parent.to_field\n\nwhere parent.to_field is null\n\n\n",
+      "execution_time": 0.023441791534423828,
+      "failures": 0,
+      "message": null,
+      "relation_name": null,
+      "status": "pass",
+      "thread_id": "Thread-1 (worker)",
+      "timing": [
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "compile",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        },
+        {
+          "completed_at": "2022-09-16T19:06:38.241639Z",
+          "name": "execute",
+          "started_at": "2022-09-16T19:06:38.239635Z"
+        }
+      ],
+      "unique_id": "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b"
+    }
+  ]
+}

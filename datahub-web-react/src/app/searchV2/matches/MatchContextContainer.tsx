@@ -1,27 +1,26 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import MatchContext, { PreviewSection } from '../../shared/MatchesContext';
 import { SearchCardSlideoutContent } from '../searchSlideout/SearchCardSlideoutContent';
 import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
+import HorizontalScroller from '../../sharedV2/carousel/HorizontalScroller';
+import { useSearchContext } from '../../search/context/SearchContext';
 
 const MATCHES_CONTAINER_HEIGHT = 52;
 
-const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
+const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; compactUserSearchCardStyle: boolean }>`
     z-index: 1;
-    border-radius: 8px;
+    border-radius: 10px;
     margin: 0 auto 12px auto;
-    padding: 8px 19px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-    border-bottom: 1px solid ${ANTD_GRAY[5]};
-    cursor: pointer;
+    padding: 4px;
     :hover {
         ${(props) => !props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
     }
 
     position: absolute;
-    height: ${(props) => (!props.expanded ? '100%' : `calc(100% + ${MATCHES_CONTAINER_HEIGHT}px)`)};
+    height: ${(props) =>
+        !props.expanded || props.compactUserSearchCardStyle ? '100%' : `calc(100% + ${MATCHES_CONTAINER_HEIGHT}px)`};
     transition: height 0.3s ease;
 
     // height: 100%;
@@ -34,7 +33,6 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
         props.selected &&
         `
         outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        // border-left: 5px solid ${SEARCH_COLORS.TITLE_PURPLE};
         left: -5px;
         width: calc(100% + 5px);
     `}
@@ -42,6 +40,15 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
 
 const MatchesBottomGroup = styled.div`
     margin-top: auto;
+    margin-bottom: 8px;
+    /* The following div ensures that Tags, Terms, etc., override their default flex-wrap: wrap; with flex-wrap: nowrap; 
+    and maintain alignment as needed, making them scrollable horizontally */
+    div {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        height: 100%;
+    }
 `;
 
 type Props = {
@@ -51,6 +58,7 @@ type Props = {
     children: React.ReactNode;
     urnToExpandedSection: Record<string, PreviewSection>;
     setUrnToExpandedSection: (urnToExpandedSection: Record<string, PreviewSection>) => void;
+    compactUserSearchCardStyle?: boolean;
 };
 
 /**
@@ -61,15 +69,17 @@ type Props = {
  * You can wrap it around any search result in a search list to enable the match drawer.
  * The state is managed in the parent component in order to enable expand all and collapse all in the future.
  */
-export const MatchContextContianer = ({
+export const MatchContextContainer = ({
     item,
     selected,
     onClick,
     children,
     urnToExpandedSection,
     setUrnToExpandedSection,
+    compactUserSearchCardStyle,
 }: Props) => {
-    const expandedSection = urnToExpandedSection[item.entity.urn];
+    const { isFullViewCard } = useSearchContext();
+    const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
 
     return (
         <MatchContext.Provider
@@ -89,18 +99,27 @@ export const MatchContextContianer = ({
                 },
             }}
         >
-            <MatchesContainer expanded={!!expandedSection} selected={selected} onClick={onClick}>
-                <MatchesBottomGroup>
-                    <MatchContext.Provider
-                        value={{
-                            expandedSection: undefined,
-                            setExpandedSection: () => {},
-                        }}
-                    >
-                        <SearchCardSlideoutContent item={item} expandedSection={expandedSection} />
-                    </MatchContext.Provider>
-                </MatchesBottomGroup>
-            </MatchesContainer>
+            {isFullViewCard && (
+                <MatchesContainer
+                    expanded={!!expandedSection}
+                    selected={selected}
+                    onClick={onClick}
+                    compactUserSearchCardStyle={compactUserSearchCardStyle || false}
+                >
+                    <MatchesBottomGroup>
+                        <MatchContext.Provider
+                            value={{
+                                expandedSection: undefined,
+                                setExpandedSection: () => {},
+                            }}
+                        >
+                            <HorizontalScroller alwaysVisible scrollDistance={300}>
+                                <SearchCardSlideoutContent item={item} expandedSection={expandedSection} />
+                            </HorizontalScroller>
+                        </MatchContext.Provider>
+                    </MatchesBottomGroup>
+                </MatchesContainer>
+            )}
             {/* {children} */}
             <div style={{ position: 'relative', zIndex: 6 }}>{children}</div>
         </MatchContext.Provider>

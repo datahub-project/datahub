@@ -5,28 +5,23 @@ import com.linkedin.metadata.config.events.EntityChangeEventSinkConfiguration;
 import com.linkedin.metadata.event.change.EntityChangeEventSink;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkConfig;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkManager;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeEventSinkManagerFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
   @Bean(name = "changeEventSinkManager")
-  @Singleton
   @Nonnull
   protected EntityChangeEventSinkManager getInstance() {
 
@@ -71,8 +66,7 @@ public class EntityChangeEventSinkManagerFactory {
               e);
         }
       } else {
-        log.info(
-            String.format("Skipping disabled change event sink sink with type %s", sink.getType()));
+        log.info(String.format("Skipping disabled change event sink with type %s", sink.getType()));
       }
     }
     log.info(String.format("Creating ChangeEventSink. sinks: %s", configuredSinks));

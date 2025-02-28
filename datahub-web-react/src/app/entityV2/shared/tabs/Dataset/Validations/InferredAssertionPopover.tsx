@@ -1,12 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Typography } from 'antd';
-import { ThunderboltFilled } from '@ant-design/icons';
+import { Typography } from 'antd';
+import { Popover } from '@components';
+import { Sparkle } from 'phosphor-react';
 import { REDESIGN_COLORS } from '../../../constants';
 
 const Container = styled.div``;
 
 const Title = styled(Typography.Title)`
+    display: flex;
+    align-items: center;
+    gap: 8px;
     && {
         margin: 0px;
         padding-top: 4px;
@@ -20,11 +24,9 @@ const Section = styled.div`
     margin-bottom: 8px;
 `;
 
-const Logo = styled(ThunderboltFilled)`
+const Logo = styled(Sparkle)`
     color: ${REDESIGN_COLORS.BLUE};
-    margin-right: 4px;
 `;
-
 const popoverStyle = { maxWidth: 280, border: `1px solid ${REDESIGN_COLORS.BLUE}` };
 
 type Props = {

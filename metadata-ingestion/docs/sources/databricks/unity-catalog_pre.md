@@ -13,7 +13,7 @@
     * Ownership of or `SELECT` privilege on any tables and views you want to ingest
     * [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
     * [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
-  + To ingest legacy hive_metastore catalog (`include_hive_metastore` - disabled by default), your service principal must have all of the following:
+  + To ingest legacy hive_metastore catalog (`include_hive_metastore` - enabled by default), your service principal must have all of the following:
     * `READ_METADATA` and `USAGE` privilege on `hive_metastore` catalog
     * `READ_METADATA` and `USAGE` privilege on schemas you want to ingest
     * `READ_METADATA` and `USAGE` privilege on tables and views you want to ingest

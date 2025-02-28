@@ -9,8 +9,9 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,17 +35,23 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 @Slf4j
 public class ConfigSearchExport extends HttpServlet {
 
-  private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
+  private static ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private EntityRegistry getEntityRegistry(WebApplicationContext ctx) {
-    return (EntityRegistry) ctx.getBean("entityRegistry");
+  private static OperationContext getOperationContext(WebApplicationContext ctx) {
+    return (OperationContext) ctx.getBean("systemOperationContext");
+  }
+
+  private static QueryFilterRewriteChain getQueryFilterRewriteChain(WebApplicationContext ctx) {
+    return ctx.getBean(QueryFilterRewriteChain.class);
   }
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
+    OperationContext systemOpContext = getOperationContext(ctx);
     SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
-    EntityRegistry entityRegistry = getEntityRegistry(ctx);
+    EntityRegistry entityRegistry = systemOpContext.getEntityRegistry();
+    QueryFilterRewriteChain queryFilterRewriteChain = getQueryFilterRewriteChain(ctx);
 
     CSVWriter writer = CSVWriter.builder().printWriter(pw).build();
 
@@ -79,17 +86,25 @@ public class ConfigSearchExport extends HttpServlet {
             entitySpecOpt -> {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
-                  SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, null)
+                  SearchRequestHandler.getBuilder(
+                          systemOpContext,
+                          entitySpec,
+                          searchConfiguration,
+                          null,
+                          queryFilterRewriteChain)
                       .getSearchRequest(
+                          getOperationContext(ctx)
+                              .withSearchFlags(
+                                  flags ->
+                                      flags
+                                          .setFulltext(true)
+                                          .setSkipHighlighting(true)
+                                          .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
                           0,
                           0,
-                          new SearchFlags()
-                              .setFulltext(true)
-                              .setSkipHighlighting(true)
-                              .setSkipAggregates(true),
                           null);
 
               FunctionScoreQueryBuilder rankingQuery =

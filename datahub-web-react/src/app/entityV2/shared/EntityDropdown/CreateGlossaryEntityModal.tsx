@@ -10,7 +10,7 @@ import {
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import {
     useProposeCreateGlossaryNodeMutation,
     useProposeCreateGlossaryTermMutation,
@@ -39,10 +39,11 @@ interface Props {
     refetchData?: () => void;
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
+    canSelectParentUrn?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData, canCreateGlossaryEntity } = props;
+    const { entityType, onClose, refetchData, canCreateGlossaryEntity, canSelectParentUrn = true } = props;
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
@@ -138,7 +139,11 @@ function CreateGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title={`Create ${entityRegistry.getEntityName(entityType)}`}
+            title={`Create ${
+                !selectedParentUrn && entityType === EntityType.GlossaryNode
+                    ? 'Glossary'
+                    : entityRegistry.getEntityName(entityType)
+            }`}
             visible
             onCancel={onClose}
             footer={
@@ -150,6 +155,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         Propose
                     </Button>
                     <Button
+                        type="primary"
                         data-testid="glossary-entity-modal-create-button"
                         onClick={createGlossaryEntity}
                         disabled={createButtonDisabled || !canCreateGlossaryEntity}
@@ -183,23 +189,31 @@ function CreateGlossaryEntityModal(props: Props) {
                         ]}
                         hasFeedback
                     >
-                        <Input autoFocus value={stagedName} onChange={(event) => setStagedName(event.target.value)} />
-                    </StyledItem>
-                </Form.Item>
-                <Form.Item
-                    label={
-                        <Typography.Text strong>
-                            Parent <OptionalWrapper>(optional)</OptionalWrapper>
-                        </Typography.Text>
-                    }
-                >
-                    <StyledItem name="parent">
-                        <NodeParentSelect
-                            selectedParentUrn={selectedParentUrn}
-                            setSelectedParentUrn={setSelectedParentUrn}
+                        <Input
+                            autoFocus
+                            placeholder="Provide a name..."
+                            value={stagedName}
+                            onChange={(event) => setStagedName(event.target.value)}
                         />
                     </StyledItem>
                 </Form.Item>
+                {canSelectParentUrn && (
+                    <Form.Item
+                        label={
+                            <Typography.Text strong>
+                                Parent <OptionalWrapper>(optional)</OptionalWrapper>
+                            </Typography.Text>
+                        }
+                    >
+                        <StyledItem name="parent">
+                            <NodeParentSelect
+                                selectedParentUrn={selectedParentUrn}
+                                setSelectedParentUrn={setSelectedParentUrn}
+                            />
+                        </StyledItem>
+                    </Form.Item>
+                )}
+
                 <StyledItem
                     label={
                         <Typography.Text strong>

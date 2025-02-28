@@ -2,13 +2,14 @@ package com.linkedin.datahub.graphql.resolvers.dashboard;
 
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
 import com.linkedin.data.template.StringArray;
@@ -21,17 +22,18 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolve
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.timeseries.GenericTable;
-import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -56,17 +58,14 @@ public class DashboardStatsSummaryTest {
     // Execute resolver
     DashboardStatsSummaryResolver resolver =
         new DashboardStatsSummaryResolver(mockEntityClient, mockClient);
-    QueryContext mockContext = mock(QueryContext.class);
-    Authorizer mockAuthorizor = mock(Authorizer.class);
-    when(mockAuthorizor.authorize(any()))
-        .thenAnswer(
-            args ->
-                new AuthorizationResult(args.getArgument(0), AuthorizationResult.Type.ALLOW, ""));
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizor);
-    when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
-    when(mockEnv.getContext()).thenReturn(mockContext);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     DashboardStatsSummary result = resolver.get(mockEnv).get();
 
@@ -89,6 +88,7 @@ public class DashboardStatsSummaryTest {
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(newUsageStats));
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
     when(mockClient.getAspectValues(
+            any(),
             Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
             Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
             Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
@@ -119,8 +119,12 @@ public class DashboardStatsSummaryTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageClient mockClient = mock(UsageClient.class);
-    when(mockClient.getUsageStats(Mockito.eq(TEST_DASHBOARD_URN), Mockito.eq(UsageTimeRange.MONTH)))
+    UsageStatsJavaClient mockClient = mock(UsageStatsJavaClient.class);
+    when(mockClient.getUsageStats(
+            any(OperationContext.class),
+            Mockito.eq(TEST_DASHBOARD_URN),
+            Mockito.eq(UsageTimeRange.MONTH),
+            Mockito.eq(null)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver
@@ -157,6 +161,7 @@ public class DashboardStatsSummaryTest {
 
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
     when(mockClient.getAspectValues(
+            any(),
             Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
             Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
             Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
@@ -167,6 +172,7 @@ public class DashboardStatsSummaryTest {
         .thenReturn(ImmutableList.of(envelopedLatestStats));
 
     when(mockClient.getAggregatedStats(
+            any(),
             Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
             Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
             any(),
@@ -188,9 +194,7 @@ public class DashboardStatsSummaryTest {
 
   private SystemEntityClient initMockEntityClient() throws Exception {
     SystemEntityClient client = mock(SystemEntityClient.class);
-    when(client.getV2(
-            Mockito.eq(Constants.DATASET_ENTITY_NAME), any(), any(), any(Authentication.class)))
-        .thenReturn(null);
+    when(client.getV2(any(OperationContext.class), any(Urn.class), anySet())).thenReturn(null);
     return client;
   }
 }

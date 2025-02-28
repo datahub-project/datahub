@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.datacontract;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
@@ -43,13 +44,19 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class UpsertDataContractResolverTest {
@@ -82,9 +89,15 @@ public class UpsertDataContractResolverTest {
 
   private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
+  @Captor private ArgumentCaptor<List<MetadataChangeProposal>> proposalCaptor;
+
+  @BeforeTest
+  public void init() {
+    MockitoAnnotations.openMocks(this);
+  }
+
   @Test
   public void testGetSuccessCreate() throws Exception {
-
     // Expected results
     final DataContractKey key = new DataContractKey();
     key.setId("test-id");
@@ -126,7 +139,8 @@ public class UpsertDataContractResolverTest {
     propertiesProposal.setEntityUrn(dataContractUrn);
     propertiesProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     propertiesProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     propertiesProposal.setAspectName(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME);
     propertiesProposal.setAspect(GenericRecordUtils.serializeAspect(props));
     propertiesProposal.setChangeType(ChangeType.UPSERT);
@@ -135,16 +149,29 @@ public class UpsertDataContractResolverTest {
     statusProposal.setEntityUrn(dataContractUrn);
     statusProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     statusProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     statusProposal.setAspectName(Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
     statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
     statusProposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
-            Mockito.eq(ImmutableList.of(propertiesProposal, statusProposal)),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), proposalCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(
+        proposalCaptor.getValue().stream()
+            .allMatch(prop -> prop.getSystemMetadata().getLastObserved() > 0L));
+
+    // check without time
+    Assert.assertEquals(
+        proposalCaptor.getValue().stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()),
+        List.of(propertiesProposal, statusProposal).stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()));
 
     Assert.assertEquals(result.getUrn(), TEST_CONTRACT_URN.toString());
   }
@@ -187,7 +214,8 @@ public class UpsertDataContractResolverTest {
     propertiesProposal.setEntityUrn(TEST_CONTRACT_URN);
     propertiesProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     propertiesProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     propertiesProposal.setAspectName(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME);
     propertiesProposal.setAspect(GenericRecordUtils.serializeAspect(props));
     propertiesProposal.setChangeType(ChangeType.UPSERT);
@@ -196,16 +224,29 @@ public class UpsertDataContractResolverTest {
     statusProposal.setEntityUrn(TEST_CONTRACT_URN);
     statusProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     statusProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     statusProposal.setAspectName(Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
     statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
     statusProposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
-            Mockito.eq(ImmutableList.of(propertiesProposal, statusProposal)),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), proposalCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(
+        proposalCaptor.getValue().stream()
+            .allMatch(prop -> prop.getSystemMetadata().getLastObserved() > 0L));
+
+    // check without time
+    Assert.assertEquals(
+        proposalCaptor.getValue().stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()),
+        List.of(propertiesProposal, statusProposal).stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()));
 
     Assert.assertEquals(result.getUrn(), TEST_CONTRACT_URN.toString());
   }
@@ -216,7 +257,7 @@ public class UpsertDataContractResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
     initMockGraphClient(mockGraphClient, TEST_CONTRACT_URN);
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN)))
         .thenReturn(false);
     UpsertDataContractResolver resolver =
         new UpsertDataContractResolver(mockClient, mockGraphClient);
@@ -236,19 +277,17 @@ public class UpsertDataContractResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
     initMockGraphClient(mockGraphClient, TEST_CONTRACT_URN);
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN)))
         .thenReturn(true);
     Mockito.when(
             mockClient.exists(
-                Mockito.eq(TEST_FRESHNESS_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_FRESHNESS_ASSERTION_URN)))
         .thenReturn(false);
     Mockito.when(
-            mockClient.exists(
-                Mockito.eq(TEST_QUALITY_ASSERTION_URN), Mockito.any(Authentication.class)))
+            mockClient.exists(any(OperationContext.class), Mockito.eq(TEST_QUALITY_ASSERTION_URN)))
         .thenReturn(false);
     Mockito.when(
-            mockClient.exists(
-                Mockito.eq(TEST_SCHEMA_ASSERTION_URN), Mockito.any(Authentication.class)))
+            mockClient.exists(any(OperationContext.class), Mockito.eq(TEST_SCHEMA_ASSERTION_URN)))
         .thenReturn(false);
     UpsertDataContractResolver resolver =
         new UpsertDataContractResolver(mockClient, mockGraphClient);
@@ -278,7 +317,7 @@ public class UpsertDataContractResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -288,7 +327,7 @@ public class UpsertDataContractResolverTest {
     GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
     UpsertDataContractResolver resolver =
         new UpsertDataContractResolver(mockClient, mockGraphClient);
 
@@ -346,30 +385,25 @@ public class UpsertDataContractResolverTest {
       EntityClient client, Urn existingContractUrn, DataContractProperties newContractProperties)
       throws Exception {
     if (existingContractUrn != null) {
-      Mockito.when(
-              client.exists(Mockito.eq(existingContractUrn), Mockito.any(Authentication.class)))
+      Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(existingContractUrn)))
           .thenReturn(true);
     }
-    Mockito.when(client.exists(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class)))
+    Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN)))
+        .thenReturn(true);
+    Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(TEST_QUALITY_ASSERTION_URN)))
         .thenReturn(true);
     Mockito.when(
-            client.exists(
-                Mockito.eq(TEST_QUALITY_ASSERTION_URN), Mockito.any(Authentication.class)))
+            client.exists(any(OperationContext.class), Mockito.eq(TEST_FRESHNESS_ASSERTION_URN)))
         .thenReturn(true);
-    Mockito.when(
-            client.exists(
-                Mockito.eq(TEST_FRESHNESS_ASSERTION_URN), Mockito.any(Authentication.class)))
-        .thenReturn(true);
-    Mockito.when(
-            client.exists(Mockito.eq(TEST_SCHEMA_ASSERTION_URN), Mockito.any(Authentication.class)))
+    Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(TEST_SCHEMA_ASSERTION_URN)))
         .thenReturn(true);
 
     Mockito.when(
             client.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_CONTRACT_ENTITY_NAME),
                 Mockito.eq(TEST_CONTRACT_URN),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_CONTRACT_URN)

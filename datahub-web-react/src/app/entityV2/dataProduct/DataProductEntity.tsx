@@ -8,25 +8,39 @@ import {
 import * as React from 'react';
 import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
 import { GetDatasetQuery } from '../../../graphql/dataset.generated';
-import { DataProduct, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { DataProduct, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfileTab } from '../shared/constants';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub Data Product entity.
@@ -76,6 +90,8 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getCollectionName = () => 'Data Products';
 
+    useEntityQuery = useGetDataProductQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -84,7 +100,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DATA_PRODUCT])}
-            headerDropdownItems={new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE])}
+            headerDropdownItems={headerDropdownItems}
             isNameEditable
             tabs={[
                 {
@@ -100,6 +116,10 @@ export class DataProductEntity implements Entity<DataProduct> {
                 },
                 {
                     name: 'Assets',
+                    getDynamicName: (entityData, _, loading) => {
+                        const assetCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    },
                     component: DataProductEntitiesTab,
                     icon: AppstoreOutlined,
                 },
@@ -109,44 +129,70 @@ export class DataProductEntity implements Entity<DataProduct> {
                     icon: UnorderedListOutlined,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarDomainSection,
-                    properties: {
-                        updateOnly: true,
-                    },
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarViewDefinitionSection,
-                    display: {
-                        // to do - change when we have a GetDataProductQuery
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
-                    },
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
-    renderPreview = (_: PreviewType, data: DataProduct) => {
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                updateOnly: true,
+            },
+        },
+        // TODO: Is someone actually using the below code?
+        {
+            component: SidebarViewDefinitionSection,
+            display: {
+                // to do - change when we have a GetDataProductQuery
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
+
+    renderPreview = (previewType: PreviewType, data: DataProduct, actions) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
@@ -155,15 +201,20 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
+                actions={actions}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataProduct;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
@@ -174,6 +225,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -186,10 +238,15 @@ export class DataProductEntity implements Entity<DataProduct> {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
         const entityCount = data?.entities?.total || undefined;
+        const parentDomains = {
+            domains: (data?.domain && [data?.domain?.domain]) || [],
+            count: (data?.domain && 1) || 0,
+        };
         return {
             name,
             externalUrl,
             entityCount,
+            parentDomains,
         };
     };
 

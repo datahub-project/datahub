@@ -7,7 +7,7 @@ import { Dataset } from '../../../../../types.generated';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../constants';
 import { getDisplayedEntityType } from '../../containers/profile/header/utils';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import ActiveIncidents from './ActiveIncidents';
 import FailingAssertions from './FailingAssertions';
 

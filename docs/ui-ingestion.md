@@ -3,7 +3,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Ingestion
+# UI Based Ingestion / Managed Ingestion
 
 <FeatureAvailability/>
 
@@ -338,7 +338,7 @@ for the `datahub-actions` container and running `docker logs <container-id>`.
 There are valid cases for ingesting metadata without the UI-based ingestion scheduler. For example,
 
 - You have written a custom ingestion Source
-- Your data sources are not reachable on the network where DataHub is deployed. Managed DataHub users can use a [remote executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws.md) for remote UI-based ingestion.
+- Your data sources are not reachable on the network where DataHub is deployed. DataHub Cloud users can use a [remote executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md) for remote UI-based ingestion.
 - Your ingestion source requires context from a local filesystem (e.g. input files)
 - You want to distribute metadata ingestion among multiple producers / environments
 

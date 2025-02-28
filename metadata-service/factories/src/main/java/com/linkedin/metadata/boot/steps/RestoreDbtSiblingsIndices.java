@@ -15,13 +15,13 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -47,7 +47,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   private static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService<?> _entityService;
-  private final EntityRegistry _entityRegistry;
 
   @Override
   public String name() {
@@ -61,12 +60,13 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
     log.info(String.format("Waiting %s seconds..", SLEEP_SECONDS));
 
     EntityResponse response =
         _entityService.getEntityV2(
+            systemOperationContext,
             Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
             SIBLING_UPGRADE_URN,
             Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
@@ -91,12 +91,14 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     log.info("Bootstrapping sibling aspects");
 
     try {
-      final int rowCount = _entityService.listUrns(DATASET_ENTITY_NAME, 0, 10).getTotal();
+      final int rowCount =
+          _entityService.listUrns(systemOperationContext, DATASET_ENTITY_NAME, 0, 10).getTotal();
 
       log.info("Found {} dataset entities to attempt to bootstrap", rowCount);
 
       final AspectSpec datasetAspectSpec =
-          _entityRegistry
+          systemOperationContext
+              .getEntityRegistry()
               .getEntitySpec(Constants.DATASET_ENTITY_NAME)
               .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
       final AuditStamp auditStamp =
@@ -109,31 +111,42 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
               .setTimestampMs(System.currentTimeMillis())
               .setVersion(VERSION);
       ingestUpgradeAspect(
-          Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, upgradeRequest, auditStamp);
+          systemOperationContext,
+          Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
+          upgradeRequest,
+          auditStamp);
 
       int indexedCount = 0;
       while (indexedCount < rowCount) {
-        getAndRestoreUpstreamLineageIndices(indexedCount, auditStamp, datasetAspectSpec);
+        getAndRestoreUpstreamLineageIndices(
+            systemOperationContext, indexedCount, auditStamp, datasetAspectSpec);
         indexedCount += BATCH_SIZE;
       }
 
       final DataHubUpgradeResult upgradeResult =
           new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
-      ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, upgradeResult, auditStamp);
+      ingestUpgradeAspect(
+          systemOperationContext,
+          Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME,
+          upgradeResult,
+          auditStamp);
 
       log.info("Successfully restored sibling aspects");
     } catch (Exception e) {
       log.error("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
-      _entityService.deleteUrn(SIBLING_UPGRADE_URN);
+      _entityService.deleteUrn(systemOperationContext, SIBLING_UPGRADE_URN);
       throw new RuntimeException(
           "Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
     }
   }
 
   private void getAndRestoreUpstreamLineageIndices(
-      int start, AuditStamp auditStamp, AspectSpec upstreamAspectSpec) {
+      @Nonnull OperationContext systemOperationContext,
+      int start,
+      AuditStamp auditStamp,
+      AspectSpec upstreamAspectSpec) {
     ListUrnsResult datasetUrnsResult =
-        _entityService.listUrns(DATASET_ENTITY_NAME, start, BATCH_SIZE);
+        _entityService.listUrns(systemOperationContext, DATASET_ENTITY_NAME, start, BATCH_SIZE);
     List<Urn> datasetUrns = datasetUrnsResult.getEntities();
     log.info("Re-indexing upstreamLineage aspect from {} with batch size {}", start, BATCH_SIZE);
 
@@ -145,6 +158,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     try {
       upstreamLineageResponse =
           _entityService.getEntitiesV2(
+              systemOperationContext,
               DATASET_ENTITY_NAME,
               new HashSet<>(datasetUrns),
               Collections.singleton(UPSTREAM_LINEAGE_ASPECT_NAME));
@@ -169,6 +183,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
       futures.add(
           _entityService
               .alwaysProduceMCLAsync(
+                  systemOperationContext,
                   datasetUrn,
                   DATASET_ENTITY_NAME,
                   UPSTREAM_LINEAGE_ASPECT_NAME,
@@ -205,7 +220,10 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   }
 
   private void ingestUpgradeAspect(
-      String aspectName, RecordTemplate aspect, AuditStamp auditStamp) {
+      @Nonnull OperationContext systemOperationContext,
+      String aspectName,
+      RecordTemplate aspect,
+      AuditStamp auditStamp) {
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
     upgradeProposal.setEntityUrn(SIBLING_UPGRADE_URN);
     upgradeProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
@@ -213,6 +231,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(systemOperationContext, upgradeProposal, auditStamp, false);
   }
 }

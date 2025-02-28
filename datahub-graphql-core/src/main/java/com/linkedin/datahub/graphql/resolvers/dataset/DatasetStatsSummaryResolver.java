@@ -5,15 +5,16 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.search.features.StorageFeatures;
 import com.linkedin.metadata.search.features.UsageFeatures;
-import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import graphql.schema.DataFetcher;
@@ -38,10 +39,10 @@ public class DatasetStatsSummaryResolver
   private static final Integer MAX_TOP_USERS = 5;
 
   private final SystemEntityClient systemEntityClient;
-  private final UsageClient usageClient;
+  private final UsageStatsJavaClient usageClient;
 
   public DatasetStatsSummaryResolver(
-      final SystemEntityClient systemEntityClient, final UsageClient usageClient) {
+      final SystemEntityClient systemEntityClient, final UsageStatsJavaClient usageClient) {
     this.systemEntityClient = systemEntityClient;
     this.usageClient = usageClient;
   }
@@ -52,14 +53,14 @@ public class DatasetStatsSummaryResolver
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(resourceUrn, context)) {
+            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(context, resourceUrn)) {
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),
-                  resourceUrn.toString());
+                  resourceUrn);
               return null;
             }
             final EntityResponse response = getOfflineFeatures(resourceUrn, context);
@@ -89,27 +90,6 @@ public class DatasetStatsSummaryResolver
             addUsageFeatures(result, maybeUsageFeatures, resourceUrn, context);
             addStorageFeatures(result, maybeStorageFeatures);
 
-            if (maybeUsageFeatures == null && maybeStorageFeatures == null) {
-              com.linkedin.usage.UsageQueryResult usageQueryResult =
-                  usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
-
-              result.setQueryCountLast30Days(
-                  usageQueryResult.getAggregations().getTotalSqlQueries());
-              result.setUniqueUserCountLast30Days(
-                  usageQueryResult.getAggregations().getUniqueUserCount());
-              if (usageQueryResult.getAggregations().hasUsers()) {
-                result.setTopUsersLast30Days(
-                    trimUsers(
-                        usageQueryResult.getAggregations().getUsers().stream()
-                            .filter(UserUsageCounts::hasUser)
-                            .sorted((a, b) -> (b.getCount() - a.getCount()))
-                            .map(
-                                userCounts ->
-                                    createPartialUser(Objects.requireNonNull(userCounts.getUser())))
-                            .collect(Collectors.toList())));
-              }
-            }
-
             return result;
           } catch (Exception e) {
             log.error(
@@ -118,7 +98,9 @@ public class DatasetStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void addUsageFeatures(
@@ -136,7 +118,8 @@ public class DatasetStatsSummaryResolver
 
     // else compute usage features normally
     com.linkedin.usage.UsageQueryResult usageQueryResult =
-        usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
+        usageClient.getUsageStats(
+            context.getOperationContext(), resourceUrn.toString(), UsageTimeRange.MONTH, null);
     result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
     result.setUniqueUserCountLast30Days(usageQueryResult.getAggregations().getUniqueUserCount());
     if (usageQueryResult.getAggregations().hasUsers()) {
@@ -179,6 +162,7 @@ public class DatasetStatsSummaryResolver
   private EntityResponse getOfflineFeatures(final Urn datasetUrn, final QueryContext context) {
     try {
       return this.systemEntityClient.getV2(
+          context.getOperationContext(),
           datasetUrn,
           ImmutableSet.of(
               Constants.USAGE_FEATURES_ASPECT_NAME, Constants.STORAGE_FEATURES_ASPECT_NAME));

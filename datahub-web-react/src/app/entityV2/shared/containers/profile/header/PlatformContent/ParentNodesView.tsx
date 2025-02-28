@@ -1,5 +1,6 @@
 import { FolderOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType, GlossaryNode } from '../../../../../../../types.generated';

@@ -10,11 +10,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import io.ebean.ExpressionList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -48,7 +51,11 @@ public class SendMAEStep implements UpgradeStep {
 
     @Override
     public RestoreIndicesResult call() {
-      return _entityService.restoreIndices(args, context.report()::addLine);
+      return _entityService
+          .restoreIndices(context.opContext(), args, context.report()::addLine)
+          .stream()
+          .findFirst()
+          .get();
     }
   }
 
@@ -95,7 +102,10 @@ public class SendMAEStep implements UpgradeStep {
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
     result.batchSize = getBatchSize(context.parsedArgs());
+    // this class assumes batch size == limit
+    result.limit = getBatchSize(context.parsedArgs());
     context.report().addLine(String.format("batchSize is %d", result.batchSize));
+    context.report().addLine(String.format("limit is %d", result.limit));
     result.numThreads = getThreadCount(context.parsedArgs());
     context.report().addLine(String.format("numThreads is %d", result.numThreads));
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
@@ -123,6 +133,30 @@ public class SendMAEStep implements UpgradeStep {
       context.report().addLine(String.format("Found urn like arg as %s", result.urnLike));
     } else {
       context.report().addLine("No urnLike arg present");
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LE_PIT_EPOCH_MS_ARG_NAME)) {
+      result.lePitEpochMs =
+          Long.parseLong(context.parsedArgs().get(RestoreIndices.LE_PIT_EPOCH_MS_ARG_NAME).get());
+      context.report().addLine(String.format("lePitEpochMs is %s", result.lePitEpochMs));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.GE_PIT_EPOCH_MS_ARG_NAME)) {
+      result.gePitEpochMs =
+          Long.parseLong(context.parsedArgs().get(RestoreIndices.GE_PIT_EPOCH_MS_ARG_NAME).get());
+      context.report().addLine(String.format("gePitEpochMs is %s", result.gePitEpochMs));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LAST_URN_ARG_NAME)) {
+      result.lastUrn = context.parsedArgs().get(RestoreIndices.LAST_URN_ARG_NAME).get();
+      context.report().addLine(String.format("lastUrn is %s", result.lastUrn));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LAST_ASPECT_ARG_NAME)) {
+      result.lastAspect = context.parsedArgs().get(RestoreIndices.LAST_ASPECT_ARG_NAME).get();
+      context.report().addLine(String.format("lastAspect is %s", result.lastAspect));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAMES_ARG_NAME)) {
+      result.aspectNames =
+          Arrays.asList(
+              context.parsedArgs().get(RestoreIndices.ASPECT_NAMES_ARG_NAME).get().split(","));
+      context.report().addLine(String.format("aspectNames is %s", result.aspectNames));
     }
     return result;
   }
@@ -191,7 +225,12 @@ public class SendMAEStep implements UpgradeStep {
             context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
             start += args.batchSize;
           } catch (InterruptedException | ExecutionException e) {
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            if (e.getCause() instanceof NoSuchElementException) {
+              context.report().addLine("End of data.");
+              break;
+            } else {
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
           }
         }
       } else {
@@ -222,7 +261,7 @@ public class SendMAEStep implements UpgradeStep {
                     "Failed to send MAEs for %d rows (%.2f%% of total).",
                     rowCount - finalJobResult.rowsMigrated, percentFailed));
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

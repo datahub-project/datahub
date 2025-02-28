@@ -61,6 +61,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             info: {
                                 description: stagedDescription,
                             },
+                            assetOrigin: null,
                         });
                     }
                 })
@@ -89,7 +90,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
         <Modal
             width={700}
             title="Create new group"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>
@@ -97,6 +98,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id="createGroupButton"
                         data-testid="modal-create-group-button"
                         onClick={onCreateGroup}

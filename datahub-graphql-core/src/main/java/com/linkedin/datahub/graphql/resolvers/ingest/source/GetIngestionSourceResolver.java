@@ -3,11 +3,12 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -35,19 +36,22 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
 
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    if (AuthorizationUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               final Urn urn = Urn.createFromString(urnStr);
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
-                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
-                      context.getAuthentication());
-              if (!entities.containsKey(urn)) {
+                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
+              if (!entities.containsKey(urn)
+                  || entities.get(urn) == null
+                  || !entities.get(urn).hasAspects()
+                  || entities.get(urn).getAspects().isEmpty()) {
                 // No ingestion source found
                 throw new DataHubGraphQLException(
                     String.format("Failed to find Ingestion Source with urn %s", urn),
@@ -58,7 +62,9 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve ingestion source", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

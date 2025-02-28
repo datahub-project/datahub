@@ -147,13 +147,14 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         onClose();
     };
 
-    const titleText = editData ? 'Edit Post' : 'Create new Post';
+    const titleText = editData ? 'Edit' : 'Create';
 
     return (
         <Modal
             title={titleText}
             open
             onCancel={onCloseModal}
+            width={700}
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
@@ -173,6 +174,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             <CreatePostForm
                 setCreateButtonEnabled={setCreateButtonEnabled}
                 form={form}
+                editData={editData}
                 contentType={editData?.contentType as PostContentType}
             />
         </Modal>

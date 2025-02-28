@@ -1,16 +1,12 @@
 namespace com.linkedin.monitor
 
-import com.linkedin.assertion.AssertionInfo
+import com.linkedin.assertion.AssertionWithoutAnnotations
+import com.linkedin.timeseries.TimeWindow
 
 /**
  * Embedded assertion to be evaluated
  */
-record EmbeddedAssertion {
-    /**
-    * Specs for each assertion to evaluate
-    */
-    assertion: AssertionInfo
-
+record EmbeddedAssertion includes AssertionWithoutAnnotations {
     /**
     * Validity period of the assertion, ie the window of time where it should be used in evaluation
     */

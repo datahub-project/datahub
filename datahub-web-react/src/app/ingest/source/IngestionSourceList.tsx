@@ -1,10 +1,12 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, message, Modal, Pagination, Select } from 'antd';
 import styled from 'styled-components';
+import { X } from 'phosphor-react';
+import { colors } from '@src/alchemy-components';
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
@@ -17,7 +19,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
-import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
@@ -32,6 +34,9 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '../../onboarding/config/IngestionOnboardingConfig';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { useCommandS } from './hooks';
+import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
+import { usePoolActionsForIngestionSourceList } from './hooks.saas';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -51,20 +56,28 @@ const FilterWrapper = styled.div`
     display: flex;
 `;
 
+// SaaS only button
+const PoolsFilterButton = styled(Button)`
+    margin: 8px;
+    font-weight: bold;
+    &:hover {
+        background-color: transparent;
+    }
+`;
+
+const CloseButton = styled(X)`
+    cursor: pointer;
+    margin-left: 2px;
+    position: relative;
+    top: 2px;
+`;
+
+const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
+
 export enum IngestionSourceType {
     ALL,
     UI,
     CLI,
-}
-
-export function shouldIncludeSource(source: any, sourceFilter: IngestionSourceType) {
-    if (sourceFilter === IngestionSourceType.CLI) {
-        return source.config.executorId === CLI_EXECUTOR_ID;
-    }
-    if (sourceFilter === IngestionSourceType.UI) {
-        return source.config.executorId !== CLI_EXECUTOR_ID;
-    }
-    return true;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -81,13 +94,29 @@ const removeExecutionsFromIngestionSource = (source) => {
     return undefined;
 };
 
-export const IngestionSourceList = () => {
+type Props = {
+    onSwitchTab: (tab: string) => void;
+};
+
+export const IngestionSourceList = ({ onSwitchTab }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    // parse query params
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
+    const paramsQuery = (params?.[INGESTION_TAB_QUERY_PARAMS.searchQuery] as string) || undefined;
+    const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
+
     const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    // highlight search input if user arrives with a query preset for salience
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            searchInputRef.current?.focus();
+        }
+    }, [paramsQuery]);
 
     const [page, setPage] = useState(1);
 
@@ -102,6 +131,36 @@ export const IngestionSourceList = () => {
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
+    const [sort, setSort] = useState<SortCriterion>();
+    const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    // When source filter changes, reset page to 1
+    useEffect(() => {
+        setPage(1);
+    }, [sourceFilter]);
+
+    /**
+     * Show or hide system ingestion sources using a hidden command S command.
+     */
+    useCommandS(() => setHideSystemSources(!hideSystemSources));
+
+    // Ingestion Source Default Filters
+    const filters = hideSystemSources
+        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
+        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
+
+    if (sourceFilter !== IngestionSourceType.ALL) {
+        filters.push({
+            field: 'sourceExecutorId',
+            values: [CLI_EXECUTOR_ID],
+            negated: sourceFilter !== IngestionSourceType.CLI,
+        });
+    }
+
+    // SaaS only
+    if (paramsPoolFilter) {
+        filters.push({ field: 'sourceExecutorId', values: [paramsPoolFilter], negated: false });
+    }
 
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
@@ -109,7 +168,9 @@ export const IngestionSourceList = () => {
             input: {
                 start,
                 count: pageSize,
-                query: (query?.length && query) || undefined,
+                query: query?.length ? query : undefined,
+                filters: filters.length ? filters : undefined,
+                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -123,9 +184,7 @@ export const IngestionSourceList = () => {
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
-    const filteredSources = sources.filter(
-        (source) => !removedUrns.includes(source.urn) && shouldIncludeSource(source, sourceFilter),
-    ) as IngestionSource[];
+    const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
@@ -141,7 +200,7 @@ export const IngestionSourceList = () => {
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
-            source.executions?.executionRequests.find((request) => isExecutionRequestActive(request)),
+            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
     useRefreshIngestionData(onRefresh, hasActiveExecution);
@@ -174,14 +233,16 @@ export const IngestionSourceList = () => {
     };
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
+        setTimeout(() => refetch(), 3000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
     };
 
     const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+        return extraArgs
+            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
+            .map((entry) => ({ key: entry.key, value: entry.value }));
     };
 
     const createOrUpdateIngestionSource = (
@@ -350,6 +411,7 @@ export const IngestionSourceList = () => {
             },
             onCancel() {},
             okText: 'Yes',
+            okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
             maskClosable: true,
             closable: true,
         });
@@ -360,6 +422,20 @@ export const IngestionSourceList = () => {
         setIsViewingRecipe(false);
         setFocusSourceUrn(undefined);
     };
+
+    const onChangeSort = (field, order) => {
+        setSort(
+            order
+                ? {
+                      sortOrder: order === 'ascend' ? SortOrder.Ascending : SortOrder.Descending,
+                      field,
+                  }
+                : undefined,
+        );
+    };
+
+    // SaaS only
+    const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, onSwitchTab);
 
     return (
         <>
@@ -393,6 +469,7 @@ export const IngestionSourceList = () => {
                         </StyledSelect>
 
                         <SearchBar
+                            searchInputRef={searchInputRef}
                             initialQuery={query || ''}
                             placeholderText="Search sources..."
                             suggestions={[]}
@@ -414,6 +491,14 @@ export const IngestionSourceList = () => {
                         />
                     </FilterWrapper>
                 </TabToolbar>
+
+                {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                {paramsPoolFilter && (
+                    <PoolsFilterButton type="text" onClick={clearPoolFilter}>
+                        Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                        <CloseButton color={colors.red[500]} size={12} />
+                    </PoolsFilterButton>
+                )}
                 <IngestionSourceTable
                     lastRefresh={lastRefresh}
                     sources={filteredSources || []}
@@ -423,10 +508,12 @@ export const IngestionSourceList = () => {
                     onView={onView}
                     onDelete={onDelete}
                     onRefresh={onRefresh}
+                    onChangeSort={onChangeSort}
+                    saasProps={{ onViewPool }}
                 />
                 <SourcePaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 15 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalSources}
@@ -438,16 +525,17 @@ export const IngestionSourceList = () => {
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
-                visible={isBuildingSource}
+                open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
-            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
+            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
                 <ExecutionDetailsModal
                     urn={focusExecutionUrn}
-                    visible
+                    open
                     onClose={() => setFocusExecutionUrn(undefined)}
+                    saasProps={{ onViewPool }}
                 />
             )}
         </>

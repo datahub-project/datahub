@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Typography, Divider } from 'antd';
+import { Menu, Typography, Divider, Button } from 'antd';
 import {
     BankOutlined,
     SafetyCertificateOutlined,
@@ -12,17 +12,19 @@ import {
     TeamOutlined,
     StarOutlined,
     PushpinOutlined,
+    ControlOutlined,
     QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
+import Cookies from 'js-cookie';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePermissions } from '../permissions/ManagePermissions';
 import { useAppConfig } from '../useAppConfig';
 import { AccessTokens } from './AccessTokens';
 import { PlatformIntegrations } from './platform/PlatformIntegrations';
-import { PlatformNotifications } from './platform/PlatformNotifications';
+import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
 import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 import { Preferences } from './Preferences';
 import { ManagePolicies } from '../permissions/policy/ManagePolicies';
@@ -34,6 +36,16 @@ import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSu
 import { useSubscriptionsEnabled } from './personal/notifications/utils';
 import ManagePosts from './posts/ManagePosts';
 import ManageHelpLink from './helpLink/ManageHelpLink';
+
+import analytics, { EventType } from '../analytics';
+import { GlobalCfg } from '../../conf';
+import { isLoggedInVar } from '../auth/checkAuthStatus';
+import { useIsThemeV2 } from '../useIsThemeV2';
+
+const MenuItem = styled(Menu.Item)`
+    display: flex;
+    align-items: center;
+`;
 
 const PageContainer = styled.div`
     display: flex;
@@ -76,10 +88,21 @@ const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },
     { path: 'notifications', content: <PlatformNotifications /> },
     { path: 'sso', content: <PlatformSsoIntegrations /> },
-    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
+    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal canManageNotifications /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
-const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
+const menuStyle = { width: 256, marginTop: 8, overflow: 'hidden auto' };
+
+const NewTag = styled.span`
+    padding: 4px 8px;
+    margin-left: 8px;
+
+    border-radius: 24px;
+    background: #f1fbfe;
+
+    color: #09739a;
+    font-size: 12px;
+`;
 
 /**
  * URL Paths for each settings page.
@@ -95,6 +118,7 @@ const PATHS = [
     { path: 'views', content: <ManageViews /> },
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
+    // { path: 'features', content: <Features /> }, OSS-Only Currently!
     { path: 'helpLink', content: <ManageHelpLink /> },
 ];
 
@@ -107,6 +131,7 @@ export const SettingsPage = () => {
     const subscriptionsEnabled = useSubscriptionsEnabled();
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
+
     const history = useHistory();
     const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
     const currPathName = pathname.replace(path, '');
@@ -118,9 +143,9 @@ export const SettingsPage = () => {
     const me = useUserContext();
     const { config } = useAppConfig();
 
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
-    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
-    const isViewsEnabled = config?.viewsConfig.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
+    const isViewsEnabled = config?.viewsConfig?.enabled;
     const { readOnlyModeEnabled } = config.featureFlags;
 
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
@@ -129,7 +154,18 @@ export const SettingsPage = () => {
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
+    const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
+    const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
+
+    const isThemeV2 = useIsThemeV2();
+
+    const handleLogout = () => {
+        analytics.event({ type: EventType.LogOutEvent });
+        isLoggedInVar(false);
+        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+        me.updateLocalState({ selectedViewUrn: undefined });
+    };
 
     return (
         <PageContainer>
@@ -137,6 +173,18 @@ export const SettingsPage = () => {
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
+                    {isThemeV2 && (
+                        <Button
+                            type="link"
+                            href="/logOut"
+                            onClick={handleLogout}
+                            data-testid="log-out-menu-item"
+                            style={{ padding: 0, margin: 0, height: 'auto', lineHeight: 'inherit' }}
+                            danger
+                        >
+                            Sign Out
+                        </Button>
+                    )}
                 </SettingsBarHeader>
                 <ThinDivider />
                 <Menu
@@ -169,12 +217,14 @@ export const SettingsPage = () => {
                         )}
                     </Menu.ItemGroup>
 
-                    <Menu.ItemGroup title="Developer">
-                        <Menu.Item key="tokens">
-                            <SafetyCertificateOutlined />
-                            <ItemTitle>Access Tokens</ItemTitle>
-                        </Menu.Item>
-                    </Menu.ItemGroup>
+                    {showAccessTokens ? (
+                        <Menu.ItemGroup title="Developer">
+                            <Menu.Item key="tokens">
+                                <SafetyCertificateOutlined />
+                                <ItemTitle>Access Tokens</ItemTitle>
+                            </Menu.Item>
+                        </Menu.ItemGroup>
+                    ) : null}
                     {(showPolicies || showUsersGroups) && (
                         <Menu.ItemGroup title="Access">
                             {showUsersGroups && (
@@ -212,6 +262,18 @@ export const SettingsPage = () => {
 
                     {(showOwnershipTypes || showHomePagePosts || showCustomHelpLink) && (
                         <Menu.ItemGroup title="Manage">
+                            {showFeatures && (
+                                <MenuItem key="features">
+                                    <ControlOutlined />
+                                    <ItemTitle>Features</ItemTitle>
+                                    <NewTag>New!</NewTag>
+                                </MenuItem>
+                            )}
+                            {showViews && (
+                                <Menu.Item key="views">
+                                    <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                                </Menu.Item>
+                            )}
                             {showOwnershipTypes && (
                                 <Menu.Item key="ownership">
                                     <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
@@ -224,7 +286,7 @@ export const SettingsPage = () => {
                             )}
                             {showHomePagePosts && (
                                 <Menu.Item key="posts">
-                                    <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                                    <PushpinOutlined /> <ItemTitle>Home Page</ItemTitle>
                                 </Menu.Item>
                             )}
                         </Menu.ItemGroup>

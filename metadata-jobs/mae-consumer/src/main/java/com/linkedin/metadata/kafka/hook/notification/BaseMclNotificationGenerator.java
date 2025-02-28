@@ -4,10 +4,10 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.NotificationRecipientBuilder;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -16,9 +16,12 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.event.notification.NotificationContext;
 import com.linkedin.event.notification.NotificationMessage;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientArray;
+import com.linkedin.event.notification.NotificationRecipientOriginType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.template.NotificationTemplateType;
@@ -41,6 +44,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,21 +74,23 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected final EntityClient _entityClient;
   protected final GraphClient _graphClient;
   protected final SettingsProvider _settingsProvider;
-  protected final Authentication _systemAuthentication;
-  protected final Map<NotificationSinkType, NotificationRecipientBuilder> _recipientBuilders;
+  protected final EntityNameProvider _entityNameProvider;
+  protected final NotificationRecipientBuilders _recipientBuilders;
+  protected final OperationContext systemOpContext;
 
   public BaseMclNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final Map<NotificationSinkType, NotificationRecipientBuilder> recipientBuilders) {
+      @Nonnull final NotificationRecipientBuilders recipientBuilders) {
+    this.systemOpContext = systemOpContext;
     _eventProducer = Objects.requireNonNull(eventProducer);
     _entityClient = Objects.requireNonNull(entityClient);
     _graphClient = Objects.requireNonNull(graphClient);
     _settingsProvider = Objects.requireNonNull(settingsProvider);
-    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    _entityNameProvider = new EntityNameProvider(entityClient);
     _recipientBuilders = Objects.requireNonNull(recipientBuilders);
   }
 
@@ -92,7 +98,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   public abstract void generate(@Nonnull MetadataChangeLog event);
 
   protected boolean isEligibleForGlobalRecipients(@Nonnull final NotificationScenarioType type) {
-    final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    final GlobalSettingsInfo globalSettingsInfo =
+        _settingsProvider.getGlobalSettings(systemOpContext);
     return globalSettingsInfo != null
         && globalSettingsInfo.getNotifications().hasSettings()
         && globalSettingsInfo.getNotifications().getSettings().containsKey(type.toString())
@@ -113,14 +120,41 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   }
 
   protected List<NotificationRecipient> buildRecipients(
+      @Nonnull OperationContext opContext,
       @Nonnull final NotificationScenarioType notificationScenarioType,
       @Nonnull final Urn entityUrn,
       @Nullable EntityChangeType entityChangeType) {
+    return buildRecipients(
+        opContext, notificationScenarioType, entityUrn, entityChangeType, null, null);
+  }
+
+  protected List<NotificationRecipient> buildRecipients(
+      @Nonnull OperationContext opContext,
+      @Nonnull final NotificationScenarioType notificationScenarioType,
+      @Nonnull final Urn entityUrn,
+      @Nullable EntityChangeType entityChangeType,
+      @Nullable final Urn actorUrn) {
+    return buildRecipients(
+        opContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn, null);
+  }
+
+  protected List<NotificationRecipient> buildRecipients(
+      @Nonnull OperationContext opContext,
+      @Nonnull final NotificationScenarioType notificationScenarioType,
+      @Nonnull final Urn entityUrn,
+      @Nullable EntityChangeType entityChangeType,
+      @Nullable final Urn actorUrn,
+      @Nullable final NotificationRecipientsGeneratorExtraContext extraContext) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
+
+    // if entity is hard or soft deleted, return no recipients and send no notification
+    if (!entityExists(opContext, entityUrn)) {
+      return recipients;
+    }
 
     // If we should globally broadcast, build the broadcast recipient.
     if (isEligibleForGlobalRecipients(notificationScenarioType)) {
-      recipients.addAll(buildGlobalRecipients(notificationScenarioType));
+      recipients.addAll(buildGlobalRecipients(opContext, notificationScenarioType));
     }
 
     // TODO: Support sending notifications to owners.
@@ -134,7 +168,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     }
 
     if (entityChangeType != null && isEligibleForSubscriberRecipients()) {
-      recipients.addAll(buildSubscriberRecipients(entityUrn, entityChangeType));
+      recipients.addAll(
+          buildSubscriberRecipients(opContext, entityUrn, entityChangeType, extraContext));
     }
 
     return recipients;
@@ -142,9 +177,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   @Nonnull
   protected List<NotificationRecipient> buildGlobalRecipients(
-      @Nonnull final NotificationScenarioType type) {
-    return _recipientBuilders.values().stream()
-        .flatMap(builder -> builder.buildGlobalRecipients(type).stream())
+      @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type) {
+    return _recipientBuilders.listBuilders().stream()
+        .flatMap(builder -> builder.buildGlobalRecipients(opContext, type).stream())
+        .filter(Objects::nonNull)
+        .map(recipient -> recipient.setOrigin(NotificationRecipientOriginType.GLOBAL_NOTIFICATION))
         .collect(Collectors.toList());
   }
 
@@ -158,30 +195,51 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   @Nonnull
   protected List<NotificationRecipient> buildSubscriberRecipients(
-      @Nonnull final Urn entityUrn, @Nonnull final EntityChangeType changeType) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final EntityChangeType changeType,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
     final Set<Urn> downstreamEntityUrns = new HashSet<>();
 
     if (ENABLE_DOWNSTREAM_ENTITIES) {
       downstreamEntityUrns.addAll(getDownstreamEntities(entityUrn));
     }
 
-    final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
+    final Map<Urn, SubscriptionInfo> subscriptionInfoMapUnfiltered =
         getSubscriptionInfoMap(entityUrn, downstreamEntityUrns, changeType);
+
+    // Filter out subscriptions as necessary
+    final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
+        applySubscriptionFiltersToSubscriptionMap(
+            subscriptionInfoMapUnfiltered, changeType, extraContext);
+
     // We split up the subscriptions by sink type.
     final Map<NotificationSinkType, Set<Urn>> sinkTypeToSubscriptionUrns =
         getSinkTypeToSubscriptionUrnsMap(subscriptionInfoMap);
+
     final List<NotificationRecipient> recipients = new ArrayList<>();
+
     for (final NotificationSinkType sinkType : sinkTypeToSubscriptionUrns.keySet()) {
       final Map<Urn, SubscriptionInfo> sinkSubscriptions =
           subscriptionInfoMap.entrySet().stream()
               .filter(entry -> sinkTypeToSubscriptionUrns.get(sinkType).contains(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
       final List<NotificationRecipient> sinkRecipients =
-          _recipientBuilders.get(sinkType).buildSubscriberRecipients(sinkSubscriptions);
+          _recipientBuilders
+              .getBuilder(sinkType)
+              .buildSubscriberRecipients(opContext, sinkSubscriptions);
       recipients.addAll(sinkRecipients);
     }
 
-    return getUniqueRecipients(recipients);
+    return getUniqueHydratedSubscriberRecipients(opContext, recipients, _entityNameProvider);
+  }
+
+  protected Map<Urn, SubscriptionInfo> applySubscriptionFiltersToSubscriptionMap(
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptionInfoMap,
+      @Nullable EntityChangeType entityChangeType,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+    return subscriptionInfoMap;
   }
 
   @Nonnull
@@ -203,10 +261,10 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       subscriptions =
           Objects.requireNonNull(
               _entityClient.batchGetV2(
+                  systemOpContext,
                   SUBSCRIPTION_ENTITY_NAME,
                   subscriptionUrns,
-                  ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME),
-                  _systemAuthentication));
+                  ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME)));
     } catch (Exception e) {
       log.error("Failed to fetch subscriptions for entity {}", entityUrn, e);
       return Collections.emptyMap();
@@ -239,8 +297,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     SearchResult searchResult;
     try {
       searchResult =
-          _entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1000, _systemAuthentication);
+          _entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1000);
       MetricUtils.counter(this.getClass(), NOTIFICATIONS_SEARCH_CALL_COUNT).inc();
     } catch (Exception e) {
       log.error("Failed to fetch subscriptions for filter {}", filter, e);
@@ -287,12 +344,23 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull final String templateType,
       @Nonnull final Map<String, String> templateParams,
       @Nonnull final Set<NotificationRecipient> recipients) {
+    return buildNotificationRequest(templateType, templateParams, recipients, null);
+  }
+
+  protected NotificationRequest buildNotificationRequest(
+      @Nonnull final String templateType,
+      @Nonnull final Map<String, String> templateParams,
+      @Nonnull final Set<NotificationRecipient> recipients,
+      @Nullable final NotificationContext context) {
     final NotificationRequest notificationRequest = new NotificationRequest();
     notificationRequest.setMessage(
         new NotificationMessage()
             .setTemplate(NotificationTemplateType.valueOf(templateType))
             .setParameters(new StringMap(templateParams)));
     notificationRequest.setRecipients(new NotificationRecipientArray(recipients));
+    if (context != null) {
+      notificationRequest.setContext(context);
+    }
     return notificationRequest;
   }
 
@@ -311,10 +379,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     try {
       final Map<Urn, EntityResponse> response =
           _entityClient.batchGetV2(
-              entityType,
-              urns,
-              Collections.singleton(OWNERSHIP_ASPECT_NAME),
-              _systemAuthentication);
+              systemOpContext, entityType, urns, Collections.singleton(OWNERSHIP_ASPECT_NAME));
 
       return response.entrySet().stream()
           .filter(
@@ -348,7 +413,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
               0,
               1000,
               MAX_DOWNSTREAMS_HOP,
-              _systemAuthentication.getActor().toUrnStr());
+              systemOpContext.getSessionAuthentication().getActor().toUrnStr());
       MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
 
       return results.getRelationships().stream()
@@ -361,9 +426,13 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     }
   }
 
-  @Nonnull
-  protected List<Urn> getDownstreamOwners(final Urn entityUrn) {
+  @Nullable
+  protected DownstreamSummary getDownstreamSummary(final Urn entityUrn) {
     try {
+      final DownstreamSummary summary = new DownstreamSummary();
+      summary.setTotal(0);
+      summary.setAssetUrns(new ArrayList<>());
+      summary.setOwnerUrns(new ArrayList<>());
       final EntityLineageResult results =
           _graphClient.getLineageEntities(
               entityUrn.toString(),
@@ -371,8 +440,10 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
               0,
               MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
               MAX_DOWNSTREAMS_HOP,
-              _systemAuthentication.getActor().toUrnStr());
+              systemOpContext.getSessionAuthentication().getActor().toUrnStr());
       MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
+
+      summary.setTotal(results.getTotal());
 
       // Now fetch the ownership for each entity type in batch.
       final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
@@ -381,6 +452,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
         downstreamEntityUrns
             .get(relationship.getEntity().getEntityType())
             .add(relationship.getEntity());
+        summary.assetUrns.add(relationship.getEntity());
       }
 
       final List<Urn> ownerUrns = new ArrayList<>();
@@ -392,17 +464,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
             .forEach(
                 e -> {
                   // Add each owner from the ownership to the master list of owners.
-                  ownerUrns.addAll(
+                  summary.ownerUrns.addAll(
                       e.getValue().getOwners().stream()
                           .map(Owner::getOwner)
                           .collect(Collectors.toList()));
                 });
       }
-      return ownerUrns;
+      return summary;
     } catch (Exception e) {
       log.error(
           String.format("Failed to retrieve downstream owners for entity urn %s.", entityUrn));
-      return Collections.emptyList();
+      return null;
     }
   }
 
@@ -411,7 +483,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     try {
       EntityResponse response =
           _entityClient.getV2(
-              urn.getEntityType(), urn, ImmutableSet.of(aspectName), _systemAuthentication);
+              systemOpContext, urn.getEntityType(), urn, ImmutableSet.of(aspectName));
       if (response != null && response.getAspects().containsKey(aspectName)) {
         return response.getAspects().get(aspectName).getValue().data();
       } else {
@@ -421,6 +493,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     } catch (Exception e) {
       log.error(String.format("Failed to get aspect data for  urn %s aspect %s", urn, aspectName));
       return null;
+    }
+  }
+
+  /** This checks if the entity is hard or soft deleted */
+  protected boolean entityExists(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      return _entityClient.exists(opContext, entityUrn, false);
+    } catch (Exception e) {
+      log.error(String.format("Failed to get if entity exists for %s", entityUrn));
+      return false;
     }
   }
 

@@ -19,8 +19,10 @@ export const useRegisterInsight = (id, isPresent) => {
     const { registerInsight } = useInsightStatusContext();
 
     useEffect(() => {
-        const newIsPresent = !!isPresent;
-        registerInsight(id, newIsPresent);
+        if (isPresent !== undefined) {
+            // Only register the insight once it's a true or false value, not during loading.
+            registerInsight(id, isPresent);
+        }
         return () => registerInsight(id, false); // Cleanup
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, isPresent]);
@@ -30,22 +32,41 @@ export const useRegisterInsight = (id, isPresent) => {
  * Used for insight modules to communicate their status to the parent
  * Insights coordinator module.
  */
-export const InsightStatusProvider = ({ children }: { children: React.ReactNode }) => {
+export const InsightStatusProvider = ({
+    children,
+    displayedInsightIds,
+}: {
+    children: React.ReactNode;
+    displayedInsightIds: string[];
+}) => {
     const [insightStatuses, setInsightStatuses] = useState(new Map());
+    const [displayInsights, setDisplayInsights] = useState(true);
 
     const registerInsight = (id: string, isPresent: boolean) => {
-        const newIsPresent = isPresent;
-        const currentIsPresent = insightStatuses.has(id) ? insightStatuses.get(id) : false;
-        if (newIsPresent !== currentIsPresent) {
-            const newStatuses = new Map(insightStatuses);
-            newStatuses.set(id, newIsPresent);
-            setInsightStatuses(newStatuses);
-        }
+        setInsightStatuses((prevStatuses) => {
+            const currentIsPresent = prevStatuses.get(id);
+            if (!prevStatuses.has(id) || isPresent !== currentIsPresent) {
+                const newStatuses = new Map(prevStatuses);
+                newStatuses.set(id, isPresent);
+                return newStatuses;
+            }
+            return prevStatuses;
+        });
     };
+
+    useEffect(() => {
+        // If all insights have been registerd, and all are hidden, we can remove un-render the entire for you section.
+        const allInsightsHidden = displayedInsightIds.every(
+            (id) => insightStatuses.has(id) && !insightStatuses.get(id),
+        );
+        if (allInsightsHidden) {
+            setDisplayInsights(false);
+        }
+    }, [insightStatuses, displayedInsightIds, setDisplayInsights]);
 
     return (
         <InsightStatusContext.Provider value={{ insightStatuses, registerInsight }}>
-            {children}
+            {displayInsights ? children : undefined}
         </InsightStatusContext.Provider>
     );
 };

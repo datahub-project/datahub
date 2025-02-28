@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -17,6 +16,7 @@ import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,13 +46,13 @@ public class SystemMonitorsResolver
     return CompletableFuture.supplyAsync(
         () -> {
           // Ensure that the entity exists.
-          validateEntity(entityUrn, context.getAuthentication());
+          validateEntity(context.getOperationContext(), entityUrn);
 
           // Next, fetch the system monitors that are active for the entity.
           // To do this, we issue direct lookups.
           final SystemMonitorsResult result = new SystemMonitorsResult();
           final List<SystemMonitor> monitors =
-              getSystemMonitorsForEntity(entityUrn, context.getAuthentication());
+              getSystemMonitorsForEntity(context.getOperationContext(), entityUrn);
           result.setMonitors(monitors);
           return result;
         });
@@ -62,8 +62,7 @@ public class SystemMonitorsResolver
    * Verifies that an entity exists and has system monitors support, else throws a {@link
    * DataHubGraphQLException}.
    */
-  private void validateEntity(
-      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) {
+  private void validateEntity(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     if (!ENTITY_TYPES_WITH_SYSTEM_MONITORS.contains(entityUrn.getEntityType())) {
       throw new DataHubGraphQLException(
           String.format(
@@ -73,7 +72,7 @@ public class SystemMonitorsResolver
           DataHubGraphQLErrorCode.BAD_REQUEST);
     }
     try {
-      if (!this._entityClient.exists(entityUrn, authentication)) {
+      if (!this._entityClient.exists(opContext, entityUrn)) {
         throw new DataHubGraphQLException(
             String.format(
                 "Failed to edit Monitor. %s with urn %s does not exist.",
@@ -91,12 +90,12 @@ public class SystemMonitorsResolver
    * active.
    */
   private List<SystemMonitor> getSystemMonitorsForEntity(
-      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     final List<SystemMonitor> monitors = new ArrayList<>();
 
     // 1. Try to add SLA Monitor Type.
     Urn slaMonitorUrn = getMonitorUrnForSystemMonitorType(entityUrn, SystemMonitorType.FRESHNESS);
-    if (_monitorService.getMonitorInfo(slaMonitorUrn) != null) {
+    if (_monitorService.getMonitorInfo(opContext, slaMonitorUrn) != null) {
       Monitor partialMonitor = new Monitor();
       partialMonitor.setUrn(slaMonitorUrn.toString());
       monitors.add(new SystemMonitor(SystemMonitorType.FRESHNESS, partialMonitor));

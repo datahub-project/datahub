@@ -1,0 +1,100 @@
+plugins {
+    id 'java-library'
+    id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+group = 'io.datahubproject.openapi.scim'
+
+ext {
+    ebeanEntities = "${project(':metadata-io').buildDir}/classes/java/main"
+}
+
+dependencies {
+    implementation (externalDependency.scimServer) {
+        exclude group: 'commons-logging', module: 'commons-logging'
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+        exclude group: 'org.jboss.logging', module: 'jboss-logging'
+    }
+
+    implementation (externalDependency.scimSpec) {
+        exclude group: 'commons-logging', module: 'commons-logging'
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+        exclude group: 'org.jboss.logging', module: 'jboss-logging'
+    }
+
+    implementation project(':metadata-service:services')
+    implementation project(':metadata-models')
+    implementation project(':metadata-utils')
+    implementation project(':metadata-operation-context')
+
+    implementation externalDependency.springBoot
+
+    implementation externalDependency.springCore
+
+    implementation externalDependency.springWeb
+
+    implementation externalDependency.springWebMVC
+
+    implementation externalDependency.slf4jApi
+
+    implementation externalDependency.jakartaWsRsApi
+
+    implementation externalDependency.servletApi
+
+    implementation project(':metadata-io')
+
+    implementation externalDependency.ebeanDdl
+
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+
+    testImplementation project(':metadata-service:factories')
+
+    testImplementation project(':metadata-test-util:java')
+
+    testImplementation externalDependency.mockito
+
+    testImplementation externalDependency.springWeb
+
+    testImplementation externalDependency.springWebMVC
+
+    testImplementation(externalDependency.springBootStarterWeb) {
+        exclude module: "spring-boot-starter-tomcat"
+    }
+    testImplementation externalDependency.springBootStarterJetty
+
+    testImplementation externalDependency.springBootTest
+
+    testImplementation externalDependency.scimSpecTest
+
+    testImplementation externalDependency.ebean
+
+    testImplementation externalDependency.neo4jHarness
+
+    testImplementation externalDependency.antlr4Runtime
+
+    testImplementation externalDependency.antlr4
+
+    testImplementation externalDependency.junit
+
+}
+
+tasks.withType(Test) {
+    enableAssertions = false
+}
+
+test {
+    // Add ebeanEntities location in classpath so that Ebean can scan it
+    def externalDirectory = file(ebeanEntities)
+
+    classpath += files(externalDirectory)
+
+    useJUnitPlatform()
+}
+
+ebean {
+    debugLevel = 1 // 0 - 9
+}

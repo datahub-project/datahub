@@ -1,22 +1,20 @@
 import React from 'react';
 
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
+import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
 
+import { useEntityType, useMatchedFieldsForList, useSearchResult } from '../../search/context/SearchResultContext';
 import { MatchedField } from '../../../types.generated';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { SchemaFilterType } from '../../entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { useSearchContext, useSearchQuery } from '../../search/context/SearchContext';
-import {
-    useMatchedFieldLabel,
-    useMatchedFieldsForList,
-    useSearchResult,
-} from '../../search/context/SearchResultContext';
+import { useSearchContext } from '../../search/context/SearchContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { MatchesGroupedByFieldName } from './constants';
-import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './utils';
+
+import { getColumnsTabUrlPath, getMatchedFieldLabel } from './utils';
+import { pluralize } from '../../shared/textUtil';
+import { SchemaFilterType } from '../../entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import { GroupedMatch } from './GroupedMatch';
 
 const MatchesContainer = styled.div`
     display: flex;
@@ -24,43 +22,50 @@ const MatchesContainer = styled.div`
     gap: 8px;
 `;
 
-const MatchTextPadding = styled.span`
-    min-width: 24px;
+const MatchContainer = styled.div`
+    display: flex;
+    padding: 0px 2px;
+    align-items: center;
+    border-radius: 30px;
+    background: #ebe9f4;
+    margin-right: 4px;
+    white-space: nowrap;
 `;
 
-export const MatchText = styled(Typography.Text)<{ isClickable: boolean; forceHover?: boolean }>`
-    color: #328980;
-    padding: 8px;
-    padding-right: 8px;
-    padding-left: 8px;
-    max-width: 100px;
-    white-space: nowrap;
-    overflow: hidden;
-    div {
-        text-overflow: ellipsis;
-    }
-    text-overflow: ellipsis;
-    color: ${SEARCH_COLORS.MATCH_TEXT_GREY};
-    transition: max-width 0.3s ease;
-    :hover {
-        background-color: ${SEARCH_COLORS.MATCH_BACKGROUND_GREY};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border-radius: 20px;
-        max-width: 400px;
-        ${(props) => props.isClickable && `cursor: pointer;`};
-    }
-    ${(props) =>
-        props.forceHover &&
-        `
-        background-color: ${SEARCH_COLORS.MATCH_BACKGROUND_GREY};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border-radius: 20px;
-        max-width: 400px;
-        ${props.isClickable && `cursor: pointer;`};
-    `}
+const MatchHeader = styled(Typography.Text)`
+    display: flex;
+    padding: 4px 2px 4px 10px;
+    align-items: center;
+    gap: 4px;
+    color: #6c6b88;
+    font-family: Mulish;
+    font-size: 12px;
+    font-style: normal;
+    line-height: normal;
+`;
+
+const MatchText = styled(Typography.Text)`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50px;
+    background: #ebe9f4;
+    color: #374066;
+    font-family: Mulish;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
 `;
 
 const MATCH_GROUP_LIMIT = 3;
+
+const CLICKABLE_FIELDS = {
+    fieldPaths: SchemaFilterType.FieldPath,
+    fieldDescriptions: SchemaFilterType.Documentation,
+    fieldTags: SchemaFilterType.Tags,
+    fieldGlossaryTerms: SchemaFilterType.Terms,
+};
 
 type CustomFieldRenderer = (field: MatchedField) => JSX.Element | null;
 
@@ -69,122 +74,62 @@ type Props = {
     matchSuffix?: string;
 };
 
-const clickableFieldNames = {
-    fieldPaths: SchemaFilterType.FieldPath,
-    fieldDescriptions: SchemaFilterType.Documentation,
-    fieldTags: SchemaFilterType.Tags,
-    fieldGlossaryTerms: SchemaFilterType.Terms,
-};
-
-const RenderedField = ({
-    customFieldRenderer,
-    field,
-}: {
-    customFieldRenderer?: CustomFieldRenderer;
-    field: MatchedField;
-}) => {
-    const entityRegistry = useEntityRegistry();
-    const query = useSearchQuery()?.trim().toLowerCase();
-    const customRenderedField = customFieldRenderer?.(field);
-    if (customRenderedField) return <b>{customRenderedField}</b>;
-    if (isHighlightableEntityField(field)) {
-        return field.entity ? <>{entityRegistry.getDisplayName(field.entity.type, field.entity)}</> : <></>;
-    }
-    if (isDescriptionField(field) && query) return <b>{getDescriptionSlice(field.value, query)}</b>;
-    return <b>{field.value}</b>;
-};
-
-const MatchGroup = styled.span``;
-
-const MatchedFieldsList = ({
-    groupedMatch,
-    limit,
-    matchSuffix = '',
-    customFieldRenderer,
-}: {
-    groupedMatch: MatchesGroupedByFieldName;
-    limit: number;
-    matchSuffix?: string;
-    customFieldRenderer?: CustomFieldRenderer;
-}) => {
-    const label = useMatchedFieldLabel(groupedMatch.fieldName);
-    const count = groupedMatch.matchedFields.length;
-
-    return (
-        <MatchGroup>
-            {count > 0 && `${count} `}
-            {label}
-            {count > 1 && 's'}{' '}
-            {count < 2 &&
-                groupedMatch.matchedFields.slice(0, limit).map((field, index) => (
-                    <>
-                        {index > 0 && ', '}
-                        <span className="renderedField">
-                            <RenderedField field={field} customFieldRenderer={customFieldRenderer} />
-                        </span>
-                    </>
-                ))}
-            {matchSuffix}
-        </MatchGroup>
-    );
-};
-
-export const MatchedFieldList = ({ customFieldRenderer, matchSuffix = '' }: Props) => {
+export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const searchContext = useSearchContext();
     const result = useSearchResult();
-    const groupedMatches = useMatchedFieldsForList('fieldPaths');
+    const groupedMatches = useMatchedFieldsForList('fieldLabels');
+    const entityType = useEntityType();
 
-    if (groupedMatches.length === 0) {
-        return null;
-    }
+    if (!groupedMatches) return null;
 
     return (
         <MatchesContainer>
             {groupedMatches.map((groupedMatch) => {
-                const isClickable = Object.keys(clickableFieldNames).includes(groupedMatch.fieldName);
-                const onClick = () => {
+                const label = getMatchedFieldLabel(entityType, groupedMatch.fieldName);
+                const isClickable = Object.keys(CLICKABLE_FIELDS).includes(groupedMatch.fieldName);
+                const onClick = (query?: string) => {
                     if (result?.entity?.type && result?.entity?.urn && isClickable) {
-                        console.log({
-                            schemaFilter: searchContext.query || '',
-                            schemaFilterTypes: QueryString.stringify([clickableFieldNames[groupedMatch.fieldName]]),
-                            stringified: QueryString.stringify({
-                                schemaFilter: searchContext.query || '',
-                                schemaFilterTypes: [clickableFieldNames[groupedMatch.fieldName]],
-                            }),
-                            full: `${entityRegistry.getEntityUrl(
-                                result.entity.type,
-                                result.entity.urn,
-                            )}/Columns?${QueryString.stringify({
-                                schemaFilter: searchContext.query || '',
-                                schemaFilterTypes: [clickableFieldNames[groupedMatch.fieldName]],
-                            })}`,
-                        });
+                        let matchedText = query;
+                        if (!query || query.startsWith('urn:li:')) {
+                            matchedText = searchContext.query || '';
+                        }
+                        const columnsTabPath = getColumnsTabUrlPath(result.entity.type);
                         history.push(
                             `${entityRegistry.getEntityUrl(
                                 result.entity.type,
                                 result.entity.urn,
-                            )}/Columns?${QueryString.stringify({
-                                schemaFilter: searchContext.query || '',
-                                schemaFilterTypes: [clickableFieldNames[groupedMatch.fieldName]],
+                            )}/${columnsTabPath}?${QueryString.stringify({
+                                matchedText,
                             })}`,
                         );
                     }
                 };
-
                 return (
-                    <MatchText onClick={onClick} isClickable={isClickable} key={groupedMatch.fieldName}>
-                        <span>
-                            <MatchedFieldsList
-                                groupedMatch={groupedMatch}
-                                limit={MATCH_GROUP_LIMIT}
-                                customFieldRenderer={customFieldRenderer}
-                                matchSuffix={matchSuffix}
-                            />
-                        </span>
-                        <MatchTextPadding />
-                    </MatchText>
+                    <Tooltip
+                        title={
+                            matchSuffix
+                                ? `Matches ${pluralize(groupedMatch.matchedFields.length, label)} ${matchSuffix}`
+                                : undefined
+                        }
+                    >
+                        <MatchContainer>
+                            <MatchHeader>
+                                <b>Matches:</b>
+                                {pluralize(groupedMatch.matchedFields.length, label)}
+                            </MatchHeader>
+                            <MatchText key={groupedMatch.fieldName}>
+                                <GroupedMatch
+                                    groupedMatch={groupedMatch}
+                                    limit={MATCH_GROUP_LIMIT}
+                                    customFieldRenderer={customFieldRenderer}
+                                    onClick={onClick}
+                                    isClickable={isClickable}
+                                />
+                            </MatchText>
+                        </MatchContainer>
+                    </Tooltip>
                 );
             })}
         </MatchesContainer>

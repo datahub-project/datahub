@@ -20,9 +20,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 COPY . /datahub-src
 ARG RELEASE_VERSION
 RUN cd /datahub-src && \
-    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion/src/datahub/__init__.py && \
-    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
-    cat metadata-ingestion/src/datahub/__init__.py && \
+    sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion/src/datahub/_version.py && \
+    sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/_version.py && \
+    cat metadata-ingestion/src/datahub/_version.py && \
     ./gradlew :metadata-ingestion:codegen && \
     pip install file:metadata-ingestion-modules/airflow-plugin#egg=acryl-datahub-airflow-plugin file:metadata-ingestion#egg=acryl-datahub
 

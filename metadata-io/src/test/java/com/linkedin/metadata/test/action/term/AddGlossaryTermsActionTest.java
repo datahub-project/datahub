@@ -1,13 +1,16 @@
 package com.linkedin.metadata.test.action.term;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.GlossaryTermService;
+import com.linkedin.metadata.service.GlossaryTermServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -59,23 +62,27 @@ public class AddGlossaryTermsActionTest {
 
   @Test
   private void testApply() throws Exception {
-    GlossaryTermService service = Mockito.mock(GlossaryTermService.class);
+    GlossaryTermServiceAsync service = mock(GlossaryTermServiceAsync.class);
 
     AddGlossaryTermsAction action = new AddGlossaryTermsAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
-    action.apply(ALL_URNS, params);
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchAddGlossaryTerms(
+            any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DASHBOARD_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchAddGlossaryTerms(
+            any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DATASET_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verifyNoMoreInteractions(service);
   }
@@ -83,7 +90,7 @@ public class AddGlossaryTermsActionTest {
   @Test
   private void testValidateValidParams() {
     AddGlossaryTermsAction action =
-        new AddGlossaryTermsAction(Mockito.mock(GlossaryTermService.class));
+        new AddGlossaryTermsAction(mock(GlossaryTermServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
@@ -91,7 +98,7 @@ public class AddGlossaryTermsActionTest {
   @Test
   private void testValidateInvalidParams() {
     AddGlossaryTermsAction action =
-        new AddGlossaryTermsAction(Mockito.mock(GlossaryTermService.class));
+        new AddGlossaryTermsAction(mock(GlossaryTermServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

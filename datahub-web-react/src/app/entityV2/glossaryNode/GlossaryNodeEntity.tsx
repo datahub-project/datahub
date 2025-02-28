@@ -1,20 +1,33 @@
-import { AppstoreOutlined, FileOutlined, FolderFilled, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import React from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -23,15 +36,25 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <BookmarksSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <BookmarksSimple
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                    weight="fill"
+                />
+            );
+        }
+
+        if (styleType === IconStyleType.ACCENT) {
+            return <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || '#6C6B88' }} />;
         }
 
         return (
-            <FolderOutlined
+            <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
@@ -55,6 +78,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -77,33 +102,45 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
-                ]}
-                sidebarSections={[
                     {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
+                        name: 'Properties',
+                        component: PropertiesTab,
+                        icon: UnorderedListOutlined,
                     },
                 ]}
+                sidebarSections={this.getSidebarSections()}
                 headerActionItems={
                     new Set([EntityActionItem.ADD_CHILD_GLOSSARY_NODE, EntityActionItem.ADD_CHILD_GLOSSARY_TERM])
                 }
-                headerDropdownItems={
-                    new Set([
-                        EntityMenuItems.MOVE,
-                        EntityMenuItems.SUBSCRIBE,
-                        EntityMenuItems.SHARE,
-                        EntityMenuItems.DELETE,
-                    ])
-                }
+                headerDropdownItems={headerDropdownItems}
                 sidebarTabs={this.getSidebarTabs()}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -115,7 +152,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     ];
 
     displayName = (data: GlossaryNode) => {
-        return data.properties?.name || data.urn;
+        return data?.properties?.name || data?.urn;
     };
 
     getOverridePropertiesFromEntity = (data: GlossaryNode) => {
@@ -128,14 +165,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryNode);
     };
 
-    renderPreview = (_: PreviewType, data: GlossaryNode) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryNode) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data?.urn}
+                data={genericProperties}
                 parentNodes={data.parentNodes}
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

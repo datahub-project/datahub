@@ -80,7 +80,7 @@ public class BatchGetEntitiesResolverTest {
         CompletableFuture.completedFuture(
             ImmutableList.of(mockResponseEntity2, mockResponseEntity1));
     when(mockDataLoader.loadMany(any())).thenReturn(mockFuture);
-    when(_entityService.exists(any(List.class), eq(true)))
+    when(_entityService.exists(any(), any(List.class), eq(true)))
         .thenAnswer(args -> Set.of(args.getArgument(0)));
     List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
     assertEquals(batchGetResponse.size(), 2);
@@ -110,7 +110,7 @@ public class BatchGetEntitiesResolverTest {
     CompletableFuture mockFuture =
         CompletableFuture.completedFuture(ImmutableList.of(mockResponseEntity));
     when(mockDataLoader.loadMany(any())).thenReturn(mockFuture);
-    when(_entityService.exists(any(List.class), eq(true)))
+    when(_entityService.exists(any(), any(List.class), eq(true)))
         .thenAnswer(args -> Set.of(args.getArgument(0)));
     List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
     assertEquals(batchGetResponse.size(), 2);

@@ -1,8 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -21,10 +22,9 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
@@ -257,22 +257,20 @@ public class BrowseV2ResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.browseV2(
+                Mockito.any(),
                 Mockito.eq(ImmutableList.of(entityName)),
                 Mockito.eq(path),
                 Mockito.eq(filter),
                 Mockito.eq(query),
                 Mockito.eq(start),
-                Mockito.eq(limit),
-                Mockito.any(Authentication.class),
-                Mockito.nullable(SearchFlags.class)))
+                Mockito.eq(limit)))
         .thenReturn(result);
     return client;
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
-    Mockito.when(service.getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class)))
-        .thenReturn(viewInfo);
+    Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
     return service;
   }
 
@@ -285,10 +283,7 @@ public class BrowseV2ResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("field")
-                                        .setValue("test")
-                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
+                                    buildCriterion("test", Condition.EQUAL, "test"))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");

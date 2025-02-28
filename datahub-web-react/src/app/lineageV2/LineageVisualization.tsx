@@ -1,84 +1,114 @@
-import React, { useContext, useEffect } from 'react';
-import ReactFlow, {
-    useEdgesState,
-    useNodesState,
-    Edge,
-    NodeTypes,
-    Background,
-    BackgroundVariant,
-    useReactFlow,
-    MiniMap,
-    EdgeTypes,
-} from 'reactflow';
+import SearchControl from '@app/lineageV2/controls/SearchControl';
+import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
+import React, { useContext, useEffect, useState } from 'react';
+import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 
 import 'reactflow/dist/style.css';
-import { LineageDisplayContext } from './common';
-import { TRANSITION_DURATION_MS } from './LineageEntityNode/useDisplayedColumns';
+import { LineageDisplayContext, TRANSITION_DURATION_MS } from './common';
+import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from './LineageEdge/LineageTableEdge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
+import LineageFilterNodeBasic, { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from './LineageTransformationNode/LineageTransformationNode';
-import TableauWorkbookNode, { LINEAGE_WORKBOOK_NODE_NAME } from './MinorNodes/TableauWorkbookNode';
-import LineageFilterNode, { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
-import ZoomControls from './controls/ZoomControls';
+import { LineageVisualizationNode } from './NodeBuilder';
 import LineageControls from './controls/LineageControls';
-import { NodeWithMetadata } from './NodeBuilder';
+import ZoomControls from './controls/ZoomControls';
+import LineageVisualizationContext from './LineageVisualizationContext';
 
-import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from './LineageEdge/LineageTableEdge';
-
-const StyledReactFlow = styled(ReactFlow)`
+const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {
         transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
     }
+
+    ${({ $edgesOnTop }) =>
+        $edgesOnTop &&
+        `.react-flow__node-lineage-entity:not(.selected) {
+            z-index: -1 !important;
+        }`}
 `;
 
 const nodeTypes: NodeTypes = {
     [LINEAGE_ENTITY_NODE_NAME]: LineageEntityNode,
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
-    [LINEAGE_FILTER_NODE_NAME]: LineageFilterNode,
-    [LINEAGE_WORKBOOK_NODE_NAME]: TableauWorkbookNode,
+    [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
 };
 
 const edgeTypes: EdgeTypes = {
     [LINEAGE_TABLE_EDGE_NAME]: LineageTableEdge,
+    [TENTATIVE_EDGE_NAME]: TentativeEdge,
 };
 
 interface Props {
-    initialNodes: NodeWithMetadata[];
+    initialNodes: LineageVisualizationNode[];
     initialEdges: Edge[];
 }
 
-export default function LineageVisualization({ initialNodes, initialEdges }: Props) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const { getNode, getEdge } = useReactFlow();
-    const { setSelectedColumn } = useContext(LineageDisplayContext);
+// React flow doesn't always emit events if it re-renders at the same time
+const MemoizedLineageVisualization = React.memo(LineageVisualization);
+export default MemoizedLineageVisualization;
+
+function LineageVisualization({ initialNodes, initialEdges }: Props) {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+    const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
+    const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+
+    useFitView(searchedEntity);
+    useHandleKeyboardDeselect(setSelectedColumn);
+
+    return (
+        <LineageVisualizationContext.Provider
+            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
+        >
+            <StyledReactFlow
+                defaultNodes={initialNodes}
+                defaultEdges={initialEdges}
+                // Selection change event does not get emitted without timeout
+                onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
+                onClick={() => setDisplayedMenuNode(null)}
+                onNodeDragStart={(_e, node) => {
+                    // eslint-disable-next-line no-param-reassign
+                    node.data.dragged = true;
+                }}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                proOptions={{ hideAttribution: true }}
+                nodesDraggable
+                nodeDragThreshold={3}
+                selectNodesOnDrag={false}
+                nodesConnectable={false}
+                minZoom={0.3}
+                maxZoom={5}
+                fitView
+                fitViewOptions={{ maxZoom: 1, duration: 0 }}
+                $edgesOnTop={!!highlightedEdges.size}
+                tabIndex={0} // Allow focus for keyboard shortcuts
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+            >
+                <Background variant={BackgroundVariant.Lines} />
+                <ZoomControls />
+                <SearchControl />
+                <LineageControls />
+                <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+            </StyledReactFlow>
+        </LineageVisualizationContext.Provider>
+    );
+}
+
+function useFitView(searchedEntity: string | null) {
+    const { fitView } = useReactFlow();
 
     useEffect(() => {
-        const initialNodeMap = new Map(initialNodes.map((node) => [node.id, node]));
-        const nodesToAdd = initialNodes.filter((node) => !getNode(node.id));
-        const layersToRedraw = new Set<number>(
-            nodesToAdd.map((node) => node?.layer).filter((layer): layer is number => !!layer),
-        );
-        const nodesToRedraw = initialNodes.filter((node) => node.layer && layersToRedraw.has(node.layer));
-        setNodes((oldNodes) => [
-            ...oldNodes
-                .filter((n) => initialNodeMap.has(n.id))
-                .map((n) => ({
-                    ...n,
-                    data: initialNodeMap.get(n.id)?.data || n.data,
-                })),
-            ...nodesToAdd,
-            ...nodesToRedraw,
-        ]);
-    }, [initialNodes, getNode, setNodes]);
+        if (searchedEntity) {
+            fitView({ duration: 600, maxZoom: 1, nodes: [{ id: searchedEntity }] });
+        }
+    }, [searchedEntity, fitView]);
+}
 
-    useEffect(() => {
-        const edgesToAdd = initialEdges.filter((edge) => !getEdge(edge.id));
-        setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
-    }, [initialEdges, getEdge, setEdges]);
-
+function useHandleKeyboardDeselect(setSelectedColumn: (value: string | null) => void) {
     useEffect(() => {
         function handleKeyPress(e: KeyboardEvent) {
             if (e.key === 'Escape') {
@@ -94,28 +124,4 @@ export default function LineageVisualization({ initialNodes, initialEdges }: Pro
             document.removeEventListener('keydown', handleKeyPress);
         };
     }, [setSelectedColumn]);
-
-    return (
-        <StyledReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onPaneClick={() => setSelectedColumn(null)}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            proOptions={{ hideAttribution: true }}
-            nodesDraggable
-            nodesConnectable={false}
-            minZoom={0.3}
-            maxZoom={5}
-            fitView
-            fitViewOptions={{ maxZoom: 1 }}
-        >
-            <Background variant={BackgroundVariant.Lines} />
-            <ZoomControls />
-            <LineageControls />
-            <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
-        </StyledReactFlow>
-    );
 }

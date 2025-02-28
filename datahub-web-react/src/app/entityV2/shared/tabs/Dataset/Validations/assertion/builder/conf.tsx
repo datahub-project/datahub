@@ -1,12 +1,12 @@
 import { SelectTypeStep } from './steps/SelectTypeStep';
 import { ConfigureDatasetFreshnessAssertionStep } from './steps/ConfigureDatasetFreshnessAssertionStep';
-import { ConfigureActionsStep } from './steps/ConfigureActionsStep';
 import { ConfigureDatasetVolumeAssertionStep } from './steps/ConfigureDatasetVolumeAssertionStep';
 import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAssertionStep';
 import { AssertionType } from '../../../../../../../../types.generated';
 import { AssertionBuilderStep } from './types';
 import { ConfigureDatasetFieldAssertionStep } from './steps/ConfigureDatasetFieldAssertionStep';
 import { FinishUpStep } from './steps/FinishUpStep';
+import { ConfigureDatasetSchemaAssertionStep } from './steps/ConfigureDatasetSchemaAssertionStep';
 
 /**
  * Mapping from the step type to the component implementing that step.
@@ -25,11 +25,11 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
                     return ConfigureDatasetSqlAssertionStep;
                 case AssertionType.Field:
                     return ConfigureDatasetFieldAssertionStep;
+                case AssertionType.DataSchema:
+                    return ConfigureDatasetSchemaAssertionStep;
                 default:
                     throw new Error(`Unsupported assertion type ${type}`);
             }
-        case AssertionBuilderStep.CONFIGURE_ACTIONS:
-            return ConfigureActionsStep;
         case AssertionBuilderStep.FINISH_UP:
             return FinishUpStep;
         default:

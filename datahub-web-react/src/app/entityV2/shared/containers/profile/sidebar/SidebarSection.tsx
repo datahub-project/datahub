@@ -1,17 +1,14 @@
+import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Collapse } from 'antd';
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 
 import { REDESIGN_COLORS } from '../../../constants';
+import { CountStyle } from '../../../SidebarStyledComponents';
 
 const Container = styled.div`
-    display: flex;
-`;
-
-const Content = styled.div`
-    flex: 1;
     margin-left: 7px;
+    width: 100%;
 `;
 
 const StyledCollapse = styled(Collapse)`
@@ -19,21 +16,44 @@ const StyledCollapse = styled(Collapse)`
         padding: 0px 0px !important;
         align-items: center;
     }
+
     .ant-collapse-content-box {
         padding-top: 4px !important;
         padding-bottom: 0px !important;
     }
+
     .ant-collapse-arrow {
         margin-right: 5px !important;
+        line-height: 32px;
     }
+
     .ant-collapse-expand-icon {
         height: 22px;
     }
+
+    .ant-collapse-item-disabled > .ant-collapse-header {
+        cursor: default;
+
+        > .ant-collapse-extra {
+            cursor: pointer;
+        }
+    }
+
+    .ant-collapse-header-text {
+        max-width: calc(100% - 50px);
+    }
 `;
 
-const SectionHeader = styled.div`
+const SectionHeader = styled.span<{ collapsible?: boolean }>`
     display: flex;
     align-items: center;
+    ${(props) => !props.collapsible && 'margin-left: 8px;'}
+`;
+
+const Title = styled(Typography.Text)`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 700;
     line-height: 20px;
@@ -54,21 +74,51 @@ type Props = {
     title: string;
     content: React.ReactNode;
     extra?: React.ReactNode;
+    count?: number;
+    collapsedContent?: React.ReactNode;
+    collapsible?: boolean;
+    expandedByDefault?: boolean;
+    showFullCount?: boolean;
 };
 
-export const SidebarSection = ({ title, content, extra }: Props) => {
+export const SidebarSection = ({
+    title,
+    content,
+    extra,
+    count = 0,
+    collapsedContent,
+    collapsible = true,
+    expandedByDefault = true,
+    showFullCount,
+}: Props) => {
     return (
         <StyledCollapse
             ghost
             expandIcon={({ isActive }) => (
                 <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
             )}
-            defaultActiveKey={title}
+            defaultActiveKey={expandedByDefault ? title : ''}
         >
-            <Collapse.Panel header={<SectionHeader>{title}</SectionHeader>} key={title} extra={extra}>
-                <Container>
-                    <Content>{content}</Content>
-                </Container>
+            <Collapse.Panel
+                header={
+                    <>
+                        <SectionHeader collapsible={collapsible}>
+                            <Title ellipsis={{ tooltip: true }}>{title}</Title>
+                            {count > 0 && (
+                                <CountStyle>
+                                    {showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}
+                                </CountStyle>
+                            )}
+                        </SectionHeader>
+                        {collapsedContent}
+                    </>
+                }
+                key={title}
+                extra={extra}
+                collapsible={!collapsible ? 'disabled' : undefined}
+                showArrow={collapsible}
+            >
+                <Container>{content}</Container>
             </Collapse.Panel>
         </StyledCollapse>
     );

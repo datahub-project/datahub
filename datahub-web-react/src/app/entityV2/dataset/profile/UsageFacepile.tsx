@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { EntityType, UserUsageCounts } from '../../../../types.generated';
 import { SpacedAvatarGroup } from '../../../shared/avatar/SpaceAvatarGroup';
 import { useEntityRegistry } from '../../../useEntityRegistry';

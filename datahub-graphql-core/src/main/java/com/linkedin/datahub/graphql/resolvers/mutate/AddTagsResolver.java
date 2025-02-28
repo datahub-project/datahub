@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -29,20 +30,21 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddTagsInput input = bindArgument(environment.getArgument("input"), AddTagsInput.class);
     List<Urn> tagUrns =
         input.getTagUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!LabelUtils.isAuthorizedToUpdateTags(
-              environment.getContext(), targetUrn, input.getSubResource())) {
+          if (!LabelUtils.isAuthorizedToUpdateTags(context, targetUrn, input.getSubResource())) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               tagUrns,
               targetUrn,
               input.getSubResource(),
@@ -52,10 +54,9 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
               false);
           try {
             log.info("Adding Tags. input: {}", input.toString());
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.addTagsToResources(
+                context.getOperationContext(),
                 tagUrns,
                 ImmutableList.of(
                     new ResourceRefInput(
@@ -71,6 +72,8 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

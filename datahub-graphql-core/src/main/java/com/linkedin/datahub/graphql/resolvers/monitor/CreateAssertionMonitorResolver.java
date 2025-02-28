@@ -53,17 +53,18 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
               // First create the new monitor
               final Urn monitorUrn =
                   _monitorService.createAssertionMonitor(
+                      context.getOperationContext(),
                       entityUrn,
                       assertionUrn,
                       createCronSchedule(input.getSchedule()),
                       createAssertionEvaluationParameters(input.getParameters()),
-                      input.getExecutorId(),
-                      context.getAuthentication());
+                      input.getExecutorId());
 
               // Then, return the new monitor
               return MonitorMapper.map(
+                  context,
                   _monitorService.getMonitorEntityResponse(
-                      monitorUrn, context.getAuthentication()));
+                      context.getOperationContext(), monitorUrn));
             } catch (Exception e) {
               log.error("Failed to create Assertion monitor!", e);
               throw new DataHubGraphQLException(
@@ -81,7 +82,8 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
       @Nonnull final Urn assertionUrn,
       @Nonnull final QueryContext context) {
     // If the monitor requires heightened checks (SQL monitors), then we require them here.
-    AssertionInfo assertion = _assertionService.getAssertionInfo(assertionUrn);
+    AssertionInfo assertion =
+        _assertionService.getAssertionInfo(context.getOperationContext(), assertionUrn);
     if (assertion != null) {
       if (AssertionType.SQL.equals(assertion.getType())) {
         return isAuthorizedToUpdateSqlAssertionMonitors(entityUrn, context);

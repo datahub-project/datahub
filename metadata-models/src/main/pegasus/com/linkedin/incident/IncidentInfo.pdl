@@ -2,10 +2,13 @@ namespace com.linkedin.incident
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.EntityReference
+import com.linkedin.common.Time
 import com.linkedin.common.Urn
 
 /**
  * Information about an incident raised on an asset.
+ *
+ * NOTE: When this file is changed, update IncidentActivityEvent.pdl to remove searchable and relationship annotations.
  */
 @Aspect = {
   "name": "incidentInfo"
@@ -32,11 +35,18 @@ record IncidentInfo {
   /**
   * Optional title associated with the incident
   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "boostScore": 10.0,
+  }
   title: optional string
 
   /**
   * Optional description associated with the incident
   */
+  @Searchable = {
+    "fieldType": "TEXT",
+  }
   description: optional string
 
   /**
@@ -45,7 +55,7 @@ record IncidentInfo {
   @Relationship = {
     "/*": {
       "name": "IncidentOn",
-      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField" ]
+      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField", "mlModel", "mlFeature"]
     }
   }
   @Searchable = {
@@ -57,12 +67,19 @@ record IncidentInfo {
 
   /**
   * A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand.
+  * Currently supported: 0 - CRITICAL, 1 - HIGH, 2 - MED, 3 - LOW
+  * (We probably should have modeled as an enum)
   */
   @Searchable = {
     "addToFilters": true,
     "filterNameOverride": "Priority"
   }
   priority: optional int = 0
+
+  /**
+   * The parties assigned with resolving the incident
+   */
+  assignees: optional array[IncidentAssignee]
 
   /**
    * The current status of an incident, i.e. active or inactive.
@@ -73,6 +90,17 @@ record IncidentInfo {
    * The source of an incident, i.e. how it was generated.
    */
   source: optional IncidentSource
+
+  /**
+   * The time at which the incident actually started (may be before the date it was raised).
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "startedAt",
+        "fieldType": "COUNT"
+      }
+  }
+  startedAt: optional Time
 
   /**
    * The time at which the request was initially created

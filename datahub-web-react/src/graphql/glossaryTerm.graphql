@@ -5,6 +5,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         exists
         name
         hierarchicalName
+        share {
+            ...shareFields
+        }
         isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: $start, count: $count }) {
             start
             count
@@ -90,6 +93,18 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        assetOrigin {
+            ...originFields
+        }
+        ...notes
     }
 }
 

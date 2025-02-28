@@ -1,13 +1,14 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -15,12 +16,14 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -79,7 +82,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -97,24 +100,35 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(userUrn);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyEdited").time()) {
-      final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results
-      ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      List<String> bucketUrns =
-          parsedTerms.getBuckets().stream()
-              .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-              .collect(Collectors.toList());
-      return buildContent(bucketUrns, _entityService)
-          .limit(MAX_CONTENT)
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      log.error("Search query to get most recently edited entities failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
+    SearchRequest searchRequest =
+        buildSearchRequest(
+            opContext.getSessionActorContext().getActorUrn(), opContext.getAspectRetriever());
+
+    return opContext.withSpan(
+        "getRecentlyEdited",
+        () -> {
+          try {
+            final SearchResponse searchResponse =
+                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            // extract results
+            ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
+            List<String> bucketUrns =
+                parsedTerms.getBuckets().stream()
+                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+                    .collect(Collectors.toList());
+            return buildContent(opContext, bucketUrns, _entityService)
+                .limit(MAX_CONTENT)
+                .collect(Collectors.toList());
+          } catch (Exception e) {
+            log.error("Search query to get most recently edited entities failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getRecentlyEdited"));
   }
 
   @Override
@@ -122,11 +136,17 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     return SUPPORTED_ENTITY_TYPES;
   }
 
-  private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
+  private SearchRequest buildSearchRequest(
+      @Nonnull Urn userUrn, @Nullable AspectRetriever aspectRetriever) {
     // TODO: Proactively filter for entity types in the supported set.
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
+    // Filter for the entity edit events of the user requesting recommendation
+    query.must(
+        QueryBuilders.termQuery(
+            ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, false, aspectRetriever),
+            userUrn.toString()));
     // Filter for the entity action events
     query.must(
         QueryBuilders.termQuery(
@@ -137,7 +157,9 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation =
         AggregationBuilders.terms(ENTITY_AGG_NAME)
-            .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, false))
+            .field(
+                ESUtils.toKeywordField(
+                    DataHubUsageEventConstants.ENTITY_URN, false, aspectRetriever))
             .size(MAX_CONTENT)
             .order(BucketOrder.aggregation(lastViewed, false))
             .subAggregation(

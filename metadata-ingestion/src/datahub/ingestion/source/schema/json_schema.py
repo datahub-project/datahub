@@ -212,7 +212,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         """Loads the given schema file"""
         path = Path(filename).resolve()
         base_path = dirname(str(path))
-        base_uri = "file://{}/".format(base_path)
+        base_uri = f"file://{base_path}/"
 
         with open(path) as schema_file:
             logger.info(f"Opening file {path}")
@@ -243,7 +243,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         return jsonref.jsonloader(uri, **kwargs)
 
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
-        super(JsonSchemaSource, self).__init__(ctx=ctx, config=config)
+        super().__init__(ctx=ctx, config=config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
 
@@ -354,7 +354,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}/{self.config.platform_instance}"
 
         if os.path.isdir(self.config.path):
-            for root, dirs, files in os.walk(self.config.path, topdown=False):
+            for root, _, files in os.walk(self.config.path, topdown=False):
                 for file_name in [f for f in files if f.endswith(".json")]:
                     try:
                         yield from self._load_one_file(

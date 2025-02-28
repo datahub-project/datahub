@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { ParentNodesWrapper as ParentContainersWrapper, Ellipsis, StyledTooltip } from './ParentNodesView';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
@@ -11,7 +11,7 @@ import ParentEntities from '../../../../../../search/filters/ParentEntities';
 const LogoIcon = styled.span`
     display: flex;
     gap: 4px;
-    margin-right: 8px;
+    margin-right: 4px;
 `;
 
 const PreviewImage = styled(Image)`
@@ -24,16 +24,15 @@ const PreviewImage = styled(Image)`
 const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
-    height: 22px;
     margin: 0px 8px 0px 0;
     flex-wrap: nowrap;
     flex: 1;
 `;
 
 const PlatformText = styled(Typography.Text)`
-    font-size: 14px;
-    line-height: 20px;
-    color: ${ANTD_GRAY[8]};
+    font-size: 10px;
+    font-weight: 400;
+    color: #6c6b88;
     text-transform: capitalize;
     white-space: nowrap;
 `;
@@ -95,16 +94,20 @@ function PlatformContentView(props: Props) {
     const directParentContainer = parentContainers && parentContainers[0];
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
 
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
+    const showSiblingPlatformNames = !shouldShowSeparateSiblings && !!platformNames;
+
     return (
         <PlatformContentWrapper>
             {platformName && (
                 <>
                     <LogoIcon>
                         {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                        {!!platformLogoUrl && !platformLogoUrls && (
+                        {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                         )}
-                        {!!platformLogoUrls &&
+                        {!!showSiblingPlatformLogos &&
                             platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                                 <>
                                     <PreviewImage
@@ -116,7 +119,7 @@ function PlatformContentView(props: Props) {
                             ))}
                     </LogoIcon>
                     <PlatformText>
-                        <span>{platformNames ? platformNames.join(' & ') : platformName}</span>
+                        <span>{showSiblingPlatformNames ? platformNames.join(' & ') : platformName}</span>
                     </PlatformText>
                     <PlatformDivider data-testid="platform-divider" />
                 </>

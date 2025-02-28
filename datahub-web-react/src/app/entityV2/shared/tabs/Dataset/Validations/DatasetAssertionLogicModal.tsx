@@ -18,7 +18,7 @@ type Props = {
 export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
     return (
         <Modal visible={visible} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-            <Query query={logic} />
+            <Query query={logic} isEditable={false} />
         </Modal>
     );
 };

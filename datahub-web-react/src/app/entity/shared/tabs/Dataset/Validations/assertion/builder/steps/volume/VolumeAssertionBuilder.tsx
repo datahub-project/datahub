@@ -12,12 +12,11 @@ import {
     DatasetVolumeSourceType,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { VolumeTypeBuilder } from './VolumeTypeBuilder';
 import { VolumeParametersBuilder } from './VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from './VolumeFilterBuilder';
-import { AssertionActionsSection } from '../actions/AssertionActionsSection';
 
 const Section = styled.div`
     display: flex;
@@ -28,12 +27,12 @@ const Section = styled.div`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
-    editing?: boolean;
+    disabled?: boolean;
 };
 
-export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) => {
+export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) => {
     const assertion = state?.assertion;
-    const schedule = state?.schedule;
+    const schedule: CronSchedule | undefined | null = state?.schedule;
     const volumeAssertion = assertion?.volumeAssertion;
     const volumeParameters = volumeAssertion?.parameters;
     const filter = volumeAssertion?.filter;
@@ -121,19 +120,17 @@ export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) =
 
     return (
         <div>
-            <EvaluationScheduleBuilder
-                value={schedule}
-                assertionType={AssertionType.Volume}
-                onChange={updateAssertionSchedule}
-                disabled={!editing}
+            <VolumeTypeBuilder
+                volumeInfo={volumeAssertion as VolumeAssertionInfo}
+                onChange={updateVolumeType}
+                disabled={disabled}
             />
-            <VolumeTypeBuilder volumeInfo={volumeAssertion} onChange={updateVolumeType} disabled={!editing} />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
                 value={volumeParameters as AssertionStdParameters}
                 onChange={updateVolumeParameters}
                 updateVolumeAssertion={updateVolumeAssertion}
-                disabled={!editing}
+                disabled={disabled}
             />
             <Section>
                 <Collapse>
@@ -143,18 +140,24 @@ export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) =
                             platformUrn={platformUrn}
                             value={sourceType as DatasetVolumeSourceType}
                             onChange={updateSourceType}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                         <VolumeFilterBuilder
                             value={filter as DatasetFilter}
                             onChange={updateFilter}
                             sourceType={sourceType as DatasetVolumeSourceType}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                     </Collapse.Panel>
                 </Collapse>
             </Section>
-            <AssertionActionsSection state={state} updateState={updateState} editing={editing} />
+
+            <EvaluationScheduleBuilder
+                value={schedule}
+                assertionType={AssertionType.Volume}
+                onChange={updateAssertionSchedule}
+                disabled={disabled}
+            />
         </div>
     );
 };

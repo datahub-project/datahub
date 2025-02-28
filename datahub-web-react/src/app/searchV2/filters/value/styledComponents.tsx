@@ -6,6 +6,10 @@ export const OptionMenu = styled(Menu)`
         height: auto;
         line-height: 22px;
         height: auto;
-        margin: 0px;
+        padding: 0;
+    }
+
+    &&& .ant-dropdown-menu-item {
+        padding: 0;
     }
 `;

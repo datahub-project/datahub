@@ -2,7 +2,7 @@ import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../.
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
 import { UnionType } from '../../../../../../../searchV2/utils/constants';
 
-const MIN_QUERIES = '10';
+const MIN_QUERIES = '1';
 
 export const buildMostViewedDashboardsFilter = (): FilterSet => {
     return {

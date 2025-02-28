@@ -11,6 +11,7 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -38,13 +39,15 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
           Constants.CONTAINER_ENTITY_NAME,
           Constants.NOTEBOOK_ENTITY_NAME);
 
-  private final EntityService<?> _entityService;
   private static final String PLATFORM = "platform";
+  private final EntityService<?> entityService;
 
   public TopPlatformsSource(
-      EntityService<?> entityService, EntitySearchService entitySearchService) {
-    super(entitySearchService, entityService.getEntityRegistry());
-    _entityService = entityService;
+      EntitySearchService entitySearchService,
+      EntityService<?> entityService,
+      EntityRegistry entityRegistry) {
+    super(entitySearchService, entityRegistry);
+    this.entityService = entityService;
   }
 
   @Override
@@ -64,7 +67,7 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 
@@ -89,8 +92,9 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
   }
 
   @Override
-  protected boolean isValidCandidateUrn(Urn urn) {
-    RecordTemplate dataPlatformInfo = _entityService.getLatestAspect(urn, "dataPlatformInfo");
+  protected boolean isValidCandidateUrn(@Nonnull OperationContext opContext, Urn urn) {
+    RecordTemplate dataPlatformInfo =
+        entityService.getLatestAspect(opContext, urn, "dataPlatformInfo");
     if (dataPlatformInfo == null) {
       return false;
     }

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { message, Button, Tooltip } from 'antd';
+import { message, Button } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import lodash from 'lodash';
 import {
     DataContract,
-    Assertion,
     AssertionType,
     DataContractProposalOperationType,
     ActionRequestType,
@@ -17,7 +17,11 @@ import {
     useUpsertDataContractMutation,
 } from '../../../../../../../../graphql/contract.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
-import { createAssertionGroups } from '../../acrylUtils';
+import {
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from '../../acrylUtils';
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
@@ -28,7 +32,7 @@ const AssertionsSection = styled.div`
 `;
 
 const HeaderText = styled.div`
-    padding: 16px;
+    padding: 16px 20px;
     color: ${ANTD_GRAY[7]};
     font-size: 16px;
 `;
@@ -76,8 +80,9 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const assertions = assertionData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
-    const assertionGroups = createAssertionGroups(assertions);
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
+        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
+    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
     const freshnessAssertions =
         assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
     const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];
@@ -92,13 +97,13 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
         return upsertDataContractMutation({
             variables: buildUpsertDataContractMutationVariables(entityUrn, builderState),
         })
-            .then(({ data, errors }) => {
+            .then(({ data: dataContract, errors }) => {
                 if (!errors) {
                     message.success({
                         content: isEdit ? `Edited Data Contract` : `Created Data Contract!`,
                         duration: 3,
                     });
-                    onSubmit?.(data?.upsertDataContract as DataContract);
+                    onSubmit?.(dataContract?.upsertDataContract as DataContract);
                 }
             })
             .catch(() => {
@@ -140,47 +145,17 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
             });
     };
 
-    const onSelectFreshnessAssertion = (assertionUrn: string) => {
-        const selected = builderState.freshness?.assertionUrn === assertionUrn;
+    const onSelectDataAssertion = (assertionUrn: string, type: string) => {
+        const selected = builderState[type]?.some((c) => c.assertionUrn === assertionUrn);
         if (selected) {
             setBuilderState({
                 ...builderState,
-                freshness: undefined,
+                [type]: builderState[type]?.filter((c) => c.assertionUrn !== assertionUrn),
             });
         } else {
             setBuilderState({
                 ...builderState,
-                freshness: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectSchemaAssertion = (assertionUrn: string) => {
-        const selected = builderState.schema?.assertionUrn === assertionUrn;
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                schema: undefined,
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                schema: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectDataQualityAssertion = (assertionUrn: string) => {
-        const selected = builderState.dataQuality?.some((c) => c.assertionUrn === assertionUrn);
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                dataQuality: builderState.dataQuality?.filter((c) => c.assertionUrn !== assertionUrn),
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                dataQuality: [...(builderState.dataQuality || []), { assertionUrn }],
+                [type]: [...(builderState[type] || []), { assertionUrn }],
             });
         }
     };
@@ -190,10 +165,25 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
 
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
 
+    const onSelectFreshnessOrSchemaAssertion = (assertionUrn: string, type: string) => {
+        const selected = builderState[type]?.assertionUrn === assertionUrn;
+        if (selected) {
+            setBuilderState({
+                ...builderState,
+                [type]: undefined,
+            });
+        } else {
+            setBuilderState({
+                ...builderState,
+                [type]: { assertionUrn },
+            });
+        }
+    };
+
     return (
         <>
             {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
-                <HeaderText>Cannot create Data Contract. No assertions found.</HeaderText>
+                <HeaderText>Add a few assertions on this entity to create a data contract out of them.</HeaderText>
             )}
             <AssertionsSection>
                 {(freshnessAssertions.length && (
@@ -204,7 +194,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         selectedUrns={
                             (builderState.freshness?.assertionUrn && [builderState.freshness?.assertionUrn]) || []
                         }
-                        onSelect={onSelectFreshnessAssertion}
+                        onSelect={(selectedUrn: string) => onSelectFreshnessOrSchemaAssertion(selectedUrn, 'freshness')}
                     />
                 )) ||
                     undefined}
@@ -214,7 +204,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         assertions={schemaAssertions}
                         multiple={false}
                         selectedUrns={(builderState.schema?.assertionUrn && [builderState.schema?.assertionUrn]) || []}
-                        onSelect={onSelectSchemaAssertion}
+                        onSelect={(selectedUrn: string) => onSelectFreshnessOrSchemaAssertion(selectedUrn, 'schema')}
                     />
                 )) ||
                     undefined}
@@ -223,7 +213,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         category={DataContractCategoryType.DATA_QUALITY}
                         assertions={dataQualityAssertions}
                         selectedUrns={builderState.dataQuality?.map((c) => c.assertionUrn) || []}
-                        onSelect={onSelectDataQualityAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'dataQuality')}
                     />
                 )) ||
                     undefined}

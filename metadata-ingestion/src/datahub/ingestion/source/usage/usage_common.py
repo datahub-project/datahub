@@ -54,6 +54,20 @@ def default_user_urn_builder(email: str) -> str:
     return builder.make_user_urn(email.split("@")[0])
 
 
+def extract_user_email(user: str) -> Optional[str]:
+    """Extracts user email from user input
+
+    >>> extract_user_email('urn:li:corpuser:abc@xyz.com')
+    'abc@xyz.com'
+    >>> extract_user_email('urn:li:corpuser:abc')
+    >>> extract_user_email('abc@xyz.com')
+    'abc@xyz.com'
+    """
+    if user.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
+        user = user.split(":")[-1]
+    return user if "@" in user else None
+
+
 def make_usage_workunit(
     bucket_start_time: datetime,
     resource: ResourceType,
@@ -74,12 +88,20 @@ def make_usage_workunit(
 
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
+        if top_n_queries < len(query_freq):
+            logger.warning(
+                f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
+            )
+            query_freq = query_freq[0:top_n_queries]
+
         budget_per_query: int = int(queries_character_limit / top_n_queries)
         top_sql_queries = [
             trim_query(
-                format_sql_query(query, keyword_case="upper", reindent_aligned=True)
-                if format_sql_queries
-                else query,
+                (
+                    format_sql_query(query, keyword_case="upper", reindent_aligned=True)
+                    if format_sql_queries
+                    else query
+                ),
                 budget_per_query=budget_per_query,
                 query_trimmer_string=query_trimmer_string,
             )
@@ -96,7 +118,7 @@ def make_usage_workunit(
             DatasetUserUsageCountsClass(
                 user=user_urn_builder(user),
                 count=count,
-                userEmail=user if "@" in user else None,
+                userEmail=extract_user_email(user),
             )
             for user, count in user_freq
         ],
@@ -133,19 +155,20 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         query: Optional[str],
         fields: List[str],
         user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all(),
+        count: int = 1,
     ) -> None:
         if user_email and not user_email_pattern.allowed(user_email):
             return
 
-        self.readCount += 1
+        self.readCount += count
         if user_email is not None:
-            self.userFreq[user_email] += 1
+            self.userFreq[user_email] += count
 
         if query:
-            self.queryCount += 1
-            self.queryFreq[query] += 1
+            self.queryCount += count
+            self.queryFreq[query] += count
         for column in fields:
-            self.columnFreq[column] += 1
+            self.columnFreq[column] += count
 
     def make_usage_workunit(
         self,
@@ -240,6 +263,7 @@ class UsageAggregator(Generic[ResourceType]):
         query: Optional[str],
         user: Optional[str],
         fields: List[str],
+        count: int = 1,
     ) -> None:
         floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
         self.aggregation[floored_ts].setdefault(
@@ -252,6 +276,7 @@ class UsageAggregator(Generic[ResourceType]):
             user,
             query,
             fields,
+            count=count,
         )
 
     def generate_workunits(
@@ -286,21 +311,25 @@ def convert_usage_aggregation_class(
             uniqueUserCount=obj.metrics.uniqueUserCount,
             totalSqlQueries=obj.metrics.totalSqlQueries,
             topSqlQueries=obj.metrics.topSqlQueries,
-            userCounts=[
-                DatasetUserUsageCountsClass(
-                    user=u.user, count=u.count, userEmail=u.userEmail
-                )
-                for u in obj.metrics.users
-                if u.user is not None
-            ]
-            if obj.metrics.users
-            else None,
-            fieldCounts=[
-                DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
-                for f in obj.metrics.fields
-            ]
-            if obj.metrics.fields
-            else None,
+            userCounts=(
+                [
+                    DatasetUserUsageCountsClass(
+                        user=u.user, count=u.count, userEmail=u.userEmail
+                    )
+                    for u in obj.metrics.users
+                    if u.user is not None
+                ]
+                if obj.metrics.users
+                else None
+            ),
+            fieldCounts=(
+                [
+                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
+                    for f in obj.metrics.fields
+                ]
+                if obj.metrics.fields
+                else None
+            ),
         )
         return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
     else:

@@ -17,7 +17,9 @@ interface Props {
 
 export default function PropertiesColumn({ field }: Props) {
     const { schemaFieldEntity } = field;
-    const numProperties = schemaFieldEntity?.structuredProperties?.properties?.length;
+    const numProperties = schemaFieldEntity?.structuredProperties?.properties?.filter(
+        (prop) => !prop.structuredProperty.settings?.isHidden,
+    )?.length;
 
     if (!schemaFieldEntity || !numProperties) return null;
 

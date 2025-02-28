@@ -1,0 +1,149 @@
+{
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "8F756DE6-26AD-45FF-A201-44276FF1F561",
+                    "isReadOnly": true,
+                    "name": "Workspace For App Testing",
+                    "type": "Workspace",
+                    "state": "Active"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/6147FCEB-7531-4449-8FB6-1F7A5431BF2D": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "8F756DE6-26AD-45FF-A201-44276FF1F561",
+                    "name": "Workspace For App Testing",
+                    "type": "Workspace",
+                    "state": "Active",
+                     "reports": [
+                      {
+                       "reportType": "PowerBIReport",
+                       "id": "455AB99B-E110-46E6-90D3-F015CABD1156",
+                       "name": "GitHub Progress",
+                       "datasetId": "2F99BE64-673D-4DA8-BF4F-02629A1F2C8F",
+                       "createdDateTime": "2024-10-01T06:27:00.51",
+                       "modifiedDateTime": "2024-10-01T06:27:00.51",
+                       "modifiedBy": "abc@fake.com",
+                       "createdBy": "abc@fake.com",
+                       "modifiedById": "97ABB057-CB8B-480D-AA1C-B3E7F0A16EC5",
+                       "createdById": "97ABB057-CB8B-480D-AA1C-B3E7F0A16EC5",
+                       "datasetWorkspaceId": "8F756DE6-26AD-45FF-A201-44276FF1F561",
+                       "users": [
+                        {
+                         "reportUserAccessRight": "Owner",
+                         "emailAddress": "abc@fake.com",
+                         "displayName": "John Smith",
+                         "identifier": "abc@fake.com",
+                         "graphId": "97ABB057-CB8B-480D-AA1C-B3E7F0A16EC5",
+                         "principalType": "User",
+                         "userType": "Member"
+                        }
+                       ]
+                      },
+                      {
+                       "reportType": "PowerBIReport",
+                       "id": "ecc35189-e67a-4d8a-9037-403317bd5808",
+                       "name": "[App] GitHub Progress",
+                       "datasetId": "2F99BE64-673D-4DA8-BF4F-02629A1F2C8F",
+                       "appId": "2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6",
+                       "createdDateTime": "2024-10-01T06:29:34.75",
+                       "modifiedDateTime": "2024-10-01T07:22:55.397",
+                       "originalReportObjectId": "455AB99B-E110-46E6-90D3-F015CABD1156",
+                       "modifiedBy": "abc@fake.com",
+                       "createdBy": "abc@fake.com",
+                       "modifiedById": "97ABB057-CB8B-480D-AA1C-B3E7F0A16EC5",
+                       "createdById": "97ABB057-CB8B-480D-AA1C-B3E7F0A16EC5",
+                       "datasetWorkspaceId": "8F756DE6-26AD-45FF-A201-44276FF1F561"
+                      }
+                     ],
+                     "dashboards": [
+                       {
+                         "id": "744B07E3-FAA7-4BD7-BD17-3220BF0F6301",
+                         "displayName": "Pet Overview",
+                         "isReadOnly": false,
+                         "tiles": [
+                         ]
+                       },
+                       {
+                         "id": "DB85B962-74BA-4821-900B-59AC5F70AADE",
+                         "appId": "2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6",
+                         "displayName": "[App] Pet Overview",
+                         "isReadOnly": false,
+                         "tiles": [
+                         ]
+                       }
+                     ],
+                    "datasets": []
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/8F756DE6-26AD-45FF-A201-44276FF1F561/dashboards": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "A700E2C1-D008-42DF-AFCA-A70A87D0B2A3",
+                    "isReadOnly": true,
+                    "displayName": "test_dashboard",
+                    "description": "Description of test dashboard",
+                    "embedUrl": "https://localhost/dashboards/embed/1",
+                    "webUrl": "https://localhost/dashboards/web/1"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/6147FCEB-7531-4449-8FB6-1F7A5431BF2D": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/8F756DE6-26AD-45FF-A201-44276FF1F561/dashboards/A700E2C1-D008-42DF-AFCA-A70A87D0B2A3/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": []
+            }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/apps?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                  "id": "2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6",
+                  "description": "The finance app",
+                  "name": "Finance",
+                  "publishedBy": "Bill",
+                  "lastUpdate": "2024-09-26T04:20:34.513Z"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/apps?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    }
+}

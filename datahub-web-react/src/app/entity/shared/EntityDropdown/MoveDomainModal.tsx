@@ -68,7 +68,7 @@ function MoveDomainModal(props: Props) {
         <Modal
             title="Move"
             data-testid="move-domain-modal"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

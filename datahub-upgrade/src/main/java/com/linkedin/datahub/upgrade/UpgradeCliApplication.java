@@ -2,12 +2,16 @@ package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.AuthorizerChainFactory;
 import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
+import com.linkedin.gms.factory.event.ExternalEventsServiceFactory;
 import com.linkedin.gms.factory.graphql.GraphQLEngineFactory;
+import com.linkedin.gms.factory.kafka.KafkaConsumerPoolFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.gms.factory.test.TestEngineFactory;
+import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
@@ -32,9 +36,13 @@ import org.springframework.context.annotation.FilterType;
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,
             KafkaEventConsumerFactory.class,
+            GraphQLEngineFactory.class,
+            KafkaTraceReaderFactory.class,
+            TraceServiceFactory.class,
+            KafkaConsumerPoolFactory.class,
+            ExternalEventsServiceFactory.class,
             NotificationSinkManagerFactory.class,
-            InternalSchemaRegistryFactory.class,
-            GraphQLEngineFactory.class
+            TestEngineFactory.class
           })
     })
 public class UpgradeCliApplication {

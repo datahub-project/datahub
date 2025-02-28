@@ -21,7 +21,9 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -65,27 +67,28 @@ public class ListRejectedActionRequestsResolver
 
             final Filter filter = createFilter(type, startTimestampMillis, endTimestampMillis);
 
-            final SortCriterion sortCriterion =
-                new SortCriterion()
-                    .setField(LAST_MODIFIED_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     ACTION_REQUEST_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final Map<Urn, Entity> entities =
                 _entityClient.batchGet(
+                    context.getOperationContext(),
                     new HashSet<>(
                         searchResult.getEntities().stream()
                             .map(result -> result.getEntity())
-                            .collect(Collectors.toList())),
-                    context.getAuthentication());
+                            .collect(Collectors.toList())));
 
             final ListRejectedActionRequestsResult result = new ListRejectedActionRequestsResult();
             result.setStart(searchResult.getFrom());
@@ -93,7 +96,7 @@ public class ListRejectedActionRequestsResolver
             result.setTotal(searchResult.getNumEntities());
             result.setRejectedActionRequests(
                 ActionRequestUtils.mapRejectedActionRequests(
-                    entities.values(), _entityService, type));
+                    context, entities.values(), _entityService, type));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list rejected action requests", e);

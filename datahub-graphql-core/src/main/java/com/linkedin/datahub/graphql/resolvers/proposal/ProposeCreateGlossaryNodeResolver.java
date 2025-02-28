@@ -2,12 +2,12 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.proposal.ProposalService;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Optional;
@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class ProposeCreateGlossaryNodeResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -45,7 +45,7 @@ public class ProposeCreateGlossaryNodeResolver implements DataFetcher<Completabl
             log.info("Proposing Creation of Glossary Node. input: {}", input);
 
             return _proposalService.proposeCreateGlossaryNode(
-                actor, name, parentNode, description, context.getAuthorizer());
+                context.getOperationContext(), actor, name, parentNode, description);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

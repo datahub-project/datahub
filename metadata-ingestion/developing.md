@@ -34,6 +34,71 @@ cd metadata-ingestion-modules/airflow-plugin
 ../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+
+# start the airflow web server
+export AIRFLOW_HOME=~/airflow
+airflow webserver --port 8090 -d
+
+# start the airflow scheduler
+airflow scheduler
+
+# access the airflow service and run any of the DAG
+# open http://localhost:8090/
+# select any DAG and click on the `play arrow` button to start the DAG
+
+# add the debug lines in the codebase, i.e. in ./src/datahub_airflow_plugin/datahub_listener.py
+logger.debug("this is the sample debug line")
+
+# run the DAG again and you can see the debug lines in the task_run log at,
+#1. click on the `timestamp` in the `Last Run` column
+#2. select the task
+#3. click on the `log` option
+```
+
+> **P.S. if you are not able to see the log lines, then restart the `airflow scheduler` and rerun the DAG**
+
+### (Optional) Set up your Python environment for developing on Dagster Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/dagster-plugin
+../../gradlew :metadata-ingestion-modules:dagster-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on Prefect Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/prefect-plugin
+../../gradlew :metadata-ingestion-modules:prefect-plugin:installDev
+source venv/bin/activate
+datahub version   # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on GX Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/gx-plugin
+../../gradlew :metadata-ingestion-modules:gx-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on Dagster Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/dagster-plugin
+../../gradlew :metadata-ingestion-modules:dagster-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
 
 ### Common setup issues
@@ -73,6 +138,18 @@ This sometimes happens if there's a version mismatch between the Kafka's C libra
 
 </details>
 
+<details>
+  <summary>Conflict: acryl-datahub requires pydantic 1.10</summary>
+
+The base `acryl-datahub` package supports both Pydantic 1.x and 2.x. However, some of our specific sources require Pydantic 1.x because of transitive dependencies.
+
+If you're primarily using `acryl-datahub` for the SDKs, you can install `acryl-datahub` and some extras, like `acryl-datahub[sql-parser]`, without getting conflicts related to Pydantic versioning.
+
+We recommend not installing full ingestion sources into your main environment (e.g. avoid having a dependency on `acryl-datahub[snowflake]` or other ingestion sources).
+Instead, we recommend using UI-based ingestion or isolating the ingestion pipelines using [virtual environments](https://docs.python.org/3/library/venv.html). If you're using an orchestrator, they often have first-class support for virtual environments - here's an [example for Airflow](./schedule_docs/airflow.md).
+
+</details>
+
 ### Using Plugins in Development
 
 The syntax for installing plugins is slightly different in development. For example:
@@ -100,19 +177,20 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ## Code style
 
-We use black, isort, flake8, and mypy to ensure consistent code style and quality.
+We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: pip install -e '.[dev]' and venv is activated
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
+ruff check src/ tests/
 mypy src/ tests/
 ```
 
 or you can run from root of the repository
 
 ```shell
+./gradlew :metadata-ingestion:lint
+
+# This will auto-fix some linting issues.
 ./gradlew :metadata-ingestion:lintFix
 ```
 
@@ -208,4 +286,28 @@ For example,
 
 ```shell
 pytest tests/integration/dbt/test_dbt.py --update-golden-files
+```
+
+### Testing the Airflow plugin
+
+For the Airflow plugin, we use `tox` to test across multiple sets of dependencies.
+
+```sh
+cd metadata-ingestion-modules/airflow-plugin
+
+# Run all tests.
+tox
+
+# Run a specific environment.
+# These are defined in the `tox.ini` file
+tox -e py310-airflow26
+
+# Run a specific test.
+tox -e py310-airflow26 -- tests/integration/test_plugin.py
+
+# Update all golden files.
+tox -- --update-golden-files
+
+# Update golden files for a specific environment.
+tox -e py310-airflow26 -- --update-golden-files
 ```

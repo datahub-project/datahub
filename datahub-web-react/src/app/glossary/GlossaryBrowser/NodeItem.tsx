@@ -1,6 +1,7 @@
-import { FolderOutlined, RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
+import { RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import React, { useState, useEffect } from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -35,7 +36,7 @@ const StyledDownOutlined = styled(DownOutlined)`
     font-size: 10px;
 `;
 
-const StyledFolderOutlined = styled(FolderOutlined)`
+const StyledGlossaryNodeIcon = styled(BookmarksSimple)`
     margin-right: 6px;
 `;
 
@@ -63,12 +64,23 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
 function NodeItem(props: Props) {
-    const { node, isSelecting, hideTerms, openToEntity, refreshBrowser, nodeUrnToHide, selectTerm, selectNode } = props;
+    const {
+        node,
+        isSelecting,
+        hideTerms,
+        openToEntity,
+        refreshBrowser,
+        nodeUrnToHide,
+        termUrnToHide,
+        selectTerm,
+        selectNode,
+    } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
@@ -80,7 +92,7 @@ function NodeItem(props: Props) {
     });
 
     useEffect(() => {
-        if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
+        if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
             setAreChildrenVisible(true);
         }
     }, [entityData, node.urn, openToEntity]);
@@ -131,15 +143,15 @@ function NodeItem(props: Props) {
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
-                        isSelected={entityData?.urn === node.urn}
+                        $isSelected={entityData?.urn === node.urn}
                     >
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NodeLink>
                 )}
                 {isSelecting && (
                     <NameWrapper showSelectStyles={!!selectNode} onClick={handleSelectNode}>
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NameWrapper>
                 )}
@@ -166,7 +178,13 @@ function NodeItem(props: Props) {
                             ))}
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
-                                    <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} includeActiveTabPath />
+                                    <TermItem
+                                        term={child}
+                                        isSelecting={isSelecting}
+                                        selectTerm={selectTerm}
+                                        includeActiveTabPath
+                                        termUrnToHide={termUrnToHide}
+                                    />
                                 ))}
                         </ChildrenWrapper>
                     )}

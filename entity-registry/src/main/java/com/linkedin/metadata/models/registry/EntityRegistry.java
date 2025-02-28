@@ -1,8 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -13,7 +13,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -35,7 +35,7 @@ public interface EntityRegistry {
    * @return an {@link DefaultEntitySpec} corresponding to the entity name provided, null if none
    *     exists.
    */
-  @Nonnull
+  @Nullable
   EntitySpec getEntitySpec(@Nonnull final String entityName);
 
   /**
@@ -77,45 +77,24 @@ public interface EntityRegistry {
   AspectTemplateEngine getAspectTemplateEngine();
 
   /**
-   * Returns applicable {@link AspectPayloadValidator} implementations given the change type and
-   * entity/aspect information.
+   * Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
    *
-   * @param changeType The type of change to be validated
-   * @param entityName The entity name
-   * @param aspectName The aspect name
    * @return List of validator implementations
    */
-  @Nonnull
-  default List<AspectPayloadValidator> getAspectPayloadValidators(
-      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return getAllAspectPayloadValidators().stream()
-        .filter(
-            aspectPayloadValidator ->
-                aspectPayloadValidator.shouldApply(changeType, entityName, aspectName))
-        .collect(Collectors.toList());
-  }
-
   @Nonnull
   default List<AspectPayloadValidator> getAllAspectPayloadValidators() {
     return getPluginFactory().getAspectPayloadValidators();
   }
 
   /**
-   * Return mutation hooks for {@link com.linkedin.data.template.RecordTemplate}
+   * Returns mutation hooks.
    *
-   * @param changeType The type of change
-   * @param entityName The entity name
-   * @param aspectName The aspect name
-   * @return Mutation hooks
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
+   * @return list of mutation hooks.
    */
-  @Nonnull
-  default List<MutationHook> getMutationHooks(
-      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return getAllMutationHooks().stream()
-        .filter(mutationHook -> mutationHook.shouldApply(changeType, entityName, aspectName))
-        .collect(Collectors.toList());
-  }
-
   @Nonnull
   default List<MutationHook> getAllMutationHooks() {
     return getPluginFactory().getMutationHooks();
@@ -125,19 +104,11 @@ public interface EntityRegistry {
    * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeProposal}. Side
    * effects can generate one or more additional MCPs during write operations.
    *
-   * @param changeType The type of change
-   * @param entityName The entity name
-   * @param aspectName The aspect name
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
    * @return MCP side effects
    */
-  @Nonnull
-  default List<MCPSideEffect> getMCPSideEffects(
-      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return getAllMCPSideEffects().stream()
-        .filter(mcpSideEffect -> mcpSideEffect.shouldApply(changeType, entityName, aspectName))
-        .collect(Collectors.toList());
-  }
-
   @Nonnull
   default List<MCPSideEffect> getAllMCPSideEffects() {
     return getPluginFactory().getMcpSideEffects();
@@ -147,19 +118,11 @@ public interface EntityRegistry {
    * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeLog}. Side effects
    * can generate one or more additional MCLs during write operations.
    *
-   * @param changeType The type of change
-   * @param entityName The entity name
-   * @param aspectName The aspect name
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
    * @return MCL side effects
    */
-  @Nonnull
-  default List<MCLSideEffect> getMCLSideEffects(
-      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
-    return getAllMCLSideEffects().stream()
-        .filter(mclSideEffect -> mclSideEffect.shouldApply(changeType, entityName, aspectName))
-        .collect(Collectors.toList());
-  }
-
   @Nonnull
   default List<MCLSideEffect> getAllMCLSideEffects() {
     return getPluginFactory().getMclSideEffects();
@@ -173,5 +136,11 @@ public interface EntityRegistry {
   @Nonnull
   default PluginFactory getPluginFactory() {
     return PluginFactory.empty();
+  }
+
+  @Nullable
+  default BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory>
+      getPluginFactoryProvider() {
+    return null;
   }
 }

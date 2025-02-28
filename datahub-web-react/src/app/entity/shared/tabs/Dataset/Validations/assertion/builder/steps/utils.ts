@@ -66,6 +66,8 @@ export const getEvaluationScheduleTooltipDescription = (assertionType: Assertion
             return `At these times, we will evaluate the SQL query for this dataset. This involves issuing a query to ${platformName}.`;
         case AssertionType.Field:
             return `At these times, we will evaluate the field value for this dataset. This involves issuing a query to ${platformName}.`;
+        case AssertionType.DataSchema:
+            return `At these times, we will compare the actual recorded schema to the expected schema and report a pass or fail result. This does NOT involve querying ${platformName} directly.`;
         default:
             throw new Error(`Unknown assertion type: ${assertionType}`);
     }
@@ -81,6 +83,8 @@ export const getEvaluationScheduleTitle = (assertionType: AssertionType) => {
             return 'Run this query';
         case AssertionType.Field:
             return 'Check field value';
+        case AssertionType.DataSchema:
+            return 'Run schema comparison';
         default:
             throw new Error(`Unknown assertion type: ${assertionType}`);
     }

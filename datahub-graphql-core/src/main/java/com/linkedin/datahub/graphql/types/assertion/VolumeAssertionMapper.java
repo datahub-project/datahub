@@ -1,22 +1,24 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
 import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionValueChangeType;
 import com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformerType;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
+import javax.annotation.Nullable;
 
 public class VolumeAssertionMapper extends AssertionMapper {
 
   public static com.linkedin.datahub.graphql.generated.VolumeAssertionInfo mapVolumeAssertionInfo(
-      final VolumeAssertionInfo gmsVolumeAssertionInfo) {
+      @Nullable final QueryContext context, final VolumeAssertionInfo gmsVolumeAssertionInfo) {
     final com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
         new com.linkedin.datahub.graphql.generated.VolumeAssertionInfo();
     result.setEntityUrn(gmsVolumeAssertionInfo.getEntity().toString());
     result.setType(VolumeAssertionType.valueOf(gmsVolumeAssertionInfo.getType().name()));
     if (gmsVolumeAssertionInfo.hasFilter()) {
-      result.setFilter(DatasetFilterMapper.map(gmsVolumeAssertionInfo.getFilter()));
+      result.setFilter(DatasetFilterMapper.map(context, gmsVolumeAssertionInfo.getFilter()));
     }
     if (gmsVolumeAssertionInfo.hasRowCountTotal()) {
       result.setRowCountTotal(mapRowCountTotal(gmsVolumeAssertionInfo.getRowCountTotal()));

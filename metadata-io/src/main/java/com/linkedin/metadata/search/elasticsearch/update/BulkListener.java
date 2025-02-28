@@ -6,11 +6,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkProcessor;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.index.engine.DocumentMissingException;
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
@@ -39,32 +41,58 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+    String ingestTook = "";
+    long ingestTookInMillis = response.getIngestTookInMillis();
+    if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {
+      ingestTook = " Bulk ingest preprocessing took time ms: " + ingestTookInMillis;
+    }
+
     if (response.hasFailures()) {
       log.error(
-          "Failed to feed bulk request. Number of events: "
+          "Failed to feed bulk request "
+              + executionId
+              + "."
+              + " Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis()
+              + response.getTook().getMillis()
+              + ingestTook
               + " Message: "
               + response.buildFailureMessage());
     } else {
       log.info(
-          "Successfully fed bulk request. Number of events: "
+          "Successfully fed bulk request "
+              + executionId
+              + "."
+              + " Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis());
+              + response.getTook().getMillis()
+              + ingestTook);
     }
     incrementMetrics(response);
   }
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-    // Exception raised outside this method
-    log.error(
-        "Error feeding bulk request. No retries left. Request: {}",
-        buildBulkRequestSummary(request),
-        failure);
-    incrementMetrics(request, failure);
+
+    Throwable unwrappedFailure = ExceptionsHelper.unwrapCause(failure);
+
+    if (unwrappedFailure instanceof DocumentMissingException) {
+      log.warn(
+          "Attempting to bulk load a missing document. executionId: {}.  No retries left. Request: {}",
+          executionId,
+          buildBulkRequestSummary(request),
+          failure);
+    } else {
+      // Exception raised outside this method
+      log.error(
+          "Error feeding bulk request {}. No retries left. Request: {}",
+          executionId,
+          buildBulkRequestSummary(request),
+          failure);
+      incrementMetrics(request, failure);
+    }
   }
 
   private static void incrementMetrics(BulkResponse response) {

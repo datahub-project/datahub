@@ -1,0 +1,18 @@
+namespace com.linkedin.ermodelrelation
+
+import com.linkedin.dataset.SchemaFieldPath
+
+/**
+ * Individual Field Mapping of a relationship- one of several
+ */
+record RelationshipFieldMapping {
+  /**
+   * All fields from dataset A that are required for the join, maps to bFields 1:1
+   */
+  sourceField: SchemaFieldPath
+
+  /**
+   * All fields from dataset B that are required for the join, maps to aFields 1:1
+   */
+  destinationField: SchemaFieldPath
+}

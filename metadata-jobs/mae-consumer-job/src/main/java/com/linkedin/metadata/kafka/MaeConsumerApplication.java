@@ -14,6 +14,9 @@ import org.springframework.context.annotation.FilterType;
     exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
 @ComponentScan(
     basePackages = {
+      "com.linkedin.gms.factory.common",
+      "com.linkedin.metadata.service",
+      "com.datahub.event",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
@@ -25,10 +28,22 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.monitor",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity.update.indices",
+      "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.form",
       "com.linkedin.gms.factory.timeline.eventgenerator",
-      "io.datahubproject.metadata.jobs.common.health.kafka"
+      "io.datahubproject.metadata.jobs.common.health.kafka",
+      "com.linkedin.gms.factory.context",
+      "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.assertion",
+      "com.linkedin.gms.factory.integration",
+      "com.linkedin.gms.factory.subscription",
+      "com.linkedin.gms.factory.settings",
+      "com.linkedin.gms.factory.test.openapi",
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     },
     excludeFilters = {
       @ComponentScan.Filter(

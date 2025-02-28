@@ -17,7 +17,7 @@ from typing import (
 
 import typing_inspect
 
-from datahub import __package_name__
+from datahub._version import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 if sys.version_info < (3, 10):
@@ -173,8 +173,10 @@ class PluginRegistry(Generic[T]):
 
         tp = self._ensure_not_lazy(key)
         if isinstance(tp, ModuleNotFoundError):
+            # TODO: Once we're on Python 3.11 (with PEP 678), we can use .add_note()
+            # to enrich the error instead of wrapping it.
             raise ConfigurationError(
-                f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
+                f"{key} is disabled due to a missing dependency: {tp.name}; try running `pip install '{__package_name__}[{key}]'`"
             ) from tp
         elif isinstance(tp, Exception):
             raise ConfigurationError(
@@ -183,6 +185,12 @@ class PluginRegistry(Generic[T]):
         else:
             # If it's not an exception, then it's a registered type.
             return tp
+
+    def get_optional(self, key: str) -> Optional[Type[T]]:
+        try:
+            return self.get(key)
+        except Exception:
+            return None
 
     def summary(
         self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20

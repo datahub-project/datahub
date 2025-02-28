@@ -8,14 +8,23 @@ export const createInitialState = (): State => ({
     isPersonal: true,
     settings: {
         slack: {},
+        email: {},
     },
     notificationTypes: {
         checkedKeys: [],
         expandedKeys: [],
+        keysWithAllFilteringCleared: [],
     },
     subscribeToUpstream: false,
     notificationSinkTypes: [],
     slack: {
+        enabled: false,
+        channelSelection: ChannelSelections.SUBSCRIPTION,
+        subscription: {
+            saveAsDefault: false,
+        },
+    },
+    email: {
         enabled: false,
         channelSelection: ChannelSelections.SUBSCRIPTION,
         subscription: {
@@ -30,25 +39,56 @@ export const reducer = (state: State, action: Action): State => {
             const {
                 isPersonal,
                 slackSinkEnabled,
+                emailSinkEnabled,
                 subscription,
-                subscriptionChannel,
-                settingsChannel,
+                forSubResource,
+                slackSubscriptionChannel,
+                slackSettingsChannel,
+                emailSubscriptionChannel,
+                emailSettingsChannel,
                 settingsSinkTypes,
             } = action.payload;
 
+            const relevantEntityChangeDetails = forSubResource?.assertion
+                ? subscription?.entityChangeTypes.filter(
+                      (details) =>
+                          !details.filter?.includeAssertions ||
+                          details.filter.includeAssertions.includes(forSubResource.assertion!.urn),
+                  )
+                : subscription?.entityChangeTypes;
+
             const entityChangeTypes =
-                subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [];
+                relevantEntityChangeDetails
+                    // Do not mark it as checked if this is the asset subscription view and there's filters on this type
+                    ?.filter((details) => forSubResource?.assertion || !details.filter?.includeAssertions)
+                    .map((details) => details.entityChangeType) ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
 
             if (slackSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Slack);
+            if (emailSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Email);
 
+            // Slack specific logic.
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
+
+            const slackChannelSelection =
+                !!slackSettingsChannel && !slackSubscriptionChannel
+                    ? ChannelSelections.SETTINGS
+                    : ChannelSelections.SUBSCRIPTION;
+
+            // Email specific logic.
+            const isEmailAndSubscriptionEnabled =
+                emailSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Email);
+
+            const emailChannelSelection =
+                !!emailSettingsChannel && !emailSubscriptionChannel
+                    ? ChannelSelections.SETTINGS
+                    : ChannelSelections.SUBSCRIPTION;
+
+            // TODO: once we implement upstream subscriptions.
             const hasUpstreamSubscription =
                 ENABLE_UPSTREAM_NOTIFICATIONS &&
                 !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
-            const channelSelection =
-                !!settingsChannel && !subscriptionChannel ? ChannelSelections.SETTINGS : ChannelSelections.SUBSCRIPTION;
 
             return {
                 ...state,
@@ -57,26 +97,40 @@ export const reducer = (state: State, action: Action): State => {
                 settings: {
                     sinkTypes: settingsSinkTypes,
                     slack: {
-                        channel: settingsChannel,
+                        channel: slackSettingsChannel,
+                    },
+                    email: {
+                        channel: emailSettingsChannel,
                     },
                 },
                 notificationTypes: {
                     checkedKeys: entityChangeTypes,
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 subscribeToUpstream: hasUpstreamSubscription,
                 notificationSinkTypes,
                 slack: {
                     ...state.slack,
                     enabled: isSlackAndSubscriptionEnabled,
-                    channelSelection,
+                    channelSelection: slackChannelSelection,
                     subscription: {
-                        channel: subscriptionChannel,
-                        saveAsDefault: !settingsChannel && !subscription,
+                        channel: slackSubscriptionChannel,
+                        saveAsDefault: !slackSettingsChannel && !subscription,
+                    },
+                },
+                email: {
+                    ...state.email,
+                    enabled: isEmailAndSubscriptionEnabled,
+                    channelSelection: emailChannelSelection,
+                    subscription: {
+                        channel: emailSubscriptionChannel,
+                        saveAsDefault: !emailSettingsChannel && !subscription,
                     },
                 },
             };
         }
+        /** Slack-specific reducers */
         case ActionTypes.SET_SLACK_ENABLED: {
             const newNotificationSinkTypes = uniq(
                 action.payload
@@ -94,7 +148,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_CHANNEL_SELECTION: {
+        case ActionTypes.SET_SLACK_CHANNEL_SELECTION: {
             return {
                 ...state,
                 edited: true,
@@ -112,7 +166,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_SUBSCRIPTION_CHANNEL: {
+        case ActionTypes.SET_SLACK_SUBSCRIPTION_CHANNEL: {
             return {
                 ...state,
                 edited: true,
@@ -125,7 +179,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_SAVE_AS_DEFAULT: {
+        case ActionTypes.SET_SLACK_SAVE_AS_DEFAULT: {
             return {
                 ...state,
                 edited: true,
@@ -136,6 +190,84 @@ export const reducer = (state: State, action: Action): State => {
                         saveAsDefault: action.payload,
                     },
                 },
+            };
+        }
+        /** set whole slack object */
+        case ActionTypes.SET_SLACK_OBJECT: {
+            return {
+                ...state,
+                edited: true,
+                slack: action.payload,
+            };
+        }
+        /** Email-specific reducers */
+        case ActionTypes.SET_EMAIL_ENABLED: {
+            const newNotificationSinkTypes = uniq(
+                action.payload
+                    ? [...state.notificationSinkTypes, NotificationSinkType.Email]
+                    : state.notificationSinkTypes.filter((sinkType) => sinkType !== NotificationSinkType.Email),
+            ).sort((a, b) => a.localeCompare(b));
+
+            return {
+                ...state,
+                edited: true,
+                notificationSinkTypes: newNotificationSinkTypes,
+                email: {
+                    ...state.email,
+                    enabled: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_CHANNEL_SELECTION: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    channelSelection: action.payload,
+                    subscription: {
+                        ...state.email.subscription,
+                        channel:
+                            action.payload === ChannelSelections.SETTINGS
+                                ? undefined
+                                : state.email.subscription.channel,
+                        saveAsDefault: !state.settings.email.channel,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_SUBSCRIPTION_CHANNEL: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    subscription: {
+                        ...state.email.subscription,
+                        channel: action.payload,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    subscription: {
+                        ...state.email.subscription,
+                        saveAsDefault: action.payload,
+                    },
+                },
+            };
+        }
+        /** set whole email object */
+        case ActionTypes.SET_EMAIL_OBJECT: {
+            return {
+                ...state,
+                edited: true,
+                email: action.payload,
             };
         }
         case ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM: {
@@ -152,6 +284,16 @@ export const reducer = (state: State, action: Action): State => {
                 notificationTypes: {
                     ...state.notificationTypes,
                     checkedKeys: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED: {
+            return {
+                ...state,
+                edited: true,
+                notificationTypes: {
+                    ...state.notificationTypes,
+                    keysWithAllFilteringCleared: action.payload,
                 },
             };
         }

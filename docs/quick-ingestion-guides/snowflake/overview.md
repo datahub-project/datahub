@@ -45,4 +45,3 @@ If you want to ingest metadata from Snowflake using the DataHub CLI, check out t
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
 * [Snowflake Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#module-snowflake)
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*

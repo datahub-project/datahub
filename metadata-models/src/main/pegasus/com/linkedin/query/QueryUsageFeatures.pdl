@@ -1,0 +1,66 @@
+namespace com.linkedin.query
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+  "name": "queryUsageFeatures"
+}
+record QueryUsageFeatures {
+
+  /**
+   * Number of times this query was executed in the last 30 days
+   */
+  @Searchable = {
+    "fieldName": "queryCountLast30DaysFeature",
+    "fieldType": "COUNT"
+  }
+  queryCountLast30Days: optional long
+
+  /**
+   * Query count total 
+   * Total number of executions of this query
+   */
+  @Searchable = {
+    "fieldName": "queryCountFeature",
+    "fieldType": "COUNT"
+  }
+  queryCountTotal: optional long
+
+  /**
+   * Top users of this query in the last 30 days
+   */
+    @Searchable = {
+    "/*": {
+        "fieldName": "topUsersLast30DaysFeature",
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasTopUsersLast30DaysFeature",
+        }
+    }
+  topUsersLast30Days: optional array[Urn]
+
+   /**
+   * Total cost of this query in the last 30 days
+   */
+    @Searchable = {
+        "fieldName": "queryCostLast30DaysFeature",
+    }
+    queryCostLast30Days: optional double
+
+   /**
+   * The percentile rank of this query based on runs last 30 days
+   */
+    @Searchable = {
+        "fieldName": "runsPercentileLast30days",
+    }
+    runsPercentileLast30days: optional int
+
+    /**
+    * Last time this query was executed
+    */
+    @Searchable = {
+        "fieldName": "lastExecutedAtFeature",
+        "fieldType": "DATETIME"
+    }
+    lastExecutedAt: optional long
+
+}

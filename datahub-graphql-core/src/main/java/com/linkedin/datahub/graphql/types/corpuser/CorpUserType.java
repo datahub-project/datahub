@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
+import static com.linkedin.datahub.graphql.Constants.DEFAULT_PERSONA_URNS;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -15,6 +16,8 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -33,7 +36,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -84,12 +86,12 @@ public class CorpUserType
 
       final Map<Urn, EntityResponse> corpUserMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CORP_USER_ENTITY_NAME,
               new HashSet<>(corpUserUrns),
-              null,
-              context.getAuthentication());
+              null);
 
-      final List<EntityResponse> results = new ArrayList<>();
+      final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpUserUrns) {
         results.add(corpUserMap.getOrDefault(urn, null));
       }
@@ -99,7 +101,7 @@ public class CorpUserType
                   gmsCorpUser == null
                       ? null
                       : DataFetcherResult.<CorpUser>newResult()
-                          .data(CorpUserMapper.map(gmsCorpUser, _featureFlags))
+                          .data(CorpUserMapper.map(context, gmsCorpUser, _featureFlags))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -117,14 +119,13 @@ public class CorpUserType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "corpuser",
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -136,8 +137,9 @@ public class CorpUserType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("corpuser", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(
+            context.getOperationContext(), "corpuser", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   public Class<CorpUserUpdateInput> inputClass() {
@@ -152,19 +154,19 @@ public class CorpUserType
       // Get existing editable info to merge with
       Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
           _entityClient.getVersionedAspect(
+              context.getOperationContext(),
               urn,
               CORP_USER_EDITABLE_INFO_NAME,
               0L,
-              CorpUserEditableInfo.class,
-              context.getAuthentication());
+              CorpUserEditableInfo.class);
 
       // Create the MCP
       final MetadataChangeProposal proposal =
           buildMetadataChangeProposalWithUrn(
               UrnUtils.getUrn(urn),
               CORP_USER_EDITABLE_INFO_NAME,
-              mapCorpUserEditableInfo(input, existingCorpUserEditableInfo));
-      _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              mapCorpUserEditableInfo(input, existingCorpUserEditableInfo, context));
+      _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
       return load(urn, context).getData();
     }
@@ -181,8 +183,7 @@ public class CorpUserType
     // information.
     return context.getActorUrn().equals(urn)
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getAuthentication().getActor().toUrnStr(),
+            context,
             PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);
@@ -216,7 +217,8 @@ public class CorpUserType
   }
 
   private RecordTemplate mapCorpUserEditableInfo(
-      CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
+      CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing, QueryContext context)
+      throws Exception {
     CorpUserEditableInfo result = existing.orElseGet(() -> new CorpUserEditableInfo());
     if (input.getDisplayName() != null) {
       result.setDisplayName(input.getDisplayName());
@@ -254,8 +256,17 @@ public class CorpUserType
               input.getPlatformUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList())));
     }
     if (input.getPersonaUrn() != null) {
-      // TODO: Verify that the persona exists before accepting.
-      result.setPersona(UrnUtils.getUrn(input.getPersonaUrn()));
+      // TODO: Change this to use the entity client to check if the persona exists
+      // once personas are all ingested.
+      if (DEFAULT_PERSONA_URNS.contains(input.getPersonaUrn())
+          || _entityClient.exists(
+              context.getOperationContext(), UrnUtils.getUrn(input.getPersonaUrn()))) {
+        result.setPersona(UrnUtils.getUrn(input.getPersonaUrn()));
+      } else {
+        throw new DataHubGraphQLException(
+            String.format("Provided persona urn %s does not exist", input.getPersonaUrn()),
+            DataHubGraphQLErrorCode.NOT_FOUND);
+      }
     }
     return result;
   }

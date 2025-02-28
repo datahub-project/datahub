@@ -1,11 +1,20 @@
-query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
+query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
     dataset(urn: $urn) {
         urn
-        datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
+        type
+        datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
             rowCount
             columnCount
             sizeInBytes
             timestampMillis
+            partitionSpec {
+                type
+                partition
+                timePartition {
+                    startTimeMillis
+                    durationMillis
+                }
+            }
             fieldProfiles {
                 fieldPath
                 uniqueCount
@@ -18,6 +27,14 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
                 median
                 stdev
                 sampleValues
+                quantiles {
+                    quantile
+                    value
+                }
+                distinctValueFrequencies {
+                    value
+                    frequency
+                }
             }
         }
     }
@@ -25,13 +42,21 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        urn
+        type
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...nonSiblingDatasetFields
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...nonSiblingDatasetFields
+                }
             }
         }
     }
@@ -41,10 +66,7 @@ fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
     exists
     deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
+        ...deprecationFields
     }
     globalTags {
         ...globalTagsFields
@@ -62,6 +84,9 @@ fragment nonSiblingDatasetFields on Dataset {
     parentContainers {
         ...parentContainersFields
     }
+    assetOrigin {
+        ...originFields
+    }
     usageStats(range: MONTH) {
         buckets {
             bucket
@@ -78,33 +103,32 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
-    datasetProfiles(limit: 1) {
-        rowCount
-        columnCount
-        sizeInBytes
-        timestampMillis
-        fieldProfiles {
-            fieldPath
-            uniqueCount
-            uniqueProportion
-            nullCount
-            nullProportion
-            min
-            max
-            mean
-            median
-            stdev
-            sampleValues
+    latestFullTableProfile: datasetProfiles(
+        limit: 1
+        filter: { and: [{ field: "partitionSpec.partition", values: ["FULL_TABLE_SNAPSHOT", "SAMPLE"] }] }
+    ) {
+        ...datasetProfileFields
+    }
+    latestPartitionProfile: datasetProfiles(
+        limit: 1
+        filter: {
+            and: [{ field: "partitionSpec.partition", values: ["SAMPLE", "FULL_TABLE_SNAPSHOT"], negated: true }]
         }
+    ) {
+        ...datasetProfileFields
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     assertions(start: 0, count: 1) {
         total
+    }
+    access {
+        roles {
+            role {
+                urn
+            }
+        }
     }
     operations(limit: 1) {
         timestampMillis
@@ -117,12 +141,7 @@ fragment nonSiblingDatasetFields on Dataset {
     status {
         removed
     }
-    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-        count
-        start
-        total
-    }
-    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+    runs: runs(start: 0, count: 20, direction: OUTGOING) {
         count
         start
         total
@@ -164,8 +183,12 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
+
     siblings {
         isPrimary
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
     }
     termProposals: proposals(type: TERM_ASSOCIATION) {
         ...proposalsFragment
@@ -191,129 +214,14 @@ fragment nonSiblingDatasetFields on Dataset {
     privileges {
         ...entityPrivileges
     }
+    share {
+        ...shareFields
+    }
     forms {
-        completedForms {
-            ...formAssociationFields
-        }
-        incompleteForms {
-            ...formAssociationFields
-        }
-        verifications {
-            form {
-                urn
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                }
-            }
-        }
+        ...formsFields
     }
-}
-
-fragment siblingFields on Dataset {
-    ...nonRecursiveDatasetFields
-    deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
-    }
-    globalTags {
-        ...globalTagsFields
-    }
-    glossaryTerms {
-        ...glossaryTerms
-    }
-    subTypes {
-        typeNames
-    }
-    domain {
-        ...entityDomain
-    }
-    usageStats(resource: $urn, range: MONTH) {
-        buckets {
-            bucket
-            duration
-            resource
-            metrics {
-                uniqueUserCount
-                totalSqlQueries
-                topSqlQueries
-            }
-        }
-        aggregations {
-            uniqueUserCount
-            totalSqlQueries
-            users {
-                user {
-                    urn
-                    username
-                }
-                count
-                userEmail
-            }
-            fields {
-                fieldName
-                count
-            }
-        }
-    }
-    datasetProfiles(limit: 1) {
-        rowCount
-        columnCount
-        timestampMillis
-        fieldProfiles {
-            fieldPath
-            uniqueCount
-            uniqueProportion
-            nullCount
-            nullProportion
-            min
-            max
-            mean
-            median
-            stdev
-            sampleValues
-        }
-    }
-    parentContainers {
-        ...parentContainersFields
-    }
-    ...viewProperties
-    assertions(start: 0, count: 1) {
-        total
-    }
-    operations(limit: 1) {
-        timestampMillis
-        lastUpdatedTimestamp
-    }
-    testResults {
-        passing {
-            test {
-                ...testFields
-            }
-            type
-        }
-        failing {
-            test {
-                ...testFields
-            }
-            type
-        }
-    }
-    privileges {
-        ...entityPrivileges
-    }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
-    }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
-    }
+    ...notes
+    ...entityProfileVersionProperties
 }
 
 query getRecentQueries($urn: String!) {
@@ -359,6 +267,52 @@ query getLastMonthUsageAggregations($urn: String!) {
                     count
                 }
             }
+            buckets {
+                bucket
+                metrics {
+                    totalSqlQueries
+                }
+            }
+        }
+    }
+}
+
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $timeZone: String) {
+    dataset(urn: $urn) {
+        usageStats(range: $timeRange, timeZone: $timeZone) {
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        type
+                        username
+                        properties {
+                            displayName
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableProperties {
+                            displayName
+                            pictureLink
+                        }
+                    }
+                    count
+                    userEmail
+                }
+                fields {
+                    fieldName
+                    count
+                }
+            }
+            buckets {
+                bucket
+                metrics {
+                    totalSqlQueries
+                }
+            }
         }
     }
 }
@@ -373,25 +327,18 @@ fragment viewProperties on Dataset {
     viewProperties {
         materialized
         logic
+        formattedLogic
         language
     }
 }
 
 fragment assertionsQuery on Dataset {
-    assertions(start: 0, count: 1000) {
+    assertions(start: 0, count: 1000, includeSoftDeleted: false) {
         start
         count
         total
         assertions {
-            ...assertionDetails
-            runEvents(status: COMPLETE, limit: 1) {
-                total
-                failed
-                succeeded
-                runEvents {
-                    ...assertionRunEventDetails
-                }
-            }
+            ...assertionDetailsWithRunEvents
         }
     }
 }
@@ -401,10 +348,16 @@ query getDatasetAssertions($urn: String!) {
         ...assertionsQuery
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...assertionsQuery
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...assertionsQuery
+                }
             }
         }
     }
@@ -423,11 +376,17 @@ query getDatasetSchema($urn: String!) {
         ...datasetSchema
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...datasetSchema
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...datasetSchema
+                    }
                 }
             }
         }
@@ -459,12 +418,18 @@ query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentSt
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    incidents(start: $start, count: $count, state: $state) {
-                        ...incidentsFields
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        incidents(start: $start, count: $count, state: $state) {
+                            ...incidentsFields
+                        }
                     }
                 }
             }
@@ -492,11 +457,120 @@ fragment getRoles on Access {
                 requestUrl
             }
             urn
-            actors {
-                users {
-                    user {
-                        urn
+            isAssignedToMe
+        }
+    }
+}
+
+query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            timestampMillis
+            lastUpdatedTimestamp
+            operationType
+            actor
+            lastUpdatedTimestamp
+            customOperationType
+        }
+    }
+}
+
+fragment assertionsQueryWithRunEvents on Dataset {
+    assertions(start: 0, count: 1000) {
+        start
+        count
+        total
+        assertions {
+            ...assertionDetailsWithRunEvents
+        }
+    }
+}
+
+query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
+    dataset(urn: $urn) {
+        operationsStats(input: $input) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
+            buckets {
+                bucket
+                aggregations {
+                    totalOperations
+                    totalInserts
+                    totalUpdates
+                    totalDeletes
+                    totalCreates
+                    totalAlters
+                    totalDrops
+                    totalCustoms
+                    customOperationsMap {
+                        key
+                        value
                     }
+                }
+            }
+        }
+    }
+}
+
+query getDatasetTimeseriesCapability($urn: String!) {
+    dataset(urn: $urn) {
+        timeseriesCapabilities {
+            assetStats {
+                oldestOperationTime
+                oldestDatasetUsageTime
+                oldestDatasetProfileTime
+            }
+        }
+    }
+}
+
+query getOperationsStats($urn: String!, $range: TimeRange!) {
+    dataset(urn: $urn) {
+        operationsStats(input: { range: $range }) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+query getDatasetAssertionsWithRunEvents($urn: String!) {
+    dataset(urn: $urn) {
+        ...assertionsQueryWithRunEvents
+        siblings {
+            isPrimary
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...assertionsQueryWithRunEvents
                 }
             }
         }

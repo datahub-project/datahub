@@ -1,0 +1,24 @@
+namespace com.linkedin.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Error related to the actions applied in this test
+ */
+record TestActionsError {
+  /**
+   * The type of action being taken in this test
+   */
+  actionType: string
+
+  /**
+   * The asset urn related to this error
+   */
+  urn: optional Urn
+
+  /**
+   * Any additional info about this error
+  */
+  message: optional string
+
+}

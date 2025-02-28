@@ -26,7 +26,7 @@ export const GlossaryNodesYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your glossary terms"
                 tip="Glossary Terms that you own"

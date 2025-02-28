@@ -33,6 +33,7 @@ query appConfig {
         }
         lineageConfig {
             supportsImpactAnalysis
+            defaultLastDaysFilter
         }
         managedIngestionConfig {
             enabled
@@ -40,6 +41,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
             hideGlossary
             queriesTab {
                 queriesTabResultSize
@@ -55,12 +57,24 @@ query appConfig {
         }
         telemetryConfig {
             enableThirdPartyLogging
+            userTrackingEnabled
         }
         testsConfig {
             enabled
+            executionLimitConfig {
+                elasticSearchExecutor
+                defaultExecutor
+            }
         }
         viewsConfig {
             enabled
+        }
+        classificationConfig {
+            enabled
+            automations {
+                snowflake
+                aiTermClassification
+            }
         }
         featureFlags {
             readOnlyModeEnabled
@@ -68,16 +82,45 @@ query appConfig {
             showBrowseV2
             platformBrowseV2
             assertionMonitorsEnabled
+            schemaAssertionMonitorsEnabled
+            runAssertionsEnabled
             subscriptionsEnabled
             datasetHealthDashboardEnabled
             showAcrylInfo
+            erModelRelationshipFeatureEnabled
             showAccessManagement
             nestedDomainsEnabled
             platformBrowseV2
+            businessAttributeEntityEnabled
             dataContractsEnabled
+            editableDatasetNameEnabled
             documentationAiEnabled
-            themeV2
+            themeV2Enabled
+            themeV2Default
+            themeV2Toggleable
             lineageGraphV2
+            metadataShareEnabled
+            documentationFormsEnabled
+            emailNotificationsEnabled
+            slackBotTokensConfigEnabled
+            slackBotTokensObfuscationEnabled
+            showSeparateSiblings
+            showManageStructuredProperties
+            entityVersioningEnabled
+            formCreationEnabled
+            schemaFieldCLLEnabled
+            showSeparateSiblings
+            hideDbtSourceInLineage
+            showBulkFormByDefault
+            schemaFieldLineageIgnoreStatus
+            showDatasetFeaturesSearchSortOptions
+            showNavBarRedesign
+            showAutoCompleteResults
+            showFormAnalytics
+            showStatsTabRedesign
+            requestMinimalSlackPermissions
+            showTaskCenterRedesign
+            usePropagationsFramework
         }
         chromeExtensionConfig {
             enabled
@@ -101,6 +144,16 @@ query getGlobalViewsSettings {
     }
 }
 
+query getDocPropagationSettings {
+    docPropagationSettings {
+        docColumnPropagation
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
+}
+
+mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
+    updateDocPropagationSettings(input: $input)
 }

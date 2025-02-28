@@ -9,16 +9,19 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -36,9 +39,11 @@ public class UsageFeature extends BatchFeatureExtractor {
   }
 
   @Override
-  public List<Features> extractFeaturesForBatch(List<SearchEntity> entities) {
+  public List<Features> extractFeaturesForBatch(
+      @Nonnull OperationContext opContext, List<SearchEntity> entities) {
     Map<String, Long> urnToUsageCount =
         getUrnToUsageCount(
+            opContext,
             entities.stream()
                 .map(SearchEntity::getEntity)
                 .map(Object::toString)
@@ -55,7 +60,8 @@ public class UsageFeature extends BatchFeatureExtractor {
         .collect(Collectors.toList());
   }
 
-  private Map<String, Long> getUrnToUsageCount(Set<String> urnsToQuery) {
+  private Map<String, Long> getUrnToUsageCount(
+      @Nonnull OperationContext opContext, Set<String> urnsToQuery) {
 
     AggregationSpec queryCountAggregation =
         new AggregationSpec()
@@ -66,6 +72,7 @@ public class UsageFeature extends BatchFeatureExtractor {
         new GroupingBucket().setKey("urn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
     GenericTable usageStatsTable =
         _timeseriesAspectService.getAggregatedStats(
+            opContext,
             "dataset",
             "datasetUsageStatistics",
             new AggregationSpec[] {queryCountAggregation},
@@ -84,15 +91,14 @@ public class UsageFeature extends BatchFeatureExtractor {
     DateTime now = DateTime.now();
     DateTime monthAgo = now.minusMonths(1);
     Criterion startTimeCriterion =
-        new Criterion()
-            .setField("timestampMillis")
-            .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(Long.toString(monthAgo.getMillis()));
+        CriterionUtils.buildCriterion(
+            "timestampMillis",
+            Condition.GREATER_THAN_OR_EQUAL_TO,
+            Long.toString(monthAgo.getMillis()));
     Criterion endTimeCriterion =
-        new Criterion()
-            .setField("timestampMillis")
-            .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(Long.toString(now.getMillis()));
+        CriterionUtils.buildCriterion(
+            "timestampMillis", Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(now.getMillis()));
+
     List<ConjunctiveCriterion> urnMatchCriterion =
         urns.stream()
             .map(
@@ -102,7 +108,7 @@ public class UsageFeature extends BatchFeatureExtractor {
                             new CriterionArray(
                                 startTimeCriterion,
                                 endTimeCriterion,
-                                new Criterion().setField("urn").setValue(urn))))
+                                CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn))))
             .collect(Collectors.toList());
     return new Filter().setOr(new ConjunctiveCriterionArray(urnMatchCriterion));
   }

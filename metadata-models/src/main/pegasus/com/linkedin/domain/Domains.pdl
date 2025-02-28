@@ -24,7 +24,7 @@ record Domains {
       "fieldType": "URN",
       "hasValuesFieldName": "hasDomain",
       "addToFilters": true,
-      "filterNameOverride": "Domain"
+      "filterNameOverride": "In Domain"
     }
   }
   domains: array[Urn]

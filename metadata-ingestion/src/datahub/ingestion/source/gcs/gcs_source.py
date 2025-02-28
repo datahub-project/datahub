@@ -88,6 +88,7 @@ class GCSSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = GCSSourceReport()
+        self.platform: str = PLATFORM_GCS
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -118,9 +119,11 @@ class GCSSource(StatefulIngestionSourceBase):
             s3_path_specs.append(
                 PathSpec(
                     include=path_spec.include.replace("gs://", "s3://"),
-                    exclude=[exc.replace("gs://", "s3://") for exc in path_spec.exclude]
-                    if path_spec.exclude
-                    else None,
+                    exclude=(
+                        [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
+                        if path_spec.exclude
+                        else None
+                    ),
                     file_types=path_spec.file_types,
                     default_extension=path_spec.default_extension,
                     table_name=path_spec.table_name,
@@ -133,14 +136,15 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        return self.s3_source_overrides(S3Source(config, ctx))
+        return self.s3_source_overrides(S3Source(config, PipelineContext(ctx.run_id)))
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:
         source.source_config.platform = PLATFORM_GCS
 
         source.is_s3_platform = lambda: True  # type: ignore
-        source.create_s3_path = lambda bucket_name, key: unquote(f"s3://{bucket_name}/{key}")  # type: ignore
-
+        source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
+            f"s3://{bucket_name}/{key}"
+        )
         return source
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

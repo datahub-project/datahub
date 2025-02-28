@@ -61,9 +61,9 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
     ) -> Optional[DatasetPropertiesClass]:
         assert dataset_properties_aspect
 
-        server_dataset_properties_aspect: Optional[
-            DatasetPropertiesClass
-        ] = graph.get_dataset_properties(entity_urn)
+        server_dataset_properties_aspect: Optional[DatasetPropertiesClass] = (
+            graph.get_dataset_properties(entity_urn)
+        )
         # No need to take any action if server properties is None or there is not customProperties in server properties
         if (
             server_dataset_properties_aspect is None

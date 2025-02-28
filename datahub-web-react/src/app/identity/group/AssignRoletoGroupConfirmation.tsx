@@ -5,7 +5,7 @@ import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     roleToAssign: DataHubRole | undefined;
     groupName: string;
     groupUrn: string;
@@ -14,7 +14,7 @@ type Props = {
 };
 
 export default function AssignRoletoGroupConfirmation({
-    visible,
+    open,
     roleToAssign,
     groupName,
     groupUrn,
@@ -63,5 +63,5 @@ export default function AssignRoletoGroupConfirmation({
         ? `Would you like to assign the role ${roleToAssign?.name} to group ${groupName}?`
         : `Would you like to remove group ${groupName}'s existing role?`;
 
-    return <Popconfirm title={assignRoleText} visible={visible} onConfirm={batchAssignRole} onCancel={onClose} />;
+    return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

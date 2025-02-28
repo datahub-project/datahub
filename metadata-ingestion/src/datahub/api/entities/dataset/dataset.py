@@ -1,38 +1,51 @@
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, validator
 from ruamel.yaml import YAML
 
-from datahub.api.entities.structuredproperties.structuredproperties import (
-    AllowedTypes,
-    StructuredProperties,
-)
+from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
     make_schema_field_urn,
+    make_tag_urn,
+    make_term_urn,
+    make_user_urn,
+    validate_ownership_type,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    BooleanTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     MetadataChangeProposalClass,
+    NumberTypeClass,
     OtherSchemaClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import Urn
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,8 +66,8 @@ class SchemaFieldSpecification(BaseModel):
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
     recursive: Optional[bool] = None
-    globalTags: Optional[dict] = None
-    glossaryTerms: Optional[dict] = None
+    globalTags: Optional[List[str]] = None
+    glossaryTerms: Optional[List[str]] = None
     isPartOfKey: Optional[bool] = None
     isPartitioningKey: Optional[bool] = None
     jsonProps: Optional[dict] = None
@@ -85,20 +98,24 @@ class SchemaFieldSpecification(BaseModel):
             description=schema_field.description,
             label=schema_field.label,
             created=schema_field.created.__dict__ if schema_field.created else None,
-            lastModified=schema_field.lastModified.__dict__
-            if schema_field.lastModified
-            else None,
+            lastModified=(
+                schema_field.lastModified.__dict__
+                if schema_field.lastModified
+                else None
+            ),
             recursive=schema_field.recursive,
-            globalTags=schema_field.globalTags.__dict__
-            if schema_field.globalTags
-            else None,
-            glossaryTerms=schema_field.glossaryTerms.__dict__
-            if schema_field.glossaryTerms
-            else None,
+            globalTags=(
+                schema_field.globalTags.__dict__ if schema_field.globalTags else None
+            ),
+            glossaryTerms=(
+                schema_field.glossaryTerms.__dict__
+                if schema_field.glossaryTerms
+                else None
+            ),
             isPartitioningKey=schema_field.isPartitioningKey,
-            jsonProps=json.loads(schema_field.jsonProps)
-            if schema_field.jsonProps
-            else None,
+            jsonProps=(
+                json.loads(schema_field.jsonProps) if schema_field.jsonProps else None
+            ),
         )
 
     @validator("urn", pre=True, always=True)
@@ -106,6 +123,21 @@ class SchemaFieldSpecification(BaseModel):
         if not v and not values.get("id"):
             raise ValueError("Either id or urn must be present")
         return v
+
+    def get_datahub_field_type(self) -> SchemaFieldDataTypeClass:
+        """
+        A very simple mapping of data types from the YAML schema to the DataHub schema.
+        """
+        type_string = self.type or ""
+        std_type = {
+            "string": SchemaFieldDataTypeClass(type=StringTypeClass()),
+            "int": SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            "integer": SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            "float": SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            "double": SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            "boolean": SchemaFieldDataTypeClass(type=BooleanTypeClass()),
+        }.get(type_string.lower(), SchemaFieldDataTypeClass(type=StringTypeClass()))
+        return std_type
 
 
 class SchemaSpecification(BaseModel):
@@ -116,6 +148,16 @@ class SchemaSpecification(BaseModel):
     def file_must_be_avsc(cls, v):
         if v and not v.endswith(".avsc"):
             raise ValueError("file must be a .avsc file")
+        return v
+
+
+class Ownership(ConfigModel):
+    id: str
+    type: str
+
+    @validator("type")
+    def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
+        _, _ = validate_ownership_type(v)
         return v
 
 
@@ -137,9 +179,13 @@ class Dataset(BaseModel):
     properties: Optional[Dict[str, str]]
     subtype: Optional[str]
     subtypes: Optional[List[str]]
+    tags: Optional[List[str]] = None
+    glossary_terms: Optional[List[str]] = None
+    owners: Optional[List[Union[str, Ownership]]] = None
     structured_properties: Optional[
         Dict[str, Union[str, float, List[Union[str, float]]]]
     ] = None
+    external_url: Optional[str] = None
 
     @property
     def platform_urn(self) -> str:
@@ -172,6 +218,28 @@ class Dataset(BaseModel):
             return v[len("urn:li:dataPlatform:") :]
         return v
 
+    def _mint_auditstamp(self, message: str) -> AuditStampClass:
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
+
+    def _mint_owner(self, owner: Union[str, Ownership]) -> OwnerClass:
+        if isinstance(owner, str):
+            return OwnerClass(
+                owner=make_user_urn(owner),
+                type=OwnershipTypeClass.TECHNICAL_OWNER,
+            )
+        else:
+            assert isinstance(owner, Ownership)
+            ownership_type, ownership_type_urn = validate_ownership_type(owner.type)
+            return OwnerClass(
+                owner=make_user_urn(owner.id),
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
+            )
+
     @classmethod
     def from_yaml(cls, file: str) -> Iterable["Dataset"]:
         with open(file) as fp:
@@ -192,13 +260,14 @@ class Dataset(BaseModel):
                 description=self.description,
                 name=self.name,
                 customProperties=self.properties,
+                externalUrl=self.external_url,
             ),
         )
         yield mcp
 
         if self.schema_metadata:
             if self.schema_metadata.file:
-                with open(self.schema_metadata.file, "r") as schema_fp:
+                with open(self.schema_metadata.file) as schema_fp:
                     schema_string = schema_fp.read()
                     schema_metadata = SchemaMetadataClass(
                         schemaName=self.name or self.id or self.urn or "",
@@ -212,136 +281,195 @@ class Dataset(BaseModel):
                         entityUrn=self.urn, aspect=schema_metadata
                     )
                     yield mcp
-
+            else:
                 if self.schema_metadata.fields:
-                    for field in self.schema_metadata.fields:
-                        field_urn = field.urn or make_schema_field_urn(
-                            self.urn, field.id  # type: ignore[arg-type]
-                        )
-                        assert field_urn.startswith("urn:li:schemaField:")
-                        if field.structured_properties:
-                            # field_properties_flattened = (
-                            #     Dataset.extract_structured_properties(
-                            #         field.structured_properties
-                            #     )
-                            # )
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=StructuredPropertiesClass(
-                                    properties=[
-                                        StructuredPropertyValueAssignmentClass(
-                                            propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                            values=prop_value
-                                            if isinstance(prop_value, list)
-                                            else [prop_value],
-                                        )
-                                        for prop_key, prop_value in field.structured_properties.items()
-                                    ]
+                    assert [f.id for f in self.schema_metadata.fields].count(
+                        None
+                    ) == 0, "All fields must have an id specified"
+                    assert [
+                        f.nativeDataType or f.type for f in self.schema_metadata.fields
+                    ].count(None) == 0, (
+                        "All fields must have a type or nativeDataType specified"
+                    )
+
+                    schema_metadata = SchemaMetadataClass(
+                        schemaName=self.name or self.id or self.urn or "",
+                        platform=self.platform_urn,
+                        version=0,
+                        hash="",
+                        platformSchema=OtherSchemaClass(rawSchema=""),
+                        fields=[
+                            SchemaFieldClass(
+                                fieldPath=field.id,  # type: ignore[arg-type]
+                                type=field.get_datahub_field_type(),
+                                nativeDataType=field.nativeDataType or field.type,  # type: ignore[arg-type]
+                                nullable=field.nullable,
+                                description=field.description,
+                                label=field.label,
+                                created=(
+                                    AuditStampClass(
+                                        time=int(time.time() * 1000.0),
+                                        actor="urn:li:corpuser:datahub",
+                                        message="yaml",
+                                    )
+                                    if field.created
+                                    else None
+                                ),
+                                lastModified=(
+                                    AuditStampClass(
+                                        time=int(time.time() * 1000.0),
+                                        actor="urn:li:corpuser:datahub",
+                                        message="yaml",
+                                    )
+                                    if field.lastModified
+                                    else None
+                                ),
+                                recursive=False,
+                                globalTags=GlobalTagsClass(
+                                    tags=[
+                                        TagAssociationClass(tag=t)
+                                        for t in field.globalTags
+                                    ],
+                                )
+                                if field.globalTags
+                                else None,
+                                glossaryTerms=GlossaryTermsClass(
+                                    terms=[
+                                        GlossaryTermAssociationClass(urn=t)
+                                        for t in field.glossaryTerms
+                                    ],
+                                    auditStamp=AuditStampClass(
+                                        time=int(time.time() * 1000.0),
+                                        actor="urn:li:corpuser:datahub",
+                                        message="yaml",
+                                    ),
+                                )
+                                if field.glossaryTerms
+                                else None,
+                                isPartOfKey=field.isPartOfKey,
+                                isPartitioningKey=field.isPartitioningKey,
+                                jsonProps=(
+                                    json.dumps(field.jsonProps)
+                                    if field.jsonProps
+                                    else None
                                 ),
                             )
-                            yield mcp
+                            for field in self.schema_metadata.fields
+                        ],
+                    )
+                    try:
+                        assert schema_metadata.validate()
+                    except AssertionError as e:
+                        logger.error(f"Invalid schema metadata: {schema_metadata}")
+                        breakpoint()
+                        raise e
+                    mcp = MetadataChangeProposalWrapper(
+                        entityUrn=self.urn, aspect=schema_metadata
+                    )
+                    yield mcp
 
-                    if self.subtype or self.subtypes:
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=self.urn,
-                            aspect=SubTypesClass(
-                                typeNames=[
-                                    s
-                                    for s in [self.subtype] + (self.subtypes or [])
-                                    if s
-                                ]
-                            ),
-                        )
-                        yield mcp
+            # In addition we generate structured properties for each field
+            if self.schema_metadata.fields:
+                for field in self.schema_metadata.fields:
+                    field_urn = field.urn or make_schema_field_urn(
+                        self.urn,  # type: ignore[arg-type]
+                        field.id,  # type: ignore[arg-type]
+                    )
+                    assert field_urn.startswith("urn:li:schemaField:")
 
-                    if self.structured_properties:
-                        # structured_properties_flattened = (
-                        #     Dataset.extract_structured_properties(
-                        #         self.structured_properties
-                        #     )
-                        # )
+                    if field.structured_properties:
                         mcp = MetadataChangeProposalWrapper(
-                            entityUrn=self.urn,
+                            entityUrn=field_urn,
                             aspect=StructuredPropertiesClass(
                                 properties=[
                                     StructuredPropertyValueAssignmentClass(
                                         propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                        values=prop_value
-                                        if isinstance(prop_value, list)
-                                        else [prop_value],
+                                        values=(
+                                            prop_value
+                                            if isinstance(prop_value, list)
+                                            else [prop_value]
+                                        ),
                                     )
-                                    for prop_key, prop_value in self.structured_properties.items()
+                                    for prop_key, prop_value in field.structured_properties.items()
                                 ]
                             ),
                         )
                         yield mcp
 
-                    if self.downstreams:
-                        for downstream in self.downstreams:
-                            patch_builder = DatasetPatchBuilder(downstream)
-                            assert (
-                                self.urn is not None
-                            )  # validator should have filled this in
-                            patch_builder.add_upstream_lineage(
-                                UpstreamClass(
-                                    dataset=self.urn,
-                                    type="COPY",
-                                )
-                            )
-                            for patch_event in patch_builder.build():
-                                yield patch_event
-
-                    logger.info(f"Created dataset {self.urn}")
-
-    @staticmethod
-    def extract_structured_properties(
-        structured_properties: Dict[str, Union[str, float, List[str], List[float]]]
-    ) -> List[Tuple[str, Union[str, float]]]:
-        structured_properties_flattened: List[Tuple[str, Union[str, float]]] = []
-        for key, value in structured_properties.items():
-            validated_structured_property = Dataset.validate_structured_property(
-                key, value
+        if self.subtype or self.subtypes:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=SubTypesClass(
+                    typeNames=[s for s in [self.subtype] + (self.subtypes or []) if s]
+                ),
             )
-            if validated_structured_property:
-                structured_properties_flattened.append(validated_structured_property)
-        structured_properties_flattened = sorted(
-            structured_properties_flattened, key=lambda x: x[0]
-        )
-        return structured_properties_flattened
+            yield mcp
 
-    @staticmethod
-    def validate_structured_property(
-        sp_name: str, sp_value: Union[str, float, List[str], List[float]]
-    ) -> Union[Tuple[str, Union[str, float]], None]:
-        """
-        Validate based on:
-        1. Structured property exists/has been created
-        2. Structured property value is of the expected type
-        """
-        urn = Urn.make_structured_property_urn(sp_name)
-        with get_default_graph() as graph:
-            if graph.exists(urn):
-                validated_structured_property = StructuredProperties.from_datahub(
-                    graph, urn
-                )
-                allowed_type = Urn.get_data_type_from_urn(
-                    validated_structured_property.type
-                )
-                try:
-                    if not isinstance(sp_value, list):
-                        return Dataset.validate_type(sp_name, sp_value, allowed_type)
-                    else:
-                        for v in sp_value:
-                            return Dataset.validate_type(sp_name, v, allowed_type)
-                except ValueError:
-                    logger.warning(
-                        f"Property: {sp_name}, value: {sp_value} should be a {allowed_type}."
+        if self.tags:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(tag=make_tag_urn(tag)) for tag in self.tags
+                    ]
+                ),
+            )
+            yield mcp
+
+        if self.glossary_terms:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=GlossaryTermsClass(
+                    terms=[
+                        GlossaryTermAssociationClass(urn=make_term_urn(term))
+                        for term in self.glossary_terms
+                    ],
+                    auditStamp=self._mint_auditstamp("yaml"),
+                ),
+            )
+            yield mcp
+
+        if self.owners:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=OwnershipClass(
+                    owners=[self._mint_owner(o) for o in self.owners]
+                ),
+            )
+            yield mcp
+
+        if self.structured_properties:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=StructuredPropertiesClass(
+                    properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=f"urn:li:structuredProperty:{prop_key}",
+                            values=(
+                                prop_value
+                                if isinstance(prop_value, list)
+                                else [prop_value]
+                            ),
+                        )
+                        for prop_key, prop_value in self.structured_properties.items()
+                    ]
+                ),
+            )
+            yield mcp
+
+        if self.downstreams:
+            for downstream in self.downstreams:
+                patch_builder = DatasetPatchBuilder(downstream)
+                assert self.urn is not None  # validator should have filled this in
+                patch_builder.add_upstream_lineage(
+                    UpstreamClass(
+                        dataset=self.urn,
+                        type="COPY",
                     )
-            else:
-                logger.error(
-                    f"Property {sp_name} does not exist and therefore will not be added to dataset. Please create property before trying again."
                 )
-        return None
+                yield from patch_builder.build()
+
+        logger.info(f"Created dataset {self.urn}")
 
     @staticmethod
     def validate_type(
@@ -419,12 +547,34 @@ class Dataset(BaseModel):
         else:
             return None
 
+    @staticmethod
+    def extract_owners_if_exists(
+        owners: Optional[OwnershipClass],
+    ) -> Optional[List[Union[str, Ownership]]]:
+        yaml_owners: Optional[List[Union[str, Ownership]]] = None
+        if owners:
+            yaml_owners = []
+            for o in owners.owners:
+                if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
+                    yaml_owners.append(o.owner)
+                elif o.type == OwnershipTypeClass.CUSTOM:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.typeUrn)))
+                else:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
+        return yaml_owners
+
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "Dataset":
         dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
             urn, DatasetPropertiesClass
         )
         subtypes: Optional[SubTypesClass] = graph.get_aspect(urn, SubTypesClass)
+        tags: Optional[GlobalTagsClass] = graph.get_aspect(urn, GlobalTagsClass)
+        glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
+            urn, GlossaryTermsClass
+        )
+        owners: Optional[OwnershipClass] = graph.get_aspect(urn, OwnershipClass)
+        yaml_owners = Dataset.extract_owners_if_exists(owners)
         structured_properties: Optional[StructuredPropertiesClass] = graph.get_aspect(
             urn, StructuredPropertiesClass
         )
@@ -439,20 +589,29 @@ class Dataset(BaseModel):
 
         return Dataset(  # type: ignore[call-arg]
             urn=urn,
-            description=dataset_properties.description
-            if dataset_properties and dataset_properties.description
-            else None,
-            name=dataset_properties.name
-            if dataset_properties and dataset_properties.name
-            else None,
+            description=(
+                dataset_properties.description
+                if dataset_properties and dataset_properties.description
+                else None
+            ),
+            name=(
+                dataset_properties.name
+                if dataset_properties and dataset_properties.name
+                else None
+            ),
             schema=Dataset._schema_from_schema_metadata(graph, urn),
-            properties=dataset_properties.customProperties
-            if dataset_properties
-            else None,
+            tags=[tag.tag for tag in tags.tags] if tags else None,
+            glossary_terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
+            owners=yaml_owners,
+            properties=(
+                dataset_properties.customProperties if dataset_properties else None
+            ),
             subtypes=[subtype for subtype in subtypes.typeNames] if subtypes else None,
-            structured_properties=structured_properties_map
-            if structured_properties
-            else None,
+            structured_properties=(
+                structured_properties_map if structured_properties else None
+            ),
         )
 
     def to_yaml(

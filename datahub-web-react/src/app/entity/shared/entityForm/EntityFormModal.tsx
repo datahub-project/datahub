@@ -1,10 +1,14 @@
-import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
+
+import { CloseOutlined } from '@ant-design/icons';
 import { Modal } from 'antd';
 import styled from 'styled-components';
+
 import EntityForm from './EntityForm';
 import FormPageHeader from './FormHeader/FormPageHeader';
 import EntityFormContextProvider from './EntityFormContextProvider';
+import { useUserContext } from '../../../context/useUserContext';
+import { FormView } from './EntityFormContext';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {
@@ -23,6 +27,7 @@ const StyledModal = styled(Modal)`
         overflow: hidden;
         padding: 0;
         display: flex;
+        flex-direction: column;
     }
 `;
 
@@ -34,26 +39,44 @@ const StyledClose = styled(CloseOutlined)`
     }
 `;
 
+const EntityFormWrapper = styled.div`
+    flex: 1;
+    overflow: auto;
+    display: flex;
+`;
+
 interface Props {
     selectedFormUrn: string | null;
     isFormVisible: boolean;
     hideFormModal: () => void;
+    defaultFormView?: FormView;
 }
 
-export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFormModal }: Props) {
+export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFormModal, defaultFormView }: Props) {
+    const { refetchUnfinishedTaskCount } = useUserContext();
+
+    // Refetch unfinished tasks when closing modal
+    const handleClose = () => {
+        refetchUnfinishedTaskCount();
+        hideFormModal();
+    };
+
     return (
-        <EntityFormContextProvider formUrn={selectedFormUrn || ''}>
-            <StyledModal
-                open={isFormVisible}
-                onCancel={hideFormModal}
-                footer={null}
-                title={<FormPageHeader />}
-                closeIcon={<StyledClose />}
-                style={{ top: 0, height: '100vh', minWidth: '100vw' }}
-                destroyOnClose
-            >
-                <EntityForm formUrn={selectedFormUrn || ''} />
-            </StyledModal>
-        </EntityFormContextProvider>
+        <StyledModal
+            open={isFormVisible}
+            onCancel={handleClose}
+            footer={null}
+            title={null}
+            closeIcon={<StyledClose />}
+            style={{ top: 0, height: '100vh', minWidth: '100vw' }}
+            destroyOnClose
+        >
+            <EntityFormContextProvider formUrn={selectedFormUrn || ''} defaultFormView={defaultFormView}>
+                <FormPageHeader />
+                <EntityFormWrapper>
+                    <EntityForm formUrn={selectedFormUrn || ''} closeModal={handleClose} />
+                </EntityFormWrapper>
+            </EntityFormContextProvider>
+        </StyledModal>
     );
 }

@@ -46,6 +46,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
+        "event/notification/NotificationRequest.avsc",
     }
 
     # Find all the aspect schemas / other important schemas.
@@ -148,11 +149,26 @@ def merge_schemas(schemas_obj: List[dict]) -> str:
     # Combine schemas as a "union" of all of the types.
     merged = ["null"] + schemas_obj
 
+    # Check that we don't have the same class name in multiple namespaces.
+    names_to_spaces: Dict[str, str] = {}
+
     # Patch add_name method to NOT complain about duplicate names.
     class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            assert to_add.name
+            assert to_add.space
             assert to_add.fullname
+
+            if to_add.name in names_to_spaces:
+                if names_to_spaces[to_add.name] != to_add.space:
+                    raise ValueError(
+                        f"Duplicate name {to_add.name} in namespaces {names_to_spaces[to_add.name]} and {to_add.space}. "
+                        "This will cause conflicts in the generated code."
+                    )
+            else:
+                names_to_spaces[to_add.name] = to_add.space
+
             self.names[to_add.fullname] = new_schema
             return to_add
 
@@ -172,6 +188,7 @@ autogen_header = """# mypy: ignore-errors
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 """
 autogen_footer = """
 # fmt: on
@@ -261,7 +278,7 @@ from datahub._codegen.aspect import _Aspect
 """
 
     for aspect in aspects:
-        className = f'{aspect["name"]}Class'
+        className = f"{aspect['name']}Class"
         aspectName = aspect["Aspect"]["name"]
         class_def_original = f"class {className}(DictWrapper):"
 
@@ -283,9 +300,9 @@ from datahub._codegen.aspect import _Aspect
         schema_classes_lines[empty_line] = "\n"
         schema_classes_lines[empty_line] += f"\n    ASPECT_NAME = '{aspectName}'"
         if "type" in aspect["Aspect"]:
-            schema_classes_lines[
-                empty_line
-            ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+            schema_classes_lines[empty_line] += (
+                f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+            )
 
         aspect_info = {
             k: v for k, v in aspect["Aspect"].items() if k not in {"name", "type"}
@@ -299,7 +316,7 @@ from datahub._codegen.aspect import _Aspect
     schema_classes_lines.append(
         f"""
 ASPECT_CLASSES: List[Type[_Aspect]] = [
-    {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
+    {f",{newline}    ".join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 
 ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
@@ -310,11 +327,11 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
-    {f'{newline}    '.join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
+    {f"{newline}    ".join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
 
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
-    {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
 """
     )
@@ -330,7 +347,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import ClassVar, List, Optional, Type, TYPE_CHECKING
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union
 
 import functools
 from deprecated.sphinx import deprecated as _sphinx_deprecated
@@ -344,9 +361,6 @@ deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 
     for aspect in key_aspects:
         entity_type = aspect["Aspect"]["keyForEntity"]
-        if aspect["Aspect"]["entityCategory"] == "internal":
-            continue
-
         code += generate_urn_class(entity_type, aspect)
 
     (urn_dir / "urn_defs.py").write_text(code)
@@ -533,11 +547,39 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
         assert field_name(fields[0]) == "guid"
         assert fields[0]["type"] == ["null", "string"]
         fields[0]["type"] = "string"
+    arg_count = len(fields)
+
+    field_urn_type_classes = {}
+    for field in fields:
+        # Figure out if urn types are valid for each field.
+        field_urn_type_class = None
+        if field_name(field) == "platform":
+            field_urn_type_class = "DataPlatformUrn"
+        elif field.get("Urn"):
+            if len(field.get("entityTypes", [])) == 1:
+                field_entity_type = field["entityTypes"][0]
+                field_urn_type_class = f"{capitalize_entity_name(field_entity_type)}Urn"
+            else:
+                field_urn_type_class = "Urn"
+
+        field_urn_type_classes[field_name(field)] = field_urn_type_class
+    if arg_count == 1:
+        field = fields[0]
+
+        if field_urn_type_classes[field_name(field)] is None:
+            # All single-arg urn types should accept themselves.
+            field_urn_type_classes[field_name(field)] = class_name
 
     _init_arg_parts: List[str] = []
     for field in fields:
+        field_urn_type_class = field_urn_type_classes[field_name(field)]
+
         default = '"PROD"' if field_name(field) == "env" else None
-        _arg_part = f"{field_name(field)}: {field_type(field)}"
+
+        type_hint = field_type(field)
+        if field_urn_type_class:
+            type_hint = f'Union["{field_urn_type_class}", str]'
+        _arg_part = f"{field_name(field)}: {type_hint}"
         if default:
             _arg_part += f" = {default}"
         _init_arg_parts.append(_arg_part)
@@ -545,7 +587,6 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
 
     super_init_args = ", ".join(field_name(field) for field in fields)
 
-    arg_count = len(fields)
     parse_ids_mapping = ", ".join(
         f"{field_name(field)}=entity_ids[{i}]" for i, field in enumerate(fields)
     )
@@ -563,39 +604,61 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     init_coercion = ""
     init_validation = ""
     for field in fields:
-        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
+        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{class_name} {field_name(field)} cannot be empty")\n'
 
         # Generalized mechanism for validating embedded urns.
-        field_urn_type_class = None
-        if field_name(field) == "platform":
-            field_urn_type_class = "DataPlatformUrn"
-        elif field.get("Urn"):
-            if len(field.get("entityTypes", [])) == 1:
-                field_entity_type = field["entityTypes"][0]
-                field_urn_type_class = f"{capitalize_entity_name(field_entity_type)}Urn"
-            else:
-                field_urn_type_class = "Urn"
+        field_urn_type_class = field_urn_type_classes[field_name(field)]
+        if field_urn_type_class and field_urn_type_class == class_name:
+            # First, we need to extract the main piece from the urn type.
+            init_validation += (
+                f"if isinstance({field_name(field)}, {field_urn_type_class}):\n"
+                f"    {field_name(field)} = {field_name(field)}.{field_name(field)}\n"
+            )
 
-        if field_urn_type_class:
-            init_validation += f"{field_name(field)} = str({field_name(field)})\n"
+            # If it's still an urn type, that's a problem.
+            init_validation += (
+                f"elif isinstance({field_name(field)}, Urn):\n"
+                f"    raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
+            )
+
+            # Then, we do character validation as normal.
+            init_validation += (
+                f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
+                f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
+            )
+        elif field_urn_type_class:
+            init_validation += f"{field_name(field)} = str({field_name(field)})  # convert urn type to str\n"
             init_validation += (
                 f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
             )
         else:
             init_validation += (
-                f"assert not UrnEncoder.contains_reserved_char({field_name(field)})\n"
+                f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
+                f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
             )
+        # TODO add ALL_ENV_TYPES validation
 
+        # Field coercion logic.
         if field_name(field) == "env":
             init_coercion += "env = env.upper()\n"
-        # TODO add ALL_ENV_TYPES validation
-        elif entity_type == "dataPlatform" and field_name(field) == "platform_name":
-            init_coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n'
-            init_coercion += "    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n"
-
-        if field_name(field) == "platform":
+        elif field_name(field) == "platform":
+            # For platform names in particular, we also qualify them when they don't have the prefix.
+            # We can rely on the DataPlatformUrn constructor to do this prefixing.
             init_coercion += "platform = DataPlatformUrn(platform).urn()\n"
-        elif field_urn_type_class is None:
+        elif field_urn_type_class is not None:
+            # For urn types, we need to parse them into urn types where appropriate.
+            # Otherwise, we just need to encode special characters.
+            init_coercion += (
+                f"if isinstance({field_name(field)}, str):\n"
+                f"    if {field_name(field)}.startswith('urn:li:'):\n"
+                f"        try:\n"
+                f"            {field_name(field)} = {field_urn_type_class}.from_string({field_name(field)})\n"
+                f"        except InvalidUrnError:\n"
+                f"            raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
+                f"    else:\n"
+                f"        {field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
+            )
+        else:
             # For all non-urns, run the value through the UrnEncoder.
             init_coercion += (
                 f"{field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
@@ -611,22 +674,22 @@ if TYPE_CHECKING:
 
 class {class_name}(_SpecificUrn):
     ENTITY_TYPE: ClassVar[str] = "{entity_type}"
-    URN_PARTS: ClassVar[int] = {arg_count}
+    _URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
         if _allow_coercion:
             # Field coercion logic (if any is required).
-{textwrap.indent(init_coercion.strip(), prefix=" "*4*3)}
+{textwrap.indent(init_coercion.strip(), prefix=" " * 4 * 3)}
 
         # Validation logic.
-{textwrap.indent(init_validation.strip(), prefix=" "*4*2)}
+{textwrap.indent(init_validation.strip(), prefix=" " * 4 * 2)}
 
         super().__init__(self.ENTITY_TYPE, [{super_init_args}])
 
     @classmethod
     def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
-        if len(entity_ids) != cls.URN_PARTS:
-            raise InvalidUrnError(f"{class_name} should have {{cls.URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"{class_name} should have {{cls._URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
         return cls({parse_ids_mapping}, _allow_coercion=False)
 
     @classmethod
@@ -652,7 +715,7 @@ class {class_name}(_SpecificUrn):
         code += f"""
     @property
     def {field_name(field)}(self) -> {field_type(field)}:
-        return self.entity_ids[{i}]
+        return self._entity_ids[{i}]
 """
 
     return code
@@ -703,7 +766,7 @@ def generate(
             and aspect["Aspect"]["keyForEntity"] != entity.name
         ):
             raise ValueError(
-                f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+                f"Entity key {entity.keyAspect} is used by {aspect['Aspect']['keyForEntity']} and {entity.name}"
             )
 
         # Also require that the aspect list is deduplicated.
@@ -754,7 +817,7 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
-from datahub._codegen.aspect import _Aspect
+from datahub._codegen.aspect import _Aspect as _Aspect
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
@@ -787,7 +850,7 @@ from typing import TYPE_CHECKING
 
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_urns_package
-from datahub.utilities.urns._urn_base import Urn  # noqa: F401
+from datahub.utilities.urns._urn_base import Urn as Urn  # noqa: F401
 
 _custom_package_path = get_custom_urns_package()
 

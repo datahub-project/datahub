@@ -1,0 +1,367 @@
+extend type Query {
+    """
+    Get all of the forms that are assigned to this user explicitly or by ownership of assets.
+    Right now this query gets forms for the requesting user.
+    """
+    getFormsForActor(input: GetFormsForActorInput): GetFormsForActorResult!
+
+    """
+    Get analytics for all forms
+    """
+    formAnalytics(input: FormAnalyticsInput!): FormAnalyticsResponse
+
+    """
+    Get configuration information for the form analytics
+    """
+    formAnalyticsConfig: FormAnalyticsConfig
+
+}
+
+extend type Mutation {
+    """
+    Batch submit a form prompt response for a set of entities
+    """
+    batchSubmitFormPrompt(input: BatchSubmitFormPromptInput!): Boolean
+
+    """
+    Batch submit a form prompt response for a set of entities matching a filter
+    """
+    asyncBatchSubmitFormPrompt(input: AsyncBatchSubmitFormPromptInput!): AsyncBatchSubmitFormPromptResponse!
+
+    """
+    Batch verify a form for a group of entities
+    """
+    batchVerifyForm(input: BatchVerifyFormInput!): Boolean
+
+    """
+    Batch submit a form prompt response for a set of entities matching a filter
+    """
+    asyncBatchVerifyForm(input: AsyncBatchVerifyFormInput!): AsyncBatchVerifyFormResponse!
+}
+
+"""
+Input for responding to a singular prompt in a form for a batch of entities
+"""
+input BatchSubmitFormPromptInput {
+    """
+    The urns of the entities this prompt submission is for
+    """
+    assetUrns: [String!]!
+
+    """
+    Input for responding to a specific prompt on a form
+    """
+    input: SubmitFormPromptInput
+}
+
+"""
+Input for responding to a singular prompt in a form for a batch of entities
+"""
+input AsyncBatchSubmitFormPromptInput {
+    """
+    Entity types to be submit a response for
+    """
+    types: [EntityType!]!
+
+    """
+    An optional query string for the search to get the results to sumbit
+    """
+    query: String
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    Filter on how to search for entities by metadata forms
+    """
+    formFilter: FormFilter
+
+    """
+    Input for responding to a specific prompt on a form
+    """
+    input: SubmitFormPromptInput!
+
+    """
+    Input for the task that is generated for this action
+    """
+    taskInput: TaskInput
+}
+
+"""
+Input for asynchronously verifying a batch form entities for a form
+"""
+input AsyncBatchVerifyFormInput {
+    """
+    Entity types to be submit a response for
+    """
+    types: [EntityType!]!
+
+    """
+    An optional query string for the search to get the results to sumbit
+    """
+    query: String
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    Filter on how to search for entities by metadata forms
+    """
+    formFilter: FormFilter
+
+    """
+    The urn of the form being verified on the given entities
+    """
+    formUrn: String!
+
+    """
+    Input for the task that is generated for this action
+    """
+    taskInput: TaskInput
+}
+
+"""
+Input for verifying a batch of entities for a give form
+"""
+input BatchVerifyFormInput {
+    """
+    The urns of the entities getting verified for this form
+    """
+    assetUrns: [String!]!
+
+    """
+    The urn of the form being verified on the given entities
+    """
+    formUrn: String!
+}
+
+"""
+Optional input for getting forms for an actor.
+"""
+input GetFormsForActorInput {
+    """
+    Optional search flags for this endpoint
+    """
+    searchFlags: SearchFlags
+}
+
+"""
+Result object containing forms assigned to a given actor
+"""
+type GetFormsForActorResult {
+    """
+    List of result objects about forms for the given actor
+    """
+    formsForActor: [FormForActor!]!
+}
+
+"""
+Result object containing info about a form that is assigned to an actor
+"""
+type FormForActor {
+    """
+    The form this user is assigned to
+    """
+    form: Form!
+
+    """
+    The number of entities that this user still has to complete the given form for
+    """
+    numEntitiesToComplete: Int
+}
+
+"""
+Input arguments for a full text search query across entities
+"""
+input FormFilter {
+    """
+    The urn of the form to get only entities that have this form on them
+    """
+    formUrn: String!
+
+    """
+    The urn of the actor that we want to filter by. If supplied, filter entities
+    down to only those where this actor is assigned to fill them out.
+    """
+    assignedActor: String
+
+    """
+    Optional filter to get only entities that have this form complete or not.
+    If omitted, get entities whether they have this form complete or not.
+    """
+    isFormComplete: Boolean
+
+    """
+    Optional filter to get only entities that have this form verified or not.
+    If omitted, get entities whether they have this form verified or not.
+    """
+    isFormVerified: Boolean
+
+    """
+    Optional filter input to fetch entities based on the state of a specific prompt.
+    This is required if providing the isPromptComplete input.
+    """
+    promptId: String
+
+    """
+    Optional filter to get only entities with a certain prompt complete or not.
+    If left empty, get entities regardless of whether a specific prompt is complete.
+    """
+    isPromptComplete: Boolean
+}
+
+
+input Param {
+    """
+    The name of the parameter
+    """
+    name: String!
+
+    """
+    The value of the parameter
+    """
+    value: String!
+
+}
+
+input FormAnalyticsInput {
+
+    """
+    A SQL query string for executing a form analytics query.
+    Optional: because in the future we want to allow you to also
+    just provide a named query directly
+    """
+    queryString: String
+
+    """
+    The parameters for the form analytics query
+    """
+    params: [Param!]
+
+    """
+    Optional set of flags used in the form analytics endpoint
+    """
+    formAnalyticsFlags: FormAnalyticsFlags
+
+}
+
+"""
+Optional set of flags used in the form analytics endpoint
+"""
+input FormAnalyticsFlags {
+    """
+    Optional parameter that will skip hydrating assets and only return raw values.
+    """
+    skipAssetHydration: Boolean
+}
+
+type FormAnalyticsRow {
+
+    """
+    The row of data for the form analytics
+    """
+    row: [RowResult!]!
+
+}
+
+type RowResult {
+    """
+    The value of this row entry.
+    Null values indicate that the value of the column is null
+    """
+    value: String
+
+    """
+    The entity corresponding to the value of this row entry - will only be populated if the value is an entity urn
+    """
+    entity: Entity
+}
+
+type FormAnalyticsError {
+    """
+    The error message. Meant for human consumption
+    """
+    message: String!
+
+    """
+    The error code. Meant for programmatic use
+    """
+    code: String
+
+    """
+    A list of parameters for the error
+    """
+    parameters: [String]
+}
+
+
+type FormAnalyticsResponse {
+
+    header: [String!]
+    table: [FormAnalyticsRow!]
+    errors: [FormAnalyticsError!]
+
+}
+
+type FormAnalyticsConfig {
+
+    """
+    Whether form analytics is enabled
+    """
+    enabled: Boolean
+
+    """
+    The urn of the dataset being used for form analytics
+    """
+    datasetUrn: String
+
+    """
+    The physical uri prefix of the dataset where it should be stored.
+    e.g. s3://acryl-datalake/reporting/forms/... or
+    gcs://acryl-datalake/reporting/forms/...
+    When this is populated, the caller is expected to deposit the results of the
+    form analytics query in a dataset located under here
+    """
+    physicalUriPrefix: String
+   
+
+    """
+    Any errors that occurred while trying to fetch the form analytics config
+    """
+    errors: [FormAnalyticsError!]
+
+}
+
+"""
+Response for the async batch form submission endpoint
+"""
+type AsyncBatchSubmitFormPromptResponse {
+    """
+    The urn of the task that is submitting this form response for the matching assets
+    """
+    taskUrn: String!
+}
+
+"""
+Response for the async batch form verification endpoint
+"""
+type AsyncBatchVerifyFormResponse {
+    """
+    The urn of the task that is verifying this form for the matching assets
+    """
+    taskUrn: String!
+}
+
+"""
+Input for the task that is generated for this action
+"""
+input TaskInput {
+    """
+    The name of the task
+    """
+    taskName: String!
+}

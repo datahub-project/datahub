@@ -23,13 +23,19 @@ query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
         isUserSubscribed
         userSubscriptionCount
         groupSubscriptionCount
-        exampleGroups {
-            name
-            info {
-                displayName
-            }
+        subscribedGroups {
+            urn
             properties {
                 displayName
+            }
+        }
+        subscribedUsers {
+            urn
+            properties {
+                displayName
+            }
+            editableProperties {
+                pictureLink
             }
         }
     }
@@ -55,142 +61,14 @@ fragment subscriptionFields on DataHubSubscription {
     actorUrn
     subscriptionUrn
     entity {
-        urn
-        type
-        ... on Dataset {
-            name
-            properties {
-                name
-                description
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on Dashboard {
-            properties {
-                description
-                name
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on Chart {
-            tool
-            properties {
-                description
-                name
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on MLModel {
-            name
-            properties {
-                description
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on MLModelGroup {
-            name
-            platform {
-                name
-                info {
-                    logoUrl
-                }
-            }
-        }
-        ... on DataFlow {
-            properties {
-                name
-                description
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on MLFeatureTable {
-            name
-            properties {
-                description
-            }
-            editableProperties {
-                description
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on GlossaryTerm {
-            name
-            properties {
-                description
-            }
-        }
-        ... on GlossaryNode {
-            properties {
-                name
-                description
-            }
-        }
-        ... on Container {
-            properties {
-                name
-            }
-            platform {
-                ...platformFields
-            }
-        }
-        ... on DataJob {
-            properties {
-                name
-                description
-                externalUrl
-            }
-            dataFlow {
-                platform {
-                    ...platformFields
-                }
-            }
-        }
-        ... on Domain {
-            urn
-            properties {
-                name
-            }
-        }
-        ... on DataProduct {
-            properties {
-                name
-                description
-            }
-        }
-        ... on MLPrimaryKey {
-            ...nonRecursiveMLPrimaryKey
-        }
+        ...entityPreview
     }
     subscriptionTypes
     entityChangeTypes {
         entityChangeType
+        filter {
+            includeAssertions
+        }
     }
     createdOn {
         time
@@ -204,6 +82,9 @@ fragment subscriptionFields on DataHubSubscription {
             slackSettings {
                 userHandle
                 channels
+            }
+            emailSettings {
+                email
             }
         }
     }

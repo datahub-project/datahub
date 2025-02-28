@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import TopUsersFacepile from './TopUsersFacepile';
 
 const SidebarTopUsersHeaderSection = () => {

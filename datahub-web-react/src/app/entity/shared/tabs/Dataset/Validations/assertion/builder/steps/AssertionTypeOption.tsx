@@ -1,14 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../../../../constants';
 
 const Container = styled(Button)<{ enabled }>`
-    margin-right: 12px;
-    margin-left: 12px;
     margin-bottom: 12px;
     padding: 20px 40px;
-    height: 152px;
+    height: 160px;
     display: flex;
     justify-content: center;
     border-radius: 16px;

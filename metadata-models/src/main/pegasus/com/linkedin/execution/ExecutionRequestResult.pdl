@@ -10,7 +10,21 @@ record ExecutionRequestResult {
   /**
   * The status of the execution request
   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "executionResultStatus"
+  }
   status: string
+
+  /**
+  * Identity of the executor instance handling the request
+  */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "executorInstanceId",
+    "queryByDefault": false
+  }
+  executorInstanceId: optional string
 
   /**
   * The pretty-printed execution report.

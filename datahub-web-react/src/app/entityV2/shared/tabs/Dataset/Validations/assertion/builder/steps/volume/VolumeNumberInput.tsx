@@ -26,6 +26,7 @@ type Props = {
         options: { label: string; value: string }[];
         onChange: (newValue: string) => void;
     };
+    enableNegatives?: boolean;
     customRules?: Rule[];
 };
 
@@ -36,6 +37,7 @@ export const VolumeNumberInput = ({
     placeholder,
     disabled,
     select,
+    enableNegatives,
     customRules = [],
 }: Props) => {
     const form = Form.useFormInstance();
@@ -51,7 +53,7 @@ export const VolumeNumberInput = ({
         >
             <StyledNumberInput
                 placeholder={placeholder}
-                min={0}
+                min={enableNegatives ? Number.MIN_SAFE_INTEGER : 0}
                 addonAfter={
                     select ? (
                         <StyledSelect

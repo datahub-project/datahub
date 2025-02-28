@@ -5,10 +5,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchRemoveOwnersInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -36,7 +39,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
             : Urn.createFromString(input.getOwnershipTypeUrn());
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the batch
@@ -52,7 +55,9 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
@@ -69,9 +74,13 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
           "Malformed input provided: owners cannot be removed from subresources.");
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchRemoveOwners(
@@ -82,6 +91,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
     log.debug("Batch removing owners. owners: {}, resources: {}", ownerUrns, resources);
     try {
       OwnerUtils.removeOwnersFromResources(
+          context.getOperationContext(),
           ownerUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
           ownershipTypeUrn,
           resources,

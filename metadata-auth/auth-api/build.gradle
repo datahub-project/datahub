@@ -2,17 +2,13 @@ plugins {
   id("com.palantir.git-version") apply false
 }
 
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'java-library'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
 apply plugin: 'io.codearte.nexus-staging'
 apply from: '../../metadata-integration/java/versioning.gradle'
-
-
-test {
-  useJUnit()
-}
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 jar {
   archiveClassifier = "lib"
@@ -35,6 +31,10 @@ dependencies() {
   annotationProcessor externalDependency.lombok
 
   testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation project(path: ':metadata-operation-context')
+  testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.6'
+
 }
 
 task sourcesJar(type: Jar) {

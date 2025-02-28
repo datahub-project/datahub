@@ -12,13 +12,12 @@ public class GraphQueryConfiguration {
   // will return all paths between the source and destination nodes within the hops limit.
   private boolean enableMultiPathSearch;
 
-  public static GraphQueryConfiguration testDefaults;
+  /**
+   * Adds a boosting query for via nodes being present on a lineage search hit, allows these nodes
+   * to be prioritized in the case of a multiple path situation with multi-path search disabled
+   */
+  private boolean boostViaNodes;
 
-  static {
-    testDefaults = new GraphQueryConfiguration();
-    testDefaults.setBatchSize(1000);
-    testDefaults.setTimeoutSeconds(10);
-    testDefaults.setMaxResult(10000);
-    testDefaults.setEnableMultiPathSearch(true);
-  }
+  /** Whether soft-delete status is tracked on entity URNs on graph edges */
+  private boolean graphStatusEnabled;
 }

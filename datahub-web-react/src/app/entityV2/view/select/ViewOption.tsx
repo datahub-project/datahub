@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import CloseIcon from '@mui/icons-material/Close';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { DataHubView } from '../../../../types.generated';
 import { ViewOptionName } from './ViewOptionName';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
@@ -11,17 +12,26 @@ const Container = styled.div`
     gap: 0.5rem;
 `;
 
-const ViewDetailsContainer = styled.div<{ selected: boolean }>`
+const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     align-items: center;
     position: relative;
     background: ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : '')};
-    padding: 10px;
+    ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
     border-radius: 16px;
-    border: 1px solid ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1)};
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        border: 1px solid ${props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1};
+    `}
+
     &:hover {
-        border: ${`1px solid ${SEARCH_COLORS.TITLE_PURPLE}`};
-        padding: 10px;
+        ${(props) =>
+            !props.$isShowNavBarRedesign &&
+            `
+            border: ${`1px solid ${SEARCH_COLORS.TITLE_PURPLE}`};
+            padding: 10px;
+        `}
         border-radius: 16px;
         & .create-view-icon {
             background: ${SEARCH_COLORS.TITLE_PURPLE} !important;
@@ -62,6 +72,7 @@ type Props = {
     onClickEdit: () => void;
     onClickPreview: () => void;
     onClickClear: () => void;
+    selectView: () => void;
 };
 
 export const ViewOption = ({
@@ -75,8 +86,9 @@ export const ViewOption = ({
     onClickEdit,
     onClickPreview,
     onClickClear,
+    selectView,
 }: Props) => {
-    
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const onClear = (e) => {
         e.stopPropagation();
         onClickClear();
@@ -84,7 +96,11 @@ export const ViewOption = ({
 
     return (
         <Container>
-            <ViewDetailsContainer selected={selectedUrn} ref={selectedUrn ? scrollToRef : null}>
+            <ViewDetailsContainer
+                selected={selectedUrn}
+                ref={selectedUrn ? scrollToRef : null}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+            >
                 <ViewOptionName
                     name={view.name}
                     description={view.description}
@@ -97,6 +113,7 @@ export const ViewOption = ({
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
                     selected={selectedUrn}
+                    selectView={selectView}
                 />
                 {selectedUrn && (
                     <div className="close-container" onClick={(e) => onClear(e)} role="none">

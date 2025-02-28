@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FlagOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { SearchSection } from '../shared/SearchSection';
 import { EntityType, IncidentType } from '../../../../types.generated';
@@ -14,6 +14,7 @@ import {
 } from './constants';
 import { buildIncidentTypeFilters } from './util';
 import { Stat, List, Header, Title, TitleText, DescriptionText, Percent, Total } from '../shared/shared';
+import { useUserContext } from '../../../context/useUserContext';
 
 const StyledFlagOutlined = styled(FlagOutlined)`
     margin-right: 8px;
@@ -29,8 +30,10 @@ type Props = {
  * A component which displays a summary of the datasets that have active incidents globally
  */
 export const IncidentsSummary = ({ total }: Props) => {
+    const userContext = useUserContext();
     const [failingIncidentsTotal, setFailingIncidentsTotal] = useState(0);
     const [selectedIncidentTypes, setSelectedIncidentTypes] = useState<undefined | IncidentType[]>(undefined);
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     const { data } = useAggregateAcrossEntitiesQuery({
         variables: {
@@ -42,6 +45,7 @@ export const IncidentsSummary = ({ total }: Props) => {
                 searchFlags: {
                     skipCache: true,
                 },
+                viewUrn,
             },
         },
     });

@@ -1,11 +1,13 @@
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import styled, { useTheme } from 'styled-components';
+import { colors } from '@src/alchemy-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../types.generated';
+import { FacetFilterInput } from '../../types.generated';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -18,42 +20,48 @@ import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from '../search/context/SearchContext';
+import { NavSidebar as NavSidebarRedesign } from '../homeV2/layout/navBarRedesign/NavSidebar';
 import { NavSidebar } from '../homeV2/layout/NavSidebar';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const Body = styled.div`
     display: flex;
     flex-direction: row;
     flex: 1;
-    background-color: #f4f5f7;
 `;
 
-const Navigation = styled.div`
-    z-index: 14;
+const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.BACKGROUND)};
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    z-index: -2;
 `;
 
-const Content = styled.div`
-    z-index: 12;
-    border-radius: 8px;
-    margin-top: 60px;
+const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
+`;
+
+const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        padding: 11px 15px 11px 3px;
+    `}
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 60px);
+    max-height: ${(props) => (props.$isShowNavBarRedesign ? 'calc(100vh - 56px)' : 'calc(100vh - 72px)')};
     width: 100%;
-    overflow: auto;
+    overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const DEBOUNCE_DELAY_IN_MS = 200;
 
-interface Props extends React.PropsWithChildren<any> {
-    onSearch?: (query: string, type?: EntityType) => void;
-    onAutoComplete?: (query: string) => void;
-}
-
-const defaultProps = {
-    onSearch: undefined,
-    onAutoComplete: undefined,
-};
+type Props = React.PropsWithChildren<any>;
 
 const isSearchResultPage = (path: string) => {
     return path.startsWith(PageRoutes.SEARCH);
@@ -62,7 +70,7 @@ const isSearchResultPage = (path: string) => {
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
+export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
@@ -71,16 +79,18 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         ? decodeURIComponent(params.query ? (params.query as string) : '')
         : '';
     const selectedSortOption = useSelectedSortOption();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const { selectedQuickFilter } = useQuickFiltersContext();
 
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
     const userContext = useUserContext();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
-    const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     useEffect(() => {
@@ -89,7 +99,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [suggestionsData]);
 
-    const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
+    const search = (query: string, quickFilters?: FacetFilterInput[]) => {
         analytics.event({
             type: EventType.SearchEvent,
             query,
@@ -102,7 +112,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
 
         navigateToSearchUrl({
-            type,
             query,
             filters: appliedFilters,
             history,
@@ -122,7 +131,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 },
             });
         }
-    }, FIFTH_SECOND_IN_MS);
+    }, DEBOUNCE_DELAY_IN_MS);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
@@ -138,6 +147,8 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [currentQuery, getAutoCompleteResults, viewUrn]);
 
+    const FinalNavBar = isShowNavBarRedesign ? NavSidebarRedesign : NavSidebar;
+
     return (
         <>
             <SearchHeader
@@ -149,20 +160,17 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                         newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
-                onSearch={onSearch || search}
-                onQueryChange={onAutoComplete || autoComplete}
-                authenticatedUserUrn={user?.urn || ''}
-                authenticatedUserPictureLink={user?.editableProperties?.pictureLink}
+                onSearch={search}
+                onQueryChange={autoComplete}
                 entityRegistry={entityRegistry}
             />
+            <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
-                <Navigation>
-                    <NavSidebar />
+                <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <FinalNavBar />
                 </Navigation>
-                <Content>{children}</Content>
+                <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
         </>
     );
 };
-
-SearchablePage.defaultProps = defaultProps;

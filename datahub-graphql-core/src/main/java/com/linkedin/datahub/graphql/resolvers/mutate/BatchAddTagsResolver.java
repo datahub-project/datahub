@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -39,11 +41,11 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
         input.getTagUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the batch
-          validateTags(tagUrns);
+          validateTags(context.getOperationContext(), tagUrns);
 
           if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
             return handleAddTagsToSingleSchemaField(context, resources, tagUrns);
@@ -61,7 +63,9 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -76,7 +80,8 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       @Nonnull final List<Urn> tagUrns) {
     final ResourceRefInput resource = resources.get(0);
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    final List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(resourceUrn, _entityService);
+    final List<Urn> siblingUrns =
+        SiblingsUtils.getSiblingUrns(context.getOperationContext(), resourceUrn, _entityService);
     return attemptBatchAddTagsWithSiblings(
         tagUrns, resource, context, new HashSet<>(), siblingUrns);
   }
@@ -122,9 +127,9 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     }
   }
 
-  private void validateTags(List<Urn> tagUrns) {
+  private void validateTags(@Nonnull OperationContext opContext, List<Urn> tagUrns) {
     for (Urn tagUrn : tagUrns) {
-      LabelUtils.validateLabel(tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
+      LabelUtils.validateLabel(opContext, tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
     }
   }
 
@@ -141,7 +146,11 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchAddTags(
@@ -149,7 +158,11 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     log.debug("Batch adding Tags. tags: {}, resources: {}", resources, tagUrns);
     try {
       LabelUtils.addTagsToResources(
-          tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          context.getOperationContext(),
+          tagUrns,
+          resources,
+          UrnUtils.getUrn(context.getActorUrn()),
+          _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

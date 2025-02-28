@@ -2,11 +2,12 @@ import React from 'react';
 import { VscGraphLeft } from 'react-icons/vsc';
 import { CopyOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { Dropdown, Menu } from 'antd';
+import { Dropdown } from 'antd';
 import { MenuIcon } from '../../../../EntityDropdown/EntityDropdown';
 import { useEntityData, useRouteToTab } from '../../../../EntityContext';
 import { SchemaField } from '../../../../../../../types.generated';
 import { generateSchemaFieldUrn } from '../../../Lineage/utils';
+import { MenuItemStyle } from '../../../../../view/menu/item/styledComponent';
 
 export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
@@ -18,14 +19,6 @@ export const CopyOutlinedIcon = styled(CopyOutlined)`
     font-size: 16px;
 `;
 
-const MenuItem = styled.div`
-    align-items: center;
-    display: flex;
-    font-size: 12px;
-    padding: 0 4px;
-    color: #262626;
-`;
-
 interface Props {
     field: SchemaField;
 }
@@ -35,43 +28,49 @@ export default function MenuColumn({ field }: Props) {
     const { urn } = useEntityData();
     const selectedColumnUrn = generateSchemaFieldUrn(field.fieldPath, urn);
 
+    const items = [
+        {
+            key: 0,
+            label: (
+                <MenuItemStyle
+                    onClick={() => routeToTab({ tabName: 'Lineage', tabParams: { column: field.fieldPath } })}
+                >
+                    <ImpactAnalysisIcon /> &nbsp; See Column Lineage
+                </MenuItemStyle>
+            ),
+        },
+        navigator.clipboard
+            ? {
+                  key: 1,
+                  label: (
+                      <MenuItemStyle
+                          onClick={() => {
+                              navigator.clipboard.writeText(field.fieldPath);
+                          }}
+                      >
+                          <CopyOutlinedIcon /> &nbsp; Copy Column Field Path
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+        navigator.clipboard
+            ? {
+                  key: 2,
+                  label: (
+                      <MenuItemStyle
+                          onClick={() => {
+                              navigator.clipboard.writeText(selectedColumnUrn || '');
+                          }}
+                      >
+                          <CopyOutlinedIcon /> &nbsp; Copy Column Urn
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+    ];
+
     return (
-        <Dropdown
-            overlay={
-                <Menu>
-                    <Menu.Item key="0">
-                        <MenuItem
-                            onClick={() => routeToTab({ tabName: 'Lineage', tabParams: { column: field.fieldPath } })}
-                        >
-                            <ImpactAnalysisIcon /> &nbsp; See Column Lineage
-                        </MenuItem>
-                    </Menu.Item>
-                    {navigator.clipboard && (
-                        <Menu.Item key="1">
-                            <MenuItem
-                                onClick={() => {
-                                    navigator.clipboard.writeText(field.fieldPath);
-                                }}
-                            >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Field Path
-                            </MenuItem>
-                        </Menu.Item>
-                    )}
-                    {navigator.clipboard && (
-                        <Menu.Item key="2">
-                            <MenuItem
-                                onClick={() => {
-                                    navigator.clipboard.writeText(selectedColumnUrn || '');
-                                }}
-                            >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Urn
-                            </MenuItem>
-                        </Menu.Item>
-                    )}
-                </Menu>
-            }
-            trigger={['click']}
-        >
+        <Dropdown menu={{ items }} trigger={['click']}>
             <MenuIcon fontSize={16} />
         </Dropdown>
     );

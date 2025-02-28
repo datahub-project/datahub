@@ -1,7 +1,8 @@
+import json
 import logging
 import random
 import uuid
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import click
 import progressbar
@@ -23,7 +24,11 @@ from datahub.emitter.mcp_builder import (
     SchemaKey,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import (
+    DataHubGraph,
+    RelatedEntity,
+    get_default_graph,
+)
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
@@ -31,6 +36,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
 
@@ -143,15 +149,17 @@ def dataplatform2instance_func(
 
     graph = get_default_graph()
 
-    urns_to_migrate = []
+    urns_to_migrate: List[str] = []
 
     # we first calculate all the urns we will be migrating
-    for src_entity_urn in cli_utils.get_urns_by_filter(platform=platform, env=env):
+    for src_entity_urn in graph.get_urns_by_filter(platform=platform, env=env):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         # Does this urn already have a platform instance associated with it?
-        response = cli_utils.get_aspects_for_entity(
-            entity_urn=src_entity_urn, aspects=["dataPlatformInstance"], typed=True
+        response = graph.get_aspects_for_entity(
+            entity_urn=src_entity_urn,
+            aspects=["dataPlatformInstance"],
+            aspect_types=[DataPlatformInstanceClass],
         )
         if "dataPlatformInstance" in response:
             assert isinstance(
@@ -171,7 +179,7 @@ def dataplatform2instance_func(
 
     if not force and not dry_run:
         # get a confirmation from the operator before proceeding if this is not a dry run
-        sampled_urns_to_migrate = random.choices(
+        sampled_urns_to_migrate = random.sample(
             urns_to_migrate, k=min(10, len(urns_to_migrate))
         )
         sampled_new_urns: List[str] = [
@@ -185,7 +193,7 @@ def dataplatform2instance_func(
             if key
         ]
         click.echo(
-            f"Will migrate {len(urns_to_migrate)} urns such as {random.choices(urns_to_migrate, k=min(10, len(urns_to_migrate)))}"
+            f"Will migrate {len(urns_to_migrate)} urns such as {random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))}"
         )
         click.echo(f"New urns will look like {sampled_new_urns}")
         click.confirm("Ok to proceed?", abort=True)
@@ -229,14 +237,14 @@ def dataplatform2instance_func(
         migration_report.on_entity_create(new_urn, "dataPlatformInstance")
 
         for relationship in relationships:
-            target_urn = relationship["entity"]
+            target_urn = relationship.urn
             entity_type = _get_type_from_urn(target_urn)
-            relationshipType = relationship["type"]
+            relationshipType = relationship.relationship_type
             aspect_name = migration_utils.get_aspect_name_from_relationship(
                 relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
-                target_urn, aspects=[aspect_name], typed=True
+                graph._session, graph.config.server, target_urn, aspects=[aspect_name]
             )
             if aspect_name in aspect_map:
                 aspect = aspect_map[aspect_name]
@@ -378,18 +386,52 @@ def migrate_containers(
 
 
 def get_containers_for_migration(env: str) -> List[Any]:
-    containers_to_migrate = list(cli_utils.get_container_ids_by_filter(env=env))
+    client = get_default_graph()
+    containers_to_migrate = list(
+        client.get_urns_by_filter(entity_types=["container"], env=env)
+    )
     containers = []
 
     increment = 20
     for i in range(0, len(containers_to_migrate), increment):
-        for container in cli_utils.batch_get_ids(
-            containers_to_migrate[i : i + increment]
+        for container in batch_get_ids(
+            client, containers_to_migrate[i : i + increment]
         ):
             log.debug(container)
             containers.append(container)
 
     return containers
+
+
+def batch_get_ids(
+    client: DataHubGraph,
+    ids: List[str],
+) -> Iterable[Dict]:
+    session = client._session
+    gms_host = client.config.server
+    endpoint: str = "/entitiesV2"
+    url = gms_host + endpoint
+    ids_to_get = [Urn.url_encode(id) for id in ids]
+    response = session.get(
+        f"{url}?ids=List({','.join(ids_to_get)})",
+    )
+
+    if response.status_code == 200:
+        assert response._content
+        log.debug(response._content)
+        results = json.loads(response._content)
+        num_entities = len(results["results"])
+        entities_yielded: int = 0
+        for x in results["results"].values():
+            entities_yielded += 1
+            log.debug(f"yielding {x}")
+            yield x
+        assert entities_yielded == num_entities, (
+            "Did not delete all entities, try running this command again!"
+        )
+    else:
+        log.error(f"Failed to execute batch get with {str(response.content)}")
+        response.raise_for_status()
 
 
 def process_container_relationships(
@@ -400,22 +442,29 @@ def process_container_relationships(
     migration_report: MigrationReport,
     rest_emitter: DatahubRestEmitter,
 ) -> None:
-    relationships = migration_utils.get_incoming_relationships(urn=src_urn)
+    relationships: Iterable[RelatedEntity] = migration_utils.get_incoming_relationships(
+        urn=src_urn
+    )
+    client = get_default_graph()
     for relationship in relationships:
         log.debug(f"Incoming Relationship: {relationship}")
-        target_urn = relationship["entity"]
+        target_urn: str = relationship.urn
 
         # We should use the new id if we already migrated it
         if target_urn in container_id_map:
-            target_urn = container_id_map.get(target_urn)
+            target_urn = container_id_map[target_urn]
 
         entity_type = _get_type_from_urn(target_urn)
-        relationshipType = relationship["type"]
+        relationshipType = relationship.relationship_type
         aspect_name = migration_utils.get_aspect_name_from_relationship(
             relationshipType, entity_type
         )
         aspect_map = cli_utils.get_aspects_for_entity(
-            target_urn, aspects=[aspect_name], typed=True
+            client._session,
+            client.config.server,
+            target_urn,
+            aspects=[aspect_name],
+            typed=True,
         )
         if aspect_name in aspect_map:
             aspect = aspect_map[aspect_name]

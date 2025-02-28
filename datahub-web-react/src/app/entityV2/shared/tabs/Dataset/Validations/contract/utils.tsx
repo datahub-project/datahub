@@ -73,13 +73,13 @@ export const getContractSummaryMessage = (state: DataContractState, summary: Ass
  * Returns true if a given assertion is part of a given contract, false otherwise.
  */
 export const isAssertionPartOfContract = (assertion: Assertion, contract: DataContract) => {
-    if (contract.properties?.dataQuality?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.dataQuality?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
-    if (contract.properties?.schema?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.schema?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
-    if (contract.properties?.freshness?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.freshness?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
     return false;
@@ -106,4 +106,10 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
     return DataContractCategoryType.DATA_QUALITY;
 };
 
-export const DATA_QUALITY_ASSERTION_TYPES = new Set([AssertionType.Volume, AssertionType.Sql, AssertionType.Field]);
+export const DATA_QUALITY_ASSERTION_TYPES = new Set([
+    AssertionType.Volume,
+    AssertionType.Sql,
+    AssertionType.Field,
+    AssertionType.Dataset,
+    AssertionType.Custom,
+]);

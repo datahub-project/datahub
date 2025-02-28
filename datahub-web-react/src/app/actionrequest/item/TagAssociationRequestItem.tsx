@@ -33,13 +33,7 @@ export default function TagAssociationRequestItem({ actionRequest, onUpdate, sho
         </Link>
     );
 
-    const contentView = (
-        <AddContentView
-            showActionsButtons={showActionsButtons}
-            requestMetadataView={tagView}
-            actionRequest={actionRequest}
-        />
-    );
+    const contentView = <AddContentView requestMetadataViews={[{ primary: tagView }]} actionRequest={actionRequest} />;
 
     return (
         <MetadataAssociationRequestItem

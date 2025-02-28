@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,9 +43,9 @@ public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep {
         }
       } catch (Exception e) {
         context.report().addLine("Failed to delete legacy data from graph", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

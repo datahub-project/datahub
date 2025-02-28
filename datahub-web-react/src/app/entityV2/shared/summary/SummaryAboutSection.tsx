@@ -2,15 +2,14 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import { EditOutlined, FileOutlined } from '@ant-design/icons';
-import { useEntityData, useRefetch, useRouteToTab } from '../EntityContext';
+import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
 import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { EmptyTab } from '../components/styled/EmptyTab';
 import { AddLinkModal } from '../components/styled/AddLinkModal';
 import { LinkList } from '../tabs/Documentation/components/LinkList';
-import { HeaderTitle } from './HeaderComponents';
-import { ANTD_GRAY } from '../constants';
+import { SectionContainer, SummaryTabHeaderTitle } from './HeaderComponents';
 
-const UNEXPANDED_HEIGHT = 230;
+const UNEXPANDED_HEIGHT = 2000;
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;
@@ -66,11 +65,8 @@ export default function SummaryAboutSection() {
     const canExpand = !!description && !expanded && height >= UNEXPANDED_HEIGHT;
 
     return (
-        <>
-            <HeaderTitle>
-                <FileOutlined style={{ fontSize: 16, color: ANTD_GRAY[8] }} />
-                About
-            </HeaderTitle>
+        <SectionContainer>
+            <SummaryTabHeaderTitle title="Documentation" icon={<FileOutlined />} />
             <DocumentationWrapper canExpand={canExpand ? true : undefined}>
                 {!!description && (
                     <>
@@ -93,6 +89,6 @@ export default function SummaryAboutSection() {
                 )}
                 <LinkList refetch={refetch} />
             </DocumentationWrapper>
-        </>
+        </SectionContainer>
     );
 }

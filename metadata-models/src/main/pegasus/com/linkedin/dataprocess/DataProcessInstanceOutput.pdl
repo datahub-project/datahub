@@ -15,7 +15,9 @@ record DataProcessInstanceOutput {
   @Relationship = {
     "/*": {
       "name": "Produces",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset", "mlModel" ],
+      "isLineage": true,
+      "isUpstream": false
     }
   }
   @Searchable = {

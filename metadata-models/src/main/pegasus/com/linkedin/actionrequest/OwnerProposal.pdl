@@ -1,0 +1,21 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+import com.linkedin.common.Owner
+
+record OwnerProposal {
+    /**
+     * The urns of the owner(s) being proposed.
+     */
+    @Searchable = {
+        "/*/owner": {
+            "addToFilters": true
+            "fieldName": "owners"
+        },
+        "/*/typeUrn": {
+            "addToFilters": true
+            "fieldName": "ownershipTypes"
+        },
+    }
+    owners: optional array[Owner]
+  }

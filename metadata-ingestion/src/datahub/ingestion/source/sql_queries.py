@@ -35,7 +35,8 @@ from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,10 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
     default_schema: Optional[str] = Field(
         description="The default schema to use for unqualified table names",
+        default=None,
+    )
+    default_dialect: Optional[str] = Field(
+        description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
         default=None,
     )
 
@@ -176,6 +181,7 @@ class SqlQueriesSource(Source):
             schema_resolver=self.schema_resolver,
             default_db=self.config.default_db,
             default_schema=self.config.default_schema,
+            default_dialect=self.config.default_dialect,
         )
         if result.debug_info.table_error:
             logger.info(f"Error parsing table lineage, {result.debug_info.table_error}")
@@ -219,9 +225,11 @@ class QueryEntry:
     ) -> "QueryEntry":
         return cls(
             query=entry_dict["query"],
-            timestamp=datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
-            if "timestamp" in entry_dict
-            else None,
+            timestamp=(
+                datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
+                if "timestamp" in entry_dict
+                else None
+            ),
             user=make_user_urn(entry_dict["user"]) if "user" in entry_dict else None,
             operation_type=entry_dict.get("operation_type"),
             downstream_tables=[

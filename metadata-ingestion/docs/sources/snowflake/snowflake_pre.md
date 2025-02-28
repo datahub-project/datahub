@@ -15,6 +15,8 @@ grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
+grant select on all streams in database "<your-database>> to role datahub_role;
+grant select on future streams in database "<your-database>> to role datahub_role;
 
 // If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views
 grant references on all tables in database "<your-database>" to role datahub_role;
@@ -23,12 +25,16 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
+grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
 grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
 grant select on all external tables in database "<your-database>" to role datahub_role;
 grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all dynamic tables in database "<your-database>" to role datahub_role;
+grant select on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -46,9 +52,12 @@ The details of each granted privilege can be viewed in [snowflake docs](https://
   If the warehouse is already running during ingestion or has auto-resume enabled,
   this permission is not required.
 - `usage` is required for us to run queries using the warehouse
-- `usage` on `database` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view exists then we will not be able to get metadata for the table/view.
+- `usage` on `database` and `schema` are required because without it tables, views, and streams inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view/stream exists then we will not be able to get metadata for the table/view/stream.
 - If metadata is required only on some schemas then you can grant the usage privilieges only on a particular schema like
-
+```sql
+grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
+```
+- `select` on `streams` is required in order for stream definitions to be available. This does not allow selecting of the data (not required) unless the underlying dataset has select access as well.
 ```sql
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```

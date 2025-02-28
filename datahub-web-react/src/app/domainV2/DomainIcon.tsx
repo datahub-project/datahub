@@ -1,6 +1,5 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
-import DomainsIcon from '../../images/domain.svg?react';
+import { Globe } from '@phosphor-icons/react';
 import { TYPE_ICON_CLASS_NAME } from '../entityV2/shared/components/subtypes';
 
 type Props = {
@@ -8,5 +7,5 @@ type Props = {
 };
 
 export default function DomainIcon({ style }: Props) {
-    return <Icon component={DomainsIcon} className={TYPE_ICON_CLASS_NAME} style={style} />;
+    return <Globe className={TYPE_ICON_CLASS_NAME} style={style} />;
 }

@@ -1,14 +1,19 @@
 package io.datahubproject.openapi.metadatatests.delegates;
 
-import com.datahub.authorization.AuthorizerChain;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_TESTS_PRIVILEGE;
+
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.TestFetcher;
@@ -16,12 +21,16 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Failing;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Passing;
@@ -34,6 +43,7 @@ import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestResultType;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,75 +51,113 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.http.ResponseEntity;
 
 public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
-  private final EntityRegistry entityRegistry;
+  private final OperationContext systemOpContext;
+  private final TestsConfiguration testsConfiguration;
+  private final Authorizer authorizationChain;
   private final EntityService<?> entityService;
   private final EntitySearchService entitySearchService;
+
+  private final TimeseriesAspectService timeseriesAspectService;
   private final EntityApiDelegateImpl<
           TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
       entityApiDelegate;
-  private final AuthorizerChain authorizationChain;
-
-  private final boolean restApiAuthorizationEnabled;
 
   private final QueryEngine queryEngine;
   private final ActionApplier actionApplier;
+  private final ExecutorService actionsExecutorService;
 
   private final PredicateEvaluator predicateEvaluator;
 
   public MetadataTestsDelegateImpl(
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull TestsConfiguration testsConfiguration,
+      @Nonnull Authorizer authorizationChain,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
-      boolean restApiAuthorizationEnabled,
-      AuthorizerChain authorizationChain,
       QueryEngine queryEngine,
       ActionApplier actionApplier,
-      PredicateEvaluator predicateEvaluator) {
+      PredicateEvaluator predicateEvaluator,
+      @Nonnull ExecutorService actionsExecutorService) {
+    this.systemOpContext = systemOpContext;
+    this.testsConfiguration = testsConfiguration;
+    this.authorizationChain = authorizationChain;
     this.entityService = entityService;
     this.entitySearchService = entitySearchService;
-    this.entityRegistry = entityService.getEntityRegistry();
+    this.timeseriesAspectService = timeseriesAspectService;
     this.entityApiDelegate = entityApiDelegate;
-    this.authorizationChain = authorizationChain;
-    this.restApiAuthorizationEnabled = restApiAuthorizationEnabled;
     this.queryEngine = queryEngine;
     this.actionApplier = actionApplier;
     this.predicateEvaluator = predicateEvaluator;
+    this.actionsExecutorService = actionsExecutorService;
   }
 
   public MetadataTestsDelegateImpl(
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull TestsConfiguration testsConfiguration,
+      @Nonnull Authorizer authorizationChain,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
-      boolean restApiAuthorizationEnabled,
-      AuthorizerChain authorizationChain,
       QueryEngine queryEngine,
-      ActionApplier actionApplier) {
+      ActionApplier actionApplier,
+      @Nonnull ExecutorService actionsExecutorService) {
     this(
+        systemOpContext,
+        testsConfiguration,
+        authorizationChain,
         entityService,
         entitySearchService,
+        timeseriesAspectService,
         entityApiDelegate,
-        restApiAuthorizationEnabled,
-        authorizationChain,
         queryEngine,
         actionApplier,
-        PredicateEvaluator.getInstance());
+        PredicateEvaluator.getInstance(),
+        actionsExecutorService);
   }
 
   @Override
   public ResponseEntity<MetadataTestEntityResultV1> evaluateEntity(
-      String entityUrnStr, List<String> testUrnStrings, Boolean evaluateOnly) {
+      HttpServletRequest request,
+      String entityUrnStr,
+      List<String> testUrnStrings,
+      Boolean evaluateOnly) {
     Optional<MetadataTestEntityResultV1> result;
 
     try {
       Urn entityUrn = Urn.createFromString(entityUrnStr);
+
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      OperationContext opContext =
+          OperationContext.asSession(
+              systemOpContext,
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(),
+                      request,
+                      "evaluateEntity",
+                      entityUrn.getEntityType()),
+              authorizationChain,
+              auth,
+              true);
+
+      if (!AuthUtil.isAPIOperationsAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
+      }
+
       Set<Urn> testUrns =
           testUrnStrings.stream()
               .map(
@@ -122,12 +170,13 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                   })
               .collect(Collectors.toSet());
 
-      Pair<Map<Urn, TestInfo>, TestEngine> testRuntime = getEngineForTests(testUrns);
+      Pair<Map<Urn, TestInfo>, TestEngine> testRuntime = getEngineForTests(opContext, testUrns);
       final Map<Urn, TestInfo> testinfoMap = testRuntime.getFirst();
       final TestEngine engine = testRuntime.getSecond();
 
       Map<Urn, com.linkedin.test.TestResults> testResultsMap =
           engine.evaluateTests(
+              opContext,
               Set.of(entityUrn),
               Optional.ofNullable(evaluateOnly).orElse(true)
                   ? TestEngine.EvaluationMode.EVALUATE_ONLY
@@ -146,13 +195,33 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   @Override
   public ResponseEntity<MetadataTestResultV1> evaluateTest(
-      String testUrnStr, Boolean evaluateOnly, List<String> entityUrnStrings) {
+      HttpServletRequest request,
+      String testUrnStr,
+      Boolean evaluateOnly,
+      List<String> entityUrnStrings) {
     Optional<MetadataTestResultV1> result;
 
     try {
       Urn testUrn = Urn.createFromString(testUrnStr);
 
-      Pair<Map<Urn, TestInfo>, TestEngine> testRuntime = getEngineForTests(Set.of(testUrn));
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      OperationContext opContext =
+          OperationContext.asSession(
+              systemOpContext,
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(), request, "evaluateTest", testUrn.getEntityType()),
+              authorizationChain,
+              auth,
+              true);
+
+      if (!AuthUtil.isAPIOperationsAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
+      }
+
+      Pair<Map<Urn, TestInfo>, TestEngine> testRuntime =
+          getEngineForTests(opContext, Set.of(testUrn));
       final TestEngine engine = testRuntime.getSecond();
 
       result =
@@ -179,6 +248,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                           testUrn);
                       testResultsMap =
                           engine.evaluateSingleTest(
+                              opContext,
                               testUrn,
                               Optional.ofNullable(evaluateOnly).orElse(true)
                                   ? TestEngine.EvaluationMode.EVALUATE_ONLY
@@ -189,6 +259,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                     } else {
                       testResultsMap =
                           engine.evaluateTests(
+                              opContext,
                               targetUrns,
                               Optional.ofNullable(evaluateOnly).orElse(true)
                                   ? TestEngine.EvaluationMode.EVALUATE_ONLY
@@ -209,8 +280,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     return ResponseEntity.of(result);
   }
 
-  private Pair<Map<Urn, TestInfo>, TestEngine> getEngineForTests(Set<Urn> testUrns)
-      throws URISyntaxException {
+  private Pair<Map<Urn, TestInfo>, TestEngine> getEngineForTests(
+      @Nonnull OperationContext opContext, Set<Urn> testUrns) throws URISyntaxException {
     final Map<Urn, TestInfo> testInfoMap;
 
     if (testUrns.isEmpty()) {
@@ -219,6 +290,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     } else {
       Map<Urn, EntityResponse> entityResponseMap =
           entityService.getEntitiesV2(
+              opContext,
               Constants.TEST_ENTITY_NAME,
               testUrns,
               Set.of(Constants.TEST_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME));
@@ -257,10 +329,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    return Pair.of(testInfoMap, buildTestEngine(testInfoMap));
+    return Pair.of(testInfoMap, buildTestEngine(opContext, testInfoMap));
   }
 
-  private TestEngine buildTestEngine(Map<Urn, TestInfo> testInfoMap) {
+  private TestEngine buildTestEngine(
+      @Nonnull OperationContext opContext, Map<Urn, TestInfo> testInfoMap) {
     final TestFetcher testFetcher;
 
     if (testInfoMap.isEmpty()) {
@@ -269,15 +342,24 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       testFetcher = new TestListFetcher(entityService, entitySearchService, testInfoMap);
     }
 
+    TestsConfiguration singleRequestConfig =
+        testsConfiguration.toBuilder()
+            .cacheRefreshIntervalSecs(0) // no cache refresh during request
+            .jvmShutdownHookEnabled(false) // no expectation of shutdown hook inside the request
+            .build();
+
     return new TestEngine(
+        opContext,
+        singleRequestConfig,
         entityService,
+        entitySearchService,
+        timeseriesAspectService,
         testFetcher,
         new TestDefinitionParser(predicateEvaluator),
         queryEngine,
         predicateEvaluator,
         actionApplier,
-        0,
-        0);
+        actionsExecutorService);
   }
 
   private static MetadataTestResultV1 toTestResult(
@@ -388,7 +470,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     }
 
     @Override
-    public TestFetchResult fetch(int start, int count, String query)
+    public TestFetchResult fetch(
+        @Nonnull OperationContext opContext, int start, int count, String query)
         throws RemoteInvocationException, URISyntaxException {
       return new TestFetchResult(
           tests.subList(start, Math.min(tests.size(), start + count)), tests.size());
@@ -396,28 +479,35 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   }
 
   @Override
-  public ResponseEntity<List<TestEntityResponseV2>> create(List<TestEntityRequestV2> body) {
-    return entityApiDelegate.create(body);
+  public ResponseEntity<List<TestEntityResponseV2>> create(
+      HttpServletRequest request,
+      List<TestEntityRequestV2> body,
+      Boolean createIfNotExists,
+      Boolean createEntityIfNotExists) {
+    return entityApiDelegate
+        .setRequest(request)
+        .create(body, createIfNotExists, createEntityIfNotExists);
   }
 
   @Override
-  public ResponseEntity<Void> delete(String urn) {
-    return entityApiDelegate.delete(urn);
+  public ResponseEntity<Void> delete(HttpServletRequest request, String urn) {
+    return entityApiDelegate.setRequest(request).delete(urn);
   }
 
   @Override
   public ResponseEntity<TestEntityResponseV2> get(
-      String urn, Boolean systemMetadata, List<String> aspects) {
-    return entityApiDelegate.get(urn, systemMetadata, aspects);
+      HttpServletRequest request, String urn, Boolean systemMetadata, List<String> aspects) {
+    return entityApiDelegate.setRequest(request).get(urn, systemMetadata, aspects);
   }
 
   @Override
-  public ResponseEntity<Void> head(String urn) {
-    return entityApiDelegate.head(urn);
+  public ResponseEntity<Void> head(HttpServletRequest request, String urn) {
+    return entityApiDelegate.setRequest(request).head(urn);
   }
 
   @Override
   public ResponseEntity<ScrollTestEntityResponseV2> scroll(
+      HttpServletRequest request,
       Boolean systemMetadata,
       List<String> aspects,
       Integer count,
@@ -425,8 +515,9 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       List<String> sort,
       SortOrder sortOrder,
       String query) {
-    return entityApiDelegate.scroll(
-        systemMetadata, aspects, count, scrollId, sort, sortOrder, query);
+    return entityApiDelegate
+        .setRequest(request)
+        .scroll(systemMetadata, aspects, count, scrollId, sort, sortOrder, query);
   }
 
   private static Optional<EnvelopedAspect> optionalEnvelopedAspect(

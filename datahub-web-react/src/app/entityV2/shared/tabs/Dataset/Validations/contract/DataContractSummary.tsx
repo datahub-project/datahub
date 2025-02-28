@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PlusOutlined } from '@ant-design/icons';
+import EditIcon from '@mui/icons-material/Edit';
 import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { DataContractState } from '../../../../../../../types.generated';
 import { AssertionStatusSummary } from '../acrylTypes';
 import { getContractSummaryIcon, getContractSummaryTitle, getContractSummaryMessage } from './utils';
@@ -43,6 +44,9 @@ const Actions = styled.div`
 `;
 
 const CreateButton = styled(Button)`
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     margin-right: 12px;
     border-color: ${(props) => props.theme.styles['primary-color']};
     color: ${(props) => props.theme.styles['primary-color']};
@@ -54,13 +58,27 @@ const CreateButton = styled(Button)`
     }
 `;
 
+const EditIconStyle = styled(EditIcon)`
+    && {
+        font-size: 16px;
+    }
+`;
+
 type Props = {
     state: DataContractState;
     summary: AssertionStatusSummary;
     showContractBuilder: () => void;
+    editDisabled?: boolean;
+    editDisabledMessage?: React.ReactNode;
 };
 
-export const DataContractSummary = ({ state, summary, showContractBuilder }: Props) => {
+export const DataContractSummary = ({
+    state,
+    summary,
+    showContractBuilder,
+    editDisabled,
+    editDisabledMessage,
+}: Props) => {
     const summaryIcon = getContractSummaryIcon(state, summary);
     const summaryTitle = getContractSummaryTitle(state, summary);
     const summaryMessage = getContractSummaryMessage(state, summary);
@@ -76,10 +94,12 @@ export const DataContractSummary = ({ state, summary, showContractBuilder }: Pro
                 </SummaryDescription>
             </SummaryContainer>
             <Actions>
-                <CreateButton onClick={showContractBuilder}>
-                    <PlusOutlined />
-                    EDIT
-                </CreateButton>
+                <Tooltip title={editDisabled ? editDisabledMessage : null}>
+                    <CreateButton disabled={editDisabled} onClick={showContractBuilder}>
+                        <EditIconStyle />
+                        EDIT
+                    </CreateButton>
+                </Tooltip>
             </Actions>
         </SummaryHeader>
     );

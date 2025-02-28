@@ -5,11 +5,19 @@ import { TestsSection } from './TestsSection';
 import { Test } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import EmptyTests from './EmptyTests';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const Container = styled.div`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top 28px;
-    background-color: ${ANTD_GRAY[3]};
-    min-height: 100vh;
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[3])};
+    ${(props) => !props.$isShowNavBarRedesign && 'min-height: 100vh;'}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow-y: auto;
+        height: calc(100% - 150px);
+        border-radius: 0 0 ${props.theme.styles['border-radius-navbar-redesign']} ${props.theme.styles['border-radius-navbar-redesign']};
+    `}
 `;
 
 type Props = {
@@ -19,8 +27,9 @@ type Props = {
 export const Tests = ({ tests }: Props) => {
     const hasTests = tests.length > 0;
     const testSections = groupTestsByCategory(tests);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     return (
-        <Container>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             {(hasTests &&
                 testSections.map((section) => {
                     return (

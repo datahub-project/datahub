@@ -2,13 +2,17 @@ package com.linkedin.metadata.boot.kafka;
 
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.DUHE_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY;
+import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCP_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
+import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.util.Pair;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.io.IOException;
@@ -24,9 +28,12 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
 
   private static final Map<String, AvroSchema> AVRO_SCHEMA_MAP =
       Map.of(
-          DUHE_SCHEMA_REGISTRY_TOPIC_KEY, new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
+          DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
+          new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
-              new AvroSchema(EventUtils.ORIGINAL_MCL_AVRO_SCHEMA));
+          new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA),
+          MCP_SCHEMA_REGISTRY_TOPIC_KEY,
+          new AvroSchema(EventUtils.RENAMED_MCP_AVRO_SCHEMA));
 
   private Map<String, Pair<AvroSchema, Integer>> topicNameToAvroSchemaMap;
 
@@ -60,13 +67,21 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
           (topicName, schemaId) -> {
             try {
               schemaRegistry.register(
-                  topicToSubjectName(topicName), schemaId.getFirst(), 0, schemaId.getSecond());
+                  topicToSubjectName(topicName),
+                  schemaId.getFirst(),
+                  FIXED_SCHEMA_VERSION,
+                  schemaId.getSecond());
             } catch (IOException | RestClientException e) {
               throw new RuntimeException(e);
             }
           });
     }
 
+    return schemaRegistry;
+  }
+
+  @VisibleForTesting
+  public SchemaRegistryClient getSchemaRegistryClient() {
     return schemaRegistry;
   }
 

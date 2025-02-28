@@ -8,4 +8,9 @@ record GlobalIntegrationSettings {
    * Slack integration settings.
    */
   slackSettings: optional SlackIntegrationSettings
+
+  /**
+   * Email integration settings.
+   */
+  emailSettings: optional EmailIntegrationSettings
 }

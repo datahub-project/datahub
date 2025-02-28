@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -22,24 +23,26 @@ import {
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { useHasFilterField } from './SidebarContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
+import { DataPlatform } from '../../../types.generated';
 
-const PlatformIconContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-right: 8px;
-`;
-
-const Count = styled(Typography.Text)<{ isPlatformBrowse: boolean }>`
-    font-size: 12px;
+const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: boolean }>`
+    font-size: 10px;
     color: ${(props) => props.color};
     padding: 2px 8px;
     margin-left: 8px;
-    ${(props) => props.isPlatformBrowse && `border-radius: 12px;`}
-    ${(props) => props.isPlatformBrowse && `background-color: ${ANTD_GRAY[3]};`}
+    ${(props) => props.$isPlatformBrowse && `border-radius: 8px;`}
+    ${(props) => props.$isPlatformBrowse && `background-color: ${props.isOpen ? '#fff' : ANTD_GRAY[3]};`}
 `;
 
-const PlatformNode = () => {
+type Props = {
+    iconSize?: number;
+    hasOnlyOnePlatform?: boolean;
+    toggleCollapse?: () => void;
+    collapsed?: boolean;
+};
+
+const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollapse, collapsed = true }: Props) => {
     const isPlatformBrowse = useIsPlatformBrowseMode();
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
@@ -53,16 +56,16 @@ const PlatformNode = () => {
     const { trackToggleNodeEvent, trackSelectNodeEvent } = useSidebarAnalytics();
     const onSelectBrowsePath = useOnSelectBrowsePath();
 
-    const { icon, label } = getFilterIconAndLabel(
+    const { label } = getFilterIconAndLabel(
         PLATFORM_FILTER_NAME,
         platformAggregation.value,
         registry,
         platformAggregation.entity ?? null,
-        20,
+        iconSize,
     );
 
     const { isOpen, isClosing, toggle } = useToggle({
-        initialValue: isPlatformAndPathSelected,
+        initialValue: hasOnlyOnePlatform || isPlatformAndPathSelected,
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'platform'),
     });
@@ -79,39 +82,72 @@ const PlatformNode = () => {
 
     const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
-    const color = '#000';
+    const color = REDESIGN_COLORS.TEXT_HEADING;
+
+    const nodeStyle = {
+        padding: '4px',
+        margin: '0px',
+        background: collapsed ? '#fff' : isOpen && REDESIGN_COLORS.BACKGROUND_GRAY_4,
+        borderLeft: isOpen && '1px solid #fff',
+        borderRight: isOpen && '1px solid #fff',
+        justifyContent: collapsed ? 'center' : 'start',
+        display: 'flex',
+        flexDirection: 'column',
+    };
+
+    const onClick = () => {
+        if (toggleCollapse) toggleCollapse();
+        onClickHeader();
+    };
 
     return (
         <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            style={(isPlatformBrowse && { margin: '16px 0px' }) || undefined}
+            isOpen={!collapsed && isOpen && !isClosing && loaded}
+            style={(isPlatformBrowse && { ...nodeStyle }) || undefined}
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isPlatformOnlySelected}
+                    $isSelected={isPlatformOnlySelected}
                     showBorder
-                    onClick={onClickHeader}
+                    onClick={onClick}
+                    style={{ justifyContent: collapsed ? 'center' : 'start' }}
                 >
-                    <ExpandableNode.HeaderLeft>
+                    <ExpandableNode.HeaderLeft style={{ justifyContent: collapsed ? 'center' : 'start' }}>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen && !isClosing}
                             isVisible={!!platformAggregation.count}
                             onClick={onClickTriangle}
                             dataTestId={`browse-platform-${label}`}
-                            style={{ marginRight: 4 }}
+                            style={{
+                                marginRight: 4,
+                                transform: isOpen && 'rotate(90deg)',
+                                transition: 'transform 200ms ease',
+                                ...(collapsed && { display: 'none' }),
+                            }}
                         />
-                        <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <ExpandableNode.Title color={color} size={isPlatformBrowse ? 16 : 14} padLeft maxWidth={125}>
-                            {label}
-                        </ExpandableNode.Title>
-                        {isPlatformBrowse && (
-                            <Count color={color} isPlatformBrowse>
+                        <PlatformIcon
+                            platform={platformAggregation.entity as DataPlatform}
+                            size={iconSize}
+                            color={REDESIGN_COLORS.BORDER_1}
+                        />
+                        {!collapsed && (
+                            <ExpandableNode.Title
+                                color={color}
+                                size={isPlatformBrowse ? 14 : 12}
+                                maxWidth={125}
+                                padLeft
+                            >
+                                {label}
+                            </ExpandableNode.Title>
+                        )}
+                        {!collapsed && isPlatformBrowse && (
+                            <Count color={color} isOpen={isOpen} $isPlatformBrowse>
                                 {formatNumber(platformAggregation.count)}
                             </Count>
                         )}
                     </ExpandableNode.HeaderLeft>
-                    {!isPlatformBrowse && (
-                        <Count color={color} isPlatformBrowse={false}>
+                    {!collapsed && !isPlatformBrowse && (
+                        <Count color={color} isOpen={isOpen} $isPlatformBrowse={false}>
                             {formatNumber(platformAggregation.count)}
                         </Count>
                     )}

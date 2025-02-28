@@ -20,11 +20,13 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -43,6 +45,7 @@ public class OwnerUtils {
   private OwnerUtils() {}
 
   public static void addOwnersToResources(
+      @Nonnull OperationContext opContext,
       List<OwnerInput> ownerInputs,
       List<ResourceRefInput> resourceRefs,
       Urn actorUrn,
@@ -51,12 +54,17 @@ public class OwnerUtils {
     for (ResourceRefInput resource : resourceRefs) {
       changes.add(
           buildAddOwnersProposal(
-              ownerInputs, UrnUtils.getUrn(resource.getResourceUrn()), actorUrn, entityService));
+              opContext,
+              ownerInputs,
+              UrnUtils.getUrn(resource.getResourceUrn()),
+              actorUrn,
+              entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actorUrn, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actorUrn, false);
   }
 
   public static void removeOwnersFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> ownerUrns,
       @Nullable Urn ownershipTypeUrn,
       List<ResourceRefInput> resources,
@@ -66,20 +74,26 @@ public class OwnerUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(
           buildRemoveOwnersProposal(
+              opContext,
               ownerUrns,
               ownershipTypeUrn,
               UrnUtils.getUrn(resource.getResourceUrn()),
               actor,
               entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   static MetadataChangeProposal buildAddOwnersProposal(
-      List<OwnerInput> owners, Urn resourceUrn, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      List<OwnerInput> owners,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService) {
     Ownership ownershipAspect =
         (Ownership)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.OWNERSHIP_ASPECT_NAME,
                 entityService,
@@ -101,6 +115,7 @@ public class OwnerUtils {
   }
 
   public static MetadataChangeProposal buildRemoveOwnersProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> ownerUrns,
       @Nullable Urn ownershipTypeUrn,
       Urn resourceUrn,
@@ -109,6 +124,7 @@ public class OwnerUtils {
     Ownership ownershipAspect =
         (Ownership)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.OWNERSHIP_ASPECT_NAME,
                 entityService,
@@ -160,7 +176,7 @@ public class OwnerUtils {
     if (!owner.getOwner().equals(ownerUrn)) {
       return false;
     }
-    if (owner.getTypeUrn() != null) {
+    if (owner.getTypeUrn() != null && ownershipTypeUrn != null) {
       return owner.getTypeUrn().equals(ownershipTypeUrn);
     }
     if (ownershipTypeUrn == null) {
@@ -184,8 +200,22 @@ public class OwnerUtils {
   }
 
   public static void validateAuthorizedToUpdateOwners(
-      @Nonnull QueryContext context, Urn resourceUrn) {
-    boolean authorized = isAuthorizedToUpdateOwners(context, resourceUrn);
+      @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
+
+    if (GlossaryUtils.canUpdateGlossaryEntity(resourceUrn, context, entityClient)) {
+      return;
+    }
+
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
+
+    boolean authorized =
+        AuthorizationUtils.isAuthorized(
+            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
     if (!authorized) {
       throw new AuthorizationException(
           "Unauthorized to update owners. Please contact your DataHub administrator.");
@@ -193,25 +223,32 @@ public class OwnerUtils {
   }
 
   public static void validateAddOwnerInput(
-      List<OwnerInput> owners, Urn resourceUrn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      List<OwnerInput> owners,
+      Urn resourceUrn,
+      EntityService<?> entityService) {
     for (OwnerInput owner : owners) {
-      validateAddOwnerInput(owner, resourceUrn, entityService);
+      validateAddOwnerInput(opContext, owner, resourceUrn, entityService);
     }
   }
 
   public static void validateAddOwnerInput(
-      OwnerInput owner, Urn resourceUrn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      OwnerInput owner,
+      Urn resourceUrn,
+      EntityService<?> entityService) {
 
-    if (!entityService.exists(resourceUrn, true)) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
     }
 
-    validateOwner(owner, entityService);
+    validateOwner(opContext, owner, entityService);
   }
 
-  public static void validateOwner(OwnerInput owner, EntityService<?> entityService) {
+  public static void validateOwner(
+      @Nonnull OperationContext opContext, OwnerInput owner, EntityService<?> entityService) {
 
     OwnerEntityType ownerEntityType = owner.getOwnerEntityType();
     Urn ownerUrn = UrnUtils.getUrn(owner.getOwnerUrn());
@@ -232,7 +269,7 @@ public class OwnerUtils {
               ownerUrn));
     }
 
-    if (!entityService.exists(ownerUrn, true)) {
+    if (!entityService.exists(opContext, ownerUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Owner with urn %s does not exist.",
@@ -240,7 +277,7 @@ public class OwnerUtils {
     }
 
     if (owner.getOwnershipTypeUrn() != null
-        && !entityService.exists(UrnUtils.getUrn(owner.getOwnershipTypeUrn()), true)) {
+        && !entityService.exists(opContext, UrnUtils.getUrn(owner.getOwnershipTypeUrn()), true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Custom Ownership type with "
@@ -255,8 +292,9 @@ public class OwnerUtils {
     }
   }
 
-  public static void validateRemoveInput(Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(resourceUrn, true)) {
+  public static void validateRemoveInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
@@ -272,18 +310,22 @@ public class OwnerUtils {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
       if (!entityService.exists(
-          UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())), true)) {
+          context.getOperationContext(),
+          UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())),
+          true)) {
         log.warn("Technical owner does not exist, defaulting to None ownership.");
         ownershipType = OwnershipType.NONE;
       }
       String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType.name());
 
-      if (!entityService.exists(UrnUtils.getUrn(ownershipTypeUrn), true)) {
+      if (!entityService.exists(
+          context.getOperationContext(), UrnUtils.getUrn(ownershipTypeUrn), true)) {
         throw new RuntimeException(
             String.format("Unknown ownership type urn %s", ownershipTypeUrn));
       }
 
       addOwnersToResources(
+          context.getOperationContext(),
           ImmutableList.of(
               new OwnerInput(
                   actorUrn.toString(), ownerEntityType, ownershipType, ownershipTypeUrn)),
@@ -308,10 +350,6 @@ public class OwnerUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

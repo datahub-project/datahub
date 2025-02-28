@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Collapse, Tooltip, Typography } from 'antd';
+import { Collapse, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { LogicalPredicateBuilder } from '../definition/builder/LogicalPredicateBuilder';
 import { LogicalPredicate } from '../definition/builder/types';

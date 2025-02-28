@@ -1,6 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
@@ -15,6 +22,8 @@ import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionActionInput;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
 import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
@@ -28,16 +37,22 @@ import com.linkedin.datahub.graphql.generated.CreateSqlAssertionInput;
 import com.linkedin.datahub.graphql.generated.CreateVolumeAssertionInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterType;
+import com.linkedin.datahub.graphql.generated.RunAssertionResult;
+import com.linkedin.datahub.graphql.generated.RunAssertionsResult;
 import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.TestAssertionInput;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class AssertionUtilsTest {
 
+  private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
   private static final Urn TEST_DATAJOB_URN = UrnUtils.getUrn("urn:li:dataJob:test");
@@ -249,5 +264,81 @@ public class AssertionUtilsTest {
     testAssertonInput.setFieldTestInput(fieldAssertionInput);
     result = AssertionUtils.getAsserteeUrnFromTestInput(testAssertonInput);
     Assert.assertEquals(result, TEST_DATASET_URN.toString());
+  }
+
+  @Test
+  public void testValidateAssertionSource() {
+    // Case 1: External Assertion
+    final AssertionInfo info1 = new AssertionInfo();
+    info1.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () -> AssertionUtils.validateAssertionSource(TEST_ASSERTION_URN, info1));
+
+    // Case 2: Null Assertion
+    final AssertionInfo info2 = new AssertionInfo();
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () -> AssertionUtils.validateAssertionSource(TEST_ASSERTION_URN, info2));
+
+    // Case 3: Native Assertion
+    final AssertionInfo info3 = new AssertionInfo();
+    info3.setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
+    // No exception throw
+    AssertionUtils.validateAssertionSource(TEST_ASSERTION_URN, info3);
+  }
+
+  @Test
+  public void testExtractRunResults() {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:test");
+    Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+    Urn testUrn3 = UrnUtils.getUrn("urn:li:assertion:test3");
+
+    Set<String> validUrns =
+        ImmutableSet.of(testUrn.toString(), testUrn2.toString(), testUrn3.toString());
+
+    final QueryContext context = Mockito.mock(QueryContext.class);
+    final List<Urn> assertionUrns = ImmutableList.of(testUrn, testUrn2, testUrn3);
+    final Map<Urn, AssertionResult> results =
+        ImmutableMap.of(
+            testUrn,
+            new AssertionResult()
+                .setType(AssertionResultType.SUCCESS)
+                .setRowCount(10)
+                .setActualAggValue(20)
+                .setMissingCount(5)
+                .setUnexpectedCount(3)
+                .setExternalUrl("test")
+                .setAssertion(new AssertionInfo().setType(AssertionType.DATASET))
+                .setNativeResults(new StringMap()),
+            testUrn2,
+            new AssertionResult()
+                .setType(AssertionResultType.FAILURE)
+                .setRowCount(10)
+                .setActualAggValue(20)
+                .setMissingCount(5)
+                .setUnexpectedCount(3)
+                .setExternalUrl("test")
+                .setAssertion(new AssertionInfo().setType(AssertionType.DATASET))
+                .setNativeResults(new StringMap()),
+            testUrn3,
+            new AssertionResult()
+                .setType(AssertionResultType.ERROR)
+                .setRowCount(10)
+                .setActualAggValue(20)
+                .setMissingCount(5)
+                .setUnexpectedCount(3)
+                .setExternalUrl("test")
+                .setAssertion(new AssertionInfo().setType(AssertionType.DATASET))
+                .setNativeResults(new StringMap()));
+    RunAssertionsResult result = AssertionUtils.extractRunResults(context, assertionUrns, results);
+    Assert.assertEquals(result.getResults().size(), 3);
+    Assert.assertEquals(result.getErrorCount(), 1);
+    Assert.assertEquals(result.getFailingCount(), 1);
+    Assert.assertEquals(result.getPassingCount(), 1);
+
+    for (RunAssertionResult res : result.getResults()) {
+      Assert.assertTrue(validUrns.contains(res.getAssertion().getUrn()));
+    }
   }
 }

@@ -11,6 +11,7 @@ import NameColumn from './NameColumn';
 import TabHeader from './TabHeader';
 import useUpdateExpandedRowsFromFilter from './useUpdateExpandedRowsFromFilter';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EditColumn } from './Edit/EditColumn';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -36,10 +37,27 @@ export const PropertiesTab = () => {
         },
     ];
 
+    if (entityData?.privileges?.canEditProperties) {
+        propertyTableColumns.push({
+            title: '',
+            width: '10%',
+            render: (propertyRow: PropertyRow) => (
+                <EditColumn
+                    structuredProperty={propertyRow.structuredProperty}
+                    associatedUrn={propertyRow.associatedUrn}
+                    values={propertyRow.values?.map((v) => v.value) || []}
+                />
+            ),
+        } as any);
+    }
+
     const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(entityRegistry, filterText);
+    const filteredStructuredPropertyRows = structuredPropertyRows.filter(
+        (row) => !row.structuredProperty?.settings?.isHidden,
+    );
     const customProperties = getFilteredCustomProperties(filterText, entityData) || [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows.concat(customPropertyRows);
+    const dataSource: PropertyRow[] = filteredStructuredPropertyRows.concat(customPropertyRows);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 

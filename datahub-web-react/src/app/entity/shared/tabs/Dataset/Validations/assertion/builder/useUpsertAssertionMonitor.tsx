@@ -2,6 +2,7 @@ import { message } from 'antd';
 import {
     useUpsertDatasetFieldAssertionMonitorMutation,
     useUpsertDatasetFreshnessAssertionMonitorMutation,
+    useUpsertDatasetSchemaAssertionMonitorMutation,
     useUpsertDatasetSqlAssertionMonitorMutation,
     useUpsertDatasetVolumeAssertionMonitorMutation,
 } from '../../../../../../../../graphql/assertion.generated';
@@ -10,11 +11,17 @@ import {
     builderStateToUpsertFreshnessAssertionMonitorVariables,
     builderStateToUpsertSqlAssertionMonitorVariables,
     builderStateToUpsertVolumeAssertionMonitorVariables,
+    builderStateToUpsertSchemaAssertionMonitorVariables,
 } from './utils';
-import { AssertionType } from '../../../../../../../../types.generated';
+import { Assertion, AssertionType } from '../../../../../../../../types.generated';
 import analytics, { EventType } from '../../../../../../../analytics';
+import { AssertionMonitorBuilderState } from './types';
 
-export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (() => Promise<any>) => {
+export const useUpsertAssertionMonitor = (
+    builderState: AssertionMonitorBuilderState,
+    onUpdate?: (assertion: Assertion) => void,
+    isUpdate?: boolean,
+): (() => Promise<any>) => {
     /**
      * Mutations for upserting Assertions, and the Monitor that evaluates them.
      */
@@ -22,6 +29,7 @@ export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (()
     const [upsertVolumeAssertionMonitorMutation] = useUpsertDatasetVolumeAssertionMonitorMutation();
     const [upsertSqlAssertionMonitorMutation] = useUpsertDatasetSqlAssertionMonitorMutation();
     const [upsertFieldAssertionMonitorMutation] = useUpsertDatasetFieldAssertionMonitorMutation();
+    const [upsertSchemaAssertionMonitorMutation] = useUpsertDatasetSchemaAssertionMonitorMutation();
 
     /**
      * Get the mutation to use for the Assertion type being upserted.
@@ -36,6 +44,8 @@ export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (()
                 return upsertSqlAssertionMonitorMutation;
             case AssertionType.Field:
                 return upsertFieldAssertionMonitorMutation;
+            case AssertionType.DataSchema:
+                return upsertSchemaAssertionMonitorMutation;
             default:
                 return null;
         }
@@ -54,6 +64,8 @@ export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (()
                 return builderStateToUpsertSqlAssertionMonitorVariables(builderState);
             case AssertionType.Field:
                 return builderStateToUpsertFieldAssertionMonitorVariables(builderState);
+            case AssertionType.DataSchema:
+                return builderStateToUpsertSchemaAssertionMonitorVariables(builderState);
             default:
                 return null;
         }
@@ -87,7 +99,7 @@ export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (()
                                 ? EventType.UpdateAssertionMonitorEvent
                                 : EventType.CreateAssertionMonitorEvent,
                             assertionType: builderState.assertion?.type as string,
-                            entityUrn: builderState.entityUrn,
+                            entityUrn: builderState.entityUrn!,
                         });
                         message.success({
                             content: `${isUpdate ? 'Updated' : 'Created'}!`,
@@ -100,12 +112,18 @@ export const useUpsertAssertionMonitor = (builderState, onUpdate, isUpdate): (()
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to create Assertion Monitor! An unexpected error occurred' });
+                    message.error({
+                        content: `Failed to ${
+                            isUpdate ? 'update' : 'create'
+                        } Assertion Monitor! An unexpected error occurred`,
+                    });
                 });
         }
 
         message.destroy();
-        message.error({ content: 'Failed to update Assertion Monitor! An unexpected error occurred' });
+        message.error({
+            content: `Failed to ${isUpdate ? 'update' : 'create'} Assertion Monitor! An unexpected error occurred`,
+        });
         return Promise.reject(new Error('Could not find upsertAssertionMutation or upsertAssertionVariables!'));
     };
 

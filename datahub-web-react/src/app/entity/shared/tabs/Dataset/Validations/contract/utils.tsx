@@ -6,7 +6,13 @@ import {
     ExclamationCircleFilled,
     StopOutlined,
 } from '@ant-design/icons';
-import { Assertion, AssertionType, DataContract, DataContractState } from '../../../../../../../types.generated';
+import {
+    ActionRequestStatus,
+    Assertion,
+    AssertionType,
+    DataContract,
+    DataContractState,
+} from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '../acrylUtils';
 import { DataContractCategoryType } from './builder/types';
@@ -106,4 +112,23 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
     return DataContractCategoryType.DATA_QUALITY;
 };
 
-export const DATA_QUALITY_ASSERTION_TYPES = new Set([AssertionType.Volume, AssertionType.Sql, AssertionType.Field]);
+export const useIsActiveProposal = (dataContractProposalData: any): boolean => {
+    const hasContractProposal =
+        ((dataContractProposalData?.listActionRequests?.total || 0) > 0 &&
+            dataContractProposalData?.listActionRequests?.actionRequests?.length) ||
+        undefined;
+    const contractActionRequest =
+        hasContractProposal && dataContractProposalData?.listActionRequests?.actionRequests[0];
+    const actionRequestStatus = contractActionRequest && contractActionRequest.status;
+    const actionRequestParams = contractActionRequest && contractActionRequest.params;
+    const contractProposal = actionRequestParams && actionRequestParams?.dataContractProposal;
+    const isActiveProposal = contractProposal && actionRequestStatus === ActionRequestStatus.Pending;
+    return isActiveProposal;
+};
+export const DATA_QUALITY_ASSERTION_TYPES = new Set([
+    AssertionType.Volume,
+    AssertionType.Sql,
+    AssertionType.Field,
+    AssertionType.Dataset,
+    AssertionType.Custom,
+]);

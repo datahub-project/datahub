@@ -20,17 +20,15 @@ import com.linkedin.metadata.test.eval.operator.LessThanEvaluator;
 import com.linkedin.metadata.test.eval.operator.NotEvaluator;
 import com.linkedin.metadata.test.eval.operator.OrEvaluator;
 import com.linkedin.metadata.test.eval.operator.RegexMatchEvaluator;
+import com.linkedin.metadata.test.eval.operator.SchemaFieldsHaveDescriptions;
 import com.linkedin.metadata.test.eval.operator.StartsWithEvaluator;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Class that evaluates all {@link Predicate}s provided batched query responses */
@@ -55,7 +53,8 @@ public class PredicateEvaluator {
             new ContainsAnyEvaluator(),
             new IsTrueEvaluator(),
             new IsFalseEvaluator(),
-            new ContainsStrEvaluator()));
+            new ContainsStrEvaluator(),
+            new SchemaFieldsHaveDescriptions()));
   }
 
   public PredicateEvaluator(List<BaseOperatorEvaluator> operationEvaluators) {
@@ -68,12 +67,12 @@ public class PredicateEvaluator {
     return INSTANCE;
   }
 
-  private BaseOperatorEvaluator getOperationEvaluator(OperatorType operatorType) {
-    if (!operationEvaluators.containsKey(operatorType)) {
+  private static BaseOperatorEvaluator getOperationEvaluator(OperatorType operatorType) {
+    if (!INSTANCE.operationEvaluators.containsKey(operatorType)) {
       throw new IllegalArgumentException(
           String.format("Unsupported operator type %s", operatorType));
     }
-    return operationEvaluators.get(operatorType);
+    return INSTANCE.operationEvaluators.get(operatorType);
   }
 
   /**
@@ -83,7 +82,7 @@ public class PredicateEvaluator {
    * @param predicate Predicate to validate
    * @throws InvalidOperandException if parameters are not sufficient to evaluate the operation
    */
-  public void validate(Predicate predicate) throws InvalidOperandException {
+  public static void validate(Predicate predicate) throws InvalidOperandException {
     getOperationEvaluator(predicate.getOperatorType()).validate(predicate.getOperands());
   }
 
@@ -144,30 +143,9 @@ public class PredicateEvaluator {
             "Unsupported operation param type: %s", expression.getClass().getSimpleName()));
   }
 
-  /** Retrieve the set of {@link TestQuery}s required to evaluate a given {@link Predicate}. */
-  public Set<TestQuery> extractQueriesForPredicate(final @Nonnull Predicate predicate) {
-
-    // If the predicate is a leaf, then simply return the Queries inside the leaf nodes.
-    List<Query> queryParams = predicate.getOperands().getOperandsOfType(Query.class);
-    if (!queryParams.isEmpty()) {
-      return queryParams.stream().map(Query::getQuery).collect(Collectors.toSet());
-    }
-
-    // If the predicate is a non-leaf, then recurse down to subpredicates.
-    List<Predicate> subPredicates = predicate.getOperands().getOperandsOfType(Predicate.class);
-    if (!subPredicates.isEmpty()) {
-      return subPredicates.stream()
-          .flatMap(pred -> extractQueriesForPredicate(pred).stream())
-          .collect(Collectors.toSet());
-    }
-
-    // Otherwise, there are no required queries to be resolved
-    return Collections.emptySet();
-  }
-
-  public boolean isOperationValid(String operation) {
+  public static boolean isOperationValid(String operation) {
     try {
-      return operationEvaluators.containsKey(OperatorType.fromCommonName(operation));
+      return INSTANCE.operationEvaluators.containsKey(OperatorType.fromCommonName(operation));
     } catch (IllegalArgumentException e) {
       return false;
     }

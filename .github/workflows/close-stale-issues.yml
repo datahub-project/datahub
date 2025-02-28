@@ -5,12 +5,12 @@ on:
 
 jobs:
   close-issues:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     permissions:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v6
+      - uses: actions/stale@v9
         with:
           ascending: true
           operations-per-run: 100

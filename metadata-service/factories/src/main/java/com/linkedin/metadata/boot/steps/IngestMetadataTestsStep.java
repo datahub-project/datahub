@@ -22,8 +22,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
-import java.io.File;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,7 +46,7 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestMetadataTestsStep implements BootstrapStep {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final boolean _enableMetadataTestBootstrap;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
@@ -79,8 +80,8 @@ public class IngestMetadataTestsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
-    if (_entityService.exists(UPGRADE_ID_URN, true)) {
+  public void execute(@Nonnull OperationContext opContext) throws IOException, URISyntaxException {
+    if (_entityService.exists(opContext, UPGRADE_ID_URN, true)) {
       log.info("Default metadata tests were already ingested. Skipping ingesting again.");
       return;
     }
@@ -94,36 +95,38 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
     // 1. Read default metadata tests
     final Map<Urn, TestInfo> metadataTestsMap =
-        parseYamlMetadataTestConfig(new ClassPathResource("./boot/metadata_tests.yaml").getFile());
+        parseYamlMetadataTestConfig(
+            new ClassPathResource("./boot/metadata_tests.yaml").getInputStream());
 
     // 2. Ingest the metadata test if not exists
     log.info("Ingesting {} tests", metadataTestsMap.size());
     int numIngested = 0;
     for (Urn testUrn : metadataTestsMap.keySet()) {
-      if (!hasTest(testUrn)) {
-        ingestMetadataTest(testUrn, metadataTestsMap.get(testUrn));
+      if (!hasTest(opContext, testUrn)) {
+        ingestMetadataTest(opContext, testUrn, metadataTestsMap.get(testUrn));
         numIngested++;
       }
     }
     log.info("Ingested {} new tests", numIngested);
   }
 
-  private boolean hasTest(Urn testUrn) {
+  private boolean hasTest(@Nonnull OperationContext opContext, Urn testUrn) {
     // Check if test exists
     try {
       RecordTemplate aspect =
           _entityService.getLatestEnvelopedAspect(
-              Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
+              opContext, Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
       return aspect != null;
     } catch (Exception e) {
       return false;
     }
   }
 
-  private void ingestMetadataTest(final Urn testUrn, final TestInfo testInfo) {
+  private void ingestMetadataTest(
+      @Nonnull OperationContext opContext, final Urn testUrn, final TestInfo testInfo) {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(testUrn);
+    final AspectSpec keyAspectSpec = opContext.getEntityRegistryContext().getKeyAspectSpec(testUrn);
     GenericAspect aspect =
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(testUrn, keyAspectSpec));
@@ -134,6 +137,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(testUrn);
 
     _entityService.ingestProposal(
+        opContext,
         keyAspectProposal,
         new AuditStamp()
             .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
@@ -148,6 +152,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        opContext,
         proposal,
         new AuditStamp()
             .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
@@ -161,70 +166,69 @@ public class IngestMetadataTestsStep implements BootstrapStep {
    * <p>The structure of yaml must be a list of metadata tests with the necessary fields and test
    * definition.
    */
-  private Map<Urn, TestInfo> parseYamlMetadataTestConfig(File metadataTestsFile)
+  private Map<Urn, TestInfo> parseYamlMetadataTestConfig(InputStream inputStream)
       throws IOException {
     // If path does not exist, return empty
-    if (!metadataTestsFile.exists()) {
+    if (inputStream == null) {
       return Collections.emptyMap();
     }
 
-    // If file is not a yaml file, return empty
-    if (!metadataTestsFile.getPath().endsWith(".yaml")
-        && metadataTestsFile.getPath().endsWith(".yml")) {
-      log.info("File {} is not a YAML file. Skipping", metadataTestsFile.getPath());
+    try {
+
+      final JsonNode metadataTests = YAML_MAPPER.readTree(inputStream);
+      if (!metadataTests.isArray()) {
+        throw new IllegalArgumentException(
+            "Metadata test config file must contain an array of metadata tests");
+      }
+
+      Map<Urn, TestInfo> metadataTestsMap = new HashMap<>();
+
+      final long currentTime = System.currentTimeMillis();
+      int i = 0;
+
+      for (JsonNode metadataTest : metadataTests) {
+        if (!metadataTest.has("urn")) {
+          throw new IllegalArgumentException(
+              "Each element in the retention config must contain field urn.");
+        }
+        Urn testUrn = UrnUtils.getUrn(metadataTest.get("urn").asText());
+        TestInfo testInfo = new TestInfo();
+        if (metadataTest.has("name")) {
+          testInfo.setName(metadataTest.get("name").asText());
+        } else {
+          throw new IllegalArgumentException(
+              "Each element in the retention config must contain field name.");
+        }
+
+        if (metadataTest.has("category")) {
+          testInfo.setCategory(metadataTest.get("category").asText());
+        } else {
+          throw new IllegalArgumentException(
+              "Each element in the retention config must contain field category.");
+        }
+
+        if (metadataTest.has("description")) {
+          testInfo.setDescription(metadataTest.get("description").asText());
+        }
+
+        if (metadataTest.has("definition")) {
+          testInfo.setDefinition(
+              new TestDefinition()
+                  .setType(TestDefinitionType.JSON)
+                  .setJson(JSON_MAPPER.writeValueAsString(metadataTest.get("definition"))));
+        } else {
+          throw new IllegalArgumentException(
+              "Each element in the retention config must contain field definition with the test definition.");
+        }
+
+        testInfo.setLastUpdated(
+            new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(currentTime + i--));
+        metadataTestsMap.put(testUrn, testInfo);
+      }
+      return metadataTestsMap;
+    } catch (Exception e) {
+      log.error("Error reading metadata tests file.", e);
       return Collections.emptyMap();
     }
-
-    final JsonNode metadataTests = YAML_MAPPER.readTree(metadataTestsFile);
-    if (!metadataTests.isArray()) {
-      throw new IllegalArgumentException(
-          "Metadata test config file must contain an array of metadata tests");
-    }
-
-    Map<Urn, TestInfo> metadataTestsMap = new HashMap<>();
-
-    final long currentTime = System.currentTimeMillis();
-    int i = 0;
-
-    for (JsonNode metadataTest : metadataTests) {
-      if (!metadataTest.has("urn")) {
-        throw new IllegalArgumentException(
-            "Each element in the retention config must contain field urn.");
-      }
-      Urn testUrn = UrnUtils.getUrn(metadataTest.get("urn").asText());
-      TestInfo testInfo = new TestInfo();
-      if (metadataTest.has("name")) {
-        testInfo.setName(metadataTest.get("name").asText());
-      } else {
-        throw new IllegalArgumentException(
-            "Each element in the retention config must contain field name.");
-      }
-
-      if (metadataTest.has("category")) {
-        testInfo.setCategory(metadataTest.get("category").asText());
-      } else {
-        throw new IllegalArgumentException(
-            "Each element in the retention config must contain field category.");
-      }
-
-      if (metadataTest.has("description")) {
-        testInfo.setDescription(metadataTest.get("description").asText());
-      }
-
-      if (metadataTest.has("definition")) {
-        testInfo.setDefinition(
-            new TestDefinition()
-                .setType(TestDefinitionType.JSON)
-                .setJson(JSON_MAPPER.writeValueAsString(metadataTest.get("definition"))));
-      } else {
-        throw new IllegalArgumentException(
-            "Each element in the retention config must contain field definition with the test definition.");
-      }
-
-      testInfo.setLastUpdated(
-          new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(currentTime + i--));
-      metadataTestsMap.put(testUrn, testInfo);
-    }
-    return metadataTestsMap;
   }
 }

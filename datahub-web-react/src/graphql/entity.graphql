@@ -5,3 +5,11 @@ query getEntities($urns: [String!]!) {
         ...searchResultFields
     }
 }
+
+query getEntity($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultFields
+    }
+}

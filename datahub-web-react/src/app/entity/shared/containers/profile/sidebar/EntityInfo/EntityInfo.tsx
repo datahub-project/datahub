@@ -50,7 +50,7 @@ export default function EntityInfo({ formUrn }: Props) {
             <PlatformContent />
             <EntityName>{entityName}</EntityName>
             <StyledLink
-                href={entityRegistry.getEntityUrl(entityType, entityData?.urn || '')}
+                href={`${entityRegistry.getEntityUrl(entityType, entityData?.urn || '')}/`}
                 target="_blank"
                 rel="noreferrer noopener"
             >

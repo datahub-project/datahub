@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.tag;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -28,7 +29,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -37,7 +37,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,9 +86,14 @@ public class TagType
     try {
       final Map<Urn, EntityResponse> tagMap =
           _entityClient.batchGetV2(
-              TAG_ENTITY_NAME, new HashSet<>(tagUrns), null, context.getAuthentication());
+              context.getOperationContext(),
+              TAG_ENTITY_NAME,
+              tagUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
+              null);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : tagUrns) {
         gmsResults.add(tagMap.getOrDefault(urn, null));
       }
@@ -98,7 +102,9 @@ public class TagType
               gmsTag ->
                   gmsTag == null
                       ? null
-                      : DataFetcherResult.<Tag>newResult().data(TagMapper.map(gmsTag)).build())
+                      : DataFetcherResult.<Tag>newResult()
+                          .data(TagMapper.map(context, gmsTag))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Tags", e);
@@ -116,14 +122,13 @@ public class TagType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "tag",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -135,8 +140,8 @@ public class TagType
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("tag", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(context.getOperationContext(), "tag", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -144,12 +149,12 @@ public class TagType
       @Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-      final Collection<MetadataChangeProposal> proposals = TagUpdateInputMapper.map(input, actor);
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      final Collection<MetadataChangeProposal> proposals =
+          TagUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }
@@ -164,8 +169,7 @@ public class TagType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context,
         PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
         update.getUrn(),
         orPrivilegeGroups);

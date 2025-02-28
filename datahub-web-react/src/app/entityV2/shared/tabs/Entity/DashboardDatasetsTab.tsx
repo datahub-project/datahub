@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBaseEntity } from '../../EntityContext';
+import { useBaseEntity } from '../../../../entity/shared/EntityContext';
 import { EntityType } from '../../../../../types.generated';
 import { EntityList } from './components/EntityList';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 export const DashboardDatasetsTab = () => {
     const entity = useBaseEntity() as any;
     const dashboard = entity && entity.dashboard;
-    const datasets = dashboard?.datasets?.relationships.map((relationship) => relationship.entity);
+    const datasets = dashboard?.datasets?.relationships?.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
     const totalDatasets = dashboard?.datasets?.total || 0;
     const title = `Consumes ${totalDatasets} ${

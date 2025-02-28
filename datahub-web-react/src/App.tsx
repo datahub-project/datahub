@@ -1,6 +1,5 @@
 import React from 'react';
 import Cookies from 'js-cookie';
-import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
@@ -17,12 +16,12 @@ import CustomThemeProvider from './CustomThemeProvider';
 import { useCustomTheme } from './customThemeContext';
 
 /*
-    Construct Apollo Client
+	Construct Apollo Client
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
 const errorLink = onError((error) => {
-    const { networkError, graphQLErrors } = error;
+    const { networkError } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
@@ -32,13 +31,15 @@ const errorLink = onError((error) => {
             window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
-    if (graphQLErrors && graphQLErrors.length) {
-        const firstError = graphQLErrors[0];
-        const { extensions } = firstError;
-        const errorCode = extensions && (extensions.code as number);
-        // Fallback in case the calling component does not handle.
-        message.error(`${firstError.message} (code ${errorCode})`, 3);
-    }
+    // Disabled behavior for now -> Components are expected to handle their errors.
+    // if (graphQLErrors && graphQLErrors.length) {
+    //     const firstError = graphQLErrors[0];
+    //     const { extensions } = firstError;
+    //     const errorCode = extensions && (extensions.code as number);
+    //     // Fallback in case the calling component does not handle.
+    //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
+    // }
+    // TODO: Decide if we want this back.
 });
 
 const client = new ApolloClient({
@@ -49,6 +50,11 @@ const client = new ApolloClient({
             Query: {
                 fields: {
                     dataset: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                    entity: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
                         },
@@ -75,7 +81,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <Helmet>
-                    <title>{useCustomTheme().theme?.content.title}</title>
+                    <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router>
                     <Routes />

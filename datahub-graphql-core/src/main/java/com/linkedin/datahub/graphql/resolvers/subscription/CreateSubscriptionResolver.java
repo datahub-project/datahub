@@ -4,14 +4,15 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
@@ -31,7 +32,6 @@ public class CreateSubscriptionResolver
   public CompletableFuture<DataHubSubscription> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
     final CreateSubscriptionInput input =
         bindArgument(environment.getArgument("input"), CreateSubscriptionInput.class);
     return CompletableFuture.supplyAsync(
@@ -41,36 +41,54 @@ public class CreateSubscriptionResolver
             final SubscriptionTypeArray subscriptionTypes =
                 mapSubscriptionTypes(input.getSubscriptionTypes());
             final EntityChangeDetailsArray entityChangeTypes =
-                mapEntityChangeTypes(input.getEntityChangeTypes());
+                mapEntityChangeDetails(input.getEntityChangeTypes());
             final SubscriptionNotificationConfig notificationConfig =
                 input.getNotificationConfig() == null
                     ? null
                     : mapSubscriptionNotificationConfig(input.getNotificationConfig());
             final String groupUrnString = input.getGroupUrn();
+            final String userUrnString = input.getUserUrn();
 
             if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {
-              throw new RuntimeException(
+              throw new DataHubGraphQLException(
+                  String.format("Unauthorized to create subscription for group %s", groupUrnString),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
+            }
+
+            if (userUrnString != null
+                && !userUrnString.equals(context.getActorUrn())
+                && !canManageUserSubscriptions(context)) {
+              throw new DataHubGraphQLException(
                   String.format(
-                      "Unauthorized to create subscription for group %s", groupUrnString));
+                      "Unauthorized to create subscription for user %s, missing MANAGE_USER_SUBSCRIPTIONS privilege",
+                      userUrnString),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
 
             // The subscription actor is the user who created the subscription, or the group if
-            // nonnull.
-            final Urn actorUrn =
-                groupUrnString == null
-                    ? UrnUtils.getUrn(context.getActorUrn())
-                    : UrnUtils.getUrn(groupUrnString);
+            // nonnull or the explicit user urn if provided.
+
+            final Urn actorUrn;
+            if (userUrnString != null) {
+              actorUrn = UrnUtils.getUrn(userUrnString);
+            } else if (groupUrnString != null) {
+              actorUrn = UrnUtils.getUrn(groupUrnString);
+            } else {
+              actorUrn = UrnUtils.getUrn(context.getActorUrn());
+            }
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
                 _subscriptionService.createSubscription(
+                    context.getOperationContext(),
                     actorUrn,
                     UrnUtils.getUrn(entityUrnString),
                     subscriptionTypes,
                     entityChangeTypes,
-                    notificationConfig,
-                    authentication);
+                    notificationConfig);
 
-            return DataHubSubscriptionMapper.map(subscription);
+            return DataHubSubscriptionMapper.map(context, subscription);
+          } catch (DataHubGraphQLException e) { // Allow DataHub Exceptions to propagate up
+            throw e;
           } catch (Exception e) {
             throw new RuntimeException("Failed to create subscriptions", e);
           }

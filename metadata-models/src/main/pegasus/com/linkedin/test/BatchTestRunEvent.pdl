@@ -29,6 +29,10 @@ record BatchTestRunEvent {
   @TimeseriesField = {}
   status: enum BatchTestRunStatus {
     /**
+     * The Test is currently in progress
+     */
+    RUNNING
+    /**
      * The Test Run has completed
      */
     COMPLETE

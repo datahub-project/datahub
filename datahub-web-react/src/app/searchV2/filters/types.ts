@@ -1,10 +1,11 @@
-import { Entity, EntityType, FilterOperator } from '../../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FilterOperator } from '../../../types.generated';
 
 export interface FilterOptionType {
     field: string;
     value: string;
     count?: number;
     entity?: Entity | null;
+    displayName?: string | null;
 }
 
 export interface Filter {
@@ -17,6 +18,7 @@ export interface FilterValue {
     value: string;
     entity: Entity | null;
     count?: number;
+    displayName?: string | null;
 }
 
 export enum FieldType {
@@ -27,7 +29,7 @@ export enum FieldType {
     ENTITY_TYPE,
     NESTED_ENTITY_TYPE,
     BROWSE_PATH,
-    // NUMBER,
+    BUCKETED_TIMESTAMP, // NUMBER,
     // DATE,
 }
 
@@ -36,15 +38,37 @@ export interface FilterValueOption {
     entity?: Entity | null;
     icon?: React.ReactNode;
     count?: number;
+    displayName?: string | null;
 }
 
-export interface FilterField {
+interface TimeBucket {
+    label: string;
+    startOffsetMillis: number;
+}
+
+interface FilterFieldBase {
     field: string;
     displayName: string;
-    type?: FieldType; // Ideally we know the field type. If not we will have default handling.
-    entityTypes?: EntityType[]; // The entity types that this field is applicable to.
-    icon?: any;
+    icon?: JSX.Element;
+    useDatePicker?: boolean; // In advanced filter section, don't use dropdown
+    entity?: Entity; // if the filter itself is an entity ie. Structured Properties
 }
+
+export interface BasicFilterField extends FilterFieldBase {
+    type: Exclude<FieldType, FieldType.BUCKETED_TIMESTAMP | FieldType.ENTITY>;
+}
+
+export interface TimeBucketFilterField extends FilterFieldBase {
+    type: FieldType.BUCKETED_TIMESTAMP;
+    options: TimeBucket[];
+}
+
+export interface EntityFilterField extends FilterFieldBase {
+    type: FieldType.ENTITY;
+    entityTypes: EntityType[]; // The entity types that this field is applicable to.
+}
+
+export type FilterField = BasicFilterField | TimeBucketFilterField | EntityFilterField;
 
 export interface FilterPredicate {
     field: FilterField;
@@ -67,7 +91,16 @@ export enum FilterOperatorType {
     GREATER_THAN_OR_EQUALS,
     LESS_THAN,
     LESS_THAN_OR_EQUALS,
+    ALL_EQUALS, // used for splitting criterion values into multiple AND criterions
 }
+
+export enum FrontendFilterOperator {
+    AllEqual = 'ALL_EQUAL', // used for splitting criterion values into multiple AND criterions
+}
+
+export type FrontendFacetFilterInput = Omit<FacetFilterInput, 'condition'> & {
+    condition: FrontendFilterOperator;
+};
 
 export type FilterOperatorInfo = {
     type: FilterOperatorType;
@@ -75,7 +108,7 @@ export type FilterOperatorInfo = {
     pluralText?: string; // Optional: Used when multiple values are selected
     filter: {
         negated: boolean;
-        operator: FilterOperator;
+        operator: FilterOperator | FrontendFilterOperator;
     };
     icon?: React.ReactNode;
 };

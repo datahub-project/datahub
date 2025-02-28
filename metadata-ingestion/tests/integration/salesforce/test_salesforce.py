@@ -1,10 +1,12 @@
 import json
 import pathlib
 from unittest import mock
+from unittest.mock import Mock
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-05-12 11:00:00"
@@ -19,15 +21,16 @@ def _read_response(file_name: str) -> dict:
         return data
 
 
+class MockResponse:
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
+
+    def json(self):
+        return self.json_data
+
+
 def side_effect_call_salesforce(type, url):
-    class MockResponse:
-        def __init__(self, json_data, status_code):
-            self.json_data = json_data
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_data
-
     if url.endswith("/services/data/"):
         return MockResponse(_read_response("versions_response.json"), 200)
     if url.endswith("FROM EntityDefinition WHERE IsCustomizable = true"):
@@ -55,9 +58,92 @@ def side_effect_call_salesforce(type, url):
     return MockResponse({}, 404)
 
 
+@mock.patch("datahub.ingestion.source.salesforce.Salesforce")
+def test_latest_version(mock_sdk):
+    mock_sf = mock.Mock()
+    mocked_call = mock.Mock()
+    mocked_call.side_effect = side_effect_call_salesforce
+    mock_sf._call_salesforce = mocked_call
+    mock_sdk.return_value = mock_sf
+
+    config = SalesforceConfig.parse_obj(
+        {
+            "auth": "DIRECT_ACCESS_TOKEN",
+            "instance_url": "https://mydomain.my.salesforce.com/",
+            "access_token": "access_token`",
+            "ingest_tags": True,
+            "object_pattern": {
+                "allow": [
+                    "^Account$",
+                    "^Property__c$",
+                ],
+            },
+            "domain": {"sales": {"allow": {"^Property__c$"}}},
+            "profiling": {"enabled": True},
+            "profile_pattern": {
+                "allow": [
+                    "^Property__c$",
+                ]
+            },
+        }
+    )
+    SalesforceSource(config=config, ctx=Mock())
+    calls = mock_sf._call_salesforce.mock_calls
+    assert len(calls) == 1, (
+        "We didn't specify version but source didn't call SF API to get the latest one"
+    )
+    assert calls[0].ends_with("/services/data"), (
+        "Source didn't call proper SF API endpoint to get all versions"
+    )
+    assert mock_sf.sf_version == "54.0", (
+        "API version was not correctly set (see versions_responses.json)"
+    )
+
+
+@mock.patch("datahub.ingestion.source.salesforce.Salesforce")
+def test_custom_version(mock_sdk):
+    mock_sf = mock.Mock()
+    mocked_call = mock.Mock()
+    mocked_call.side_effect = side_effect_call_salesforce
+    mock_sf._call_salesforce = mocked_call
+    mock_sdk.return_value = mock_sf
+
+    config = SalesforceConfig.parse_obj(
+        {
+            "auth": "DIRECT_ACCESS_TOKEN",
+            "api_version": "46.0",
+            "instance_url": "https://mydomain.my.salesforce.com/",
+            "access_token": "access_token`",
+            "ingest_tags": True,
+            "object_pattern": {
+                "allow": [
+                    "^Account$",
+                    "^Property__c$",
+                ],
+            },
+            "domain": {"sales": {"allow": {"^Property__c$"}}},
+            "profiling": {"enabled": True},
+            "profile_pattern": {
+                "allow": [
+                    "^Property__c$",
+                ]
+            },
+        }
+    )
+    SalesforceSource(config=config, ctx=Mock())
+
+    calls = mock_sf._call_salesforce.mock_calls
+    assert len(calls) == 0, (
+        "Source called API to get all versions even though we specified proper version"
+    )
+    assert mock_sdk.call_args.kwargs["version"] == "46.0", (
+        "API client object was not correctly initialized with the custom version"
+    )
+
+
 @freeze_time(FROZEN_TIME)
 def test_salesforce_ingest(pytestconfig, tmp_path):
-    with mock.patch("simple_salesforce.Salesforce") as mock_sdk:
+    with mock.patch("datahub.ingestion.source.salesforce.Salesforce") as mock_sdk:
         mock_sf = mock.Mock()
         mocked_call = mock.Mock()
         mocked_call.side_effect = side_effect_call_salesforce

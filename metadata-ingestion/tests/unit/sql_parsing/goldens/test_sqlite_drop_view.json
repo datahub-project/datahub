@@ -1,0 +1,14 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "35a3c60e7ed98884dde3f1f5fe9079f844832430589a3326b97d617b8303f191",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:sqlite,my_schema.my_view,PROD)"
+    ],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "DROP VIEW my_schema.my_view"
+    }
+}

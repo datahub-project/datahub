@@ -1,6 +1,14 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
+        urn
+        type
         ...dashboardFields
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
@@ -10,12 +18,34 @@ query getDashboard($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        properties {
+            created {
+                time
+            }
+        }
+        info {
+            created {
+                time
+            }
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        forms {
+            ...formsFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }
 

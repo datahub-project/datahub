@@ -1,0 +1,19 @@
+on:
+  types:
+    - container
+  conditions:
+    or:
+      - property: dataPlatformInstance.platform
+        operator: equals
+        values:
+          - "urn:li:dataPlatform:bigquery"
+      - property: domains.domains
+        operator: equals
+        values:
+          - "urn:li:domain:8fd909a3-5af1-4c75-a624-d4a1c6a14bc3"
+rules:
+  and:
+    - property: globalTags.tags.tag
+      operator: contains_any
+      values:
+        - "urn:li:tag:NeedsDocumentation"

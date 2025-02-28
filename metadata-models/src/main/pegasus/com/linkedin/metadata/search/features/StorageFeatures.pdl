@@ -28,9 +28,6 @@ record StorageFeatures {
   /**
    * The total row count.
    */
-  @SearchScore = {
-    "modifier": "LOG"
-  }
   @Searchable = {
     "fieldName": "rowCountFeature",
     "fieldType": "COUNT"
@@ -40,6 +37,10 @@ record StorageFeatures {
   /**
    * The percentile of the total row / document count relative to other assets from the data platform instance.
    */
+  @Searchable = {
+    "fieldName": "rowCountPercentile",
+    "fieldType": "COUNT"
+  }
   rowCountPercentile: optional int
 
   /**

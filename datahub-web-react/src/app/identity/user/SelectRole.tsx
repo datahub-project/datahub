@@ -90,7 +90,7 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                 {selectOptions}
             </RoleSelect>
             <AssignRoleConfirmation
-                visible={isViewingAssignRole}
+                open={isViewingAssignRole}
                 roleToAssign={rolesMap.get(currentRoleUrn)}
                 userUrn={user.urn}
                 username={user.username}

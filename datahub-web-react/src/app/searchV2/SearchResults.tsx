@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Pagination, Typography } from 'antd';
+import { Tooltip } from '@components';
+import ViewHeadlineOutlinedIcon from '@mui/icons-material/ViewHeadlineOutlined';
+import ViewDayOutlinedIcon from '@mui/icons-material/ViewDayOutlined';
 import styled from 'styled-components/macro';
 import { Entity, FacetFilterInput, MatchedField, SearchSuggestion, FacetMetadata } from '../../types.generated';
 import { SearchCfg } from '../../conf';
@@ -23,7 +26,11 @@ import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 import { SearchEntitySidebarContainer } from './SearchEntitySidebarContainer';
 import SearchMenuItems from '../sharedV2/search/SearchMenuItems';
 import { RecommendedFilters } from './recommendation/RecommendedFilters';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { PreviewType } from '../entity/Entity';
+import { useSearchContext } from '../search/context/SearchContext';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -47,6 +54,7 @@ const SearchBody = styled.div`
 const ResultContainer = styled.div<{ v2Styles: boolean }>`
     flex: 1;
     overflow: auto;
+
     ${(props) =>
         props.v2Styles
             ? `
@@ -65,7 +73,7 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
-    padding: 12px 24px 4px 24px;
+    padding: 12px 24px 14px 24px;
     min-height: 47px;
     border-color: ${(props) => props.theme.styles['border-color-base']};
     display: flex;
@@ -75,24 +83,22 @@ const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
 
 const SearchResultsContainer = styled.div`
     display: flex;
+    height: 100%;
 `;
 
-const SearchResultsScrollContainer = styled.div`
+const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
-    overflow-y: scroll;
+    height: 100%;
+    ${(props) => !props.$isShowNavBarRedesign && 'overflow-y: scroll;'}
 `;
 
 const LeftControlsContainer = styled.div`
     display: flex;
-    align-items: center;
     gap: 12px;
 `;
 
 const StyledTabToolbar = styled.div`
-    padding-left: 32px;
-    padding-right: 32px;
-    margin-bottom: 16px;
     background-color: #fff;
     border-radius: 12px;
     margin: 4px 16px 4px 8px;
@@ -103,16 +109,52 @@ const StyledTabToolbar = styled.div`
     border: 1.5px solid ${ANTD_GRAY[4]};
 `;
 
-const SearchMenuContainer = styled.div``;
+const SearchMenuContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
 
-const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
+const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
-    ${({ v2Styles }) =>
+    ${({ v2Styles, $isShowNavBarRedesign }) =>
         v2Styles &&
         `
         flex: 1;
-        overflow: auto;
+        overflow-x: hidden;        
+        overflow-y: auto;
+        ${$isShowNavBarRedesign ? 'scrollbar-width: none;' : ''}
+    `}
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
+`;
+
+const CustomSwitch = styled.div`
+    background: #F6F6F6;
+    border: 1px solid #EBECF0;
+    border-radius: 30px;
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    padding: 2px;
+    width: fit-content;
+    justify-content: space-between;
+    margin-left: 8px;
+}
+`;
+
+const IconContainer = styled.div<{ isActive?: boolean }>`
+    cursor: pointer;
+    align-items: center;
+    display: flex;
+    padding: 4px;
+    transition: left 0.5s ease;
+
+    ${(props) =>
+        props.isActive &&
+        `
+        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border-radius: 100%;
+        color: white;
     `}
 `;
 
@@ -143,9 +185,13 @@ interface Props {
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    areAllEntitiesSelected?: boolean;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
 }
 
 export const SearchResults = ({
@@ -165,11 +211,15 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    areAllEntitiesSelected,
+    setAreAllEntitiesSelected,
     suggestions,
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
     refetch,
+    previewType,
+    onCardClick,
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -177,12 +227,34 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
     // For vertical sidebar
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
+    const { isFullViewCard, setIsFullViewCard } = useSearchContext();
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+
+    const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
+    const resultsRef = React.useCallback((node: HTMLDivElement) => {
+        if (node !== null) {
+            const resizeObserver = new ResizeObserver(() => {
+                setResultsHeight(`${node.offsetHeight}px`);
+            });
+            resizeObserver.observe(node);
+        }
+    }, []);
+
+    function handlePageChange(p: number) {
+        onChangePage(p);
+        setAreAllEntitiesSelected?.(false);
+    }
 
     return (
         <>
@@ -191,17 +263,20 @@ export const SearchResults = ({
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
                             <BrowseProvider>
-                                <BrowseSidebar visible width={260} />
+                                <BrowseSidebar visible />
                             </BrowseProvider>
                         </SidebarProvider>
                     )}
-                    <ResultContainer v2Styles={showSearchFiltersV2}>
+                    <ResultContainer v2Styles={showSearchFiltersV2} ref={resultsRef}>
                         {(error && <ErrorSection />) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
-                                <SearchResultsScrollContainer>
+                                <SearchResultsScrollContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                                     <SearchResultsContainer>
-                                        <SearchResultListContainer v2Styles={showSearchFiltersV2}>
+                                        <SearchResultListContainer
+                                            v2Styles={showSearchFiltersV2}
+                                            $isShowNavBarRedesign={isShowNavBarRedesign}
+                                        >
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>
                                                     <Typography.Text>
@@ -220,7 +295,10 @@ export const SearchResults = ({
                                                     </Typography.Text>
                                                 </LeftControlsContainer>
                                                 <SearchMenuContainer>
-                                                    <SearchSortSelect />
+                                                    <SearchSortSelect
+                                                        selectedSortOption={selectedSortOption}
+                                                        setSelectedSortOption={setSelectedSortOption}
+                                                    />
                                                     <SearchMenuItems
                                                         downloadSearchResults={downloadSearchResults}
                                                         filters={generateOrFilters(unionType, selectedFilters)}
@@ -229,6 +307,32 @@ export const SearchResults = ({
                                                         setShowSelectMode={setIsSelectMode}
                                                         totalResults={totalResults}
                                                     />
+                                                    <CustomSwitch>
+                                                        <IconContainer
+                                                            isActive={isFullViewCard}
+                                                            onClick={() => setIsFullViewCard(true)}
+                                                        >
+                                                            <Tooltip showArrow={false} title="Full Card View">
+                                                                <ViewDayOutlinedIcon
+                                                                    style={{
+                                                                        fontSize: '16px',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        </IconContainer>
+                                                        <IconContainer
+                                                            isActive={!isFullViewCard}
+                                                            onClick={() => setIsFullViewCard(false)}
+                                                        >
+                                                            <Tooltip showArrow={false} title="Compact Card View">
+                                                                <ViewHeadlineOutlinedIcon
+                                                                    style={{
+                                                                        fontSize: '16px',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        </IconContainer>
+                                                    </CustomSwitch>
                                                 </SearchMenuContainer>
                                             </PaginationInfoContainer>
                                             {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
@@ -244,10 +348,14 @@ export const SearchResults = ({
                                                             selectedEntities.length > 0 &&
                                                             isListSubset(searchResultUrns, selectedEntityUrns)
                                                         }
+                                                        totalResults={totalResults}
                                                         selectedEntities={selectedEntities}
+                                                        setSelectedEntities={setSelectedEntities}
                                                         onChangeSelectAll={onChangeSelectAll}
                                                         onCancel={() => setIsSelectMode(false)}
                                                         refetch={refetch}
+                                                        areAllEntitiesSelected={areAllEntitiesSelected}
+                                                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                                     />
                                                 </StyledTabToolbar>
                                             )}
@@ -262,6 +370,10 @@ export const SearchResults = ({
                                                 selectedEntities={selectedEntities}
                                                 setSelectedEntities={setSelectedEntities}
                                                 suggestions={suggestions}
+                                                pageNumber={page}
+                                                previewType={previewType}
+                                                onCardClick={onCardClick}
+                                                setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                             />
                                             {totalResults > 0 && (
                                                 <PaginationControlContainer id="search-pagination">
@@ -270,25 +382,26 @@ export const SearchResults = ({
                                                         pageSize={numResultsPerPage}
                                                         total={totalResults}
                                                         showLessItems
-                                                        onChange={onChangePage}
+                                                        onChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                         onShowSizeChange={(_currNum, newNum) =>
                                                             setNumResultsPerPage(newNum)
                                                         }
-                                                        pageSizeOptions={['10', '20', '50', '100']}
+                                                        pageSizeOptions={['10', '20', '30']}
                                                     />
                                                 </PaginationControlContainer>
                                             )}
                                         </SearchResultListContainer>
                                         <SearchEntitySidebarContainer
+                                            height={resultsHeight}
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
                                                 highlightedIndex !== null &&
                                                 combinedSiblingSearchResults?.length > highlightedIndex
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex].entity
+                                                          urn: combinedSiblingSearchResults[highlightedIndex]?.entity
                                                               .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex].entity
+                                                          type: combinedSiblingSearchResults[highlightedIndex]?.entity
                                                               .type,
                                                       }
                                                     : null

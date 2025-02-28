@@ -5,22 +5,29 @@ import { Table, Typography } from 'antd';
 import { EntityType, SchemaField } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { CompactFieldIconWithTooltip } from '../../../sharedV2/icons/CompactFieldIcon';
-import { ANTD_GRAY } from '../../shared/constants';
+import { REDESIGN_COLORS } from '../../shared/constants';
 
 const MAX_ROWS = 5;
 
 const TableContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     .ant-table-thead > tr > th {
         background-color: transparent;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 14px;
+        color: ${REDESIGN_COLORS.SUBTITLE};
     }
     && .ant-table-tbody > tr > td {
-        padding: 4px;
+        padding: 8px 5px;
+        border-bottom: none;
+        border-right: 1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
     }
 `;
 
 const SeeMoreLink = styled(Link)`
-    color: ${ANTD_GRAY[10]};
+    color: ${REDESIGN_COLORS.SUBTITLE};
     font-size: 12px;
     font-weight: 600;
 `;
@@ -80,21 +87,22 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
 }
 
 const TypeWrapper = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${REDESIGN_COLORS.SUBTITLE};
     margin-right: 4px;
     width: 11px;
 `;
 
 const FieldPathText = styled(Typography.Text)`
     font-size: 12px;
-    font-family: 'Roboto Mono', monospace;
     font-weight: 500;
+    color: ${REDESIGN_COLORS.SUBTITLE};
 `;
 
 const Description = styled(Typography.Text)`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: ${REDESIGN_COLORS.SUBTITLE};
 `;
 
 function nameRender(fieldPath: string, row: SchemaField) {

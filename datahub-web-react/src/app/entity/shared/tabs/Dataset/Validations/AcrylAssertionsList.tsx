@@ -5,14 +5,16 @@ import { AcrylAssertionsTable } from './AcrylAssertionsTable';
 type Props = {
     assertions: Array<Assertion>;
     contract?: DataContract;
+    // required for enabling menu/actions
     showMenu?: boolean;
-    showSelect?: boolean;
-    selectedUrns?: string[];
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
+    refetch?: () => void;
+    // required for enabling selection logic
+    showSelect?: boolean;
+    selectedUrns?: string[];
     onSelect?: (assertionUrn: string) => void;
-    refetch: () => void;
 };
 
 /**

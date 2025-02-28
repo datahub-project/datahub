@@ -82,7 +82,10 @@ export const AssertionProfileHeader = ({
                 </ActionsWrapper>
             </NavBar>
             <Container>
-                <Title>{(assertion && <AssertionDescription assertion={assertion} />) || 'Assertion details'}</Title>
+                <Title>
+                    {(assertion && <AssertionDescription assertion={assertion} monitor={monitor} />) ||
+                        'Assertion details'}
+                </Title>
                 <Status>
                     <AssertionResultPill result={result} />
                 </Status>

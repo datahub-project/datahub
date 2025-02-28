@@ -1,8 +1,10 @@
+import { useAppConfig } from '@src/app/useAppConfig';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { getDataForEntityType } from './utils';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { GenericEntityProperties } from '../../types';
+import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
+import { GenericEntityProperties } from '../../../../entity/shared/types';
 import { EntityType, Exact } from '../../../../../types.generated';
+import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
 
 interface Props<T> {
     urn: string;
@@ -20,10 +22,11 @@ interface Props<T> {
             urn: string;
         }>
     >;
-    getOverrideProperties: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T) => GenericEntityProperties;
 }
 
 export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuery, getOverrideProperties }: Props<T>) {
+    const flags = useAppConfig().config.featureFlags;
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const {
         loading,
@@ -47,6 +50,7 @@ export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuer
                 entityType,
                 getOverrideProperties,
                 isHideSiblingMode,
+                flags,
             })) ||
         null;
 

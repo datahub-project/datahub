@@ -1,9 +1,9 @@
 import { LinkOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import { useEntityData } from '../../../../EntityContext';
-import { SidebarHeader } from '../SidebarHeader';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { StyledLink } from '../LinkButton';
+import { SidebarSection } from '../SidebarSection';
 
 export default function SourceRefSection() {
     const { entityData } = useEntityData();
@@ -15,17 +15,23 @@ export default function SourceRefSection() {
 
     return (
         <>
-            <SidebarHeader title="Source" />
-            <Typography.Paragraph>
-                {sourceUrl ? (
-                    <StyledLink type="link" href={sourceUrl} target="_blank" rel="noreferrer">
-                        <LinkOutlined />
-                        {sourceRef}
-                    </StyledLink>
-                ) : (
-                    <span>{sourceRef}</span>
-                )}
-            </Typography.Paragraph>
+            <SidebarSection
+                title="Source"
+                content={
+                    <>
+                        <Typography.Paragraph>
+                            {sourceUrl ? (
+                                <StyledLink type="link" href={sourceUrl} target="_blank" rel="noreferrer">
+                                    <LinkOutlined />
+                                    {sourceRef}
+                                </StyledLink>
+                            ) : (
+                                <span>{sourceRef}</span>
+                            )}
+                        </Typography.Paragraph>
+                    </>
+                }
+            />
         </>
     );
 }

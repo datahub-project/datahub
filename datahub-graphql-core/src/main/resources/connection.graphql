@@ -7,6 +7,12 @@ extend type Query {
   Returns null if a connection with the provided urn does not exist.
   """
   connection(urn: String!): DataHubConnection
+
+  """
+  Get an execution request relating to a notification connection test.
+  urn: The primary key associated with the execution request.
+  """
+  getNotificationConnectionTestResult(urn: String!): ExecutionRequestResult
 }
 
 extend type Mutation {
@@ -15,6 +21,26 @@ extend type Mutation {
   This requires the 'Manage Connections' platform privilege.
   """
   upsertConnection(input: UpsertDataHubConnectionInput!): DataHubConnection!
+
+  """
+  Update (patch) a particular connection.
+  This requires the 'Manage Connections' platform privilege.
+  """
+  updateConnection(input: UpdateDataHubConnectionInput!): DataHubConnection!
+
+  """
+  Test a particular connection used to send notifications.
+  No platform privileges required - since anyone can subscribe to things,
+  they must be able to test the connection to make sure it works.
+  Returns the urn of the created execution request.
+  """
+  createNotificationConnectionTest(input: NotificationConnectionTestRequestInput!): String
+
+  """
+  Delete an existing connection
+  This requires the 'Manage Connections' platform privilege.
+  """
+  deleteConnection(input: DeleteDataHubConnectionInput!): Boolean!
 }
 
 """
@@ -61,6 +87,11 @@ type DataHubConnectionDetails {
   A JSON-encoded connection. Present when type is JSON.
   """
   json: DataHubJsonConnection
+
+  """
+  The name for this DataHub connection
+  """
+  name: String
 }
 
 """
@@ -107,6 +138,11 @@ input UpsertDataHubConnectionInput {
   A JSON-encoded connection. This must be present when type is JSON.
   """
   json: DataHubJsonConnectionInput
+
+  """
+  An optional name for this connection entity
+  """
+  name: String
 }
 
 """
@@ -118,3 +154,64 @@ input DataHubJsonConnectionInput {
   """
   blob: String!
 }
+
+"""
+Input required to update a DataHub connection.
+"""
+input UpdateDataHubConnectionInput {
+  """
+  The urn of the Connection entity you want to update
+  """
+  urn: String!
+
+  """
+  The type or format of connection
+  """
+  type: DataHubConnectionDetailsType
+
+  """
+  Urn of the associated platform
+  """
+  platformUrn: String
+
+  """
+  A JSON-encoded connection. This must be present when type is JSON.
+  """
+  json: DataHubJsonConnectionInput
+
+  """
+  An optional name for this connection entity
+  """
+  name: String
+}
+
+"""
+Input required to test a DataHubConnection that corresponds to a notification.
+"""
+input NotificationConnectionTestRequestInput {
+  """
+  The urn of the Connection entity you want to test
+  """
+  urn: String!
+
+  """
+  Required to test if this is a slack connection
+  """
+  slack: SlackNotificationSettingsInput
+}
+
+"""
+Input required to delete a DataHub connection.
+"""
+input DeleteDataHubConnectionInput {
+  """
+  The urn of the Connection entity you want to delete
+  """
+  urn: String!
+
+  """
+  Whether we should hard delete the entity. Default is false, so a soft delete is performed.
+  """
+  hardDelete: Boolean
+}
+

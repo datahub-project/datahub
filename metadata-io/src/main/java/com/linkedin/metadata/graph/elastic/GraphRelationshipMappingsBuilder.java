@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.aspect.models.graph.Edge.*;
+
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,12 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class GraphRelationshipMappingsBuilder {
-  public static final String EDGE_FIELD_SOURCE = "source";
-  public static final String EDGE_FIELD_DESTINATION = "destination";
-  public static final String EDGE_FIELD_RELNSHIP_TYPE = "relationshipType";
-  public static final String EDGE_FIELD_PROPERTIES = "properties";
-  public static final String EDGE_FIELD_VIA = "via";
-  public static final String EDGE_FIELD_LIFECYCLE_OWNER = "lifecycleOwner";
 
   private GraphRelationshipMappingsBuilder() {}
 
@@ -24,11 +20,17 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put(EDGE_FIELD_PROPERTIES, getMappingsForEdgeProperties());
     mappings.put(EDGE_FIELD_LIFECYCLE_OWNER, getMappingsForKeyword());
     mappings.put(EDGE_FIELD_VIA, getMappingsForKeyword());
+    mappings.put(EDGE_FIELD_LIFECYCLE_OWNER_STATUS, getMappingsForBoolean());
+    mappings.put(EDGE_FIELD_VIA_STATUS, getMappingsForBoolean());
     return ImmutableMap.of("properties", mappings);
   }
 
   private static Map<String, Object> getMappingsForKeyword() {
     return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
+  }
+
+  private static Map<String, Object> getMappingsForBoolean() {
+    return ImmutableMap.<String, Object>builder().put("type", "boolean").build();
   }
 
   private static Map<String, Object> getMappingsForEntity() {
@@ -37,6 +39,7 @@ public class GraphRelationshipMappingsBuilder {
         ImmutableMap.<String, Object>builder()
             .put("urn", getMappingsForKeyword())
             .put("entityType", getMappingsForKeyword())
+            .put("removed", getMappingsForBoolean())
             .build();
 
     return ImmutableMap.of("properties", mappings);

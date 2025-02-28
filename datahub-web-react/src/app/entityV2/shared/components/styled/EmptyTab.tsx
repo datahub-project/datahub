@@ -2,10 +2,11 @@ import React from 'react';
 import styled from 'styled-components';
 import { Empty, Typography } from 'antd';
 import { EMPTY_MESSAGES } from '../../constants';
+import NoDocs from '../../../../../images/no-docs.svg';
 
-const StyledEmpty = styled(Empty)<{ hideImage?: boolean }>`
+const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
     padding: 40px;
-    ${({ hideImage }) => hideImage && '.ant-empty-image { height: 0; margin: 0; }'}
+    ${({ $hideImage }) => ($hideImage ? '.ant-empty-image { margin: 0; }' : '.ant-empty-image { height: 86px; }')}
 
     .ant-empty-footer {
         .ant-btn:not(:last-child) {
@@ -38,7 +39,8 @@ export const EmptyTab = ({ tab, hideImage, children }: Props) => {
                     <Typography.Text type="secondary">{EMPTY_MESSAGES[tab]?.description}</Typography.Text>
                 </EmptyDescription>
             }
-            hideImage={hideImage}
+            $hideImage={hideImage}
+            image={NoDocs}
         >
             {children}
         </StyledEmpty>

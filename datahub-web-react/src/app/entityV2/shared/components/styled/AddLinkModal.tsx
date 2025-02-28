@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
+import styled from 'styled-components/macro';
 import { PlusOutlined } from '@ant-design/icons';
-import { useEntityData, useMutationUrn } from '../../EntityContext';
+import { useEntityData, useMutationUrn } from '../../../../entity/shared/EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
+import { REDESIGN_COLORS } from '../../constants';
+
+const TransparentButton = styled(Button)`
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-size: 12px;
+    box-shadow: none;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
     refetch?: () => Promise<any>;
+    buttonType?: string;
 };
 
-export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
+export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const mutationUrn = useMutationUrn();
     const user = useUserContext();
@@ -57,9 +73,21 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
 
     return (
         <>
-            <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
-                Add Link
-            </Button>
+            {buttonType === 'transparent' ? (
+                <TransparentButton
+                    data-testid="add-link-button"
+                    size="large"
+                    icon={<PlusOutlined />}
+                    onClick={showModal}
+                    {...buttonProps}
+                >
+                    Add Link
+                </TransparentButton>
+            ) : (
+                <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
+                    Add Link
+                </Button>
+            )}
             <Modal
                 title="Add Link"
                 visible={isModalVisible}

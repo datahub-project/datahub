@@ -1,4 +1,6 @@
 /* eslint-disable import/no-cycle */
+import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
+import { FacetFilterInput } from '@src/types.generated';
 import React, { useEffect, useRef, useState } from 'react';
 import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
 import TextValueMenu from './TextValueMenu';
@@ -6,6 +8,8 @@ import BooleanValueMenu from './BooleanValueMenu';
 import EntityValueMenu from './EntityValueMenu';
 import EntityTypeMenu from './EntityTypeMenu';
 import EnumValueMenu from './EnumValueMenu';
+import DateRangeMenu from './DateRangeMenu';
+import { getIsDateRangeFilter } from '../utils';
 
 interface Props {
     field: FilterField;
@@ -15,12 +19,33 @@ interface Props {
     type?: 'card' | 'default';
     visible: boolean;
     includeCount?: boolean;
-    alignRight?: boolean;
+    className?: string;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
-export default function ValueMenu({ field, values, defaultOptions, type = 'card', onChangeValues, visible, includeCount, alignRight }: Props) {
+export default function ValueMenu({
+    field,
+    values,
+    defaultOptions,
+    type = 'card',
+    onChangeValues,
+    visible,
+    includeCount,
+    className,
+    manuallyUpdateFilters,
+}: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
+    const isDateRangeFilter = getIsDateRangeFilter(field);
+
+    /**
+     * Synchronize stagedSelectedValues with the values prop
+     * NOTE: Callback with useState not feasible due to its initialization behavior.
+     */
+    useEffect(() => {
+        setStagedSelectedValues(values);
+    }, [values]);
+
     /**
      * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing
      * to make the UI feel more responsive.
@@ -29,10 +54,14 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
         const previouslyVisible = visibilityRef.current;
         visibilityRef.current = visible;
 
-        if (!visible && previouslyVisible !== visible) {
+        if (!visible && previouslyVisible !== visible && !isDateRangeFilter) {
             onChangeValues(stagedSelectedValues);
         }
-    }, [visible, stagedSelectedValues, onChangeValues]);
+    }, [visible, stagedSelectedValues, onChangeValues, isDateRangeFilter]);
+
+    if (isDateRangeFilter && manuallyUpdateFilters) {
+        return <DateRangeMenu field={field} manuallyUpdateFilters={manuallyUpdateFilters} />;
+    }
 
     switch (field.type) {
         case FieldType.TEXT:
@@ -50,7 +79,7 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
                     field={field}
                     values={stagedSelectedValues}
                     type={type}
-                    alignRight={alignRight}
+                    className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -63,7 +92,7 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -76,7 +105,7 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -89,10 +118,9 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
-                    includeSubTypes={false}
                 />
             );
         case FieldType.ENUM:
@@ -103,7 +131,18 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    className={className}
+                    onChangeValues={setStagedSelectedValues}
+                    onApply={() => onChangeValues(stagedSelectedValues)}
+                />
+            );
+        case FieldType.BUCKETED_TIMESTAMP:
+            return (
+                <TimeBucketMenu
+                    field={field}
+                    values={stagedSelectedValues}
+                    type={type}
+                    className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -111,7 +150,7 @@ export default function ValueMenu({ field, values, defaultOptions, type = 'card'
         case FieldType.BROWSE_PATH:
             return <></>;
         default:
-            console.error(`Unknown field type: ${field.type}`);
+            console.error(`Unknown field type: ${field}`);
             return null;
     }
 }

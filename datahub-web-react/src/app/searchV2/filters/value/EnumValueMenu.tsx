@@ -5,6 +5,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import OptionsDropdownMenu from '../OptionsDropdownMenu';
 import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
 import { OptionMenu } from './styledComponents';
+import { getFilterDisplayName, useFilterDisplayName } from '../utils';
 
 interface Props {
     field: FilterField;
@@ -14,21 +15,21 @@ interface Props {
     onApply: () => void;
     type?: 'card' | 'default';
     includeCount?: boolean;
-    alignRight?: boolean;
+    className?: string;
 }
 
 export default function EnumValueMenu({
     field,
     values,
-    includeCount= false,
-    alignRight,
+    includeCount = false,
     defaultOptions,
     type = 'card',
     onChangeValues,
     onApply,
+    className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { displayName } = field;
+    const displayName = useFilterDisplayName(field);
 
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
@@ -50,6 +51,7 @@ export default function EnumValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
+                displayName: getFilterDisplayName(option, field),
             },
             entityRegistry,
             selectedFilterOptions: values.map((value) => {
@@ -73,7 +75,7 @@ export default function EnumValueMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             type={type}
-            alignRight={alignRight}
+            className={className}
         />
     );
 }

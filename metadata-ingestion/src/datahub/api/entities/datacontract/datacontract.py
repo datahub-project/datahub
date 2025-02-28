@@ -179,14 +179,16 @@ class DataContract(v1_ConfigModel):
             aspects=[
                 DataContractPropertiesClass(
                     entity=self.entity,
-                    schema=[SchemaContractClass(assertion=schema_assertion_urn)]
-                    if schema_assertion_urn
-                    else None,
-                    freshness=[
-                        FreshnessContractClass(assertion=freshness_assertion_urn)
-                    ]
-                    if freshness_assertion_urn
-                    else None,
+                    schema=(
+                        [SchemaContractClass(assertion=schema_assertion_urn)]
+                        if schema_assertion_urn
+                        else None
+                    ),
+                    freshness=(
+                        [FreshnessContractClass(assertion=freshness_assertion_urn)]
+                        if freshness_assertion_urn
+                        else None
+                    ),
                     dataQuality=[
                         DataQualityContractClass(assertion=dq_assertion_urn)
                         for dq_assertion_urn in dq_assertions
@@ -195,9 +197,11 @@ class DataContract(v1_ConfigModel):
                 # Also emit status.
                 StatusClass(removed=False),
                 # Emit the contract state as PENDING.
-                DataContractStatusClass(state=DataContractStateClass.PENDING)
-                if True
-                else None,
+                (
+                    DataContractStatusClass(state=DataContractStateClass.PENDING)
+                    if True
+                    else None
+                ),
             ],
         )
 

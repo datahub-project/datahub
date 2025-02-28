@@ -2,6 +2,8 @@ plugins {
     id 'java'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
     implementation project(':metadata-service:factories')
     implementation project(':metadata-service:schema-registry-api')
@@ -27,6 +29,7 @@ dependencies {
 
     testImplementation externalDependency.springBootTest
     testImplementation project(':mock-entity-registry')
+    testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBoot
     testImplementation externalDependency.testContainers
     testImplementation externalDependency.testContainersKafka

@@ -23,7 +23,7 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
     SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
-    SchemaMetadataClass as SchemaMetadata,
+    SchemaMetadataClass,
     StringTypeClass,
     UnionTypeClass,
 )
@@ -131,9 +131,9 @@ class FieldPath:
             for i, schema_type in enumerate(p.schema_types):
                 if schema_type == schema_str:
                     # return the corresponding type for the schema that's a match
-                    assert (
-                        len(p.type) > i
-                    ), f"p.type({len(p.type)})) and p.schema_types({len(p.schema_types)}) should have the same length"
+                    assert len(p.type) > i, (
+                        f"p.type({len(p.type)})) and p.schema_types({len(p.schema_types)}) should have the same length"
+                    )
                     return p.type[i]
         return None
 
@@ -417,15 +417,35 @@ class JsonSchemaTranslator:
                     inner_field_path,
                 )
         elif datahub_field_type == ArrayTypeClass:
-            field_path = field_path.expand_type("array", schema)
-            # default items schema is string
+            field_path = field_path.expand_type(discriminated_type, schema)
+            yield SchemaField(
+                fieldPath=field_path.as_string(),
+                type=type_override or SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                nativeDataType=native_type_override
+                or JsonSchemaTranslator._get_discriminated_type_from_schema(schema),
+                description=JsonSchemaTranslator._get_description_from_any_schema(
+                    schema
+                ),
+                nullable=nullable,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required=required
+                ),
+                isPartOfKey=field_path.is_key_schema,
+            )
+
             items_schema = schema.get("items", {"type": "string"})
             items_type = JsonSchemaTranslator._get_type_from_schema(items_schema)
-            field_path._set_parent_type_if_not_exists(
-                DataHubType(type=ArrayTypeClass, nested_type=items_type)
+            field_name = items_schema.get("title", None)
+            if not field_name:
+                field_name = items_type
+            inner_field_path = field_path.clone_plus(
+                FieldElement(type=[], name=field_name, schema_types=[])
             )
             yield from JsonSchemaTranslator.get_fields(
-                items_type, items_schema, required=False, base_field_path=field_path
+                items_type,
+                items_schema,
+                required=False,
+                base_field_path=inner_field_path,
             )
 
         elif datahub_field_type == MapTypeClass:
@@ -609,7 +629,7 @@ class JsonSchemaTranslator:
                     logger.error(
                         "Failed to get fields from schema, continuing...", exc_info=e
                     )
-                    return []
+                    return
                 else:
                     raise
             json_type = cls._get_type_from_schema(jsonref_schema_dict)
@@ -645,13 +665,13 @@ def get_schema_metadata(
     name: str,
     json_schema: Dict[Any, Any],
     raw_schema_string: Optional[str] = None,
-) -> SchemaMetadata:
+) -> SchemaMetadataClass:
     json_schema_as_string = raw_schema_string or json.dumps(json_schema)
     md5_hash: str = md5(json_schema_as_string.encode()).hexdigest()
 
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(json_schema))
 
-    schema_metadata = SchemaMetadata(
+    schema_metadata = SchemaMetadataClass(
         schemaName=name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,

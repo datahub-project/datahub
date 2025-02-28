@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Modal, message } from 'antd';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import SetDataProductModal from './SetDataProductModal';
 import { DataProductLink } from '../../../../../../sharedV2/tags/DataProductLink';
@@ -30,7 +30,8 @@ export default function DataProductSection({ readOnly }: Props) {
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
     const dataProductRelationships = entityData?.dataProduct?.relationships;
-    const siblingUrns: string[] = entityData?.siblings?.siblings?.map((sibling) => sibling?.urn || '') || [];
+    const siblingUrns: string[] =
+        entityData?.siblingsSearch?.searchResults?.map((sibling) => sibling.entity.urn || '') || [];
 
     const canEditDataProducts = !!entityData?.privileges?.canEditDataProducts;
 

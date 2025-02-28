@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,6 +18,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -51,17 +51,18 @@ public class UpdateMonitorStatusResolver implements DataFetcher<CompletableFutur
           if (isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
 
             // Ensure that the entity exists.
-            validateEntity(entityUrn, context.getAuthentication());
+            validateEntity(context.getOperationContext(), entityUrn);
 
             try {
               // Update provided monitor's state.
               _monitorService.upsertMonitorMode(
+                  context.getOperationContext(),
                   monitorUrn,
-                  MonitorMode.valueOf(input.getMode().toString()),
-                  context.getAuthentication());
+                  MonitorMode.valueOf(input.getMode().toString()));
               return MonitorMapper.map(
+                  context,
                   _monitorService.getMonitorEntityResponse(
-                      monitorUrn, context.getAuthentication()));
+                      context.getOperationContext(), monitorUrn));
             } catch (Exception e) {
               log.error("Failed to update System Monitors!", e);
               throw new DataHubGraphQLException(
@@ -75,10 +76,9 @@ public class UpdateMonitorStatusResolver implements DataFetcher<CompletableFutur
   }
 
   /** Verifies that an entity exists, else throws a {@link DataHubGraphQLException}. */
-  private void validateEntity(
-      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) {
+  private void validateEntity(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     try {
-      if (!this._entityClient.exists(entityUrn, authentication)) {
+      if (!this._entityClient.exists(opContext, entityUrn)) {
         throw new DataHubGraphQLException(
             String.format(
                 "Failed to edit Monitor. %s with urn %s does not exist.",

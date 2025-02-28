@@ -14,10 +14,18 @@ export default function LookbackWindowSelect({ lookbackWindow, setLookbackWindow
         setLookbackWindow(newLookbackWindow[0]);
     };
 
+    /**
+     * Note:
+     * The 'HOUR' option is currently filtered out as it was causing issues (white screen problem).
+     * Additionally, the 'HOUR' option is not utilized in the historical stats view.
+     * It can be added back when needed in the future.
+     */
+    const filteredLookbackWindows = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text !== '1 hour');
+
     return (
         <PrefixedSelect
             prefixText="Profiling history for past "
-            values={Object.values(LOOKBACK_WINDOWS).map((window) => window.text)}
+            values={filteredLookbackWindows.map((window) => window.text)}
             value={lookbackWindow.text}
             setValue={onChangeLookbackWindow}
         />

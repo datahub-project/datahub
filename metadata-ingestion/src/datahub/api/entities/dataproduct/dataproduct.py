@@ -20,6 +20,8 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     OwnerClass,
@@ -74,6 +76,15 @@ class Ownership(ConfigModel):
         return v
 
 
+class InstitutionMemoryElement(ConfigModel):
+    url: str
+    description: str
+
+
+class InstitutionMemory(ConfigModel):
+    elements: Optional[List[InstitutionMemoryElement]] = None
+
+
 class DataProduct(ConfigModel):
     """This is a DataProduct class which represents a DataProduct
 
@@ -81,6 +92,7 @@ class DataProduct(ConfigModel):
         id (str): The id of the Data Product
         domain (str): The domain that the Data Product belongs to. Either as a name or a fully-qualified urn.
         owners (Optional[List[str, Ownership]]): A list of owners and their types.
+        institutional_memory (Optional[InstitutionMemory]): A list of institutional memory elements
         display_name (Optional[str]): The name of the Data Product to display in the UI
         description (Optional[str]): A documentation string for the Data Product
         tags (Optional[List[str]]): An array of tags (either bare ids or urns) for the Data Product
@@ -94,6 +106,7 @@ class DataProduct(ConfigModel):
     assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
+    institutional_memory: Optional[InstitutionMemory] = None
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
@@ -105,7 +118,7 @@ class DataProduct(ConfigModel):
     @pydantic.validator("assets", each_item=True)
     def assets_must_be_urns(cls, v: str) -> str:
         try:
-            Urn.create_from_string(v)
+            Urn.from_string(v)
         except Exception as e:
             raise ValueError(f"asset {v} is not an urn: {e}") from e
 
@@ -274,6 +287,22 @@ class DataProduct(ConfigModel):
             )
             yield mcp
 
+        if self.institutional_memory and self.institutional_memory.elements:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=InstitutionalMemoryClass(
+                    elements=[
+                        InstitutionalMemoryMetadataClass(
+                            url=element.url,
+                            description=element.description,
+                            createStamp=self._mint_auditstamp("yaml"),
+                        )
+                        for element in self.institutional_memory.elements
+                    ]
+                ),
+            )
+            yield mcp
+
         # Finally emit status
         yield MetadataChangeProposalWrapper(
             entityUrn=self.urn, aspect=StatusClass(removed=False)
@@ -299,7 +328,7 @@ class DataProduct(ConfigModel):
         cls,
         file: Path,
         graph: DataHubGraph,
-    ) -> "DataProduct":
+    ) -> DataProduct:
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
@@ -314,10 +343,10 @@ class DataProduct(ConfigModel):
             return parsed_data_product
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
-        data_product_properties: Optional[
-            DataProductPropertiesClass
-        ] = graph.get_aspect(id, DataProductPropertiesClass)
+    def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
+        data_product_properties: Optional[DataProductPropertiesClass] = (
+            graph.get_aspect(id, DataProductPropertiesClass)
+        )
         domains: Optional[DomainsClass] = graph.get_aspect(id, DomainsClass)
         assert domains, "Data Product must have an associated domain. Found none."
         owners: Optional[OwnershipClass] = graph.get_aspect(id, OwnershipClass)
@@ -337,27 +366,31 @@ class DataProduct(ConfigModel):
         tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
         return DataProduct(
             id=id,
-            display_name=data_product_properties.name
-            if data_product_properties
-            else None,
+            display_name=(
+                data_product_properties.name if data_product_properties else None
+            ),
             domain=domains.domains[0],
-            description=data_product_properties.description
-            if data_product_properties
-            else None,
-            assets=[e.destinationUrn for e in data_product_properties.assets or []]
-            if data_product_properties
-            else None,
+            description=(
+                data_product_properties.description if data_product_properties else None
+            ),
+            assets=(
+                [e.destinationUrn for e in data_product_properties.assets or []]
+                if data_product_properties
+                else None
+            ),
             owners=yaml_owners,
-            terms=[term.urn for term in glossary_terms.terms]
-            if glossary_terms
-            else None,
+            terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            properties=data_product_properties.customProperties
-            if data_product_properties
-            else None,
-            external_url=data_product_properties.externalUrl
-            if data_product_properties
-            else None,
+            properties=(
+                data_product_properties.customProperties
+                if data_product_properties
+                else None
+            ),
+            external_url=(
+                data_product_properties.externalUrl if data_product_properties else None
+            ),
             output_ports=[
                 e.destinationUrn
                 for e in (data_product_properties.assets or [])
@@ -414,7 +447,7 @@ class DataProduct(ConfigModel):
                         patches_drop[i] = o
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
+        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
         if new_owners_to_add:
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]
@@ -435,7 +468,7 @@ class DataProduct(ConfigModel):
             for replace_index, replace_value in patches_replace.items():
                 list_to_manipulate[replace_index] = replace_value
 
-            for drop_index, drop_value in patches_drop.items():
+            for drop_value in patches_drop.values():
                 list_to_manipulate.remove(drop_value)
 
             for add_value in patches_add:

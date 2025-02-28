@@ -2,12 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import * as Muicon from '@mui/icons-material';
-// import { BookOutlined } from '@ant-design/icons';
 
 import { EntityType, GlossaryTerm } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { generateColor } from '../components/styled/StyledTag';
+import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
 
 const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     display: inline-flex;
@@ -51,8 +50,12 @@ const GlossaryTermTitleText = styled.span`
 
 export const GlossaryTermMiniPreview = ({ glossaryTerm }: { glossaryTerm: GlossaryTerm }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const url = entityRegistry.getEntityUrl(EntityType.GlossaryTerm, glossaryTerm?.urn as string);
-    const termColor = generateColor.hex(glossaryTerm?.urn || '');
+    const { parentNodes, urn } = glossaryTerm;
+    const url = entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn as string);
+    const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+    const termColor = lastParentNode
+        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
+        : generateColorFromPalette(urn);
     const MaterialIcon = Muicon.Book;
 
     return (

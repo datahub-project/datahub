@@ -12,11 +12,14 @@ const FilterPills = styled.div`
     margin-left: 20px;
     padding-right: 20px;
     gap: 8px;
-    overflow: auto;
+    flex-shrink: 0;
+    overflow-x: auto;
     /* Hide scrollbar for Chrome, Safari, and Opera */
+
     &::-webkit-scrollbar {
         display: none;
     }
+
     mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 95%, rgba(255, 0, 0, 0.5) 100%, rgba(255, 0, 0, 0) 100%);
 `;
 

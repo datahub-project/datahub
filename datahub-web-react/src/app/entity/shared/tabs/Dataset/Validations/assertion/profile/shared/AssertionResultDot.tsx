@@ -12,5 +12,9 @@ type Props = {
 // TODO: Add our beautiful new tooltip here.
 export const AssertionResultDot = ({ run, disabled, size = 14 }: Props) => {
     const icon = getResultDotIcon(run?.result?.type as AssertionResultType, size, disabled);
-    return <>{icon}</>;
+    return (
+        <div className="assertion-result-dot" data-assertion-resut-type={run?.result?.type}>
+            {icon}
+        </div>
+    );
 };

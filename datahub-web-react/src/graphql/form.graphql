@@ -1,7 +1,100 @@
+query getForm($urn: String!) {
+    form(urn: $urn) {
+        ...formFields
+    }
+}
 mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
     submitFormPrompt(urn: $urn, input: $input)
 }
 
+mutation batchSubmitFormPrompt($input: BatchSubmitFormPromptInput!) {
+    batchSubmitFormPrompt(input: $input)
+}
+
+mutation asyncBatchSubmitFormPrompt($input: AsyncBatchSubmitFormPromptInput!) {
+    asyncBatchSubmitFormPrompt(input: $input) {
+        taskUrn
+    }
+}
+
 mutation verifyForm($input: VerifyFormInput!) {
     verifyForm(input: $input)
+}
+
+mutation batchVerifyForm($input: BatchVerifyFormInput!) {
+    batchVerifyForm(input: $input)
+}
+
+mutation asyncBatchVerifyForm($input: AsyncBatchVerifyFormInput!) {
+    asyncBatchVerifyForm(input: $input) {
+        taskUrn
+    }
+}
+
+query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+}
+
+query searchForEntitiesByForm($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...searchResults
+    }
+}
+
+query searchForEntitiesByFormCount($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+    }
+}
+
+query getFormsForActor($input: GetFormsForActorInput) {
+    getFormsForActor(input: $input) {
+        formsForActor {
+            form {
+                urn
+                type
+                exists
+                info {
+                    name
+                    description
+                    type
+                    status {
+                        state
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+            }
+            numEntitiesToComplete
+        }
+    }
+}
+
+mutation createForm($input: CreateFormInput!) {
+    createForm(input: $input) {
+        ...formFields
+    }
+}
+
+mutation updateForm($input: UpdateFormInput!) {
+    updateForm(input: $input) {
+        ...formFields
+    }
+}
+
+mutation deleteForm($input: DeleteFormInput!) {
+    deleteForm(input: $input)
 }

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.TestResultType;
 import com.linkedin.datahub.graphql.generated.TestResults;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -38,11 +40,14 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
   @Override
   public CompletableFuture<TestResults> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    final Boolean includeSoftDeleted =
+        environment.getArgumentOrDefault("includeSoftDeleted", false);
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
     return CompletableFuture.supplyAsync(
         () -> {
-          final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
+          final com.linkedin.test.TestResults gmsTestResults =
+              getTestResults(entityUrn, includeSoftDeleted, context);
 
           if (gmsTestResults == null) {
             return null;
@@ -57,16 +62,25 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
 
   @Nullable
   private com.linkedin.test.TestResults getTestResults(
-      final Urn entityUrn, final QueryContext context) {
+      final Urn entityUrn, Boolean includeSoftDeleted, final QueryContext context) {
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
-              context.getAuthentication());
-      if (entityResponse.hasAspects()
-          && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME, Constants.STATUS_ASPECT_NAME));
+      if (entityResponse.hasAspects()) {
+        if (!entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+          return null;
+        }
+        final EnvelopedAspect status =
+            entityResponse.getAspects().getOrDefault(Constants.STATUS_ASPECT_NAME, null);
+        if (status != null
+            && new Status(status.getValue().data()).isRemoved()
+            && !includeSoftDeleted) {
+          return null;
+        }
         return new com.linkedin.test.TestResults(
             entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
       }
@@ -97,10 +111,10 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
     try {
       batchGetResponse =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.TEST_ENTITY_NAME,
               testUrns,
-              Collections.singleton(Constants.TEST_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.TEST_INFO_ASPECT_NAME));
     } catch (Exception e) {
       log.error("Error while fetching test info aspects for the given test results", e);
       return testUrns;

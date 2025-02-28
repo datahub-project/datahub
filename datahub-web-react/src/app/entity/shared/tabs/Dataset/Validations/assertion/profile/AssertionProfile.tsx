@@ -7,9 +7,8 @@ import { useGetAssertionWithMonitorsQuery } from '../../../../../../../../graphq
 import { AssertionProfileHeader } from './AssertionProfileHeader';
 import { AssertionTabs } from './AssertionTabs';
 import { AssertionProfileFooter } from './AssertionProfileFooter';
-import { isEditableAssertion } from './summary/shared/assertionUtils';
 import { AssertionProfileHeaderLoading } from './AssertionProfileHeaderLoading';
-import { isExternalAssertion } from './shared/isExternalAssertion';
+import { AssertionEditabilityScopeType, getAssertionEditabilityType } from './summary/shared/assertionUtils';
 
 enum TabType {
     Summary = 'Summary',
@@ -47,8 +46,6 @@ export const AssertionProfile = ({
     const assertion = data?.assertion as Assertion;
     const monitor = data?.assertion?.monitor?.relationships?.[0]?.entity as Monitor;
     const result = assertion?.runEvents?.runEvents[0]?.result;
-    const platformName = assertion?.platform?.properties?.displayName;
-    const isExternal = isExternalAssertion(assertion);
     const editAllowed = canEditMonitor && canEditAssertion;
 
     const fullRefetch = () => {
@@ -72,12 +69,12 @@ export const AssertionProfile = ({
                     entity={entity}
                     refetch={fullRefetch}
                     monitor={monitor}
-                    editable={(assertion && isEditableAssertion(assertion)) || false}
+                    editable={
+                        !!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE
+                    }
                     editAllowed={editAllowed}
                 />
             ),
-            disabled: isExternal,
-            tooltip: isExternal ? `Settings are not editable for ${platformName || 'external'} assertions` : undefined,
         },
     ];
 

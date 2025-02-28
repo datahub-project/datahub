@@ -58,7 +58,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
     return (
         <Modal
             title="Add Deprecation Details"
-            visible
+            open
             onCancel={handleClose}
             keyboard
             footer={
@@ -71,11 +71,11 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                     </Button>
                 </>
             }
-            width='40%'
+            width="40%"
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
                 <Form.Item name="note" label="Note" rules={[{ whitespace: true }]}>
-                    <StyledEditor/>
+                    <StyledEditor />
                 </Form.Item>
                 <Form.Item name="decommissionTime" label="Decommission Date">
                     <DatePicker style={{ width: '100%' }} />

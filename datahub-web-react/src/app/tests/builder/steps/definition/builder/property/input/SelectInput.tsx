@@ -1,5 +1,5 @@
+import { Select, Tag } from 'antd';
 import React from 'react';
-import { Select } from 'antd';
 import { SelectOption } from '../types/values';
 
 type Props = {
@@ -8,10 +8,21 @@ type Props = {
     mode?: 'multiple' | 'tags';
     placeholder?: string;
     style?: any;
+    tagStyle?: React.CSSProperties;
+    optionStyle?: React.CSSProperties;
     onChangeSelected: (newSelectedIds: string[] | undefined) => void;
 };
 
-export const SelectInput = ({ options, selected, mode, placeholder, style, onChangeSelected }: Props) => {
+export const SelectInput = ({
+    options,
+    selected,
+    mode,
+    placeholder,
+    style,
+    tagStyle,
+    optionStyle,
+    onChangeSelected,
+}: Props) => {
     const onSelect = (id) => {
         const newSelected = [...(selected || []), id];
         onChangeSelected(newSelected);
@@ -33,9 +44,16 @@ export const SelectInput = ({ options, selected, mode, placeholder, style, onCha
             placeholder={placeholder || 'Select values...'}
             onSelect={onSelect}
             onDeselect={onDeselect}
+            tagRender={(tagProps) => (
+                <Tag closable={tagProps.closable} onClose={tagProps.onClose} style={tagStyle}>
+                    {tagProps.label}
+                </Tag>
+            )}
         >
             {options.map((option) => (
-                <Select.Option value={option.id}>{option.displayName}</Select.Option>
+                <Select.Option value={option.id} style={optionStyle}>
+                    <span> {option.displayName}</span>
+                </Select.Option>
             ))}
         </Select>
     );

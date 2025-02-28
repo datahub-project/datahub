@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import {
     Container,
@@ -12,14 +13,17 @@ import {
     GlossaryTerms,
     DataProduct,
     EntityPath,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ContainerIcon from '../../shared/containers/profile/header/PlatformContent/ContainerIcon';
 import EntityCount from '../../shared/containers/profile/header/EntityCount';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
+    data,
     name,
     platformName,
     platformLogo,
@@ -41,8 +45,11 @@ export const Preview = ({
     paths,
     entityCount,
     isOutputPort,
+    headerDropdownItems,
+    browsePaths,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     platformName?: string;
     platformLogo?: string | null;
@@ -64,6 +71,8 @@ export const Preview = ({
     paths?: EntityPath[];
     entityCount?: number;
     isOutputPort?: boolean;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -71,6 +80,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}
             name={name || ''}
             urn={urn}
+            data={data}
             platform={platformName}
             platformInstanceId={platformInstanceId}
             description={description || ''}
@@ -85,7 +95,7 @@ export const Preview = ({
             typeIcon={<ContainerIcon container={container} />}
             domain={domain || undefined}
             dataProduct={dataProduct}
-            parentContainers={parentContainers}
+            parentEntities={parentContainers?.containers}
             tags={tags || undefined}
             glossaryTerms={glossaryTerms || undefined}
             externalUrl={externalUrl}
@@ -93,6 +103,8 @@ export const Preview = ({
             paths={paths}
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             isOutputPort={isOutputPort}
+            headerDropdownItems={headerDropdownItems}
+            browsePaths={browsePaths}
         />
     );
 };

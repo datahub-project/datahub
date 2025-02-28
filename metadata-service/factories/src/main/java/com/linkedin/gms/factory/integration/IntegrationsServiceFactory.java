@@ -5,18 +5,14 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
 import com.linkedin.metadata.integration.IntegrationsService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({SystemAuthenticationFactory.class})
 public class IntegrationsServiceFactory {
 
@@ -27,7 +23,6 @@ public class IntegrationsServiceFactory {
   private Authentication _authentication;
 
   @Bean(name = "integrationsService")
-  @Scope("singleton")
   @Nonnull
   protected IntegrationsService getInstance() throws Exception {
     final IntegrationsServiceConfiguration config = _configProvider.getIntegrationsService();

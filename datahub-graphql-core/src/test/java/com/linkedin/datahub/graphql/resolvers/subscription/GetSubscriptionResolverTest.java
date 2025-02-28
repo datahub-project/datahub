@@ -6,12 +6,13 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionResult;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,7 +44,8 @@ public class GetSubscriptionResolverTest {
 
   @Test
   public void testGetSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
+    when(_subscriptionService.getSubscription(
+            any(OperationContext.class), eq(ENTITY_URN_1), eq(USER_URN)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -51,7 +53,8 @@ public class GetSubscriptionResolverTest {
 
   @Test
   public void testGetSubscription() throws Exception {
-    when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
+    when(_subscriptionService.getSubscription(
+            any(OperationContext.class), eq(ENTITY_URN_1), eq(USER_URN)))
         .thenReturn(Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
 
     final GetSubscriptionResult result = _resolver.get(_dataFetchingEnvironment).join();

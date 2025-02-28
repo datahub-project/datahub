@@ -14,7 +14,7 @@ const StyledProgress = styled(Progress)`
     }
 
     .ant-progress-bg {
-        height: 4px !important;
+        height: 6px !important;
     }
 `;
 

@@ -1,5 +1,4 @@
 ---
-version: '3.8'
 services:
   connect:
     image: confluentinc/cp-kafka-connect:7.4.0
@@ -22,21 +21,30 @@ services:
       - bash
       - -c
       - |
-        echo "Installing Connector"
+        echo "Install confluent CLI"
+        # https://docs.confluent.io/confluent-cli/current/install.html#tarball-or-zip-installation
+        wget https://packages.confluent.io/confluent-cli/archives/4.16.0/confluent_linux_amd64.tar.gz
+        mkdir -p /tmp/confluent-cli
+        tar -xvf confluent_linux_amd64.tar.gz -C /tmp/confluent-cli
+        export PATH=/tmp/confluent-cli/confluent:$PATH
+        echo "Done!"
+        echo "Installing Connectors"
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5      
+        confluent connect plugin install --force confluentinc/kafka-connect-jdbc:10.2.5      
         #
-        confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
+        confluent connect plugin install --force confluentinc/connect-transforms:1.4.1
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
+        confluent connect plugin install --force confluentinc/kafka-connect-datagen:0.6.0
         #
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
+        confluent connect plugin install --force debezium/debezium-connector-mysql:1.7.0
         #
-        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        confluent connect plugin install --force wepay/kafka-connect-bigquery:1.6.8
         #
-        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        confluent connect plugin install --force mongodb/kafka-connect-mongodb:1.10.1
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
+        confluent connect plugin install --force confluentinc/kafka-connect-s3:10.5.1
+        #
+        mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
         #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \

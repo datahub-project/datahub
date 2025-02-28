@@ -1,5 +1,6 @@
 import React from 'react';
-import { Tag, Tooltip, Typography } from 'antd';
+import { Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Maybe, Ownership } from '../../types.generated';

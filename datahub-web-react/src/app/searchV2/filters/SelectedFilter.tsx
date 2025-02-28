@@ -1,19 +1,22 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Button, DatePicker } from 'antd';
+import moment from 'moment';
 import React from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import OperatorSelector from './OperatorSelector';
 import { operatorRequiresValues } from './operator/operator';
 import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
 import ValueSelector from './value/ValueSelector';
 import ValueName from './value/ValueName';
+import { getIsDateRangeFilter, useFilterDisplayName } from './utils';
 
 const Values = styled.div`
     border: 1.5px solid transparent;
     border-radius: 6px;
     padding: 2px;
+
     :hover {
         cursor: pointer;
         border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
@@ -24,7 +27,7 @@ const Values = styled.div`
 
 const Value = styled.span``;
 
-const Container = styled.div`
+const Container = styled.div<{ $isCompact?: boolean }>`
     border-radius: 4px;
     padding: 4px 10px;
     display: flex;
@@ -33,6 +36,13 @@ const Container = styled.div`
     font-size: 14px;
     margin-right: 8px;
     background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+
+    ${(props) =>
+        props.$isCompact &&
+        `
+        font-size: 12px;
+        padding: 0 6px;
+    `}
 `;
 
 const Icon = styled.div`
@@ -61,6 +71,7 @@ interface SelectedFilterProps {
     onChangeOperator: (operator: FilterOperatorType) => void;
     onChangeValues: (newValues: FilterValue[]) => void;
     onRemoveFilter: () => void;
+    isCompact?: boolean;
 }
 
 export default function SelectedFilter({
@@ -68,21 +79,38 @@ export default function SelectedFilter({
     onChangeOperator,
     onChangeValues,
     onRemoveFilter,
+    isCompact,
 }: SelectedFilterProps) {
+    moment.tz.setDefault('GMT');
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
+    const displayName = useFilterDisplayName(predicate.field);
+    const isDateRangeFilter = getIsDateRangeFilter(predicate.field);
+
+    const useDatePicker = field.useDatePicker || isDateRangeFilter;
 
     return (
         <Container
+            $isCompact={isCompact}
             data-testid={`active-filter-${field.field}`}
             key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
         >
             <FilterName>
                 {(field.icon && <Icon>{field.icon}</Icon>) || null}
-                {field.displayName || field.field}
+                {displayName || field.field}
             </FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
-            {showValueSelector && (
+            {showValueSelector && useDatePicker && (
+                <DatePicker
+                    defaultValue={moment(Number(values[0].value))}
+                    disabledDate={isDateRangeFilter ? undefined : (current) => current > moment().startOf('day')}
+                    format="ll"
+                    showToday={false}
+                    allowClear={false}
+                    onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
+                />
+            )}
+            {showValueSelector && !useDatePicker && (
                 <ValueSelector
                     field={field}
                     values={values}

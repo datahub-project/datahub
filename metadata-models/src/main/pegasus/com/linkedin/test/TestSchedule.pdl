@@ -1,0 +1,21 @@
+namespace com.linkedin.test
+
+/**
+ * The result of running a batch metadata test
+ */
+record TestSchedule {
+    /**
+    * The interval at which this metadata test is scheduled
+    */
+    interval: enum TestInterval {
+        /**
+        * This test runs once a day
+        */
+        DAILY
+
+        /**
+        * This test does not run on a schedule
+        */
+        NONE
+    } = "DAILY"
+}

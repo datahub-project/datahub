@@ -1,0 +1,49 @@
+namespace com.linkedin.action
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.execution.StructuredExecutionReport
+
+record DataHubActionStageStatus {
+    /**
+    * The time and source of the last update to the status
+    */
+    reportedTime: AuditStamp
+
+    /**
+    * The status of the stage
+    */
+    statusCode: DataHubActionStageStatusCode
+
+    /**
+    * The time the most recent invocation of the stage was started
+    */
+    startTime: long
+
+    /**
+    * The time the most recent invocation of the stage completed (either
+    * successfully or unsuccessfully)
+    * In the case of a running stage, this field should be null
+    */
+    endTime: optional long
+    
+    /**
+    *
+    * The time the most recent invocation of the stage was successful
+    */ 
+    lastSuccess: optional long
+
+    /**
+    * Logs from the action stage.
+    */
+    report: optional string
+
+    /**
+    * A structured report.
+    */
+    structuredReport: optional StructuredExecutionReport
+
+    /**
+    * Additional properties for the pipeline status
+    */
+    customProperties: map[string, string] = { }
+}

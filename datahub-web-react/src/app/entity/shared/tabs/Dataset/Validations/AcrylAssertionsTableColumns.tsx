@@ -1,8 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { AuditOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import moment from 'moment';
+import WarningIcon from '@ant-design/icons/WarningFilled';
 import {
     Assertion,
     EntityType,
@@ -17,13 +19,14 @@ import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { REDESIGN_COLORS } from '../../../constants';
 import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getEntityUrnForAssertion, isMonitorActive } from './acrylUtils';
+import { isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
 import { Actions } from './assertion/profile/actions/Actions';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from './assertion/profile/summary/shared/resultUtils';
+import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
+import { useEntityData } from '../../../EntityContext';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -59,6 +62,8 @@ const DataContractLogo = styled(AuditOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
 `;
 
+const SMART_ASSERTION_STALE_IN_DAYS = 3;
+
 interface DetailsColumnProps {
     assertion: Assertion;
     monitor?: Monitor;
@@ -75,14 +80,20 @@ export function DetailsColumn({
     onViewAssertionDetails,
 }: DetailsColumnProps) {
     const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
     if (!assertion.info) {
         return <>No details found</>;
     }
     const disabled = (monitor && !isMonitorActive(monitor)) || false;
-    const assertionEntityUrn = getEntityUrnForAssertion(assertion);
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
+        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
+        : undefined;
+    const isSmartAssertionStale =
+        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
     return (
         <DetailsContainer>
             <AssertionResultPopover
@@ -94,16 +105,30 @@ export function DetailsColumn({
                 resultStatusType={ResultStatusType.LATEST}
             >
                 <Result>
-                    <AssertionResultDot assertion={assertion} run={lastEvaluation} disabled={disabled} size={18} />
+                    <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
-            <AssertionDescription assertion={assertion} />
-            {isSmartAssertion && (
+            <AssertionDescription assertion={assertion} monitor={monitor} />
+            {isSmartAssertionStale ? (
+                <Tooltip
+                    title={
+                        <>
+                            <b>This Smart Assertion may be outdated.</b>
+                            <br />
+                            This is likely related to insufficient training data for this asset. Training data is
+                            obtained during ingestion syncs.
+                        </>
+                    }
+                >
+                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                </Tooltip>
+            ) : null}
+            {isSmartAssertion ? (
                 <InferredAssertionPopover>
                     <InferredAssertionBadge />
                 </InferredAssertionPopover>
-            )}
-            {(isPartOfContract && assertionEntityUrn && (
+            ) : null}
+            {(isPartOfContract && entityData?.urn && (
                 <Tooltip
                     title={
                         <>
@@ -111,8 +136,8 @@ export function DetailsColumn({
                             <Link
                                 to={`${entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
-                                    assertionEntityUrn,
-                                )}/Validation/Data Contract`}
+                                    entityData.urn,
+                                )}/Quality/Data Contract`}
                                 style={{ color: REDESIGN_COLORS.BLUE }}
                             >
                                 view
@@ -121,10 +146,7 @@ export function DetailsColumn({
                     }
                 >
                     <Link
-                        to={`${entityRegistry.getEntityUrl(
-                            EntityType.Dataset,
-                            assertionEntityUrn,
-                        )}/Validation/Data Contract`}
+                        to={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
                     >
                         <DataContractLogo />
                     </Link>
@@ -144,7 +166,7 @@ interface ActionsColumnProps {
     canEditMonitor: boolean;
     canEditContract: boolean;
     lastEvaluationUrl?: string;
-    refetch: () => void;
+    refetch?: () => void;
 }
 
 export function ActionsColumn({
@@ -162,7 +184,10 @@ export function ActionsColumn({
         <ActionButtonContainer>
             {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                 <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar platform={platform} lastEvaluationUrl={lastEvaluationUrl} />
+                    <AssertionPlatformAvatar
+                        platform={platform}
+                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                    />
                 </AssertionPlatformWrapper>
             )}
             <Actions

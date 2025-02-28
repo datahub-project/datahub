@@ -1,5 +1,6 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { Entity } from '../../../types.generated';
@@ -11,8 +12,8 @@ const ParentNodesWrapper = styled.div`
     color: ${ANTD_GRAY[7]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`

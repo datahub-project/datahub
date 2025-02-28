@@ -1,6 +1,8 @@
 import ColorThief from 'colorthief';
 import React from 'react';
 import styled from 'styled-components';
+import { getLighterRGBColor } from '../sharedV2/icons/colorUtils';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 type Props = {
     src: string;
@@ -18,6 +20,7 @@ export const Icon = styled.div<{ background?: string; size: number; borderRadius
     align-items: center;
     justify-content: center;
     border-radius: ${({ borderRadius }) => borderRadius}px;
+    flex-shrink: 0;
 `;
 
 const PreviewImage = styled.img<{ size: number }>`
@@ -38,20 +41,25 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
 
     const logo = (
         <PreviewImage
+            crossOrigin="anonymous"
             size={imgSize || DEFAULT_SIZE}
             src={src}
             alt={alt}
             ref={imgRef}
             onLoad={() => {
-                const colorThief = new ColorThief();
+                const img = imgRef.current;
+                if (img && img.width > 0 && img.height > 0) {
+                    const colorThief = new ColorThief();
+                    const [r, g, b] = colorThief.getColor(img, 25);
+                    setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
+                }
+            }}
+            onError={() => {
                 const img = imgRef.current;
                 if (img) {
-                    img.crossOrigin = 'anonymous';
+                    img.removeAttribute('crossOrigin');
+                    setPlatformBackground(REDESIGN_COLORS.BACKGROUND_GREY);
                 }
-                const result = colorThief.getColor(img, 25);
-                if (platformBackground) return;
-
-                setPlatformBackground(`rgb(${result[0]}, ${result[1]}, ${result[2]}, .1)`);
             }}
         />
     );

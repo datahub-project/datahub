@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Generic Entity.
+ * These entities are for miscelaneous data that is used in non-core parts of the system.
+ * For instance, if we want to persist & retrieve data from auxiliary integrations such as Slack or Microsoft Teams.
+ */
+@Aspect = {
+  "name": "genericEntityKey"
+}
+record GenericEntityKey {
+  /**
+   * A unique id for this entity. Generated on the server side at entity creation time.
+   * Format is '{namespace}-{guid}'. I.e., 'slack-dXJuOmxpOmRhdGFzZXQ6K'
+   */
+  id: string
+}

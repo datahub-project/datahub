@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 
 import styled from 'styled-components';
-import { Button } from 'antd';
+import { Button } from '@src/alchemy-components';
 
 import { StepProps } from '../types';
 import { FinishUpBuilder } from './finish/FinishUpBuilder';
+import { AssertionType } from '../../../../../../../../../types.generated';
 
 const Step = styled.div`
     height: 100%;
@@ -17,6 +18,7 @@ const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+    margin-bottom: 20px;
 `;
 
 /**
@@ -24,13 +26,17 @@ const ControlsContainer = styled.div`
  */
 export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) => {
     const [isSubmitting, setSubmitting] = useState(false);
+    // SQL assertions require a title
+    const [isFormValid, setIsFormValid] = useState(state.assertion?.type !== AssertionType.Sql);
+
     return (
         <Step>
-            <FinishUpBuilder state={state} updateState={updateState} />
+            <FinishUpBuilder state={state} updateState={updateState} onValidityChange={setIsFormValid} />
             <ControlsContainer>
-                <Button onClick={prev}>Back</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Back
+                </Button>
                 <Button
-                    type="primary"
                     onClick={async () => {
                         try {
                             setSubmitting(true);
@@ -39,7 +45,7 @@ export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) =>
                             setSubmitting(false);
                         }
                     }}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isFormValid}
                 >
                     Save
                 </Button>

@@ -2,9 +2,9 @@ import {
     CheckCircleOutlined,
     CheckOutlined,
     CloseOutlined,
+    ExceptionOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
-    ExceptionOutlined,
     FileDoneOutlined,
     WarningFilled,
     WarningOutlined,
@@ -37,11 +37,8 @@ export enum HealthSummaryIconType {
 export const isUnhealthy = (healths: Health[]) => {
     const assertionHealth = healths.find((health) => health.type === HealthStatusType.Assertions);
     const isFailingAssertions = assertionHealth?.status === HealthStatus.Fail;
-
-    // Acryl-main Only!
     const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
     const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
-    // Currently, being unhealthy is defined as having failing assertions OR incidents (acryl-main).
     return isFailingAssertions || hasActiveIncidents;
 };
 
@@ -134,7 +131,6 @@ export const getTestsHealthIcon = (status: HealthStatus, fontSize: number) => {
     }
 };
 
-// acryl-main only
 export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
@@ -162,7 +158,6 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
             return getTestsHealthIcon(status, fontSize);
         }
         case HealthStatusType.Incidents: {
-            // acryl-main only
             return getIncidentsHealthIcon(status, fontSize);
         }
         default:
@@ -173,7 +168,7 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
 export const getHealthRedirectPath = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Validation/Assertions';
+            return 'Quality/List';
         }
         case HealthStatusType.Incidents: {
             return 'Incidents';

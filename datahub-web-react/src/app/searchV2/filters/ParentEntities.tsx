@@ -1,29 +1,20 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Entity, Maybe } from '../../../types.generated';
+import { FolderOpenOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
+import ContextPathEntityLink from '@src/app/previewV2/ContextPathEntityLink';
+import { Entity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { PreviewType } from '../../entityV2/Entity';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
     color: ${ANTD_GRAY[7]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
-`;
-
-const ParentNode = styled(Typography.Text)<{ color?: string, $width?:number | null }>`
-    margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
-    max-width: ${(props) => (props.$width ? `${props.$width}px` : 'auto')};
-`;
-
-export const ArrowWrapper = styled.span`
-    margin: 0 3px;
+    line-height: 20px;
 `;
 
 const StyledTooltip = styled(Tooltip)`
@@ -37,10 +28,10 @@ const DEFAULT_NUM_VISIBLE = 2;
 interface Props {
     parentEntities: Entity[];
     numVisible?: number;
-    previewType?: Maybe<PreviewType>;
+    linksDisabled?: boolean; // don't allow links to parent entities
 }
 
-export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, previewType }: Props) {
+export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, linksDisabled }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -53,40 +44,40 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
 
     return (
         <StyledTooltip
+            showArrow={false}
             overlayStyle={hasHiddenEntities ? { maxWidth: 450 } : { display: 'none' }}
             placement="top"
             title={
                 <>
                     {orderedParentEntities.map((parentEntity, index) => (
-                        <>
-                            <FolderOpenOutlined />
-                            <ParentNode color="white">
-                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity)}
-                            </ParentNode>
-                            {index !== orderedParentEntities.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
-                        </>
+                        <React.Fragment key={parentEntity.urn}>
+                            <ContextPathEntityLink entity={parentEntity} />
+                            {index !== orderedParentEntities.length - 1 && <ContextPathSeparator />}
+                        </React.Fragment>
                     ))}
                 </>
             }
         >
             <ParentNodesWrapper>
                 {hasHiddenEntities &&
-                    [...Array(numHiddenEntities)].map(() => (
-                        <>
+                    [...Array(numHiddenEntities)].map((index) => (
+                        <React.Fragment key={`icons-${index || 0}`}>
                             <FolderOpenOutlined />
-                            <ArrowWrapper>{'>'}</ArrowWrapper>
-                        </>
+                            <ContextPathSeparator />
+                        </React.Fragment>
                     ))}
                 {visibleNodes.map((parentEntity, index) => {
                     const displayName = entityRegistry.getDisplayName(parentEntity.type, parentEntity);
                     return (
-                        <>
-                            <FolderOpenOutlined />
-                            <ParentNode ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true} $width={previewType === PreviewType.HOVER_CARD ? 80 : null}>
-                                {displayName}
-                            </ParentNode>
-                            {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
-                        </>
+                        <React.Fragment key={displayName}>
+                            <ContextPathEntityLink
+                                key={parentEntity.urn}
+                                entity={parentEntity}
+                                linkDisabled={linksDisabled}
+                                style={{ fontSize: '12px' }}
+                            />
+                            {index !== visibleNodes.length - 1 && <ContextPathSeparator />}
+                        </React.Fragment>
                     );
                 })}
             </ParentNodesWrapper>

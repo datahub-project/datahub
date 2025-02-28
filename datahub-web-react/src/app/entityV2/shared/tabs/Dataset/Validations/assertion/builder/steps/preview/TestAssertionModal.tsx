@@ -1,10 +1,15 @@
 import React, { useEffect } from 'react';
-import { Button, Modal, Typography } from 'antd';
+import { Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
+import { Button } from '@src/alchemy-components';
+import {
+    AssertionResult,
+    AssertionResultType,
+    TestAssertionInput,
+} from '../../../../../../../../../../types.generated';
 import { AssertionStatusTag } from './AssertionStatusTag';
-import { TestAssertionResult } from './TestAssertionResult';
+import { RunAssertionResult } from './RunAssertionResult';
 import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
 
 const LoadingIcon = styled(LoadingOutlined)`
@@ -43,35 +48,37 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
+    const getErrorMessage = (errorData: any): string => {
+        if ((errorData?.networkError as any)?.statusCode === 503) {
+            return 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!';
+        }
+
+        if (errorData?.graphQLErrors?.[0]?.extensions?.code === 400) {
+            return `This assertion can not be tested due to: ${errorData.message}`;
+        }
+
+        return 'Oops. An unknown error occurred while testing the assertion! Try again later.';
+    };
+
     return (
         <Modal
             title="Assertion Result"
             open={visible}
             onCancel={handleClose}
-            footer={
-                <Button type="primary" onClick={handleClose}>
-                    OK
-                </Button>
-            }
+            footer={<Button onClick={handleClose}>Done</Button>}
         >
             {data?.testAssertion && (
-                <div>
+                <>
                     {[AssertionResultType.Success, AssertionResultType.Failure].includes(data.testAssertion.type) && (
-                        <Typography.Paragraph>This query ran successfully.</Typography.Paragraph>
+                        <Typography.Paragraph>The assertion was evaluated successfully.</Typography.Paragraph>
                     )}
                     <Row>
                         <AssertionStatusTag assertionResultType={data.testAssertion.type} />
-                        <div>
-                            <TestAssertionResult result={data.testAssertion} />
-                        </div>
+                        <RunAssertionResult result={data.testAssertion as AssertionResult} isTest />
                     </Row>
-                </div>
+                </>
             )}
-            {error && (
-                <Typography.Paragraph>
-                    An error occurred while testing the assertion. Try again later.
-                </Typography.Paragraph>
-            )}
+            {error && <Typography.Paragraph>{getErrorMessage(error)}</Typography.Paragraph>}
             {loading && <LoadingIcon spin />}
         </Modal>
     );

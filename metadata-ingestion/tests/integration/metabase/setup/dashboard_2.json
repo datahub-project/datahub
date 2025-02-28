@@ -1,0 +1,886 @@
+{
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "dashcards": [
+    {
+      "size_x": 24,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "query_average_duration": null
+      },
+      "updated_at": "2024-05-18T18:22:19.900158Z",
+      "col": 0,
+      "id": 2,
+      "parameter_mappings": [],
+      "card_id": null,
+      "entity_id": "woqw4RKYx7rlOgqp-_UPc",
+      "visualization_settings": {
+        "dashcard.background": false,
+        "virtual_card": {
+          "name": null,
+          "dataset_query": {},
+          "display": "heading",
+          "visualization_settings": {},
+          "archived": false
+        },
+        "text": "This is a virtual card and should be ignored by the ingestion."
+      },
+      "size_y": 1,
+      "dashboard_id": 1,
+      "created_at": "2024-05-18T18:22:19.900158Z",
+      "row": 0
+    },
+    {
+      "size_x": 12,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "description": null,
+        "archived": false,
+        "collection_position": null,
+        "table_id": null,
+        "result_metadata": [
+          {
+            "display_name": "EVENT_DATE",
+            "field_ref": [
+              "field",
+              "EVENT_DATE",
+              {
+                "base-type": "type/Date"
+              }
+            ],
+            "name": "EVENT_DATE",
+            "base_type": "type/Date",
+            "effective_type": "type/Date",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/DateTime": {
+                  "earliest": "2023-12-04T00:00:00Z",
+                  "latest": "2024-01-15T00:00:00Z"
+                }
+              }
+            }
+          },
+          {
+            "display_name": "AND_VIEWERS",
+            "field_ref": [
+              "field",
+              "AND_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "AND_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 4720,
+                  "q1": 5083.5,
+                  "q3": 9003,
+                  "max": 10560,
+                  "sd": 2090.2420089751945,
+                  "avg": 6688.214285714285
+                }
+              }
+            }
+          },
+          {
+            "display_name": "AND_REDACTED",
+            "field_ref": [
+              "field",
+              "AND_REDACTED",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "AND_REDACTED",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 948,
+                  "q1": 2019.5,
+                  "q3": 2500.5,
+                  "max": 3180,
+                  "sd": 460.56365857271413,
+                  "avg": 2251.0714285714284
+                }
+              }
+            }
+          },
+          {
+            "display_name": "AND_REDACTED",
+            "field_ref": [
+              "field",
+              "AND_REDACTED",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "AND_REDACTED",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 3545,
+                  "q1": 10909,
+                  "q3": 13916,
+                  "max": 18861,
+                  "sd": 3132.780684756446,
+                  "avg": 12122.32142857143
+                }
+              }
+            }
+          },
+          {
+            "display_name": "IOS_VIEWERS",
+            "field_ref": [
+              "field",
+              "IOS_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "IOS_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 6477,
+                  "q1": 7481.5,
+                  "q3": 10428.5,
+                  "max": 13182,
+                  "sd": 1948.047456520796,
+                  "avg": 9075.17857142857
+                }
+              }
+            }
+          },
+          {
+            "display_name": "IOS_REDACTED",
+            "field_ref": [
+              "field",
+              "IOS_REDACTED",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "IOS_REDACTED",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 1470,
+                  "q1": 3020,
+                  "q3": 3806,
+                  "max": 4670,
+                  "sd": 665.7415088559197,
+                  "avg": 3415.8571428571427
+                }
+              }
+            }
+          },
+          {
+            "display_name": "IOS_REDACTED",
+            "field_ref": [
+              "field",
+              "IOS_REDACTED",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "IOS_REDACTED",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 4872,
+                  "q1": 15019.5,
+                  "q3": 20457,
+                  "max": 27466,
+                  "sd": 4688.492913816769,
+                  "avg": 17683.89285714286
+                }
+              }
+            }
+          },
+          {
+            "display_name": "IOS_REDACTED/IOS_VIEWERS",
+            "field_ref": [
+              "field",
+              "IOS_REDACTED/IOS_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "IOS_REDACTED/IOS_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 0.662587,
+                  "q1": 1.8403745,
+                  "q3": 2.241517,
+                  "max": 2.576166,
+                  "sd": 0.4488826998266724,
+                  "avg": 1.974007857142857
+                }
+              }
+            }
+          },
+          {
+            "display_name": "AND_REDACTED/AND_VIEWERS",
+            "field_ref": [
+              "field",
+              "AND_REDACTED/AND_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "AND_REDACTED/AND_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 0.671656,
+                  "q1": 1.3536655,
+                  "q3": 2.5325145,
+                  "max": 3.097553,
+                  "sd": 0.6816847359625038,
+                  "avg": 1.93937275
+                }
+              }
+            }
+          },
+          {
+            "display_name": "IOS_REDACTED/IOS_VIEWERS",
+            "field_ref": [
+              "field",
+              "IOS_REDACTED/IOS_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "IOS_REDACTED/IOS_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 0.199918,
+                  "q1": 0.34496099999999996,
+                  "q3": 0.4352085,
+                  "max": 0.47286,
+                  "sd": 0.06928869477079941,
+                  "avg": 0.3833206785714286
+                }
+              }
+            }
+          },
+          {
+            "display_name": "AND_REDACTED/AND_VIEWERS",
+            "field_ref": [
+              "field",
+              "AND_REDACTED/AND_VIEWERS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "AND_REDACTED/AND_VIEWERS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 28,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 0.179613,
+                  "q1": 0.245343,
+                  "q3": 0.475772,
+                  "max": 0.522253,
+                  "sd": 0.11732033433182058,
+                  "avg": 0.3620892142857142
+                }
+              }
+            }
+          }
+        ],
+        "can_write": true,
+        "database_id": 3,
+        "enable_embedding": false,
+        "collection_id": 112,
+        "query_type": "native",
+        "name": "REDACTED iOS vs. Android",
+        "query_average_duration": 50982,
+        "creator_id": 42,
+        "moderation_reviews": [],
+        "updated_at": "2024-01-16T13:34:29.916717Z",
+        "made_public_by_id": null,
+        "embedding_params": null,
+        "cache_ttl": null,
+        "dataset_query": {
+          "type": "native",
+          "native": {
+            "query": "-- 1. Table with redacted search users Android\n-- 2. Table with redacted search users iOS \n-- 3. Redacted from Android redacted\n-- 4. redacted from iOS\n-- 5. Compare the numbers iOS vs. Android\n\n\n-- 1. Table with redacted search users Android (to include date, platform, auth_account_id)\n-- 2. Table with redacted search users iOS (to include date, platform, auth_account_id)\n-- 3. Redacted from Android redacted (to include date, platform, count of redacted)\n-- 4. Redacted from iOS redacted (to include date, plaform, count of redacted)\n-- 5. Compare the numbers iOS vs. Android\n\nwith AND_viewers as \n(\nselect event_date, platform, auth_account_id \nfrom TEAMS_PRD.REDACTED.MRT_CURR__MPARTICLE_SCREEN_VIEWS\nwhere screen_name='redacted_search'\nand event_date>'2023-12-01'\nand platform='Android'\nand dayofweekiso(event_date) NOT IN (6,7)\ngroup by event_date, platform, auth_account_id\norder by event_date desc\n), \niOS_viewers as \n(\nselect event_date, platform, auth_account_id \nfrom TEAMS_PRD.REDACTED.MRT_CURR__MPARTICLE_SCREEN_VIEWS\nwhere screen_name='redacted_search'\nand event_date>'2023-12-01'\nand platform='iOS'\nand dayofweekiso(event_date) NOT IN (6,7)\ngroup by event_date, platform, auth_account_id\norder by event_date desc\n), \nAND_redacted as\n(\nselect redacted_ts::date as redacted_date, platform, count(distinct at.auth_account_id) as AND_redacted, count(group_redacted_id) as AND_redacted\nfrom TEAMS_PRD.REDACTED.MRT_CURR__REDACTED_CUSTOMER at\njoin AND_viewers av on av.event_date=at.redacted_ts::date and av.auth_account_id=at.auth_account_id\nwhere instrument_type='REDACTED'\ngroup by 1,2\norder by 1 desc\n), \niOS_redacted as\n(\nselect redacted_ts::date as redacted_date, platform, count(distinct it.auth_account_id) as iOS_redacted, count(group_redacted_id) as iOS_redacted\nfrom TEAMS_PRD.REDACTED.MRT_CURR__REDACTED_CUSTOMER it\njoin iOS_viewers iv on iv.event_date=it.redacted_ts::date and iv.auth_account_id=it.auth_account_id\nwhere instrument_type='REDACTED'\ngroup by 1,2\norder by 1 desc\n)\nselect a.event_date, count(distinct a.auth_account_id) as AND_viewers, AND_redacted, AND_redacted, count(distinct i.auth_account_id) as iOS_viewers, iOS_redacted, iOS_redacted, iOS_redacted/iOS_viewers, AND_redacted/AND_viewers, iOS_redacted/iOS_viewers, AND_redacted/AND_viewers\nfrom AND_VIEWERS a\njoin AND_redacted at\non a.event_date=at.redacted_date\njoin ios_viewers i\non a.event_date=i.event_date\njoin ios_redacted it\non i.event_date=it.redacted_date\ngroup by 1, 3, 4, 6, 7\norder by 1 desc\n\n\n",
+            "template-tags": {}
+          },
+          "database": 3
+        },
+        "id": 1,
+        "parameter_mappings": [],
+        "display": "line",
+        "entity_id": "DhQgvvtTEarZH8yQBlqES",
+        "collection_preview": true,
+        "visualization_settings": {
+          "graph.dimensions": [
+            "EVENT_DATE"
+          ],
+          "series_settings": {
+            "IOS_REDACTED/IOS_VIEWERS": {
+              "axis": "right"
+            },
+            "AND_REDACTED/AND_VIEWERS": {
+              "axis": "right"
+            }
+          },
+          "graph.metrics": [
+            "IOS_REDACTED/IOS_VIEWERS",
+            "AND_REDACTED/AND_VIEWERS",
+            "AND_VIEWERS",
+            "IOS_VIEWERS"
+          ]
+        },
+        "metabase_version": "v0.48.3 (80d8323)",
+        "parameters": [],
+        "dataset": false,
+        "created_at": "2024-01-16T09:44:49.407327Z",
+        "public_uuid": null
+      },
+      "updated_at": "2024-01-16T09:45:45.410379Z",
+      "col": 0,
+      "id": 12,
+      "parameter_mappings": [],
+      "card_id": 1,
+      "entity_id": "tA9M9vJlTHG0KxQnvknKW",
+      "visualization_settings": {},
+      "size_y": 6,
+      "dashboard_id": 20,
+      "created_at": "2024-01-16T09:45:45.410379Z",
+      "row": 0
+    },
+    {
+      "size_x": 12,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "description": null,
+        "archived": false,
+        "collection_position": null,
+        "table_id": null,
+        "result_metadata": [
+          {
+            "display_name": "CALENDAR_DATE",
+            "field_ref": [
+              "field",
+              "CALENDAR_DATE",
+              {
+                "base-type": "type/Date"
+              }
+            ],
+            "name": "CALENDAR_DATE",
+            "base_type": "type/Date",
+            "effective_type": "type/Date",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 30,
+                "nil%": 0
+              },
+              "type": {
+                "type/DateTime": {
+                  "earliest": "2023-12-17T00:00:00Z",
+                  "latest": "2024-01-15T00:00:00Z"
+                }
+              }
+            }
+          },
+          {
+            "display_name": "REDACTED",
+            "field_ref": [
+              "field",
+              "REDACTED",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "REDACTED",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 27,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 682175,
+                  "q1": 738644,
+                  "q3": 805974,
+                  "max": 847312,
+                  "sd": 46783.99996291344,
+                  "avg": 775505.5666666667
+                }
+              }
+            }
+          },
+          {
+            "display_name": "REDACTEDRS",
+            "field_ref": [
+              "field",
+              "REDACTEDRS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "REDACTEDRS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 27,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 46173,
+                  "q1": 47556.94427191,
+                  "q3": 48890,
+                  "max": 50769,
+                  "sd": 1164.9989906758983,
+                  "avg": 48354.8
+                }
+              }
+            }
+          },
+          {
+            "display_name": "REDACTED/REDACTEDRS",
+            "field_ref": [
+              "field",
+              "REDACTED/REDACTEDRS",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "REDACTED/REDACTEDRS",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 27,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 14.706168,
+                  "q1": 15.398378,
+                  "q3": 16.920933,
+                  "max": 17.289964,
+                  "sd": 0.8020030995826715,
+                  "avg": 16.033017833333336
+                }
+              }
+            }
+          }
+        ],
+        "can_write": true,
+        "database_id": 3,
+        "enable_embedding": false,
+        "collection_id": 112,
+        "query_type": "native",
+        "name": "Redacted redacted per redacted user",
+        "query_average_duration": 20433,
+        "creator_id": 1,
+        "moderation_reviews": [],
+        "updated_at": "2024-01-16T13:34:29.916788Z",
+        "made_public_by_id": null,
+        "embedding_params": null,
+        "cache_ttl": null,
+        "dataset_query": {
+          "type": "native",
+          "native": {
+            "query": "with dd as (\nselect distinct calendar_date as calendar_date from TEAMS_PRD.DATA_PLATFORM_MART.MRT__CALENDAR_DATES\nwhere calendar_date>'2022-01-01'\n), \nredacted as\n(\nselect dd.calendar_date, count(distinct auth_account_id) as redacted, max(redacted_ts), min(redacted_ts)\nfrom TEAMS_PRD.REDACTED.MRT_CURR__REDACTED_CUSTOMER t\njoin dd on redacted_ts::date BETWEEN dd.calendar_date-29 and dd.calendar_date\nwhere redacted_type='REGULAR'\nand instrument_type = 'REDACTED'\ngroup by dd.calendar_date\norder by dd.calendar_date desc\n),\nredacted as\n(\nselect dd.calendar_date, count(group_redacted_id) as redacted, max(redacted_ts), min(redacted_ts)\nfrom TEAMS_PRD.REDACTED.MRT_CURR__REDACTED_CUSTOMER t\njoin dd on redacted_ts::date BETWEEN dd.calendar_date-29 and dd.calendar_date\nwhere redacted_type='REGULAR'\nand instrument_type = 'REDACTED'\ngroup by dd.calendar_date\norder by dd.calendar_date desc\n)\nselect dd.calendar_date, redacted, redacted, redacted/redacted\nfrom dd\njoin redacted t on dd.calendar_date=t.calendar_date\njoin redacted tr on dd.calendar_date=tr.calendar_date\ngroup by dd.calendar_date, redacted, redacted, redacted/redacted\norder by dd.calendar_date desc \nlimit 30",
+            "template-tags": {}
+          },
+          "database": 3
+        },
+        "id": 2,
+        "parameter_mappings": [],
+        "display": "line",
+        "entity_id": "b1jUcPcQM0XFMuviv4g3K",
+        "collection_preview": true,
+        "visualization_settings": {
+          "graph.dimensions": [
+            "CALENDAR_DATE"
+          ],
+          "series_settings": {
+            "REDACTEDRS": {
+              "axis": "right"
+            }
+          },
+          "graph.metrics": [
+            "REDACTED/REDACTEDRS",
+            "REDACTEDRS"
+          ]
+        },
+        "metabase_version": "v0.48.3 (80d8323)",
+        "parameters": [],
+        "dataset": false,
+        "created_at": "2024-01-16T09:50:09.487369Z",
+        "public_uuid": null
+      },
+      "updated_at": "2024-01-16T09:50:34.394488Z",
+      "col": 12,
+      "id": 1,
+      "parameter_mappings": [],
+      "card_id": 2,
+      "entity_id": "lXypX5aa14HjkN_Im82C2",
+      "visualization_settings": {},
+      "size_y": 6,
+      "dashboard_id": 20,
+      "created_at": "2024-01-16T09:50:34.394488Z",
+      "row": 0
+    },
+    {
+      "size_x": 12,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "description": null,
+        "archived": false,
+        "collection_position": null,
+        "table_id": null,
+        "result_metadata": [
+          {
+            "display_name": "EVENT_DATE",
+            "field_ref": [
+              "field",
+              "EVENT_DATE",
+              {
+                "base-type": "type/Date"
+              }
+            ],
+            "name": "EVENT_DATE",
+            "base_type": "type/Date",
+            "effective_type": "type/Date",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 11,
+                "nil%": 0
+              },
+              "type": {
+                "type/DateTime": {
+                  "earliest": "2024-01-01T00:00:00Z",
+                  "latest": "2024-01-15T00:00:00Z"
+                }
+              }
+            }
+          },
+          {
+            "display_name": "KNOCKOUT",
+            "field_ref": [
+              "field",
+              "KNOCKOUT",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "KNOCKOUT",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 11,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 175,
+                  "q1": 853.75,
+                  "q3": 1116.75,
+                  "max": 1174,
+                  "sd": 296.0767713709648,
+                  "avg": 916.3636363636364
+                }
+              }
+            }
+          },
+          {
+            "display_name": "EXPIRY",
+            "field_ref": [
+              "field",
+              "EXPIRY",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "EXPIRY",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 10,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 78,
+                  "q1": 295.5,
+                  "q3": 408.3925271309261,
+                  "max": 431,
+                  "sd": 105.10704500218294,
+                  "avg": 336.90909090909093
+                }
+              }
+            }
+          },
+          {
+            "display_name": "PRODUCT",
+            "field_ref": [
+              "field",
+              "PRODUCT",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "PRODUCT",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 9,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 57,
+                  "q1": 163.75,
+                  "q3": 233,
+                  "max": 255,
+                  "sd": 59.31119777763877,
+                  "avg": 195.27272727272728
+                }
+              }
+            }
+          },
+          {
+            "display_name": "ISSUER",
+            "field_ref": [
+              "field",
+              "ISSUER",
+              {
+                "base-type": "type/Number"
+              }
+            ],
+            "name": "ISSUER",
+            "base_type": "type/Number",
+            "effective_type": "type/Number",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 10,
+                "nil%": 0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 43,
+                  "q1": 214,
+                  "q3": 292.25,
+                  "max": 304,
+                  "sd": 79.35879397910594,
+                  "avg": 245.72727272727272
+                }
+              }
+            }
+          }
+        ],
+        "can_write": true,
+        "database_id": 3,
+        "enable_embedding": false,
+        "collection_id": 112,
+        "query_type": "native",
+        "name": "Filter popularity",
+        "query_average_duration": 2830,
+        "creator_id": 1,
+        "moderation_reviews": [],
+        "updated_at": "2024-01-16T13:34:30.128815Z",
+        "made_public_by_id": null,
+        "embedding_params": null,
+        "cache_ttl": null,
+        "dataset_query": {
+          "type": "native",
+          "native": {
+            "query": "with issuer as\n(\n    select event_date, count(*) as issuer_clicks, count(distinct auth_account_id) as issuer\n    from TEAMS_PRD.REDACTED.MRT_CURR__MPARTICLE_EVENTS\n    where event_name='redacted_search_filter_button_tapped' \n    and event_attributes:filter_option::varchar='issuer'\n    and event_date>'2023-12-31'\n    and platform='Android'\n    and dayofweekiso(event_date) NOT IN (6,7)\n    and event_attributes:redacted_type::varchar='knock_out_product'\n    group by 1\n    order by 1 desc\n), expiry as\n(\n    select event_date, count(*) as expiry_clicks, count(distinct auth_account_id) as expiry\n    from TEAMS_PRD.REDACTED.MRT_CURR__MPARTICLE_EVENTS\n    where event_name='redacted_search_filter_button_tapped' \n    and event_attributes:filter_option::varchar='expiry'\n    and event_date>'2023-12-31'\n    and platform='Android'\n    and dayofweekiso(event_date) NOT IN (6,7)\n    and event_attributes:redacted_type::varchar='knock_out_product'\n    group by 1\n    order by 1 desc\n), product as\n(\n    select event_date, count(*) as product_clicks, count(distinct auth_account_id) as product\n    from TEAMS_PRD.REDACTED.MRT_CURR__MPARTICLE_EVENTS\n    where event_name='redacted_search_filter_button_tapped' \n    and event_attributes:filter_option::varchar='product'\n    and event_date>'2023-12-31'\n    and platform='Android'\n    and dayofweekiso(event_date) NOT IN (6,7)\n    and event_attributes:redacted_type::varchar='knock_out_product'\n    group by 1\n    order by 1 desc\n), knockout as \n(\n    select event_date, count(*) as knockout_clicks, count(distinct auth_account_id) as knockout\n    from TEAMS_PRD.SCHEMA.MRT_CURR__MPARTICLE_EVENTS\n    where event_name='redacted_search_filter_button_tapped' \n    and event_attributes:filter_option::varchar='knockout'\n    and event_date>'2023-12-31'\n    and platform='Android'\n    and dayofweekiso(event_date) NOT IN (6,7)\n    and event_attributes:redacted_type::varchar='knock_out_product'\n    group by 1\n    order by 1 desc\n)\nselect k.event_date, knockout, expiry, product, issuer\nfrom knockout k\njoin expiry e on k.event_date=e.event_date\njoin issuer i on k.event_date=i.event_date\njoin product p on k.event_date=p.event_date\nwhere k.event_date<current_date\ngroup by 1, 2, 3, 4, 5\norder by 1 desc\n\n\n\n",
+            "template-tags": {}
+          },
+          "database": 3
+        },
+        "id": 3,
+        "parameter_mappings": [],
+        "display": "line",
+        "entity_id": "xBzHwy9CSKpvGXA0tHNAw",
+        "collection_preview": true,
+        "visualization_settings": {
+          "graph.dimensions": [
+            "EVENT_DATE"
+          ],
+          "graph.metrics": [
+            "KNOCKOUT",
+            "EXPIRY",
+            "PRODUCT",
+            "ISSUER"
+          ]
+        },
+        "metabase_version": "v0.48.3 (80d8323)",
+        "parameters": [],
+        "dataset": false,
+        "created_at": "2024-01-16T09:51:23.724213Z",
+        "public_uuid": null
+      },
+      "updated_at": "2024-01-16T09:51:34.833525Z",
+      "col": 0,
+      "id": 14,
+      "parameter_mappings": [],
+      "card_id": 3,
+      "entity_id": "iVOtiEPgX-a90Qh3rJWui",
+      "visualization_settings": {},
+      "size_y": 6,
+      "dashboard_id": 1,
+      "created_at": "2024-01-16T09:51:34.833525Z",
+      "row": 6
+    }
+  ],
+  "param_values": null,
+  "can_write": true,
+  "tabs": [],
+  "enable_embedding": false,
+  "collection_id": 112,
+  "show_in_getting_started": false,
+  "name": "Dashboard 2",
+  "caveats": null,
+  "collection_authority_level": null,
+  "creator_id": 1,
+  "updated_at": "2024-01-16T09:51:34.833525Z",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "id": 20,
+  "position": null,
+  "entity_id": "Z6B2yiCTEMiwZFe4x5jPT",
+  "param_fields": null,
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "admin",
+    "last_name": "metabase",
+    "timestamp": "2024-01-16T09:51:34.904566Z"
+  },
+  "collection": {
+    "authority_level": null,
+    "description": null,
+    "archived": false,
+    "slug": "active_redacted",
+    "name": "Active Redacted",
+    "personal_owner_id": null,
+    "type": null,
+    "id": 112,
+    "entity_id": "ScbfH49oI6rEQufQ-Rg5_",
+    "location": "/111/",
+    "namespace": null,
+    "is_personal": false,
+    "created_at": "2024-01-08T21:52:12.864984Z"
+  },
+  "parameters": [],
+  "auto_apply_filters": true,
+  "created_at": "2024-01-16T09:45:06.400449Z",
+  "public_uuid": null,
+  "points_of_interest": null
+}

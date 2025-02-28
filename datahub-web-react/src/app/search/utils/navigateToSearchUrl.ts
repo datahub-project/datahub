@@ -13,6 +13,7 @@ export const navigateToSearchUrl = ({
     unionType = UnionType.AND,
     selectedSortOption,
     history,
+    currentPath = PageRoutes.SEARCH,
 }: {
     type?: EntityType;
     query?: string;
@@ -21,6 +22,7 @@ export const navigateToSearchUrl = ({
     history: RouteComponentProps['history'];
     selectedSortOption?: string;
     unionType?: UnionType;
+    currentPath?: string;
 }) => {
     const constructedFilters = newFilters || [];
     if (newType) {
@@ -39,7 +41,7 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}`,
+        pathname: currentPath || `${PageRoutes.SEARCH}`,
         search,
     });
 };

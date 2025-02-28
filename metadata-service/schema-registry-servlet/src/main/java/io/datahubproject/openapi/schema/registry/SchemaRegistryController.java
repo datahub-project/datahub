@@ -2,7 +2,6 @@ package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.Config;
@@ -29,23 +28,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /** DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec. */
 @Slf4j
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/schema-registry/api")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
-@ConditionalOnProperty(
-    name = "kafka.schemaRegistry.type",
-    havingValue = InternalSchemaRegistryFactory.TYPE)
 public class SchemaRegistryController
     implements CompatibilityApi,
         ConfigApi,
@@ -59,11 +59,16 @@ public class SchemaRegistryController
   private final ObjectMapper objectMapper;
 
   private final HttpServletRequest request;
-
-  private static final Set<String> SCHEMA_VERSIONS = ImmutableSet.of("1", "latest");
+  private static final Set<String> SCHEMA_VERSIONS =
+      ImmutableSet.of(String.valueOf(Constants.FIXED_SCHEMA_VERSION), "latest");
 
   @Qualifier("schemaRegistryService")
   private final SchemaRegistryService _schemaRegistryService;
+
+  @PostConstruct
+  public void init() {
+    log.info("SchemaRegistryController initialized with base path: /schema-registry/api");
+  }
 
   @Override
   public Optional<ObjectMapper> getObjectMapper() {
@@ -128,7 +133,7 @@ public class SchemaRegistryController
             schema -> {
               Schema result = new Schema();
               result.setSubject(subject);
-              result.setVersion(1);
+              result.setVersion(Constants.FIXED_SCHEMA_VERSION);
               result.setId(_schemaRegistryService.getSchemaIdForTopic(topicName).get());
               result.setSchema(schema.toString());
               return new ResponseEntity<>(result, HttpStatus.OK);
@@ -161,7 +166,8 @@ public class SchemaRegistryController
         .getSchemaForTopic(topicName)
         .map(
             schema -> {
-              return new ResponseEntity<>(Arrays.asList(1), HttpStatus.OK);
+              return new ResponseEntity<>(
+                  Arrays.asList(Constants.FIXED_SCHEMA_VERSION), HttpStatus.OK);
             })
         .orElseGet(
             () -> {
@@ -248,14 +254,21 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<Config> getSubjectLevelConfig(String subject, Boolean defaultToGlobal) {
-    log.error("[ConfigApi] getSubjectLevelConfig method not implemented");
-    return ConfigApi.super.getSubjectLevelConfig(subject, defaultToGlobal);
+    return getTopLevelConfig();
   }
 
+  @RequestMapping(
+      value = {"/config", "/config/"},
+      produces = {
+        "application/vnd.schemaregistry.v1+json",
+        "application/vnd.schemaregistry+json; qs=0.9",
+        "application/json; qs=0.5"
+      },
+      method = RequestMethod.GET)
   @Override
   public ResponseEntity<Config> getTopLevelConfig() {
-    log.error("[ConfigApi] getTopLevelConfig method not implemented");
-    return ConfigApi.super.getTopLevelConfig();
+    return ResponseEntity.ok(
+        new Config().compatibilityLevel(Config.CompatibilityLevelEnum.BACKWARD));
   }
 
   @Override
@@ -298,7 +311,11 @@ public class SchemaRegistryController
             })
         .orElseGet(
             () -> {
-              log.error("Couldn't find topic with name {}.", topicName);
+              if (topicName.matches("^[a-zA-Z0-9._-]+$")) {
+                log.error("Couldn't find topic with name {}.", topicName);
+              } else {
+                log.error("Couldn't find topic (Malformed topic name)");
+              }
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             });
   }

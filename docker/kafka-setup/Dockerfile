@@ -1,4 +1,4 @@
-ARG KAFKA_DOCKER_VERSION=7.4.1
+ARG KAFKA_DOCKER_VERSION=7.8.1
 
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -6,8 +6,8 @@ ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 ARG APACHE_DOWNLOAD_URL=null
 
-# Using as a base image because to get the needed jars for confluent utils
-FROM confluentinc/cp-base-new:$KAFKA_DOCKER_VERSION as confluent_base
+# Using AS a base image because to get the needed jars for confluent utils
+FROM confluentinc/cp-base-new:$KAFKA_DOCKER_VERSION AS confluent_base
 
 ARG MAVEN_CENTRAL_REPO_URL
 ARG SNAKEYAML_VERSION="2.0"
@@ -22,8 +22,8 @@ ARG ALPINE_REPO_URL
 ARG APACHE_DOWNLOAD_URL
 ARG GITHUB_REPO_URL
 
-ENV KAFKA_VERSION 3.4.1
-ENV SCALA_VERSION 2.13
+ENV KAFKA_VERSION=3.7.2
+ENV SCALA_VERSION=2.13
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
@@ -44,7 +44,7 @@ RUN mkdir -p /opt \
   && rm -rf /tmp/* \
   && apk del --purge .build-deps
 
-ENV PATH /sbin:/opt/kafka/bin/:$PATH
+ENV PATH=/sbin:/opt/kafka/bin/:$PATH
 
 WORKDIR /opt/kafka
 
@@ -52,8 +52,8 @@ RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
 COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
 
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /usr/share/java/cp-base-new
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /opt/kafka/libs
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.2.0/aws-msk-iam-auth-2.2.0-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.2.0/aws-msk-iam-auth-2.2.0-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
@@ -71,6 +71,7 @@ COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
 COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
 COPY docker/kafka-setup/kafka-ready.sh ./kafka-ready.sh
+COPY docker/kafka-setup/env_to_properties.py ./env_to_properties.py
 
 RUN chmod +x ./kafka-setup.sh ./kafka-topic-workers.sh ./kafka-ready.sh
 

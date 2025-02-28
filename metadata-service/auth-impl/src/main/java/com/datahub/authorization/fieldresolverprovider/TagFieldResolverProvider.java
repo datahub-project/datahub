@@ -1,6 +1,5 @@
 package com.datahub.authorization.fieldresolverprovider;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
@@ -9,11 +8,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,8 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TagFieldResolverProvider implements EntityFieldResolverProvider {
 
-  private final EntityClient _entityClient;
-  private final Authentication _systemAuthentication;
+  private final SystemEntityClient _entityClient;
 
   @Override
   public List<EntityFieldType> getFieldTypes() {
@@ -31,27 +31,35 @@ public class TagFieldResolverProvider implements EntityFieldResolverProvider {
   }
 
   @Override
-  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromFunction(entitySpec, this::getTags);
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromFunction(entitySpec, spec -> getTags(opContext, spec));
   }
 
-  private FieldResolver.FieldValue getTags(EntitySpec entitySpec) {
-    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+  private FieldResolver.FieldValue getTags(
+      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
     EnvelopedAspect globalTagsAspect;
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
       EntityResponse response =
           _entityClient.getV2(
+              opContext,
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(Constants.GLOBAL_TAGS_ASPECT_NAME),
-              _systemAuthentication);
+              Collections.singleton(Constants.GLOBAL_TAGS_ASPECT_NAME));
       if (response == null
           || !response.getAspects().containsKey(Constants.GLOBAL_TAGS_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }
       globalTagsAspect = response.getAspects().get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving tags aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving tags aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
     GlobalTags globalTags = new GlobalTags(globalTagsAspect.getValue().data());

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Modal, Steps, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { Modal, Steps, Typography } from 'antd';
 import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
 import ClickOutside from '../../shared/ClickOutside';
 import { TestBuilderStepComponent, TestBuilderStepTitles } from './conf';
@@ -115,7 +116,7 @@ export const TestBuilderModal = ({ initialState, onSubmit, onCancel }: Props) =>
                 title={
                     <TitleContainer>
                         <Typography.Text>{titleText}</Typography.Text>
-                        <ExpandButton onClick={() => setModalExpanded(!modalExpanded)}>
+                        <ExpandButton variant="outline" color="gray" onClick={() => setModalExpanded(!modalExpanded)}>
                             {(modalExpanded && <ShrinkOutlined />) || <ExpandAltOutlined />}
                         </ExpandButton>
                     </TitleContainer>

@@ -1,0 +1,332 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29",
+      "description": "Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime",
+      "description": "Remove test structured property",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02",
+      "description": "Remove test structured property #2",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime/propertyDefinition",
+      "description": "Create structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "qualifiedName": "io.acryl.privacy.v2.retentionTime",
+        "valueType": "urn:li:dataType:datahub.number",
+        "description": "Retention Time is used to figure out how long to retain records in a dataset",
+        "displayName": "Retention Time",
+        "cardinality": "MULTIPLE",
+        "entityTypes": [
+          "urn:li:entityType:datahub.dataset",
+          "urn:li:entityType:datahub.dataFlow"
+        ],
+        "allowedValues": [
+          {
+            "value": {
+              "double": 30
+            },
+            "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+          },
+          {
+            "value": {
+              "double": 60
+            },
+            "description": "Use this for datasets that drive monthly reporting but contain pii"
+          },
+          {
+            "value": {
+              "double": 365
+            },
+            "description": "Use this for non-sensitive data that can be retained for longer"
+          }
+        ]
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime",
+        "aspects": {
+          "propertyDefinition": {
+            "value": {
+              "allowedValues": [
+                {
+                  "value": {
+                    "double": 30.0
+                  },
+                  "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+                },
+                {
+                  "value": {
+                    "double": 60.0
+                  },
+                  "description": "Use this for datasets that drive monthly reporting but contain pii"
+                },
+                {
+                  "value": {
+                    "double": 365.0
+                  },
+                  "description": "Use this for non-sensitive data that can be retained for longer"
+                }
+              ],
+              "qualifiedName": "io.acryl.privacy.v2.retentionTime",
+              "displayName": "Retention Time",
+              "valueType": "urn:li:dataType:datahub.number",
+              "description": "Retention Time is used to figure out how long to retain records in a dataset",
+              "entityTypes": [
+                "urn:li:entityType:datahub.dataset",
+                "urn:li:entityType:datahub.dataFlow"
+              ],
+              "cardinality": "MULTIPLE"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset?createIfNotExists=false&createEntityIfNotExists=false",
+      "description": "Create dataset",
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+          "aspects": {
+            "status": {
+              "value": {
+                "removed": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)"
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties?createIfNotExists=false",
+      "description": "Add structured property to dataset",
+      "json": {
+        "properties": [
+          {
+            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime",
+            "values": [
+              {
+                "double": 60.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "aspects": {
+          "structuredProperties": {
+            "value": {
+              "properties": [
+                {
+                  "values": [
+                    {
+                      "double": 60.0
+                    }
+                  ],
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02/propertyDefinition?createIfNotExists=false",
+      "description": "Create structured property definition #2",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "qualifiedName": "io.acryl.privacy.v2.retentionTime02",
+        "displayName": "Retention Time 02",
+        "valueType": "urn:li:dataType:datahub.string",
+        "allowedValues": [
+          {
+            "value": {
+              "string": "foo2"
+            },
+            "description": "test foo2 value"
+          },
+          {
+            "value": {
+              "string": "bar2"
+            },
+            "description": "test bar2 value"
+          }
+        ],
+        "cardinality": "SINGLE",
+        "entityTypes": [
+          "urn:li:entityType:datahub.dataset"
+        ]
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+        "aspects": {
+          "propertyDefinition": {
+            "value": {
+              "allowedValues": [
+                {
+                  "description": "test foo2 value",
+                  "value": {
+                    "string": "foo2"
+                  }
+                },
+                {
+                  "description": "test bar2 value",
+                  "value": {
+                    "string": "bar2"
+                  }
+                }
+              ],
+              "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+              ],
+              "cardinality": "SINGLE",
+              "displayName": "Retention Time 02",
+              "qualifiedName": "io.acryl.privacy.v2.retentionTime02",
+              "valueType": "urn:li:dataType:datahub.string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties",
+      "description": "Patch ADD structured property",
+      "method": "patch",
+      "json": {
+        "patch": [
+          {
+            "op": "add",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+            "value": {
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+              "values": [
+                {
+                  "string": "bar2"
+                }
+              ]
+            }
+          }
+        ],
+        "arrayPrimaryKeys": {
+          "properties": [
+            "propertyUrn"
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "aspects": {
+          "structuredProperties": {
+            "value": {
+              "properties": [
+                {
+                  "values": [
+                    {
+                      "double": 60.0
+                    }
+                  ],
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                },
+                {
+                  "values": [
+                    {
+                      "string": "bar2"
+                    }
+                  ],
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties",
+      "description": "Patch REMOVE structured property",
+      "method": "patch",
+      "json": {
+        "patch": [
+          {
+            "op": "remove",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+            "value": {
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02"
+            }
+          }
+        ],
+        "arrayPrimaryKeys": {
+          "properties": [
+            "propertyUrn"
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "aspects": {
+          "structuredProperties": {
+            "value": {
+              "properties": [
+                {
+                  "values": [
+                    {
+                      "double": 60.0
+                    }
+                  ],
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+]

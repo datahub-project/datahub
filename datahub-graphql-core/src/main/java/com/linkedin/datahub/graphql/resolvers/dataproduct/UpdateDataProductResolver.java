@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.UpdateDataProductInput;
@@ -35,16 +36,16 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
     final Urn dataProductUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_dataProductService.verifyEntityExists(
-              dataProductUrn, context.getAuthentication())) {
+              context.getOperationContext(), dataProductUrn)) {
             throw new IllegalArgumentException("The Data Product provided dos not exist");
           }
 
           Domains domains =
               _dataProductService.getDataProductDomains(
-                  dataProductUrn, context.getAuthentication());
+                  context.getOperationContext(), dataProductUrn);
           if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
             // get first domain since we only allow one domain right now
             Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
@@ -58,11 +59,15 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
           try {
             final Urn urn =
                 _dataProductService.updateDataProduct(
-                    dataProductUrn, input.getName(), input.getDescription(), authentication);
+                    context.getOperationContext(),
+                    dataProductUrn,
+                    input.getName(),
+                    input.getDescription());
             EntityResponse response =
-                _dataProductService.getDataProductEntityResponse(urn, authentication);
+                _dataProductService.getDataProductEntityResponse(
+                    context.getOperationContext(), urn);
             if (response != null) {
-              return DataProductMapper.map(response);
+              return DataProductMapper.map(context, response);
             }
             // should never happen
             log.error(String.format("Unable to find data product with urn %s", dataProductUrn));
@@ -71,6 +76,8 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to update DataProduct with urn %s", dataProductUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

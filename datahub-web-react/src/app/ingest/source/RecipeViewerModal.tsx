@@ -18,7 +18,7 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
 
     return (
         <Modal
-            visible
+            open
             onCancel={onCancel}
             width={800}
             title="View Ingestion Recipe"

@@ -22,13 +22,20 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
 
     if (!entityWithSchema?.schemaMetadata || !entityWithSchema.schemaMetadata.fields.length) return null;
 
+    const schemaFields = entityWithSchema?.schemaMetadata?.fields;
+
     return (
         <>
             <Divider />
             <FieldPromptsTitle data-testid="field-level-requirements">Field-Level Requirements</FieldPromptsTitle>
-            {entityWithSchema?.schemaMetadata?.fields.map((field) => (
+            {schemaFields.map((field) => (
                 <VirtualScrollChild key={field.fieldPath} height={50} triggerOnce>
-                    <SchemaFieldDropdown prompts={prompts} field={field as SchemaField} associatedUrn={associatedUrn} />
+                    <SchemaFieldDropdown
+                        prompts={prompts}
+                        field={field as SchemaField}
+                        associatedUrn={associatedUrn}
+                        schemaFields={schemaFields as SchemaField[]}
+                    />
                 </VirtualScrollChild>
             ))}
         </>

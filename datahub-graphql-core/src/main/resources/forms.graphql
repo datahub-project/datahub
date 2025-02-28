@@ -1,3 +1,31 @@
+extend type Mutation {
+    """
+    Remove a form from a given list of entities.
+    """
+    batchRemoveForm(input: BatchRemoveFormInput!): Boolean!
+
+    """
+    Create a new form based on the input
+    """
+    createForm(input: CreateFormInput!): Form!
+
+    """
+    Delete a given form
+    """
+    deleteForm(input: DeleteFormInput!): Boolean!
+
+    """
+    Update an existing form based on the input
+    """
+    updateForm(input: UpdateFormInput!): Form!
+
+    """
+    Reassign a given form to the assets matching the dynamicFormAssignment filter.
+    Additionally, remove assets that are assigned to this form that shouldn't be.
+    """
+    refreshFormAssignment(input: RefreshFormAssignmentInput!): Boolean!
+}
+
 """
 Requirements forms that are assigned to an entity.
 """
@@ -73,6 +101,11 @@ type FormPromptAssociation {
     Optional information about the field-level prompt associations.
     """
     fieldAssociations: FormPromptFieldAssociations
+
+    """
+    Optional record of what was actually submitted when a user responds to a form prompt.
+    """
+    response: FormPromptResponse
 }
 
 """
@@ -90,6 +123,97 @@ type FormPromptFieldAssociations {
     incompleteFieldPrompts: [FieldFormPromptAssociation!]
 }
 
+
+"""
+Record of what was actually submitted when a user responds to a form prompt.
+"""
+type FormPromptResponse {
+    """
+    Response for a structured property type prompt
+    """
+    structuredPropertyResponse: StructuredPropertyPromptResponse
+
+    """
+    Response for an ownership type prompt
+    """
+    ownershipResponse: OwnershipPromptResponse
+
+    """
+    Response for a documentation type prompt
+    """
+    documentationResponse: DocumentationResponse
+
+    """
+    Response for a glossary terms type prompt
+    """
+    glossaryTermsResponse: GlossaryTermsPromptResponse
+
+    """
+    Response for a domain type prompt
+    """
+    domainResponse: DomainPromptResponse
+}
+
+"""
+Response for a structured property type prompt
+"""
+type StructuredPropertyPromptResponse {
+    """
+    Which property was applied from this prompt response
+    """
+    propertyUrn: String!
+
+    """
+    Which values for the given property were applied from this prompt response
+    """
+    values: [PropertyValue!]!
+}
+
+"""
+Response for an ownership type prompt
+"""
+type OwnershipPromptResponse {
+    """
+    The owners associated with this prompt response
+    """
+    owners: [Entity!]!
+
+    """
+    The type of ownership applied from this prompt response
+    """
+    ownershipTypeUrn: String!
+}
+
+"""
+Response for a documentation type prompt
+"""
+type DocumentationResponse {
+    """
+    The documentation provided in the response
+    """
+    documentation: String!
+}
+
+"""
+Response for a glossary term type prompt
+"""
+type GlossaryTermsPromptResponse {
+    """
+    The glossary terms associated with this prompt response
+    """
+    glossaryTerms: [GlossaryTerm!]!
+}
+
+"""
+Response for a domain type prompt
+"""
+type DomainPromptResponse {
+    """
+    The domain associated with this prompt response
+    """
+    domain: Domain!
+}
+
 """
 An association for field-level form prompts
 """
@@ -103,6 +227,11 @@ type FieldFormPromptAssociation {
     When and by whom this form field-level prompt has last been modified
     """
     lastModified: ResolvedAuditStamp!
+
+    """
+    Optional record of what was actually submitted when a user responds to a form prompt for this field.
+    """
+    response: FormPromptResponse
 }
 
 """
@@ -120,6 +249,11 @@ type Form implements Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Information about this form
     """
     info: FormInfo!
@@ -128,6 +262,11 @@ type Form implements Entity {
     Ownership metadata of the form
     """
     ownership: Ownership
+
+    """
+    Dynamic form assignment of this form
+    """
+    dynamicFormAssignment: DynamicFormAssignment
 
     """
     Granular API for querying edges extending from this entity
@@ -178,7 +317,57 @@ type FormInfo {
     The actors that are assigned to complete the forms for the associated entities.
     """
     actors: FormActorAssignment!
+
+    """
+    Information about the state and status of this form
+    """
+    status: FormStatus!
+
+    """
+    Audit stamp for when this form was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this form was last modified
+    """
+    lastModified: ResolvedAuditStamp
 }
+
+"""
+Information about the state and status of this form
+"""
+type FormStatus {
+    """
+    The actors that are assigned to complete the forms for the associated entities.
+    """
+    state: FormState!
+
+    """
+    The audit stamp related to the last modification of the form state
+    """
+    lastModified: AuditStamp
+}
+
+"""
+The state of this form. Draft means no users are prompted to fill it out yet and unpublished is hidden.
+Published forms are out in the world for users to see. Setting default to PUBLISHED for old data.
+"""
+enum FormState {
+    """
+    This form is in draft state and is not viewable by any users
+    """
+    DRAFT
+    """
+    This form is published and viewable by users to fill it out
+    """
+    PUBLISHED
+    """
+    This form is unpublished and is not viewable by users
+    """
+    UNPUBLISHED
+}
+
 
 """
 A prompt shown to the user to collect metadata about an entity
@@ -218,6 +407,21 @@ type FormPrompt {
     The params for this prompt if type is STRUCTURED_PROPERTY
     """
     structuredPropertyParams: StructuredPropertyParams
+
+    """
+    The params for this prompt if type is OWNERSHIP
+    """
+    ownershipParams: OwnershipParams
+
+    """
+    The params for this prompt if type is GLOSSARY_TERMS or FIELDS_GLOSSARY_TERMS
+    """
+    glossaryTermsParams: GlossaryTermsParams
+
+    """
+    The params for this prompt if type is DOMAIN
+    """
+    domainParams: DomainParams
 }
 
 """
@@ -232,6 +436,30 @@ enum FormPromptType {
     A schema field-level structured property form prompt type.
     """
     FIELDS_STRUCTURED_PROPERTY
+    """
+    This prompt is meant to apply ownership to an entity
+    """
+    OWNERSHIP
+    """
+    This prompt is meant to apply documentation to an entity
+    """
+    DOCUMENTATION
+    """
+    A schema field-level documentation form prompt type.
+    """
+    FIELDS_DOCUMENTATION
+    """
+    This prompt is meant to apply glossary terms to an entity
+    """
+    GLOSSARY_TERMS
+    """
+    A schema field-level glossary terms form prompt type.
+    """
+    FIELDS_GLOSSARY_TERMS
+    """
+    This prompt is meant to apply a domain to an entity
+    """
+    DOMAIN
 }
 
 """
@@ -242,6 +470,78 @@ type StructuredPropertyParams {
     The structured property required for the prompt on this entity
     """
     structuredProperty: StructuredPropertyEntity!
+}
+
+"""
+Params for an ownership type prompt
+"""
+type OwnershipParams {
+    """
+    The cardinality of this question type
+    """
+    cardinality: PromptCardinality!
+
+    """
+    An optional list of allowed owners to choose from
+    """
+    allowedOwners: [Entity!]
+
+    """
+    An optional list of ownership type urns to choose from. If this is empty, all types will be allowed.
+    If only one type is provided, the user will be required to set that type when responding.
+    """
+    allowedOwnershipTypes: [OwnershipTypeEntity!]
+}
+
+"""
+Params for an glossary terms type prompt
+"""
+type GlossaryTermsParams {
+    """
+    The cardinality of this question type
+    """
+    cardinality: PromptCardinality!
+
+    """
+    The optional list of glossary terms the user has to choose from
+    """
+    allowedTerms: [GlossaryTerm!]
+
+    """
+    The optional list of glossary groups the user has to choose terms from
+    """
+    allowedTermGroups: [GlossaryNode!]
+
+    """
+    The optional list of glossary terms the user has to choose from.
+    This combines the allowedTerms and terms inside of allowedTermGroups.
+    This field will be used directly by the UI
+    """
+    resolvedAllowedTerms: [GlossaryTerm!]
+}
+
+"""
+Params for a domain type prompt
+"""
+type DomainParams {
+    """
+    The optional list of domains the user has to choose from
+    """
+    allowedDomains: [Domain!]
+}
+
+"""
+The cardinality of the prompt.
+"""
+enum PromptCardinality {
+    """
+    The prompt accepts a singular value as a response
+    """
+    SINGLE
+    """
+    The prompt accepts multiple values as a response
+    """
+    MULTIPLE
 }
 
 """
@@ -265,14 +565,41 @@ input SubmitFormPromptInput {
 
     """
     The fieldPath on a schema field that this prompt submission is association with.
-    This should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY
+    This or fieldPaths should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY.
+    Deprecated in favor of using fieldPaths.
     """
-    fieldPath: String
+    fieldPath: String @deprecated(reason: "Use `fieldPaths`")
+
+    """
+    The fieldPaths on a schema field that this prompt submission is association with.
+    This or fieldPath should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY
+    """
+    fieldPaths: [String!]
 
     """
     The structured property required for the prompt on this entity
     """
     structuredPropertyParams: StructuredPropertyInputParams
+
+    """
+    Input params for an ownership type prompt
+    """
+    ownershipParams: OwnershipInputParams
+
+    """
+    Input params for a documentation type prompt
+    """
+    documentationParams: DocumentationInputParams
+
+    """
+    Input params for a glossary terms type prompt
+    """
+    glossaryTermsParams: GlossaryTermsInputParams
+
+    """
+    Input params for a domain type prompt
+    """
+    domainParams: DomainInputParams
 }
 
 
@@ -304,6 +631,51 @@ input StructuredPropertyInputParams {
     The list of values you want to apply on this structured property to an entity
     """
     values: [PropertyValueInput!]!
+}
+
+"""
+Input params for an ownership type prompt
+"""
+input OwnershipInputParams {
+    """
+    The list of owner urns you are applying to the asset
+    """
+    owners: [String!]!
+
+    """
+    The ownership type urn being applied to these owners
+    """
+    ownershipTypeUrn: String!
+}
+
+"""
+Input params for an documentation type prompt
+"""
+input DocumentationInputParams {
+    """
+    The documentation to be applied on an entity
+    """
+    documentation: String!
+}
+
+"""
+Input params for a glossary terms type prompt
+"""
+input GlossaryTermsInputParams {
+    """
+    The list of glossary term urns being applied to assets
+    """
+    glossaryTermUrns: [String!]!
+}
+
+"""
+Input params for a domain type prompt
+"""
+input DomainInputParams {
+    """
+    The domain urn being applied to assets
+    """
+    domainUrn: String!
 }
 
 """
@@ -376,3 +748,356 @@ input VerifyFormInput {
     """
     entityUrn: String!
 }
+
+"""
+Input for batch removing a form from different entities
+"""
+input BatchRemoveFormInput {
+    """
+    The urn of the form being removed from entities
+    """
+    formUrn: String!
+
+    """
+    The entities that this form is being removed from
+    """
+    entityUrns: [String!]!
+}
+
+"""
+Input for batch removing a form from different entities
+"""
+input CreateFormInput {
+    """
+    Advanced: Optionally provide an ID to create a form urn from
+    """
+    id: String
+
+    """
+    The name of the form being created
+    """
+    name: String!
+
+    """
+    The optional description of the form being created
+    """
+    description: String
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    type: FormType
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    prompts: [CreatePromptInput!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
+
+    """
+    Info about how this form is assigned to assets
+    """
+    formAssetAssignment: FormAssetAssignment
+}
+
+"""
+Input for creating form prompts
+"""
+input CreatePromptInput {
+    """
+    Advanced: Optionally provide an ID to this prompt. All prompt IDs must be globally unique.
+    """
+    id: String
+
+    """
+    The title of the prompt
+    """
+    title: String!
+
+    """
+    The optional description of the prompt
+    """
+    description: String
+
+    """
+    The type of the prompt.
+    """
+    type: FormPromptType!
+
+    """
+    The params required if this prompt type is STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY
+    """
+    structuredPropertyParams: StructuredPropertyParamsInput
+
+    """
+    The params if this prompt type is OWNERSHIP
+    """
+    ownershipParams: OwnershipParamsInput
+
+    """
+    The params if this prompt type is GLOSSARY_TERMS or FIELDS_GLOSSARY_TERMS
+    """
+    glossaryTermsParams: GlossaryTermsParamsInput
+
+    """
+    The params if this prompt type is DOMAIN.
+    """
+    domainParams: DomainParamsInput
+
+    """
+    Whether this prompt will be required or not. Default is false.
+    """
+    required: Boolean
+
+}
+
+"""
+Input for assigning a form to actors
+"""
+input FormActorAssignmentInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    users: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groups: [String!]
+}
+
+"""
+Input for assigning a form to assets
+"""
+input FormAssetAssignment {
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters).
+    This is the filter to select assets to be assigned to this form.
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    The json string representing the logical predicate that the user builds in the UI
+    to select assets to assign this form to.
+    """
+    json: String
+}
+
+"""
+Input for a structured property type prompt
+"""
+input StructuredPropertyParamsInput {
+    """
+    The urn of the structured property for a given form prompt
+    """
+    urn: String!
+}
+
+"""
+Input for an ownership type prompt
+"""
+input OwnershipParamsInput {
+    """
+    The cardinality of the ownership prompts (single or multiple) - default is multiple
+    """
+    cardinality: PromptCardinality
+
+    """
+    The optional list of allowed owners that a user can submit for this prompt
+    This needs to be user or group urns.
+    """
+    allowedOwners: [String!]
+
+    """
+    The optional list of ownership types for this prompt.
+    This needs to be an ownership type urn.
+    """
+    allowedOwnershipTypes: [String!]
+}
+
+"""
+Input for an ownership type prompt
+"""
+input GlossaryTermsParamsInput {
+    """
+    The cardinality of the ownership prompts (single or multiple) - default is multiple
+    """
+    cardinality: PromptCardinality
+
+    """
+    The optional list of allowed terms that a user can submit for this prompt
+    """
+    allowedTerms: [String!]
+
+    """
+    The optional list of term groups where allowed terms should come from
+    """
+    allowedTermGroups: [String!]
+}
+
+"""
+Input for a domain type prompt
+"""
+input DomainParamsInput {
+    """
+    The optional list of allowed domains that a user can submit for this prompt
+    """
+    allowedDomains: [String!]
+}
+
+"""
+Input for updating a form
+"""
+input UpdateFormInput {
+    """
+    The urn of the form being updated
+    """
+    urn: String!
+
+    """
+    The new name of the form
+    """
+    name: String
+
+    """
+    The new description of the form
+    """
+    description: String
+
+    """
+    The new type of the form
+    """
+    type: FormType
+
+    """
+    The new prompts being added to this form
+    """
+    promptsToAdd: [CreatePromptInput!]
+
+    """
+    The IDs of the prompts to remove from this form
+    """
+    promptsToRemove: [String!]
+
+    """
+    Set the state of prompts on this form with these prompts.
+    Caution! This will overwrite the existing list of prompts for this form.
+    """
+    prompts: [CreatePromptInput!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentUpdateInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
+
+    """
+    Info about how this form is assigned to assets
+    """
+    formAssetAssignment: FormAssetAssignment
+}
+
+"""
+Update input for assigning a form to actors
+"""
+input FormActorAssignmentUpdateInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    usersToAdd: [String!]
+
+    """
+    The optional list of user urns to overwrite the existing list
+    Caution! This will overwrite the existing list of users for this form.
+    """
+    users: [String!]
+
+    """
+    The users being removed from being assigned to this form
+    """
+    usersToRemove: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groupsToAdd: [String!]
+
+    """
+    The optional list of group urns to overwrite the existing list
+    Caution! This will overwrite the existing list of groups for this form.
+    """
+    groups: [String!]
+
+    """
+    The groups being removed from being assigned to this form
+    """
+    groupsToRemove: [String!]
+}
+
+"""
+Input for deleting a form
+"""
+input DeleteFormInput {
+    """
+    The urn of the form that is being deleted
+    """
+    urn: String!
+}
+
+"""
+Information about how a form is assigned to entities dynamically.
+"""
+type DynamicFormAssignment {
+    """
+    The stringified json representing the logical predicate built in the UI to select assets.
+    """
+    json: String
+}
+
+"""
+Input for refreshing a form's assignment to assets
+"""
+input RefreshFormAssignmentInput {
+    """
+    The urn of the form being reassigned to its assets
+    """
+    urn: String!
+
+    """
+    Optional flag for force reassigning all assets. Default this is false and
+    only assets that don't currently have this form assigned but match the form
+    filter will get reassigned. Only set this to true if you want a hard retry
+    for everything.
+    """
+    reassignAllAssets: Boolean
+
+    """
+    Optional flag for unassigning the form to assets that do not match the dynamic
+    form filter. Default is true, but can be turned off if desired.
+    """
+    unassignForm: Boolean
+}
+

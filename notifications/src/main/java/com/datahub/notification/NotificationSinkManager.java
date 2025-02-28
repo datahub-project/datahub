@@ -1,7 +1,12 @@
 package com.datahub.notification;
 
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientArray;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -48,18 +53,14 @@ public class NotificationSinkManager {
     this.sinkRegistry = new ArrayList<>(sinks);
   }
 
-  public CompletableFuture<Void> handle(@Nonnull final NotificationRequest request) {
-    log.info(
-        String.format("About to handle with sinks: %s, %s", this.sinkRegistry, request.toString()));
-
+  public CompletableFuture<Void> handle(
+      @Nonnull OperationContext opContext, @Nonnull final NotificationRequest request) {
     if (NotificationManagerMode.DISABLED.equals(this.mode)) {
       log.debug("NotificationSinkManager is disabled. Skipping sending notification...");
       return CompletableFuture.completedFuture(null);
     }
 
-    log.info(
-        String.format(
-            "About to validate request sinks: %s, %s", this.sinkRegistry, request.toString()));
+    log.info("Handling notification request: {}, sinks: {}", request.toString(), this.sinkRegistry);
 
     // 1. Validate & extract the requested template and corresponding arguments.
     final NotificationTemplateType template =
@@ -72,14 +73,25 @@ public class NotificationSinkManager {
     // 3. Send the messages via each sink.
     final List<CompletableFuture<Void>> notificationFutures = new ArrayList<>();
     for (final NotificationSink sink : eligibleSinks) {
-      log.info(String.format("About to send request %s", request.toString()));
+
+      log.info(
+          "Sinking notification request to sink with type {}", sink.getClass().getCanonicalName());
 
       // Run each sink asynchronously.
       notificationFutures.add(
           CompletableFuture.runAsync(
               () -> {
                 try {
-                  sink.send(request, new NotificationContext());
+                  final NotificationRequest finalRequest =
+                      filterForEligibleRecipients(request, sink);
+                  if (finalRequest.getRecipients().isEmpty()) {
+                    log.info(
+                        String.format(
+                            "Skipping notification request for sink %s. No eligible recipients found.",
+                            sink.getClass()));
+                    return;
+                  }
+                  sink.send(opContext, finalRequest, new NotificationContext());
                 } catch (Exception e) {
                   log.error(
                       String.format(
@@ -121,6 +133,19 @@ public class NotificationSinkManager {
       validateRequiredParameters(templateType, parameters);
     }
     return templateType;
+  }
+
+  @Nonnull
+  private NotificationRequest filterForEligibleRecipients(
+      @Nonnull final NotificationRequest request, @Nonnull final NotificationSink sink) {
+    final List<NotificationRecipient> eligibleRecipients =
+        request.getRecipients().stream()
+            .filter(recipient -> sink.recipientTypes().contains(recipient.getType()))
+            .collect(Collectors.toList());
+    return new NotificationRequest()
+        .setMessage(request.getMessage())
+        .setRecipients(new NotificationRecipientArray(eligibleRecipients))
+        .setSinks(request.getSinks(GetMode.NULL), SetMode.IGNORE_NULL);
   }
 
   private void validateRequiredParameters(

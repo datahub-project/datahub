@@ -10,4 +10,5 @@ export type OnboardingStep = {
     content?: ReactNode;
     selector?: string;
     style?: any;
+    isActionStep?: boolean; // hide this step until some action is taken to display it
 };

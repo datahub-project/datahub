@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersInput,
@@ -11,6 +12,8 @@ import { TestAssertionModal } from './preview/TestAssertionModal';
 import { builderStateToTestFieldAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { FieldAssertionBuilder } from './field/FieldAssertionBuilder';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;
@@ -36,14 +39,30 @@ const ControlsGroup = styled.div`
  */
 export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
+    const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(
+        state.entityUrn ?? '',
+    );
 
     return (
         <Step>
-            <FieldAssertionBuilder state={state} updateState={updateState} editing />
+            <div>
+                <FieldAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <AssertionActionsSection state={state} updateState={updateState} />
+            </div>
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
+                    <Tooltip
+                        title={
+                            isTestAssertionActionDisabled
+                                ? 'Trying assertions is not supported for sources with remote executors.'
+                                : 'Try this assertion out!'
+                        }
+                    >
+                        <Button onClick={handleTestAssertionSubmit} disabled={isTestAssertionActionDisabled}>
+                            Try it out
+                        </Button>
+                    </Tooltip>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
                         Next
                     </Button>

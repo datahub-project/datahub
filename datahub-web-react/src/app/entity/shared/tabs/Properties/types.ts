@@ -22,4 +22,5 @@ export interface PropertyRow {
     dataType?: DataTypeEntity;
     isParentRow?: boolean;
     structuredProperty?: StructuredPropertyEntity;
+    associatedUrn?: string;
 }

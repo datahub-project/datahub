@@ -19,12 +19,16 @@ const isNoInput = (actionType: ActionType): boolean => {
     return actionType.valueType === ValueTypeId.NO_VALUE;
 };
 
-export const getActionType = (action: Action, actionTypes: ActionType[]): ActionType | undefined => {
-    const maybeActionTypes = actionTypes.filter((type) => action.type.toLowerCase() === type.id.toLowerCase());
+export const getActionTypeForName = (action: string, actionTypes: ActionType[]): ActionType | undefined => {
+    const maybeActionTypes = actionTypes.filter((type) => action.toLowerCase() === type.id.toLowerCase());
     if (maybeActionTypes.length === 1) {
         return maybeActionTypes[0];
     }
     return undefined;
+};
+
+export const getActionType = (action: Action, actionTypes: ActionType[]): ActionType | undefined => {
+    return getActionTypeForName(action.type, actionTypes);
 };
 
 /**

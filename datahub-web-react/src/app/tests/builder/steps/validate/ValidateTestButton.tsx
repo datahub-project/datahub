@@ -73,7 +73,7 @@ export const getValidateEntityAction = (state: TestBuilderState) => {
             })
                 .then((result) => {
                     if (result) {
-                        const s = result.data?.runTestDefinition.status;
+                        const s = result.data?.runTestDefinition?.status;
                         setStatus(s);
                     }
                 })

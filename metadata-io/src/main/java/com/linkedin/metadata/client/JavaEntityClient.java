@@ -3,22 +3,22 @@ package com.linkedin.metadata.client;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -30,12 +30,12 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -47,8 +47,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
-import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -56,9 +56,16 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
-import io.opentelemetry.extension.annotations.WithSpan;
+import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -82,63 +89,110 @@ public class JavaEntityClient implements EntityClient {
       Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
 
   private final Clock _clock = Clock.systemUTC();
-
-  private final EntityService<?> _entityService;
-  private final DeleteEntityService _deleteEntityService;
-  private final EntitySearchService _entitySearchService;
-  private final CachingEntitySearchService _cachingEntitySearchService;
-  private final SearchService _searchService;
-  private final LineageSearchService _lineageSearchService;
-  private final TimeseriesAspectService _timeseriesAspectService;
+  private final EntityService<?> entityService;
+  private final DeleteEntityService deleteEntityService;
+  private final EntitySearchService entitySearchService;
+  private final CachingEntitySearchService cachingEntitySearchService;
+  private final SearchService searchService;
+  private final LineageSearchService lineageSearchService;
+  private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
-  private final EventProducer _eventProducer;
+  private final EventProducer eventProducer;
+  private final EntityClientConfig entityClientConfig;
 
+  @Override
   @Nullable
   public EntityResponse getV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
       @Nullable final Set<String> aspectNames,
-      @Nonnull final Authentication authentication)
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
-        aspectNames == null ? _entityService.getEntityAspectNames(entityName) : aspectNames;
-    return _entityService.getEntityV2(entityName, urn, projectedAspects);
+        aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
+    return entityService.getEntityV2(
+        opContext,
+        entityName,
+        urn,
+        projectedAspects,
+        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
   }
 
+  @Override
   @Nonnull
-  public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
-    return _entityService.getEntity(urn, ImmutableSet.of());
+  @Deprecated
+  public Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return entityService.getEntity(opContext, urn, ImmutableSet.of(), true);
   }
 
   @Nonnull
   @Override
   public Map<Urn, EntityResponse> batchGetV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames,
-      @Nonnull Authentication authentication)
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
-        aspectNames == null ? _entityService.getEntityAspectNames(entityName) : aspectNames;
-    return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
+        aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(urns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesV2(
+                        opContext,
+                        entityName,
+                        new HashSet<>(batch),
+                        projectedAspects,
+                        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
+  @Override
   @Nonnull
   public Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<VersionedUrn> versionedUrns,
-      @Nullable final Set<String> aspectNames,
-      @Nonnull final Authentication authentication)
-      throws RemoteInvocationException, URISyntaxException {
+      @Nullable final Set<String> aspectNames) {
     final Set<String> projectedAspects =
-        aspectNames == null ? _entityService.getEntityAspectNames(entityName) : aspectNames;
-    return _entityService.getEntitiesVersionedV2(versionedUrns, projectedAspects);
+        aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(
+            versionedUrns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesVersionedV2(
+                        opContext, new HashSet<>(batch), projectedAspects));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
+  @Override
   @Nonnull
+  @Deprecated
   public Map<Urn, Entity> batchGet(
-      @Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) {
-    return _entityService.getEntities(urns, ImmutableSet.of());
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
+    return entityService.getEntities(opContext, urns, ImmutableSet.of(), true);
   }
 
   /**
@@ -149,19 +203,20 @@ public class JavaEntityClient implements EntityClient {
    * @param field field of the dataset to autocomplete against
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nullable String field,
-      @Nonnull final Authentication authentication)
+      int limit,
+      @Nullable String field)
       throws RemoteInvocationException {
-    return _cachingEntitySearchService.autoComplete(
-        entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit, null);
+    return cachingEntitySearchService.autoComplete(
+        opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit);
   }
 
   /**
@@ -171,18 +226,19 @@ public class JavaEntityClient implements EntityClient {
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nonnull final Authentication authentication)
+      int limit)
       throws RemoteInvocationException {
-    return _cachingEntitySearchService.autoComplete(
-        entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
+    return cachingEntitySearchService.autoComplete(
+        opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
   }
 
   /**
@@ -193,21 +249,22 @@ public class JavaEntityClient implements EntityClient {
    * @param requestFilters browse filters
    * @param start start offset of first dataset
    * @param limit max number of datasets
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
+  @Override
   public BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit,
-      @Nonnull final Authentication authentication)
+      int limit)
       throws RemoteInvocationException {
     return ValidationUtils.validateBrowseResult(
-        _cachingEntitySearchService.browse(
-            entityType, path, newFilter(requestFilters), start, limit, null),
-        _entityService);
+        opContext,
+        cachingEntitySearchService.browse(
+            opContext, entityType, path, newFilter(requestFilters), start, limit),
+        entityService);
   }
 
   /**
@@ -219,21 +276,19 @@ public class JavaEntityClient implements EntityClient {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags) {
+      int count) {
     // TODO: cache browseV2 results
-    return _entitySearchService.browseV2(
-        entityName, path, filter, input, start, count, searchFlags);
+    return entitySearchService.browseV2(opContext, entityName, path, filter, input, start, count);
   }
 
   /**
@@ -245,65 +300,69 @@ public class JavaEntityClient implements EntityClient {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags) {
+      int count) {
     // TODO: cache browseV2 results
-    return _entitySearchService.browseV2(
-        entityNames, path, filter, input, start, count, searchFlags);
+    return entitySearchService.browseV2(opContext, entityNames, path, filter, input, start, count);
   }
 
+  @Override
   @SneakyThrows
   @Deprecated
-  public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
+  public void update(@Nonnull OperationContext opContext, @Nonnull final Entity entity)
       throws RemoteInvocationException {
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
+    auditStamp.setActor(
+        Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr()));
     auditStamp.setTime(Clock.systemUTC().millis());
-    _entityService.ingestEntity(entity, auditStamp);
+    entityService.ingestEntity(opContext, entity, auditStamp);
   }
 
+  @Override
   @SneakyThrows
   @Deprecated
   public void updateWithSystemMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull final Entity entity,
-      @Nullable final SystemMetadata systemMetadata,
-      @Nonnull final Authentication authentication)
+      @Nullable final SystemMetadata systemMetadata)
       throws RemoteInvocationException {
     if (systemMetadata == null) {
-      update(entity, authentication);
+      update(opContext, entity);
       return;
     }
 
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
+    auditStamp.setActor(
+        Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr()));
     auditStamp.setTime(Clock.systemUTC().millis());
 
-    _entityService.ingestEntity(entity, auditStamp, systemMetadata);
+    entityService.ingestEntity(opContext, entity, auditStamp, systemMetadata);
     tryIndexRunId(
-        com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata);
+        opContext,
+        com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()),
+        systemMetadata);
   }
 
   @SneakyThrows
   @Deprecated
-  public void batchUpdate(
-      @Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
+  public void batchUpdate(@Nonnull OperationContext opContext, @Nonnull final Set<Entity> entities)
       throws RemoteInvocationException {
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
+    auditStamp.setActor(
+        Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr()));
     auditStamp.setTime(Clock.systemUTC().millis());
-    _entityService.ingestEntities(
-        entities.stream().collect(Collectors.toList()), auditStamp, ImmutableList.of());
+    entityService.ingestEntities(
+        opContext, new ArrayList<>(entities), auditStamp, ImmutableList.of());
   }
 
   /**
@@ -313,27 +372,31 @@ public class JavaEntityClient implements EntityClient {
    * @param requestFilters search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags
    * @return a set of search results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   @WithSpan
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
-        _entitySearchService.search(
-            List.of(entity), input, newFilter(requestFilters), null, start, count, searchFlags),
-        _entityService);
+        opContext,
+        entitySearchService.search(
+            opContext,
+            List.of(entity),
+            input,
+            newFilter(requestFilters),
+            Collections.emptyList(),
+            start,
+            count),
+        entityService);
   }
 
   /**
@@ -345,21 +408,28 @@ public class JavaEntityClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of list results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Deprecated
-  @Nonnull
   public ListResult list(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateListResult(
+        opContext,
         toListResult(
-            _entitySearchService.filter(entity, newFilter(requestFilters), null, start, count)),
-        _entityService);
+            entitySearchService.filter(
+                opContext.withSearchFlags(flags -> flags.setFulltext(false)),
+                entity,
+                newFilter(requestFilters),
+                Collections.emptyList(),
+                start,
+                count)),
+        entityService);
   }
 
   /**
@@ -367,43 +437,43 @@ public class JavaEntityClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
-        _entitySearchService.search(
-            List.of(entity), input, filter, sortCriterion, start, count, searchFlags),
-        _entityService);
+        opContext,
+        entitySearchService.search(
+            opContext, List.of(entity), input, filter, sortCriteria, start, count),
+        entityService);
   }
 
+  @Override
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication)
+      List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null, predicateJson);
   }
 
   /**
@@ -415,152 +485,128 @@ public class JavaEntityClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @param facets list of facets we want aggregations for
-   * @param sortCriterion sorting criterion
+   * @param sortCriteria sorting criteria
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
+  @Override
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication,
-      @Nullable List<String> facets)
+      List<SortCriterion> sortCriteria,
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
+
     return ValidationUtils.validateSearchResult(
-        _searchService.searchAcrossEntities(
-            entities, input, filter, sortCriterion, start, count, finalFlags, facets),
-        _entityService);
+        opContext,
+        searchService.searchAcrossEntities(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            entities,
+            input,
+            filter,
+            sortCriteria,
+            start,
+            count,
+            facets,
+            predicateJson),
+        entityService);
   }
 
   @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
+
     return ValidationUtils.validateScrollResult(
-        _searchService.scrollAcrossEntities(
-            entities, input, filter, null, scrollId, keepAlive, count, finalFlags),
-        _entityService);
+        opContext,
+        searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            entities,
+            input,
+            filter,
+            Collections.emptyList(),
+            scrollId,
+            keepAlive,
+            count,
+            predicateJson),
+        entityService);
   }
 
-  @Nonnull
   @Override
   public LineageSearchResult searchAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateLineageSearchResult(
-        _lineageSearchService.searchAcrossLineage(
+        opContext,
+        lineageSearchService.searchAcrossLineage(
+            opContext,
             sourceUrn,
             direction,
             entities,
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
-            count,
-            null,
-            null,
-            searchFlags),
-        _entityService);
-  }
-
-  @Nonnull
-  @Override
-  public LineageSearchResult searchAcrossLineage(
-      @Nonnull Urn sourceUrn,
-      @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities,
-      @Nullable String input,
-      @Nullable Integer maxHops,
-      @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
-      int start,
-      int count,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
-    return ValidationUtils.validateLineageSearchResult(
-        _lineageSearchService.searchAcrossLineage(
-            sourceUrn,
-            direction,
-            entities,
-            input,
-            maxHops,
-            filter,
-            sortCriterion,
-            start,
-            count,
-            startTimeMillis,
-            endTimeMillis,
-            searchFlags),
-        _entityService);
+            count),
+        entityService);
   }
 
   @Nonnull
   @Override
   public LineageScrollResult scrollAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true).setSkipCache(true);
+
     return ValidationUtils.validateLineageScrollResult(
-        _lineageSearchService.scrollAcrossLineage(
+        opContext,
+        lineageSearchService.scrollAcrossLineage(
+            opContext
+                .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true))
+                .withLineageFlags(flags -> flags),
             sourceUrn,
             direction,
             entities,
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             keepAlive,
-            count,
-            startTimeMillis,
-            endTimeMillis,
-            finalFlags),
-        _entityService);
+            count),
+        entityService);
   }
 
   /**
@@ -568,93 +614,119 @@ public class JavaEntityClient implements EntityClient {
    *
    * @param urn urn for the entity
    * @return list of paths given urn
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
-  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication)
+  public StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
-    return new StringArray(_entitySearchService.getBrowsePaths(urn.getEntityType(), urn));
+    return new StringArray(entitySearchService.getBrowsePaths(opContext, urn.getEntityType(), urn));
   }
 
-  public void setWritable(boolean canWrite, @Nonnull final Authentication authentication)
+  @Override
+  public void setWritable(@Nonnull OperationContext opContext, boolean canWrite)
       throws RemoteInvocationException {
-    _entityService.setWritable(canWrite);
+    entityService.setWritable(canWrite);
   }
 
+  @Override
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull List<String> entityNames, @Nonnull final Authentication authentication)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter)
       throws RemoteInvocationException {
-    return _searchService.docCountPerEntity(entityNames);
+    return searchService.docCountPerEntity(opContext, entityNames, filter);
   }
 
   /** List all urns existing for a particular Entity type. */
+  @Override
   public ListUrnsResult listUrns(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count,
-      @Nonnull final Authentication authentication)
+      final int count)
       throws RemoteInvocationException {
-    return _entityService.listUrns(entityName, start, count);
+    return entityService.listUrns(opContext, entityName, start, count);
   }
 
   /** Hard delete an entity with a particular urn. */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  @Override
+  public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
-    _entityService.deleteUrn(urn);
+    entityService.deleteUrn(opContext, urn);
   }
 
   @Override
-  public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+  public void deleteEntityReferences(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
-    withRetry(() -> _deleteEntityService.deleteReferencesTo(urn, false), "deleteEntityReferences");
+    withRetry(
+        () -> deleteEntityService.deleteReferencesTo(opContext, urn, false),
+        "deleteEntityReferences");
   }
 
-  @Nonnull
   @Override
   public SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
-        _entitySearchService.filter(entity, filter, sortCriterion, start, count), _entityService);
+        opContext,
+        entitySearchService.filter(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            entity,
+            filter,
+            sortCriteria,
+            start,
+            count),
+        entityService);
   }
 
   @Override
-  public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication)
+  public boolean exists(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
-    return _entityService.exists(urn, true);
+    return entityService.exists(opContext, urn, true);
+  }
+
+  @Override
+  public boolean exists(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete)
+      throws RemoteInvocationException {
+    return entityService.exists(opContext, urn, includeSoftDelete);
   }
 
   @SneakyThrows
   @Override
+  @Deprecated
   public VersionedAspect getAspect(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String aspect,
-      @Nonnull Long version,
-      @Nonnull final Authentication authentication)
+      @Nonnull Long version)
       throws RemoteInvocationException {
-    return _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+    return entityService.getVersionedAspect(opContext, Urn.createFromString(urn), aspect, version);
   }
 
   @SneakyThrows
   @Override
+  @Deprecated
   public VersionedAspect getAspectOrNull(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String aspect,
-      @Nonnull Long version,
-      @Nonnull final Authentication authentication)
+      @Nonnull Long version)
       throws RemoteInvocationException {
-    return _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+    return entityService.getVersionedAspect(opContext, Urn.createFromString(urn), aspect, version);
   }
 
   @SneakyThrows
   @Override
   public List<EnvelopedAspect> getTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String entity,
       @Nonnull String aspect,
@@ -662,8 +734,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Long endTimeMillis,
       @Nullable Integer limit,
       @Nullable Filter filter,
-      @Nullable SortCriterion sort,
-      @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sort)
       throws RemoteInvocationException {
     GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
     response.setEntityName(entity);
@@ -682,7 +753,8 @@ public class JavaEntityClient implements EntityClient {
     }
     response.setValues(
         new EnvelopedAspectArray(
-            _timeseriesAspectService.getAspectValues(
+            timeseriesAspectService.getAspectValues(
+                opContext,
                 Urn.createFromString(urn),
                 entity,
                 aspect,
@@ -694,44 +766,89 @@ public class JavaEntityClient implements EntityClient {
     return response.getValues();
   }
 
-  // TODO: Factor out ingest logic into a util that can be accessed by the java client and the
-  // resource
   @Override
-  public String ingestProposal(
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication,
-      final boolean async)
-      throws RemoteInvocationException {
+  @Nonnull
+  public List<String> batchIngestProposals(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async) {
     String actorUrnStr =
-        authentication.getActor() != null
-            ? authentication.getActor().toUrnStr()
+        opContext.getSessionAuthentication().getActor() != null
+            ? opContext.getSessionAuthentication().getActor().toUrnStr()
             : Constants.UNKNOWN_ACTOR;
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
+    final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
-    AspectsBatch batch =
-        AspectsBatchImpl.builder()
-            .mcps(List.of(metadataChangeProposal), auditStamp, _entityService)
-            .build();
+    List<String> updatedUrns = new ArrayList<>();
+    Iterators.partition(
+            metadataChangeProposals.iterator(),
+            Math.max(1, entityClientConfig.getBatchIngestSize()))
+        .forEachRemaining(
+            batch -> {
+              AspectsBatch aspectsBatch =
+                  AspectsBatchImpl.builder()
+                      .mcps(
+                          batch,
+                          auditStamp,
+                          opContext.getRetrieverContext(),
+                          opContext.getValidationContext().isAlternateValidation())
+                      .build();
 
-    IngestResult one = _entityService.ingestProposal(batch, async).stream().findFirst().get();
+              List<IngestResult> results =
+                  entityService.ingestProposal(opContext, aspectsBatch, async);
+              entitySearchService.appendRunId(opContext, results);
 
-    Urn urn = one.getUrn();
-    tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
-    return urn.toString();
+              Map<Pair<Urn, String>, List<IngestResult>> resultMap =
+                  results.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              result ->
+                                  Pair.of(
+                                      result.getRequest().getUrn(),
+                                      result.getRequest().getAspectName())));
+
+              // Preserve ordering
+              updatedUrns.addAll(
+                  aspectsBatch.getItems().stream()
+                      .map(
+                          requestItem -> {
+                            // Urns generated
+                            List<Urn> urnsForRequest =
+                                resultMap
+                                    .getOrDefault(
+                                        Pair.of(requestItem.getUrn(), requestItem.getAspectName()),
+                                        List.of())
+                                    .stream()
+                                    .map(IngestResult::getUrn)
+                                    .filter(Objects::nonNull)
+                                    .distinct()
+                                    .collect(Collectors.toList());
+
+                            // Update runIds
+                            urnsForRequest.forEach(
+                                urn ->
+                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+
+                            return urnsForRequest.isEmpty()
+                                ? null
+                                : urnsForRequest.get(0).toString();
+                          })
+                      .collect(Collectors.toList()));
+            });
+    return updatedUrns;
   }
 
   @SneakyThrows
   @Override
+  @Deprecated
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,
-      @Nonnull Class<T> aspectClass,
-      @Nonnull final Authentication authentication)
+      @Nonnull Class<T> aspectClass)
       throws RemoteInvocationException {
     VersionedAspect entity =
-        _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+        entityService.getVersionedAspect(opContext, Urn.createFromString(urn), aspect, version);
     if (entity != null && entity.hasAspect()) {
       DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
       if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
@@ -743,21 +860,21 @@ public class JavaEntityClient implements EntityClient {
   }
 
   @SneakyThrows
+  @Deprecated
   public DataMap getRawAspect(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String aspect,
-      @Nonnull Long version,
-      @Nonnull Authentication authentication)
+      @Nonnull Long version)
       throws RemoteInvocationException {
     VersionedAspect entity =
-        _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+        entityService.getVersionedAspect(opContext, Urn.createFromString(urn), aspect, version);
     if (entity == null) {
       return null;
     }
 
     if (entity.hasAspect()) {
-      DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
-      return rawAspect;
+      return ((DataMap) entity.data().get("aspect"));
     }
 
     return null;
@@ -765,25 +882,25 @@ public class JavaEntityClient implements EntityClient {
 
   @Override
   public void producePlatformEvent(
+      @Nonnull OperationContext opContext,
       @Nonnull String name,
       @Nullable String key,
-      @Nonnull PlatformEvent event,
-      @Nonnull Authentication authentication)
+      @Nonnull PlatformEvent event)
       throws Exception {
-    _eventProducer.producePlatformEvent(name, key, event);
+    eventProducer.producePlatformEvent(name, key, event);
   }
 
   @Override
   public void rollbackIngestion(
-      @Nonnull String runId, @Nonnull Authorizer authorizer, @Nonnull Authentication authentication)
+      @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull Authorizer authorizer)
       throws Exception {
-    rollbackService.rollbackIngestion(runId, false, true, authorizer, authentication);
+    rollbackService.rollbackIngestion(opContext, runId, false, true, authorizer);
   }
 
-  private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
+  private void tryIndexRunId(
+      @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
-      _entitySearchService.appendRunId(
-          entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
     }
   }
 

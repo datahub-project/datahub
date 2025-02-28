@@ -36,4 +36,22 @@ public class Actor {
     throw new IllegalArgumentException(
         String.format("Unrecognized ActorType %s provided", getType()));
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    Actor actor = (Actor) o;
+
+    if (type != actor.type) return false;
+    return id.equals(actor.id);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = type.hashCode();
+    result = 31 * result + id.hashCode();
+    return result;
+  }
 }

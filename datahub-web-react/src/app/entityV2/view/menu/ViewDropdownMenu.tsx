@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Dropdown, Menu, message, Modal } from 'antd';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { colors } from '@src/alchemy-components';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
@@ -21,8 +23,9 @@ import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
 import { DeleteViewItem } from './item/DeleteViewItem';
 import analytics, { EventType } from '../../../analytics';
 
-const MenuButton = styled(MoreVertIcon)`
+const MenuButton = styled(MoreVertIcon)<{ $isShowNavBarRedesign?: boolean }>`
     width: 20px;
+    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
     &&& {
         padding-left: 0px;
         padding-right: 0px;
@@ -60,6 +63,7 @@ type Props = {
     onClickEdit?: () => void;
     onClickPreview?: () => void;
     onClickDelete?: () => void;
+    selectView?: () => void;
 };
 
 export const ViewDropdownMenu = ({
@@ -70,7 +74,9 @@ export const ViewDropdownMenu = ({
     onClickEdit,
     onClickPreview,
     onClickDelete,
+    selectView,
 }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const userContext = useUserContext();
     const client = useApolloClient();
 
@@ -95,6 +101,8 @@ export const ViewDropdownMenu = ({
         })
             .then(({ errors }) => {
                 if (!errors) {
+                    if (viewUrn && selectView) selectView();
+
                     userContext.updateState({
                         ...userContext.state,
                         views: {
@@ -242,6 +250,10 @@ export const ViewDropdownMenu = ({
     const showRemoveGlobalDefaultView = canManageGlobalViews && isGlobalView && isGlobalDefault;
     const showSetGlobalDefaultView = canManageGlobalViews && isGlobalView && !isGlobalDefault;
 
+    const handleDropdownClick = (e) => {
+        e.stopPropagation();
+    };
+
     return (
         <>
             <Dropdown
@@ -264,7 +276,12 @@ export const ViewDropdownMenu = ({
                 }
                 trigger={[trigger]}
             >
-                <MenuButton data-testid="views-table-dropdown" style={{ display: visible ? undefined : 'none' }} />
+                <MenuButton
+                    data-testid="views-table-dropdown"
+                    style={{ display: visible ? undefined : 'none' }}
+                    onClick={handleDropdownClick}
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                />
             </Dropdown>
             {viewBuilderState.visible && (
                 <ViewBuilder

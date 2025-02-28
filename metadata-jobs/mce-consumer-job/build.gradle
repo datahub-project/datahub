@@ -4,6 +4,7 @@ plugins {
     id 'com.palantir.docker'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {
@@ -41,6 +42,7 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation project(':metadata-service:restli-client')
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng

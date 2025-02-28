@@ -1,18 +1,19 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import OutputIcon from '@mui/icons-material/Output';
 import React from 'react';
 import styled from 'styled-components';
 import ImageWithColoredBackground, { Icon } from './ImageWIthColoredBackground';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const LogoIcon = styled.span`
     display: flex;
-    gap: 4px;
+    gap: 5px;
     margin-right: 8px;
 `;
 
-const PlatformContentWrapper = styled.div`
+export const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 8px 0;
@@ -28,11 +29,25 @@ interface Props {
     entityLogoComponent?: JSX.Element;
     isOutputPort?: boolean;
     icon?: React.ReactNode;
+    backgroundSize?: number;
+    imgSize?: number;
 }
 
 export default function ColoredBackgroundPlatformIconGroup(props: Props) {
-    const { platformName, platformLogoUrl, platformNames, platformLogoUrls, entityLogoComponent, isOutputPort, icon } =
-        props;
+    const {
+        platformName,
+        platformLogoUrl,
+        platformNames,
+        platformLogoUrls,
+        entityLogoComponent,
+        isOutputPort,
+        icon,
+        imgSize = 18,
+        backgroundSize = 32,
+    } = props;
+
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
 
     const renderLogoIcon = () => {
         if (icon) {
@@ -45,33 +60,33 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
             <>
                 {platformName && (
                     <LogoIcon>
-                        {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                        {!!platformLogoUrl && !platformLogoUrls && (
+                        {!platformLogoUrl && !showSiblingPlatformLogos && entityLogoComponent}
+                        {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <ImageWithColoredBackground
                                 src={platformLogoUrl}
                                 alt={platformName || ''}
                                 borderRadius={10}
-                                backgroundSize={30}
-                                imgSize={20}
+                                backgroundSize={backgroundSize}
+                                imgSize={imgSize}
                             />
                         )}
-                        {!!platformLogoUrls &&
-                            platformLogoUrls
+                        {!!showSiblingPlatformLogos &&
+                            [...new Set(platformLogoUrls)]
                                 .slice(0, 2)
                                 .map((url, idx) => (
                                     <ImageWithColoredBackground
                                         key={url}
                                         borderRadius={10}
-                                        backgroundSize={30}
-                                        imgSize={20}
+                                        backgroundSize={backgroundSize}
+                                        imgSize={imgSize}
                                         src={url || ''}
                                         alt={platformNames?.[idx] || ''}
                                     />
                                 ))}
                         {isOutputPort && (
                             <Tooltip title="This asset is an output port for this Data Product" placement="topLeft">
-                                <Icon size={30} background={ANTD_GRAY[4]} borderRadius={10}>
-                                    <OutputIcon style={{ fontSize: 20 }} htmlColor={ANTD_GRAY[8]} />
+                                <Icon size={backgroundSize} background={ANTD_GRAY[4]} borderRadius={10}>
+                                    <OutputIcon style={{ fontSize: imgSize }} htmlColor={ANTD_GRAY[8]} />
                                 </Icon>
                             </Tooltip>
                         )}

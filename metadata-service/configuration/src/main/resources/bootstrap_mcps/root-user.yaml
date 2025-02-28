@@ -1,0 +1,9 @@
+- entityUrn: urn:li:corpuser:admin
+  entityType: corpuser
+  aspectName: corpUserInfo
+  changeType: UPSERT
+  aspect:
+    active: true
+    displayName: Admin
+    title: DataHub Root User
+    system: true

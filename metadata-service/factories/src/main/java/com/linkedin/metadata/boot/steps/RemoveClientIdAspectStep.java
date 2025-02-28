@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.telemetry.TelemetryUtils;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -25,21 +26,25 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     try {
-      if (_entityService.exists(REMOVE_UNKNOWN_ASPECTS_URN, true)) {
+      if (_entityService.exists(systemOperationContext, REMOVE_UNKNOWN_ASPECTS_URN, true)) {
         log.info("Unknown aspects have been removed. Skipping...");
         return;
       }
       // Remove invalid telemetry aspect
       _entityService.deleteAspect(
-          TelemetryUtils.CLIENT_ID_URN, INVALID_TELEMETRY_ASPECT_NAME, new HashMap<>(), true);
+          systemOperationContext,
+          TelemetryUtils.CLIENT_ID_URN,
+          INVALID_TELEMETRY_ASPECT_NAME,
+          new HashMap<>(),
+          true);
 
-      BootstrapStep.setUpgradeResult(REMOVE_UNKNOWN_ASPECTS_URN, _entityService);
+      BootstrapStep.setUpgradeResult(
+          systemOperationContext, REMOVE_UNKNOWN_ASPECTS_URN, _entityService);
     } catch (Exception e) {
-      log.error("Error when running the RemoveUnknownAspects Bootstrap Step", e);
-      _entityService.deleteUrn(REMOVE_UNKNOWN_ASPECTS_URN);
-      throw new RuntimeException("Error when running the RemoveUnknownAspects Bootstrap Step", e);
+      log.warn("Error when running the RemoveUnknownAspects Bootstrap Step");
+      _entityService.deleteUrn(systemOperationContext, REMOVE_UNKNOWN_ASPECTS_URN);
     }
   }
 

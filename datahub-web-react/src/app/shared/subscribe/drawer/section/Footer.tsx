@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Button } from 'antd';
+import { Button } from '@src/alchemy-components';
 import {
     selectHasNotificationType,
     selectHasSlackChannel,
@@ -9,6 +9,7 @@ import {
     selectIsSlackEnabled,
     useDrawerSelector,
 } from '../state/selectors';
+import { Assertion } from '../../../../../types.generated';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -19,16 +20,21 @@ const FooterContainer = styled.div`
     gap: 8px;
 `;
 
-const FooterButton = styled(Button)``;
-
 interface Props {
     canManageSubscription?: boolean | null;
     isSubscribed: boolean;
-    onCancelOrUnsubscribe: () => void;
+    forSubResource?: { assertion?: Assertion };
+    onCancelOrUnsubscribe: (isUnsubscribe: boolean) => void;
     onUpdate: () => void;
 }
 
-export default function Footer({ isSubscribed, canManageSubscription, onCancelOrUnsubscribe, onUpdate }: Props) {
+export default function Footer({
+    isSubscribed,
+    canManageSubscription,
+    forSubResource,
+    onCancelOrUnsubscribe,
+    onUpdate,
+}: Props) {
     const isSlackEnabled = useDrawerSelector(selectIsSlackEnabled);
     const edited = useDrawerSelector(selectIsEdited);
     const hasSlackChannel = useDrawerSelector(selectHasSlackChannel);
@@ -38,14 +44,20 @@ export default function Footer({ isSubscribed, canManageSubscription, onCancelOr
     const canSubmit = edited && isSlackFormValid && canManageSubscription;
     const subscribeText = hasNotificationType ? 'Subscribe & Notify' : 'Subscribe';
 
+    const showUnsubscribe = isSubscribed && !forSubResource;
     return (
         <FooterContainer>
-            <FooterButton danger={isSubscribed} onClick={onCancelOrUnsubscribe} data-testid="cancel-button">
-                {isSubscribed ? 'Unsubscribe' : 'Cancel'}
-            </FooterButton>
-            <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">
+            <Button
+                variant="outline"
+                color={showUnsubscribe ? 'red' : undefined}
+                onClick={() => onCancelOrUnsubscribe(showUnsubscribe)}
+                data-testid="cancel-button"
+            >
+                {showUnsubscribe ? 'Unsubscribe' : 'Cancel'}
+            </Button>
+            <Button onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">
                 {isSubscribed ? 'Update' : subscribeText}
-            </FooterButton>
+            </Button>
         </FooterContainer>
     );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { CheckCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { SearchSection } from '../shared/SearchSection';
 import { MultiDropdownSelect } from '../shared/MultiDropdownSelect';
@@ -14,6 +14,7 @@ import {
 import { buildAssertionTypeFilters } from './util';
 import { EntityType, IncidentType } from '../../../../types.generated';
 import { Stat, List, Header, Title, TitleText, DescriptionText, Percent, Total } from '../shared/shared';
+import { useUserContext } from '../../../context/useUserContext';
 
 const StyledCheckCircleOutlined = styled(CheckCircleOutlined)`
     margin-right: 8px;
@@ -29,8 +30,10 @@ type Props = {
  * A component which displays a summary of the datasets that are failing some assertions globally
  */
 export const AssertionsSummary = ({ total }: Props) => {
+    const userContext = useUserContext();
     const [failingAssertionsTotal, setFailingAssertionsTotal] = useState(0);
     const [selectedAssertionTypes, setSelectedAssertionTypes] = useState<undefined | IncidentType[]>(undefined);
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     const { data } = useAggregateAcrossEntitiesQuery({
         variables: {
@@ -42,6 +45,7 @@ export const AssertionsSummary = ({ total }: Props) => {
                 searchFlags: {
                     skipCache: true,
                 },
+                viewUrn,
             },
         },
     });

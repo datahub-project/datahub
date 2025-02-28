@@ -1,5 +1,26 @@
-This connector ingests S3 datasets into DataHub. It allows mapping an individual file or a folder of files to a dataset in DataHub. 
-To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for more details.
+This connector ingests AWS S3 datasets into DataHub. It allows mapping an individual file or a folder of files to a dataset in DataHub. 
+Refer to the section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for more details.
+
+:::tip
+This connector can also be used to ingest local files.
+Just replace `s3://` in your path_specs with an absolute path to files on the machine running ingestion.
+:::
+
+### Supported file types
+Supported file types are as follows:
+
+- CSV (*.csv)
+- TSV (*.tsv)
+- JSONL (*.jsonl)
+- JSON (*.json)
+- Parquet (*.parquet)
+- Apache Avro (*.avro)
+
+Schemas for Parquet and Avro files are extracted as provided.
+
+Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TSV and JSONL files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
 ### Concept Mapping
 
@@ -11,24 +32,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | s3 object / Folder containing s3 objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                     |
 | s3 bucket                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
 | s3 folder                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
-
-This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). 
-[a]
-### Supported file types
-Supported file types are as follows:
-
-- CSV (*.csv)
-- TSV (*.tsv)
-- JSON (*.json)
-- Parquet (*.parquet)
-- Apache Avro (*.avro)
-
-Schemas for Parquet and Avro files are extracted as provided.
-
-Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
-JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
-We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
-
 
 ### Profiling
 

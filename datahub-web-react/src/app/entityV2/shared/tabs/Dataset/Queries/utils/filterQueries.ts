@@ -1,3 +1,4 @@
+import { FacetFilterInput } from '../../../../../../../types.generated';
 import { Query } from '../types';
 
 /**
@@ -12,7 +13,24 @@ export const filterQueries = (filterText, queries: Query[]) => {
         return (
             query.title?.toLowerCase().includes(lowerFilterText) ||
             query.description?.toLowerCase().includes(lowerFilterText) ||
-            query.query?.toLowerCase().includes(lowerFilterText)
+            query.query?.toLowerCase()?.includes(lowerFilterText)
         );
     });
+};
+
+export const getQueryEntitiesFilter = (entityUrn?: string, siblingUrn?: string) => {
+    const values = siblingUrn ? [entityUrn as string, siblingUrn] : [entityUrn as string];
+    return { field: 'entities', values };
+};
+
+export const getAndFilters = (
+    selectedColumnsFilter: FacetFilterInput,
+    selectedUsersFilter: FacetFilterInput,
+    existingFilters: FacetFilterInput[] = [],
+) => {
+    let andFilters = selectedColumnsFilter.values?.length
+        ? [...existingFilters, selectedColumnsFilter]
+        : existingFilters;
+    andFilters = selectedUsersFilter.values?.length ? [...andFilters, selectedUsersFilter] : andFilters;
+    return andFilters;
 };

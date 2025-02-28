@@ -7,23 +7,27 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.VisibleForTesting;
+import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -51,29 +55,32 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (canManageTests(context)) {
+          if (canManageTests(context) || canViewTests(context)) {
             final ListTestsInput input =
                 bindArgument(environment.getArgument("input"), ListTestsInput.class);
             final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
             final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
             final String query = input.getQuery() == null ? "" : input.getQuery();
+            final Filter filter =
+                input.getOrFilters() != null
+                    ? ResolverUtils.buildFilter(null, input.getOrFilters())
+                    : buildTestsFilter();
 
             try {
-              // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext().withSearchFlags(flags -> SEARCH_FLAGS),
                       Constants.TEST_ENTITY_NAME,
                       query,
-                      null,
-                      new SortCriterion()
-                          .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING),
+                      filter,
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
-                      count,
-                      context.getAuthentication(),
-                      SEARCH_FLAGS);
+                      count);
 
               // Now that we have entities we can bind this to a result.
               final ListTestsResult result = new ListTestsResult();
@@ -88,7 +95,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Test objects which will be
@@ -103,5 +112,24 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
       results.add(unresolvedTest);
     }
     return results;
+  }
+
+  // Construct a filter which omits any entities that are of the "Forms" source.
+  private Filter buildTestsFilter() {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    CriterionUtils.buildCriterion(
+                                        "sourceType",
+                                        Condition.EQUAL,
+                                        true,
+                                        "FORMS",
+                                        "BULK_FORM_SUBMISSION",
+                                        "FORM_PROMPT")))))));
   }
 }

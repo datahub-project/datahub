@@ -82,13 +82,15 @@ class UnityCatalogAnalyzeProfiler:
             rowCount=row_count,
             columnCount=table_profile.num_columns,
             sizeInBytes=table_profile.total_size,
-            fieldProfiles=[
-                self._gen_dataset_field_profile(row_count, column_profile)
-                for column_profile in table_profile.column_profiles
-                if column_profile  # Drop column profiles with no data
-            ]
-            if self.config.include_columns
-            else None,
+            fieldProfiles=(
+                [
+                    self._gen_dataset_field_profile(row_count, column_profile)
+                    for column_profile in table_profile.column_profiles
+                    if column_profile  # Drop column profiles with no data
+                ]
+                if self.config.include_columns
+                else None
+            ),
         )
         return MetadataChangeProposalWrapper(
             entityUrn=self.dataset_urn_builder(ref),

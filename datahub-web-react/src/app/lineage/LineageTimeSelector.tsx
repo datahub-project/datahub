@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import moment from 'moment';
 import styled from 'styled-components/macro';
-import { DatePicker, Tooltip } from 'antd';
+import { DatePicker } from 'antd';
+import { Tooltip } from '@components';
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import ClickOutside from '../shared/ClickOutside';
 import { getTimeRangeDescription } from '../shared/time/timeUtils';

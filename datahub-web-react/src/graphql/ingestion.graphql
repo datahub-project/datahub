@@ -33,15 +33,29 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                     id
                     input {
                         requestedAt
+                        actorUrn
+                        executorId
                     }
                     result {
                         status
                         startTimeMs
                         durationMs
+                        executorInstanceId # SaaS only
+                        structuredReport {
+                            type
+                            serializedValue
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+query getIngestionSourceName($urn: String!) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
     }
 }
 
@@ -75,7 +89,9 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                 urn
                 id
                 input {
+                    executorId
                     requestedAt
+                    actorUrn
                     source {
                         type
                     }
@@ -84,6 +100,11 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                     status
                     startTimeMs
                     durationMs
+                    executorInstanceId # SaaS only
+                    structuredReport {
+                        type
+                        serializedValue
+                    }
                 }
             }
         }
@@ -98,6 +119,8 @@ query getIngestionExecutionRequest($urn: String!) {
             source {
                 type
             }
+            actorUrn
+            executorId
             arguments {
                 key
                 value
@@ -108,6 +131,7 @@ query getIngestionExecutionRequest($urn: String!) {
             startTimeMs
             durationMs
             report
+            executorInstanceId # SaaS only
             structuredReport {
                 type
                 serializedValue
@@ -172,5 +196,8 @@ mutation rollbackIngestion($input: RollbackIngestionInput!) {
 query ingestionSourceForEntity($urn: String!) {
     ingestionSourceForEntity(urn: $urn) {
         urn
+        config {
+            executorId
+        }
     }
 }

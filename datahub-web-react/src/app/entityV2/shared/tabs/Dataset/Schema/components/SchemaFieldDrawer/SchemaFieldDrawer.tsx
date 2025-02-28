@@ -1,23 +1,29 @@
-import { Drawer, Typography } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
-import { ReadOutlined } from '@ant-design/icons';
+import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { TabRenderType } from '@src/app/entityV2/shared/types';
+import { Drawer, Typography } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
+import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
 import {
-    DatasetProfile,
     EditableSchemaMetadata,
+    Post,
     SchemaField,
+    TimeWindow,
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../../../constants';
+import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
+import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
+import { PropertiesTab } from '../../../../Properties/PropertiesTab';
 import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
-import DrawerFooter from './DrawerFooter';
-import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
 import { AboutFieldTab } from './AboutFieldTab';
-import { StatsTab } from './StatsTab';
+import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
-import { useBaseEntity } from '../../../../../EntityContext';
-import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
+import { SchemaFieldDrawerTabs, TABS_WIDTH } from './SchemaFieldDrawerTabs';
+import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
+import StatsTabWrapper from './StatsTabWrapper';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -40,7 +46,6 @@ const DrawerContent = styled.div`
 `;
 
 const TimelineHeader = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.WHITE_WIRE};
     font-size: 16px;
     font-weight: 700;
     line-height: 24px;
@@ -53,17 +58,20 @@ const TimelineHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
 `;
+
 const Body = styled.div`
     display: flex;
     flex-direction: row;
-    height: 100%
+    height: 100%;
 `;
+
 const Content = styled.div`
     flex: 1;
     border-right: 1px solid #e8e8e8;
+    max-width: calc(100% - ${TABS_WIDTH}px);
 `;
+
 const Tabs = styled.div``;
 
 interface Props {
@@ -71,10 +79,16 @@ interface Props {
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
-    openTimelineDrawer: boolean;
-    setOpenTimelineDrawer: any;
-    showTypeAsIcons?: boolean;
+    openTimelineDrawer?: boolean;
+    setOpenTimelineDrawer?: any;
+    selectPreviousField?: () => void;
+    selectNextField?: () => void;
     usageStats?: UsageQueryResult | null;
+    displayedRows: ExtendedSchemaFields[];
+    refetch?: () => void;
+    mask?: boolean;
+    isShowMoreEnabled?: boolean;
+    defaultSelectedTabName?: string;
 }
 
 export default function SchemaFieldDrawer({
@@ -84,38 +98,88 @@ export default function SchemaFieldDrawer({
     setExpandedDrawerFieldPath,
     openTimelineDrawer,
     setOpenTimelineDrawer,
-    showTypeAsIcons = true,
+    selectPreviousField,
+    selectNextField,
     usageStats,
+    displayedRows,
+    refetch,
+    mask = false,
+    isShowMoreEnabled,
+    defaultSelectedTabName = 'About',
 }: Props) {
     const expandedFieldIndex = useMemo(
-        () => schemaFields.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
-        [expandedDrawerFieldPath, schemaFields],
+        () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
+        [expandedDrawerFieldPath, displayedRows],
     );
     const expandedField =
-        expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? schemaFields[expandedFieldIndex] : undefined;
+        expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
 
-    const latestProfile = datasetProfiles && datasetProfiles[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
+
     const fieldProfile = latestProfile?.fieldProfiles?.find(
         (profile) => profile.fieldPath === expandedField?.fieldPath,
     );
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
+    const siblingUrn =
+        (baseEntity && baseEntity.dataset && baseEntity.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn) || '';
+    const schemaFieldUrn = generateSchemaFieldUrn(expandedDrawerFieldPath, urn);
+    const schemaFieldSiblingUrn = generateSchemaFieldUrn(expandedDrawerFieldPath, siblingUrn);
+    const notesUrns = [schemaFieldUrn, schemaFieldSiblingUrn].filter((v): v is string => !!v);
+    const { data: notesData, refetch: refetchNotes } = useGetEntitiesNotesQuery({
+        skip: !notesUrns.length,
+        variables: { urns: notesUrns },
+        fetchPolicy: 'cache-first',
+    });
+    const notes: Post[] =
+        notesData?.entities?.flatMap(
+            (entity) =>
+                (entity?.__typename === 'SchemaFieldEntity' &&
+                    entity?.notes?.relationships?.map((r) => r.entity as Post)) ||
+                [],
+        ) || [];
 
-    const [getDataProfiles, { data: profilesData }] = useGetDataProfilesLazyQuery();
+    const [getDataProfiles, { data: profilesData, loading: profilesDataLoading }] = useGetDataProfilesLazyQuery();
 
     useEffect(() => {
-        getDataProfiles({
-            variables: { urn },
-        });
+        if (urn) {
+            getDataProfiles({
+                variables: { urn },
+            });
+        }
     }, [urn, getDataProfiles]);
 
+    useEffect(() => {
+        if (
+            displayedRows.length > 0 &&
+            expandedDrawerFieldPath &&
+            !displayedRows.find((row) => row.fieldPath === expandedDrawerFieldPath)
+        ) {
+            setExpandedDrawerFieldPath(null);
+        }
+    }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
+
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabName, setSelectedTabName] = useState('About');
+    const [selectedTabName, setSelectedTabName] = useState(defaultSelectedTabName);
+
+    /**
+     * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
+     * @param lookbackWindow The new time window for data fetching.
+     */
+    const fetchDataWithLookbackWindow = useCallback(
+        (lookbackWindow: TimeWindow) => {
+            if (urn) {
+                getDataProfiles({
+                    variables: { urn, ...lookbackWindow },
+                });
+            }
+        },
+        [urn, getDataProfiles],
+    );
 
     const tabs: any = [
         {
@@ -129,17 +193,42 @@ export default function SchemaFieldDrawer({
                 usageStats,
                 fieldProfile,
                 profiles,
+                notes,
+                isShowMoreEnabled,
                 setSelectedTabName,
+                refetch,
+                refetchNotes,
             },
         },
         {
             name: 'Statistics',
             icon: QueryStatsOutlinedIcon,
-            component: StatsTab,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,
                 profiles,
+                fetchDataWithLookbackWindow,
+                profilesDataLoading,
+            },
+        },
+        {
+            name: 'Queries',
+            component: SchemaFieldQueriesSidebarTab,
+            description: 'View queries about this field',
+            icon: CodeOutlined,
+            properties: { fieldPath: expandedField?.fieldPath },
+        },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this field',
+            icon: UnorderedListOutlined,
+            properties: {
+                fieldPath: expandedField?.fieldPath,
+                fieldUrn: expandedField?.schemaFieldEntity?.urn,
+                fieldProperties: expandedField?.schemaFieldEntity?.structuredProperties,
+                refetch,
             },
         },
     ];
@@ -150,27 +239,31 @@ export default function SchemaFieldDrawer({
         <>
             {!openTimelineDrawer && (
                 <StyledDrawer
+                    push={false}
                     open={!!expandedDrawerFieldPath}
                     onClose={() => setExpandedDrawerFieldPath(null)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
-                    contentWrapperStyle={{ width: '33%' }}
-                    mask={false}
-                    maskClosable={false}
+                    // The minWidth is calculated based on the width of the Chart's displayed in the Historical stats view
+                    // And Insight Stats View Table to ensure consistent container width across various screen sizes.
+                    contentWrapperStyle={{ width: `fit-content`, minWidth: '560px', maxWidth: '560px' }}
+                    mask={mask}
+                    maskClosable={mask}
                     placement="right"
                     closable={false}
-                    autoFocus={false}
                 >
                     {expandedField && (
                         <DrawerContent>
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
-                                showTypeAsIcons={showTypeAsIcons}
                             />
-                            <Body>
+                            <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (
                                     <Content>
-                                        <selectedTab.component properties={selectedTab.properties} />
+                                        <selectedTab.component
+                                            properties={selectedTab.properties}
+                                            renderType={TabRenderType.COMPACT}
+                                        />
                                     </Content>
                                 )}
 
@@ -182,11 +275,14 @@ export default function SchemaFieldDrawer({
                                     />
                                 </Tabs>
                             </Body>
-                            <DrawerFooter
-                                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                                schemaFields={schemaFields}
-                                expandedFieldIndex={expandedFieldIndex}
-                            />
+                            {selectNextField && selectPreviousField && (
+                                <DrawerFooter
+                                    expandedFieldIndex={expandedFieldIndex}
+                                    selectPreviousField={selectPreviousField}
+                                    selectNextField={selectNextField}
+                                    displayedRows={displayedRows}
+                                />
+                            )}
                         </DrawerContent>
                     )}
                 </StyledDrawer>

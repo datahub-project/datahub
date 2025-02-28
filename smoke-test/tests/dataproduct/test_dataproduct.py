@@ -6,11 +6,12 @@ from typing import List
 
 import pytest
 import tenacity
+
 from datahub.emitter.mce_builder import datahub_guid, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
@@ -19,10 +20,8 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
 )
 from datahub.utilities.urns.urn import Urn
-
 from tests.utils import (
     delete_urns_from_file,
-    get_gms_url,
     get_sleep_info,
     ingest_file_via_rest,
     wait_for_writes_to_sync,
@@ -86,24 +85,18 @@ sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(request):
-    new_file, filename = tempfile.mkstemp()
+def ingest_cleanup_data(auth_session, graph_client, request):
+    new_file, filename = tempfile.mkstemp(suffix=".json")
     try:
         create_test_data(filename)
         print("ingesting data products test data")
-        ingest_file_via_rest(filename)
+        ingest_file_via_rest(auth_session, filename)
         yield
         print("removing data products test data")
-        delete_urns_from_file(filename)
+        delete_urns_from_file(graph_client, filename)
         wait_for_writes_to_sync()
     finally:
         os.remove(filename)
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 def get_gql_query(filename: str) -> str:
@@ -112,10 +105,10 @@ def get_gql_query(filename: str) -> str:
 
 
 def validate_listing(
-    graph: DataHubGraph, data_product_urn: str, dataset_urns: List[str]
+    graph_client: DataHubGraph, data_product_urn: str, dataset_urns: List[str]
 ) -> None:
     # Validate listing
-    result = graph.execute_graphql(
+    result = graph_client.execute_graphql(
         get_gql_query("tests/dataproduct/queries/list_dataproduct_assets.graphql"),
         {"urn": data_product_urn, "input": {"query": "*", "start": 0, "count": 20}},
     )
@@ -128,12 +121,12 @@ def validate_listing(
 
 
 def validate_relationships(
-    graph: DataHubGraph, data_product_urn: str, dataset_urns: List[str]
+    graph_client: DataHubGraph, data_product_urn: str, dataset_urns: List[str]
 ) -> None:
     # Validate relationships
     urn_match = {k: False for k in dataset_urns}
     for dataset_urn in dataset_urns:
-        for e in graph.get_related_entities(
+        for e in graph_client.get_related_entities(
             dataset_urn,
             relationship_types=["DataProductContains"],
             direction=DataHubGraph.RelationshipDirection.INCOMING,
@@ -142,31 +135,30 @@ def validate_relationships(
                 urn_match[dataset_urn] = True
 
     urns_missing = [k for k in urn_match if urn_match[k] is False]
-    assert (
-        urns_missing == []
-    ), "All dataset urns should have a DataProductContains relationship to the data product"
+    assert urns_missing == [], (
+        "All dataset urns should have a DataProductContains relationship to the data product"
+    )
 
     dataset_urns_matched = set()
-    for e in graph.get_related_entities(
+    for e in graph_client.get_related_entities(
         data_product_urn,
         relationship_types=["DataProductContains"],
         direction=DataHubGraph.RelationshipDirection.OUTGOING,
     ):
         dataset_urns_matched.add(e.urn)
 
-    assert (
-        set(dataset_urns) == dataset_urns_matched
-    ), "All dataset urns should be navigable from the data product"
+    assert set(dataset_urns) == dataset_urns_matched, (
+        "All dataset urns should be navigable from the data product"
+    )
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_data_product(ingest_cleanup_data):
+def test_create_data_product(graph_client, ingest_cleanup_data):
     domain_urn = Urn("domain", [datahub_guid({"name": "Marketing"})])
-    graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
-    result = graph.execute_graphql(
+
+    result = graph_client.execute_graphql(
         get_gql_query("tests/dataproduct/queries/add_dataproduct.graphql"),
         {
             "domainUrn": str(domain_urn),
@@ -177,22 +169,26 @@ def test_create_data_product(ingest_cleanup_data):
     assert "createDataProduct" in result
     data_product_urn = result["createDataProduct"]["urn"]
     # Data Product Properties
-    data_product_props = graph.get_aspect(data_product_urn, DataProductPropertiesClass)
+    data_product_props = graph_client.get_aspect(
+        data_product_urn, DataProductPropertiesClass
+    )
     assert data_product_props is not None
     assert data_product_props.description == "Test Description"
     assert data_product_props.name == "Test Data Product"
     # Domain assignment
-    domains = graph.get_aspect(data_product_urn, DomainsClass)
+    domains = graph_client.get_aspect(data_product_urn, DomainsClass)
     assert domains and domains.domains[0] == str(domain_urn)
 
     # Add assets
-    result = graph.execute_graphql(
+    result = graph_client.execute_graphql(
         get_gql_query("tests/dataproduct/queries/setassets_dataproduct.graphql"),
         {"dataProductUrn": data_product_urn, "resourceUrns": dataset_urns},
     )
     assert "batchSetDataProduct" in result
     assert result["batchSetDataProduct"] is True
-    data_product_props = graph.get_aspect(data_product_urn, DataProductPropertiesClass)
+    data_product_props = graph_client.get_aspect(
+        data_product_urn, DataProductPropertiesClass
+    )
     assert data_product_props is not None
     assert data_product_props.assets is not None
     assert data_product_props.description == "Test Description"
@@ -204,11 +200,11 @@ def test_create_data_product(ingest_cleanup_data):
 
     wait_for_writes_to_sync()
 
-    validate_listing(graph, data_product_urn, dataset_urns)
-    validate_relationships(graph, data_product_urn, dataset_urns)
+    validate_listing(graph_client, data_product_urn, dataset_urns)
+    validate_relationships(graph_client, data_product_urn, dataset_urns)
 
     # Update name and description
-    result = graph.execute_graphql(
+    result = graph_client.execute_graphql(
         get_gql_query("tests/dataproduct/queries/update_dataproduct.graphql"),
         {
             "urn": data_product_urn,
@@ -219,28 +215,30 @@ def test_create_data_product(ingest_cleanup_data):
     wait_for_writes_to_sync()
 
     # Data Product Properties
-    data_product_props = graph.get_aspect(data_product_urn, DataProductPropertiesClass)
+    data_product_props = graph_client.get_aspect(
+        data_product_urn, DataProductPropertiesClass
+    )
     assert data_product_props is not None
     assert data_product_props.description == "New Description"
     assert data_product_props.name == "New Test Data Product"
     assert data_product_props.assets is not None
     assert len(data_product_props.assets) == len(dataset_urns)
 
-    validate_listing(graph, data_product_urn, dataset_urns)
-    validate_relationships(graph, data_product_urn, dataset_urns)
+    validate_listing(graph_client, data_product_urn, dataset_urns)
+    validate_relationships(graph_client, data_product_urn, dataset_urns)
 
     # delete dataproduct
-    result = graph.execute_graphql(
+    result = graph_client.execute_graphql(
         get_gql_query("tests/dataproduct/queries/delete_dataproduct.graphql"),
         {"urn": data_product_urn},
     )
     wait_for_writes_to_sync()
-    assert graph.exists(data_product_urn) is False
+    assert graph_client.exists(data_product_urn) is False
 
     # Validate relationships are removed
     urn_match = {k: False for k in dataset_urns}
     for dataset_urn in dataset_urns:
-        for e in graph.get_related_entities(
+        for e in graph_client.get_related_entities(
             dataset_urn,
             relationship_types=["DataProductContains"],
             direction=DataHubGraph.RelationshipDirection.INCOMING,
@@ -249,6 +247,6 @@ def test_create_data_product(ingest_cleanup_data):
                 urn_match[dataset_urn] = True
 
     urns_missing = [k for k in urn_match if urn_match[k] is False]
-    assert set(urns_missing) == set(
-        dataset_urns
-    ), f"All dataset urns should no longer have a DataProductContains relationship to the data product {data_product_urn}"
+    assert set(urns_missing) == set(dataset_urns), (
+        f"All dataset urns should no longer have a DataProductContains relationship to the data product {data_product_urn}"
+    )

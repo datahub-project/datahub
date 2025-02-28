@@ -156,6 +156,13 @@ public class Proto2DataHub {
                   + "(Default is schema)")
           .build();
 
+  private static final Option OPTION_PROTOC_CUSTOM_PROPERTY =
+      Option.builder()
+          .option("protocProp")
+          .hasArg(false)
+          .desc("[Optional] Store the protoc as a custom property. (defaults to false)")
+          .build();
+
   enum TransportOptions {
     REST,
     KAFKA,
@@ -172,6 +179,7 @@ public class Proto2DataHub {
     private final String slackId;
     private final String dataPlatform;
     private final String protoc;
+    private final boolean enableProtocCustomProperty;
     private final String inputFile;
     private final String messageName;
     private final String inputDir;
@@ -207,6 +215,7 @@ public class Proto2DataHub {
       subType = cli.getOptionValue(OPTION_SUBTYPE, "schema").toLowerCase(Locale.ROOT);
       inputDir = cli.getOptionValue(OPTION_DIR, null);
       excludePatterns = cli.getOptionValues(OPTION_EXCLUDE_PATTERN);
+      enableProtocCustomProperty = cli.hasOption(OPTION_PROTOC_CUSTOM_PROPERTY);
     }
 
     private AppConfig validate() throws Exception {
@@ -269,7 +278,8 @@ public class Proto2DataHub {
         .addOption(OPTION_TRANSPORT)
         .addOption(OPTION_FILENAME)
         .addOption(OPTION_SUBTYPE)
-        .addOption(OPTION_HELP);
+        .addOption(OPTION_HELP)
+        .addOption(OPTION_PROTOC_CUSTOM_PROPERTY);
 
     Options firstPassOptions = new Options().addOption(OPTION_HELP);
 
@@ -357,6 +367,7 @@ public class Proto2DataHub {
                   ProtobufDataset.builder()
                       .setDataPlatformUrn(new DataPlatformUrn(config.dataPlatform))
                       .setProtocIn(new FileInputStream(config.protoc))
+                      .setEnableProtocCustomProperty(config.enableProtocCustomProperty)
                       .setFilename(filePath.toString())
                       .setSchema(textSchema)
                       .setAuditStamp(auditStamp)

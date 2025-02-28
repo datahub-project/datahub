@@ -2,8 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { Assertion } from '../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../constants';
-import { AcrylDatasetAssertionsList } from '../../AcrylAssertionsList';
 import { DataContractCategoryType } from './types';
+import { AcrylDatasetAssertionsList } from '../../AcrylAssertionsList';
 
 const Category = styled.div`
     padding: 20px;
@@ -40,15 +40,17 @@ export const DataContractAssertionGroupSelect = ({
     return (
         <>
             <Category>
-                {category} <Hint> {!multiple && `(Choose 1)`}</Hint>
+                {category} <Hint> {!multiple ? `(Choose 1)` : ''}</Hint>
             </Category>
             <AcrylDatasetAssertionsList
                 assertions={assertions}
                 showMenu={false}
-                showDetails={false}
                 showSelect
                 selectedUrns={selectedUrns}
                 onSelect={onSelect}
+                canEditAssertions={false}
+                canEditMonitors={false}
+                canEditSqlAssertions={false}
             />
         </>
     );

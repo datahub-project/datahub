@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataplatforminstance;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -35,6 +36,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -123,12 +125,12 @@ public class DataPlatformInstanceTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_DATAPLATFORMINSTANCE_1_STATUS.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME),
                 Mockito.eq(
                     new HashSet<>(
                         ImmutableSet.of(dataPlatformInstance1Urn, dataPlatformInstance2Urn))),
-                Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 dataPlatformInstance1Urn,
@@ -142,6 +144,9 @@ public class DataPlatformInstanceTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.userContextNoSearchAuthorization(TEST_ACTOR_URN));
+
     List<DataFetcherResult<DataPlatformInstance>> result =
         type.batchLoad(
             ImmutableList.of(TEST_DATAPLATFORMINSTANCE_1_URN, TEST_DATAPLATFORMINSTANCE_2_URN),
@@ -150,10 +155,10 @@ public class DataPlatformInstanceTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(dataPlatformInstance1Urn, dataPlatformInstance2Urn)),
-            Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -193,11 +198,7 @@ public class DataPlatformInstanceTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType type =
         new com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType(
             mockClient);

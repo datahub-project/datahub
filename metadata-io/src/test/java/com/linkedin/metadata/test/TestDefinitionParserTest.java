@@ -41,7 +41,10 @@ public class TestDefinitionParserTest {
             + "expression=Predicate(operatorType=NOT, operands=[Operand(index=0, name=null, "
             + "expression=Predicate(operatorType=EXISTS, operands=[Operand(index=0, name=query, "
             + "expression=Query(query=editableDatasetProperties.description))]))]))]), "
-            + "actions=TestActions(passing=[], failing=[]))";
+            + "actions=TestActions(passing=[], failing=[]), md5=98225469bcd4d1e114e4dbd103e0f182, "
+            + "rawDefinition={\"on\":{\"types\":[\"dataset\"],\"match\":[{\"query\":\"editableDatasetProperties"
+            + ".description\",\"operation\":\"equals\",\"params\":{\"values\":[\"value1\"]}}]},\"rules\":[{\"query\""
+            + ":\"editableDatasetProperties.description\",\"operation\":\"exists\",\"negate\":true}]})";
     Assert.assertEquals(result.toString(), expected);
   }
 
@@ -65,7 +68,11 @@ public class TestDefinitionParserTest {
             + "expression=Predicate(operatorType=CONTAINS_STR, operands=[Operand(index=0, name=query, "
             + "expression=Query(query=datasetProperties.description)), Operand(index=1, name=values, "
             + "expression=StringListLiteral(values=[pii]))]))]), "
-            + "actions=TestActions(passing=[], failing=[]))";
+            + "actions=TestActions(passing=[], failing=[]), md5=e1c7bf2eacbb33a65bec057c8b21ceae, rawDefinition="
+            + "{\"on\":{\"types\":[\"dataset\"],\"conditions\":[{\"property\":\"datasetProperties.name\",\"operator"
+            + "\":\"starts_with\",\"values\":[\"special_prefix\"]}]},\"rules\":{\"and\":[{\"property\":\"editableDat"
+            + "asetProperties.description\",\"operator\":\"exists\"},{\"property\":\"datasetProperties.description\",\""
+            + "operator\":\"contains_str\",\"values\":[\"pii\"]}]}})";
     Assert.assertEquals(result.toString(), expected);
   }
 
@@ -127,7 +134,22 @@ public class TestDefinitionParserTest {
             + "expression=Predicate(operatorType=CONTAINS_ANY, operands=[Operand(index=0, name=query, "
             + "expression=Query(query=datasetProperties.description)), Operand(index=1, name=values, "
             + "expression=StringListLiteral(values=[required field option 2]))]))]))]))]))]), "
-            + "actions=TestActions(passing=[], failing=[]))";
+            + "actions=TestActions(passing=[], failing=[]), md5=baeee89ee84f1fb2a1187feca05deaee, rawDefinition={\"on\""
+            + ":{\"types\":[\"dataset\",\"chart\",\"dashboard\"],\"conditions\":{\"not\":[{\"property\":"
+            + "\"datasetProperties.name\",\"operator\":\"starts_with\",\"values\":[\"special_prefix\"]},{\"property\""
+            + ":\"datasetProperties.name\",\"operator\":\"regex_match\",\"values\":[\".*exclude.*\"]},{\"or\":[{"
+            + "\"property\":\"editableDatasetProperties.description\",\"operator\":\"exists\"},{\"and\":[{\"not\":{"
+            + "\"property\":\"datasetProperties.description\",\"operator\":\"starts_with\",\"values\":[\"special_prefix"
+            + "\"]}}]}]}]}},\"rules\":[{\"not\":{\"property\":\"editableDatasetProperties.description\",\"operator\":"
+            + "\"exists\"}},{\"or\":[{\"property\":\"editableDatasetProperties.description\",\"operator\":"
+            + "\"contains_any\",\"values\":[\"required field option 1\"]},{\"property\":\"datasetProperties.description"
+            + "\",\"operator\":\"contains_any\",\"values\":[\"required field option 2\"]}]},{\"and\":[{\"or\":[{\"and\":"
+            + "[{\"not\":[{\"property\":\"datasetProperties.description\",\"operator\":\"contains_any\",\"values\":["
+            + "\"required field option 2\"]}]},{\"or\":[{\"property\":\"datasetProperties.description\",\"operator\":"
+            + "\"is_false\"},{\"property\":\"datasetProperties.description\",\"operator\":\"is_true\"}]}]},{\"property"
+            + "\":\"datasetProperties.description\",\"operator\":\"contains_any\",\"values\":[\"required field option 2"
+            + "\"]}]},{\"not\":[{\"property\":\"datasetProperties.description\",\"operator\":\"contains_any\",\"values"
+            + "\":[\"required field option 2\"]}]}]}]})";
     Assert.assertEquals(result.toString(), expected);
   }
 
@@ -147,7 +169,10 @@ public class TestDefinitionParserTest {
             + "expression=StringListLiteral(values=[value1]))]))])), rules=Predicate(operatorType=AND, operands=[Operand(index=0, name=null, "
             + "expression=Predicate(operatorType=EXISTS, operands=[Operand(index=0, name=query, "
             + "expression=Query(query=editableDatasetProperties.description))]))]), "
-            + "actions=TestActions(passing=[], failing=[]))";
+            + "actions=TestActions(passing=[], failing=[]), md5=9ec294c89d834ce4ff8eea17205b7798, rawDefinition={\"on\""
+            + ":{\"types\":[\"dataset\"],\"conditions\":[{\"property\":\"editableDatasetProperties.description\","
+            + "\"operator\":\"EQUALS\",\"values\":[\"value1\"]}]},\"rules\":[{\"query\":\"editableDatasetProperties"
+            + ".description\",\"operation\":\"EXISTS\"}]})";
     Assert.assertEquals(result.toString(), expected);
   }
 
@@ -175,7 +200,16 @@ public class TestDefinitionParserTest {
             + "params={values=[urn:li:corpuser:1, urn:li:corpGroup:2]}), "
             + "TestAction(type=REMOVE_OWNERS, params={values=[urn:li:corpuser:1, urn:li:corpGroup:2]})], "
             + "failing=[TestAction(type=ADD_GLOSSARY_TERMS, params={values=[urn:li:glossaryTerm:1, urn:li:glossaryTerm:2]}), "
-            + "TestAction(type=REMOVE_GLOSSARY_TERMS, params={values=[urn:li:glossaryTerm:1, urn:li:glossaryTerm:2]})]))";
+            + "TestAction(type=REMOVE_GLOSSARY_TERMS, params={values=[urn:li:glossaryTerm:1, urn:li:glossaryTerm:2]})]),"
+            + " md5=7afe4e94f453a60519e67d14b373e3d9, rawDefinition={\"on\":{\"types\":[\"dataset\"],\"conditions\":"
+            + "[{\"property\":\"datasetProperties.name\",\"operator\":\"starts_with\",\"values\":[\"special_prefix\"]}"
+            + "]},\"rules\":{\"and\":[{\"property\":\"editableDatasetProperties.description\",\"operator\":\"exists\"},"
+            + "{\"property\":\"datasetProperties.description\",\"operator\":\"contains_str\",\"values\":[\"pii\"]}]}"
+            + ",\"actions\":{\"passing\":[{\"type\":\"ADD_OWNERS\",\"params\":{\"values\":[\"urn:li:corpuser:1\",\""
+            + "urn:li:corpGroup:2\"]}},{\"type\":\"REMOVE_OWNERS\",\"params\":{\"values\":[\"urn:li:corpuser:1\",\""
+            + "urn:li:corpGroup:2\"]}}],\"failing\":[{\"type\":\"ADD_GLOSSARY_TERMS\",\"values\":[\""
+            + "urn:li:glossaryTerm:1\",\"urn:li:glossaryTerm:2\"]},{\"type\":\"remove_glossary_terms\",\"values\":[\""
+            + "urn:li:glossaryTerm:1\",\"urn:li:glossaryTerm:2\"]}]}})";
 
     Assert.assertEquals(result.toString(), expected);
   }
@@ -258,7 +292,7 @@ public class TestDefinitionParserTest {
         TestDefinitionParsingException.class, () -> PARSER.deserialize(TEST_URN, jsonTest));
   }
 
-  static String loadTest(String resourceName) throws Exception {
+  public static String loadTest(String resourceName) throws Exception {
     URL url = Resources.getResource(resourceName);
     return convertYamlToJson(Resources.toString(url, StandardCharsets.UTF_8));
   }

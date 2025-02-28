@@ -1,13 +1,16 @@
 package com.linkedin.metadata.test.action.domain;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.DomainService;
+import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,19 +58,21 @@ public class SetDomainActionTest {
 
   @Test
   private void testApply() throws Exception {
-    DomainService service = Mockito.mock(DomainService.class);
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
 
     SetDomainAction action = new SetDomainAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
-    action.apply(ALL_URNS, params);
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchSetDomain(
+            any(OperationContext.class),
             Mockito.eq(TEST_DOMAIN_URN),
             Mockito.eq(DASHBOARD_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchSetDomain(
+            any(OperationContext.class),
             Mockito.eq(TEST_DOMAIN_URN),
             Mockito.eq(DATASET_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
@@ -77,14 +82,14 @@ public class SetDomainActionTest {
 
   @Test
   private void testValidateValidParams() {
-    SetDomainAction action = new SetDomainAction(Mockito.mock(DomainService.class));
+    SetDomainAction action = new SetDomainAction(mock(DomainServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    SetDomainAction action = new SetDomainAction(Mockito.mock(DomainService.class));
+    SetDomainAction action = new SetDomainAction(mock(DomainServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

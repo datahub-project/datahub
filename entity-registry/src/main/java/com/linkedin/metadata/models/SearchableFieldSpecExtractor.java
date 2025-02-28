@@ -1,10 +1,13 @@
 package com.linkedin.metadata.models;
 
+import static com.linkedin.metadata.models.FieldSpecUtils.isNullAnnotation;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ComplexDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.PrimitiveDataSchema;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
@@ -12,6 +15,7 @@ import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +64,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
       final Object annotationObj = getAnnotationObj(context);
 
-      if (annotationObj != null) {
+      if (!isNullAnnotation(annotationObj)) {
+
         if (currentSchema.getDereferencedDataSchema().isComplex()) {
           final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
           if (isValidComplexType(complexSchema)) {
@@ -82,39 +87,49 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
     // First, check properties for primary annotation definition.
     final Map<String, Object> properties = context.getEnclosingField().getProperties();
-    final Object primaryAnnotationObj = properties.get(SearchableAnnotation.ANNOTATION_NAME);
 
+    // Validate the primary annotation on the field - only applies to override case.
+    final Object primaryAnnotationObj = properties.get(SearchableAnnotation.ANNOTATION_NAME);
     if (primaryAnnotationObj != null) {
       validatePropertiesAnnotation(
           currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
-      // Unfortunately, annotations on collections always need to be a nested map (byproduct of
-      // making overrides work)
-      // As such, for annotation maps, we make it a single entry map, where the key has no meaning
-      if (currentSchema.getDereferencedType() == DataSchema.Type.MAP
-          && primaryAnnotationObj instanceof Map
-          && !((Map) primaryAnnotationObj).isEmpty()) {
-        return ((Map<?, ?>) primaryAnnotationObj).entrySet().stream().findFirst().get().getValue();
-      }
     }
 
-    // Check if the path has map in it. Individual values of the maps (actual maps are caught above)
-    // can be ignored
+    // Specific handling for MAP fields: Extract the annotation from the values of the map.
+    // Note that this only works for maps of type primitive.
+    if (currentSchema.getDereferencedType() == DataSchema.Type.MAP) {
+      MapDataSchema mapSchema = ((MapDataSchema) currentSchema);
+      Object maybeKeyAnnotation =
+          mapSchema.getKey().getResolvedProperties().get(SearchableAnnotation.ANNOTATION_NAME);
+      Object maybeValueAnnotation =
+          mapSchema.getValues().getResolvedProperties().get(SearchableAnnotation.ANNOTATION_NAME);
+      return maybeKeyAnnotation != null ? maybeKeyAnnotation : maybeValueAnnotation;
+    }
+
+    // Skip processing any field paths inside a map, since we already catch and process it above.
+    // If we do not do this, the indices update process may be effected.
     if (context.getTraversePath().contains(MAP)) {
       return null;
     }
+
+    final Map<String, Object> resolvedProperties =
+        FieldSpecUtils.getResolvedProperties(currentSchema, Collections.emptyMap());
 
     final boolean isUrn =
         ((DataMap) context.getParentSchema().getProperties().getOrDefault("java", new DataMap()))
             .getOrDefault("class", "")
             .equals("com.linkedin.common.urn.Urn");
 
-    final Map<String, Object> resolvedProperties =
-        FieldSpecUtils.getResolvedProperties(currentSchema);
+    // Adjust URN annotations before returning.
+    if (isUrn) {
+      final Object resolvedAnnotationObj =
+          resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
 
-    // if primary doesn't have an annotation, then ignore secondary urns
-    if (isUrn && primaryAnnotationObj != null) {
-      DataMap annotationMap =
-          (DataMap) resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+      if (isNullAnnotation(resolvedAnnotationObj)) {
+        return null;
+      }
+
+      final DataMap annotationMap = (DataMap) resolvedAnnotationObj;
       Map<String, Object> result = new HashMap<>(annotationMap);
 
       // Override boostScore for secondary urn
@@ -174,7 +189,9 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.getNumValuesFieldName(),
                 annotation.getWeightsPerFieldValue(),
                 annotation.getFieldNameAliases(),
-                annotation.isIncludeQueryEmptyAggregation());
+                annotation.isIncludeQueryEmptyAggregation(),
+                annotation.isIncludeSystemModifiedAt(),
+                annotation.getSystemModifiedAtFieldName());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);

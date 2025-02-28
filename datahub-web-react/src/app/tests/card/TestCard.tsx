@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Card } from 'antd';
 import { TestCardDetails } from './TestCardDetails';
@@ -17,10 +17,17 @@ type Props = {
     index: number;
 };
 
-export const TestCard = ({ test, onEdited, onDeleted, index }: Props) => {
+export const TestCard = ({ test, onDeleted, index, ...props }: Props) => {
+    const [editVersion, setEditVersion] = useState(0);
+
+    const onEdited = (newTest) => {
+        setEditVersion((currentVal: number) => currentVal + 1);
+        props.onEdited?.(newTest);
+    };
+
     return (
         <StyledCard title={<TestCardDetails test={test} index={index} onEdited={onEdited} onDeleted={onDeleted} />}>
-            <TestCardResults testUrn={test.urn} name={test.name} />
+            <TestCardResults urn={test.urn} name={test.name} editVersion={editVersion} />
         </StyledCard>
     );
 };

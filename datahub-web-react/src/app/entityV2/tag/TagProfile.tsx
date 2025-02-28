@@ -8,6 +8,8 @@ import CompactTagProfile from './CompactTagProfile';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
+    background-color: white;
+    border-radius: 8px;
 `;
 
 const LoadingMessage = styled(Message)`

@@ -1,6 +1,12 @@
 import { EntityType } from '../../../types.generated';
 import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '../../../Mocks';
-import { getParentNodeToUpdate, getGlossaryRootToUpdate, ROOT_NODES, ROOT_TERMS } from '../utils';
+import {
+    getParentNodeToUpdate,
+    getGlossaryRootToUpdate,
+    ROOT_NODES,
+    ROOT_TERMS,
+    updateGlossarySidebar,
+} from '../utils';
 
 const glossaryTermWithParent = {
     ...glossaryTerm1,
@@ -37,5 +43,13 @@ describe('glossary utils tests', () => {
 
     it('should return ROOT_TERMS for glossary term', () => {
         expect(getGlossaryRootToUpdate(EntityType.GlossaryTerm)).toBe(ROOT_TERMS);
+    });
+
+    it('should return updateGlossarySidebar for glossary', () => {
+        const parentNodesToUpdate = ['sampleParentNode1', 'sampleParentNode2'];
+        const urnsToUpdate = ['urnsSample1'];
+        const setUrnsToUpdate = vi.fn();
+        updateGlossarySidebar(parentNodesToUpdate, urnsToUpdate, setUrnsToUpdate);
+        expect(setUrnsToUpdate).toHaveBeenCalledWith([...urnsToUpdate, ...parentNodesToUpdate]);
     });
 });

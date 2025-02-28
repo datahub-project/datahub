@@ -24,6 +24,12 @@ const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
+    height: 100%;
+`;
+
+const RouteContainer = styled.div`
+    flex: 1;
+    overflow: auto;
 `;
 
 /**
@@ -59,15 +65,16 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
                 </Route>
-
-                {tabs.map((tab) => (
-                    <Route
-                        exact
-                        path={`${path}/${tab.path.replace('/', '')}`}
-                        render={() => tab.content}
-                        key={tab.path}
-                    />
-                ))}
+                <RouteContainer>
+                    {tabs.map((tab) => (
+                        <Route
+                            exact
+                            path={`${path}/${tab.path.replace('/', '')}`}
+                            render={() => tab.content}
+                            key={tab.path}
+                        />
+                    ))}
+                </RouteContainer>
             </Switch>
         </RoutedTabsStyle>
     );

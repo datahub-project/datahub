@@ -1,7 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import { TaskSummaryCard } from './TaskSummaryCard';
+import { PageRoutes } from '../../../../conf/Global';
 import { formatNumber } from '../../../shared/formatNumber';
+import analytics, { EventType } from '../../../analytics';
 
 const Content = styled.span`
     text-wrap: wrap;
@@ -9,19 +12,23 @@ const Content = styled.span`
 `;
 
 type Props = {
-    loading: boolean;
     count: number;
 };
 
-export const PendingRequests = ({ loading, count }: Props) => {
-    const navigateToGovernanceCenter = () => {
-        console.log('Not yet implemented: Navigate to gov center.');
+export const PendingRequests = ({ count }: Props) => {
+    const history = useHistory();
+
+    const navigateToTaskCenter = () => {
+        history.push(PageRoutes.ACTION_REQUESTS);
+        analytics.event({
+            type: EventType.OpenTaskCenter,
+        });
     };
 
     return (
-        <TaskSummaryCard loading={loading} onClick={navigateToGovernanceCenter}>
+        <TaskSummaryCard loading={false} onClick={navigateToTaskCenter}>
             <Content>
-                <b>{formatNumber(count)} assets</b> with pending documentation requests
+                <b>{formatNumber(count)} assets</b> with pending compliance tasks
             </Content>
         </TaskSummaryCard>
     );

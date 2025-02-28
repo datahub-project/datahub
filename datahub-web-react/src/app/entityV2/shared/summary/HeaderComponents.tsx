@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ReadOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../constants';
+import { REDESIGN_COLORS } from '../constants';
 
 export const SUMMARY_TAB_ICON = ReadOutlined;
 
@@ -11,6 +11,19 @@ export const SummaryTabWrapper = styled.div`
     height: fit-content;
     padding: 12px 20px;
     gap: 20px;
+    position: relative;
+`;
+
+export const SectionContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &:hover {
+        .hover-btn {
+            display: flex;
+        }
+    }
 `;
 
 export const SummaryTabHeaderWrapper = styled.div`
@@ -20,12 +33,18 @@ export const SummaryTabHeaderWrapper = styled.div`
     justify-content: space-between;
 `;
 
+export const SummaryHeaderButtonGroup = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 16px;
+`;
+
 export const HeaderTitle = styled.h3`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[9]};
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 18px;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-weight: 500;
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;

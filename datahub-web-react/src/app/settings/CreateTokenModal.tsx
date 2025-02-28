@@ -12,7 +12,7 @@ import analytics, { EventType } from '../analytics';
 
 type Props = {
     currentUserUrn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onCreateToken: () => void;
 };
@@ -39,7 +39,7 @@ const OptionText = styled.span<{ isRed: boolean }>`
     ${(props) => props.isRed && `color: ${red[5]};`}
 `;
 
-export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreateToken }: Props) {
+export default function CreateTokenModal({ currentUserUrn, open, onClose, onCreateToken }: Props) {
     const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -113,7 +113,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
         <>
             <Modal
                 title="Create new Token"
-                visible={visible}
+                open={open}
                 onCancel={onModalClose}
                 footer={
                     <>
@@ -192,7 +192,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                 </Form>
             </Modal>
             <AccessTokenModal
-                visible={showModal}
+                open={showModal}
                 onClose={onDetailModalClose}
                 accessToken={accessToken || ''}
                 expiresInText={selectedExpiresInText || ''}

@@ -1,0 +1,44 @@
+namespace com.linkedin.assertion
+
+/**
+* Acryl Only! An assertion without any searchable or relationship annotations.
+* This file MUST be updated when new fields are marked as searchable or relationship in the
+* AssertionInfo schema, otherwise there is risk that these fields will end up in unwanted indexes.
+*/
+record AssertionWithoutAnnotations {
+    /**
+    * Acryl Only! An assertion without any searchable or relationship annotations.
+    */
+    @Relationship = {
+        "/datasetAssertion/dataset": null,
+        "/datasetAssertion/fields/*": null,
+        "/freshnessAssertion/entity": null,
+        "/volumeAssertion/entity": null,
+        "/sqlAssertion/entity": null,
+        "/fieldAssertion/entity": null,
+        "/schemaAssertion/entity": null,
+    }
+    @Searchable = {
+        "/type": null,
+        "/source/type": null,
+        "/datasetAssertion/dataset": null,
+        "/datasetAssertion/fields/*": null,
+        "/datasetAssertion/aggregation": null,
+        "/datasetAssertion/scope": null,
+        "/freshnessAssertion/entity": null,
+        "/freshnessAssertion/type": null,
+        "/freshnessAssertion/schedule/type": null,
+        "/volumeAssertion/entity": null,
+        "/volumeAssertion/type": null,
+        "/sqlAssertion/entity": null,
+        "/sqlAssertion/type": null,
+        "/fieldAssertion/entity": null,
+        "/fieldAssertion/type": null,
+        "/fieldAssertion/fieldMetricAssertion/field/path": null,
+        "/fieldAssertion/fieldValuesAssertion/field/path": null,
+        "/schemaAssertion/entity": null,
+        "/externalUrl": null,
+        "/customProperties/*": null,
+    }
+    assertion: optional AssertionInfo
+}

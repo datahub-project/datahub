@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChartStatsSummary as ChartStatsSummaryObj } from '../../../../../types.generated';
-import { useBaseEntity } from '../../../shared/EntityContext';
+import { useBaseEntity } from '../../../../entity/shared/EntityContext';
 import { GetChartQuery } from '../../../../../graphql/chart.generated';
 import { ChartStatsSummary } from '../../shared/ChartStatsSummary';
 

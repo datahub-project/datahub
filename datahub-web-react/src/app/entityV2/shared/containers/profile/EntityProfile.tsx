@@ -1,61 +1,59 @@
-import React, { useCallback, useContext, useState } from 'react';
-import { Alert } from 'antd';
-import { ReadOutlined } from '@ant-design/icons';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
-import styled from 'styled-components/macro';
+import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
+import LineageGraph from '@app/lineageV2/LineageGraph';
+import useEntityState from '@src/app/entity/shared/useEntityState';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Alert } from 'antd';
+import React, { useCallback, useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
+import styled from 'styled-components/macro';
+import { PageRoutes } from '../../../../../conf/Global';
 
 import { EntityType, Exact } from '../../../../../types.generated';
-import LineageFullscreen from '../../../../lineageV2/LineageFullscreen';
-import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
+import analytics, { EventType } from '../../../../analytics';
+import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
+import { EntityContext } from '../../../../entity/shared/EntityContext';
 import {
-    getEntityPath,
-    getOnboardingStepIdsForEntityType,
-    sortEntityProfileTabs,
-    useRoutedTab,
-    useUpdateGlossaryEntityDataOnChange,
-} from './utils';
-import {
-    EntitySidebarSection,
+    DrawerType,
     EntitySubHeaderSection,
-    EntitySidebarTab,
-    EntityTab,
     GenericEntityProperties,
     GenericEntityUpdate,
-    TabContextType,
-    TabRenderType,
-} from '../../types';
-import { EntityHeader } from './header/EntityHeader';
-import { EntityTabs } from './header/EntityTabs';
-import EntityContext from '../../EntityContext';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+} from '../../../../entity/shared/types';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
-import CompactContext from '../../../../shared/CompactContext';
-import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
-import analytics, { EventType } from '../../../../analytics';
-import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
-import { useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { EntityActionItem } from '../../entity/EntityActions';
-import { ErrorSection } from '../../../../shared/error/ErrorSection';
-import { EntityHead } from '../../../../shared/EntityHead';
-import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
-import useGetDataForProfile from './useGetDataForProfile';
-import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
+import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
+import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import { useAppConfig } from '../../../../useAppConfig';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
+import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
-import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
-import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
-import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
-import { PageRoutes } from '../../../../../conf/Global';
-import EntitySidebarContext from '../../../../shared/EntitySidebarContext';
+import CompactContext from '../../../../shared/CompactContext';
+import { EntityHead } from '../../../../shared/EntityHead';
+import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
-import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
+import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EntityActionItem } from '../../entity/EntityActions';
+import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
+import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
+import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
+import { EntityHeader } from './header/EntityHeader';
+import { EntityTabs } from './header/EntityTabs';
+import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
+import useGetDataForProfile from './useGetDataForProfile';
+import {
+    defaultTabDisplayConfig,
+    getEntityPath,
+    getFinalSidebarTabs,
+    getOnboardingStepIdsForEntityType,
+    useRoutedTab,
+    useUpdateGlossaryEntityDataOnChange,
+} from './utils';
 
 type Props<T, U> = {
     urn: string;
@@ -74,9 +72,17 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery?: (
-        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+        baseOptions?:
+            | MutationHookOptions<
+                  U,
+                  {
+                      urn: string;
+                      input: GenericEntityUpdate;
+                  }
+              >
+            | undefined,
     ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
-    getOverrideProperties: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarTabs?: EntitySidebarTab[];
     sidebarSections?: EntitySidebarSection[]; // Deprecated.
@@ -90,24 +96,15 @@ type Props<T, U> = {
 
 const ContentContainer = styled.div`
     display: flex;
-    min-height: 100%;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
+    height: 100%;
 `;
 
-const SidebarWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    height: auto;
-`;
-
-const HeaderAndTabs = styled.div`
-    flex-grow: 1;
-    min-width: 640px;
+const StyledEntityProfileSidebar = styled(EntityProfileSidebar)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => !props.$isShowNavBarRedesign && 'padding-bottom: 12px;'}
 `;
 
 const HeaderAndTabsFlex = styled.div`
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -116,29 +113,35 @@ const HeaderAndTabsFlex = styled.div`
     min-height: 0;
     overflow-y: auto;
     /* Hide scrollbar for Chrome, Safari, and Opera */
+
     &::-webkit-scrollbar {
         display: none;
     }
 `;
 
-const Header = styled.div`
-    padding: 12px 16px 0px 16px;
+const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    /* padding: ${(props) => (props.$isShowNavBarRedesign ? '4px 8px 4px 4px' : '0px 16px 0px 16px')}; */
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '5px 9px 4px 5px' : '0px 16px 0px 16px')};
+    ${(props) => props.$isShowNavBarRedesign && 'margin-right: 0px;'}
     display: flex;
     align-items: center;
 `;
 
-const HeaderContent = styled.div`
+const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
     flex: 1;
     flex-shrink: 0;
-    padding: 8px 0px 8px 0px;
+    padding: 0;
 `;
 
-const Body = styled.div`
-    padding: 12px 16px 12px 16px;
-    flex-shrink: 0;
+const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '12px 8px 4px 4px' : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -146,16 +149,18 @@ const Body = styled.div`
     flex: 1;
 `;
 
-const BodyContent = styled.div`
+const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
     height: 100%;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
 `;
 
@@ -168,14 +173,19 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-const defaultTabDisplayConfig = {
-    visible: (_, _1) => true,
-    enabled: (_, _1) => true,
-};
+const StyledAlert = styled(Alert)`
+    box-sizing: border-box;
+    position: fixed;
+    width: calc(100% - 70px);
+    z-index: 1000;
+`;
 
-export const DEFAULT_SIDEBAR_SECTION = {
-    visible: (_, _1) => true,
-};
+const Wrapper = styled.div<{ showAlert: boolean }>`
+    flex-grow: 1;
+    min-width: 0;
+    height: 100%;
+    margin-top: ${({ showAlert }) => (showAlert ? '2.5rem' : '0')};
+`;
 
 /**
  * Container for display of the Entity Page
@@ -203,27 +213,25 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const subscriptionsEnabled = useSubscriptionsEnabled();
     const history = useHistory();
-    const appConfig = useAppConfig();
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
+    const [showAlert, setShowAlert] = useState(true);
+    const entityState = useEntityState();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [drawer, setDrawer] = useState<DrawerType | undefined>(undefined);
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
 
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
-    const sidebarTabsWithDefaults = sidebarTabs.map((tab) => ({
-        ...tab,
-        display: { ...defaultTabDisplayConfig, ...tab.display },
-    }));
 
-    const sortedTabs = sortEntityProfileTabs(appConfig.config, entityType, tabsWithDefaults);
     const [shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch] = useState(false);
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
     const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
     const filteredStepIds = subscriptionsEnabled
         ? stepIds
-        : stepIds.filter((id) => id !== ENTITY_PROFILE_SUBSCRIPTION_ID);
+        : stepIds.filter((id) => id !== ENTITY_PROFILE_V2_SUBSCRIPTION_ID);
 
     const routeToTab = useCallback(
         ({
@@ -281,7 +289,7 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    const visibleTabs = [...sortedTabs, ...autoRenderTabs].filter((tab) =>
+    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs].filter((tab) =>
         tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
     );
 
@@ -295,25 +303,7 @@ export const EntityProfile = <T, U>({
         return <NonExistentEntityPage />;
     }
 
-    let finalTabs = sidebarTabs;
-
-    // Add a default "About" tab if only the legacy sections were provided.
-    if ((sidebarSections || [])?.length > 0) {
-        finalTabs = [
-            {
-                name: 'About',
-                icon: ReadOutlined,
-                component: EntitySidebarSectionsTab,
-                properties: {
-                    sections: sidebarSections || [],
-                },
-                display: {
-                    ...defaultTabDisplayConfig,
-                },
-            },
-            ...sidebarTabsWithDefaults,
-        ];
-    }
+    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -331,27 +321,28 @@ export const EntityProfile = <T, U>({
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
+                    entityState,
                 }}
             >
                 <>
                     {(error && <ErrorSection />) || (
                         <EntityProfileSidebar
-                            type={(isInSearch && 'card') || undefined}
+                            type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            headerDropdownItems={headerDropdownItems}
-                            headerActionItems={headerActionItems}
-                            subHeader={subHeader}
-                            hideHeader
-                            // TODO: Hide collapse for chrome extension
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
+                            headerDropdownItems={headerDropdownItems}
                         />
                     )}
                 </>
             </EntityContext.Provider>
         );
     }
+
+    const showError = error;
+    const showFullScreen = !error && isLineageMode && isLineageV2;
+    const showExplorer = isLineageMode && !isLineageV2;
 
     return (
         <EntityContext.Provider
@@ -368,83 +359,84 @@ export const EntityProfile = <T, U>({
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
+                entityState,
+                setDrawer,
             }}
         >
-            <>
+            {entityData?.status?.removed && (
+                <StyledAlert
+                    message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                    banner
+                    closable
+                    onClose={() => setShowAlert(false)}
+                />
+            )}
+            <Wrapper showAlert={showAlert && !!entityData?.status?.removed}>
                 <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
-                {entityData?.status?.removed === true && (
-                    <Alert
-                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
-                        banner
-                    />
-                )}
-                {error && <ErrorSection />}
-                {!error && isLineageMode && isLineageV2 && <LineageFullscreen urn={urn} type={entityType} />}
-                {!error && !(isLineageMode && isLineageV2) && (
+                {showError && <ErrorSection />}
+                {showFullScreen && <LineageGraph isFullscreen />}
+                {!showFullScreen && (
                     <ContentContainer>
-                        {isLineageMode && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
+                        {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
-                                <HeaderAndTabs>
-                                    <HeaderAndTabsFlex>
-                                        {!isTabFullsize && (
-                                            <Header>
-                                                <HeaderContent>
-                                                    <EntityHeader
-                                                        headerDropdownItems={headerDropdownItems}
-                                                        headerActionItems={headerActionItems}
-                                                        isNameEditable={isNameEditable}
-                                                        isIconEditable={isIconEditable}
-                                                        isColorEditable={isColorEditable}
-                                                        displayProperties={entityData?.displayProperties || undefined}
-                                                        subHeader={subHeader}
+                                <HeaderAndTabsFlex>
+                                    {!isTabFullsize && (
+                                        <Header $isShowNavBarRedesign={isShowNavBarRedesign}>
+                                            <HeaderContent $isShowNavBarRedesign={isShowNavBarRedesign}>
+                                                <EntityHeader
+                                                    headerDropdownItems={headerDropdownItems}
+                                                    headerActionItems={headerActionItems}
+                                                    isNameEditable={isNameEditable}
+                                                    isIconEditable={isIconEditable}
+                                                    isColorEditable={isColorEditable}
+                                                    displayProperties={entityData?.displayProperties || undefined}
+                                                    subHeader={subHeader}
+                                                />
+                                            </HeaderContent>
+                                        </Header>
+                                    )}
+                                    <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
+                                        <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
+                                            {!isTabFullsize && (
+                                                <TabsWrapper>
+                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
+                                                </TabsWrapper>
+                                            )}
+                                            <TabContent>
+                                                {routedTab && (
+                                                    <routedTab.component
+                                                        properties={routedTab.properties}
+                                                        contextType={TabContextType.PROFILE}
+                                                        renderType={TabRenderType.DEFAULT}
                                                     />
-                                                </HeaderContent>
-                                            </Header>
-                                        )}
-                                        <Body>
-                                            <BodyContent>
-                                                {!isTabFullsize && (
-                                                    <TabsWrapper>
-                                                        <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                    </TabsWrapper>
                                                 )}
-                                                <TabContent>
-                                                    {routedTab && (
-                                                        <routedTab.component
-                                                            properties={routedTab.properties}
-                                                            contextType={TabContextType.PROFILE}
-                                                            renderType={TabRenderType.DEFAULT}
-                                                        />
-                                                    )}
-                                                </TabContent>
-                                            </BodyContent>
-                                        </Body>
-                                    </HeaderAndTabsFlex>
-                                </HeaderAndTabs>
+                                            </TabContent>
+                                        </BodyContent>
+                                    </Body>
+                                </HeaderAndTabsFlex>
                                 {!isTabFullsize && (
-                                    <SidebarWrapper>
-                                        <EntityProfileSidebar
-                                            tabs={finalTabs}
-                                            type="card"
-                                            hideHeader
-                                            width={
-                                                width ||
-                                                (finalTabs.length > 1
-                                                    ? window.innerWidth * 0.33
-                                                    : window.innerWidth * 0.25)
-                                            }
-                                            contextType={TabContextType.PROFILE_SIDEBAR}
-                                            headerDropdownItems={headerDropdownItems}
-                                        />
-                                    </SidebarWrapper>
+                                    <StyledEntityProfileSidebar
+                                        tabs={finalTabs}
+                                        type="card"
+                                        width={width}
+                                        contextType={TabContextType.PROFILE_SIDEBAR}
+                                        headerDropdownItems={headerDropdownItems}
+                                        $isShowNavBarRedesign={isShowNavBarRedesign}
+                                    />
                                 )}
                             </>
                         )}
                     </ContentContainer>
                 )}
-            </>
+            </Wrapper>
+            {!!entityData?.versionProperties?.versionSet && (
+                <VersionsDrawer
+                    versionSetUrn={entityData.versionProperties?.versionSet.urn}
+                    open={drawer === DrawerType.VERSIONS}
+                />
+            )}
         </EntityContext.Provider>
     );
 };

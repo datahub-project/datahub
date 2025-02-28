@@ -1,7 +1,7 @@
 namespace com.linkedin.common
 
 /**
-  * The source of an operation
+  * The source of an operation. Note that this may be superceded by sourceDetails > producerType.
   */
 enum OperationSourceType {
   /**
@@ -9,7 +9,7 @@ enum OperationSourceType {
    */
   DATA_PROCESS
   /**
-   * Rows were updated
+   * Update was provided by consulting the data platform  itself.
    */
   DATA_PLATFORM
 }

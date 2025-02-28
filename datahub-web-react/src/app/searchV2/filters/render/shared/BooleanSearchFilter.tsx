@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+import FilterOption from '../../FilterOption';
 import { SearchFilterLabel } from '../../styledComponents';
 import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
-import FilterOption from '../../FilterOption';
 
 const IconNameWrapper = styled.span`
     display: flex;
@@ -63,8 +63,8 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
         >
             <SearchFilterLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                isActive={isSelected}
-                data-testid={`filter-dropdown-${title}`}
+                $isActive={isSelected}
+                data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
             >
                 <IconNameWrapper>
                     {icon && <IconWrapper>{icon}</IconWrapper>}

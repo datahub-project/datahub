@@ -10,13 +10,16 @@ import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
-import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
+import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
+import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
@@ -55,17 +58,21 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("removeUnknownAspects")
   private RemoveUnknownAspects removeUnknownAspects;
 
-  @Inject
-  @Named("buildIndices")
-  private BuildIndices buildIndices;
-
-  @Inject
-  @Named("cleanIndices")
-  private CleanIndices cleanIndices;
-
-  @Inject
+  @Autowired(required = false)
   @Named("systemUpdate")
   private SystemUpdate systemUpdate;
+
+  @Autowired(required = false)
+  @Named("systemUpdateBlocking")
+  private SystemUpdateBlocking systemUpdateBlocking;
+
+  @Autowired(required = false)
+  @Named("systemUpdateNonBlocking")
+  private SystemUpdateNonBlocking systemUpdateNonBlocking;
+
+  @Autowired
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   // Saas-only
 
@@ -81,7 +88,7 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("rotateSecrets")
   private RotateSecrets rotateSecrets;
 
-  @Inject
+  @Autowired(required = false)
   @Named("evaluateTests")
   private EvaluateTests evaluateTests;
 
@@ -92,21 +99,30 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(removeUnknownAspects);
-    _upgradeManager.register(buildIndices);
-    _upgradeManager.register(cleanIndices);
-    _upgradeManager.register(systemUpdate);
+    if (systemUpdate != null) {
+      _upgradeManager.register(systemUpdate);
+    }
+    if (systemUpdateBlocking != null) {
+      _upgradeManager.register(systemUpdateBlocking);
+    }
+    if (systemUpdateNonBlocking != null) {
+      _upgradeManager.register(systemUpdateNonBlocking);
+    }
 
     // Saas-only
     _upgradeManager.register(restoreAspect);
     _upgradeManager.register(propagateTerms);
     _upgradeManager.register(rotateSecrets);
-    _upgradeManager.register(evaluateTests);
+    if (evaluateTests != null) {
+      _upgradeManager.register(evaluateTests);
+    }
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
-    UpgradeResult result = _upgradeManager.execute(args.upgradeId.trim(), args.args);
+    UpgradeResult result =
+        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), args.args);
 
-    if (UpgradeResult.Result.FAILED.equals(result.result())) {
+    if (DataHubUpgradeState.FAILED.equals(result.result())) {
       System.exit(1);
     } else {
       System.exit(0);

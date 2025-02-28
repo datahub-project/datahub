@@ -63,7 +63,7 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
     const entityTypeToSubTypes = useMemo(() => getEntityTypeToSubType(nestedSubTypes), [nestedSubTypes]);
 
     return (
-        <FilterContainer isCompact={isCompact} isDisabled>
+        <FilterContainer $isCompact={isCompact} isDisabled>
             <FilterWrapper>
                 {entityTypes && entityTypes.length > 0 && (
                     <>

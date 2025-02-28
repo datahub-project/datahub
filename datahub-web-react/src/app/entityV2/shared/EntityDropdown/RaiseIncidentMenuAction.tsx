@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { WarningOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory } from 'react-router';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useIsSeparateSiblingsMode } from '../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
 
 export default function RaiseIncidentMenuAction() {
     const { urn, entityType } = useEntityData();
@@ -24,6 +24,8 @@ export default function RaiseIncidentMenuAction() {
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
+                    urn={urn}
+                    entityType={entityType}
                     visible={isRaiseIncidentModalVisible}
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={

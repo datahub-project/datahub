@@ -1,18 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Announcements } from '../action/announcement/Announcements';
-import { Resources } from '../action/learn/Resources';
 import { PendingTasks } from '../action/task/PendingTasks';
 
-const Container = styled.div`
-    flex: 1;
-    max-width: 380px;
+const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
     overflow-y: auto;
-    padding: 0px 12px 12px 12px;
+
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '16px 20px' : '0px 12px 12px 12px')};
+
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        margin: 5px;
+        border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        background-color: white;
+    `}
+
     /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
     }
+
+    ${(props) => props.$isHidden && props.$isShowNavBarRedesign && 'display: none;'}
 `;
 
 const Content = styled.div`
@@ -23,12 +34,24 @@ const Content = styled.div`
 `;
 
 export const RightSidebar = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [hasAnnouncements, setHasAnnouncements] = useState<boolean | null>(null);
+    const [hasPendingTasks, setHasPendingTasks] = useState<boolean | null>(null);
+
+    const [isSidebarHidden, setIsSidebarHidden] = useState<boolean>(true);
+
+    useEffect(() => {
+        if (!isShowNavBarRedesign) return;
+
+        const hasData = hasAnnouncements || hasPendingTasks;
+        setIsSidebarHidden(!hasData);
+    }, [isShowNavBarRedesign, hasAnnouncements, hasPendingTasks, setIsSidebarHidden]);
+
     return (
-        <Container>
+        <Container $isHidden={isSidebarHidden} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Content>
-                <Announcements />
-                <PendingTasks />
-                <Resources />
+                <Announcements setHasAnnouncements={setHasAnnouncements} />
+                <PendingTasks setHasPendingTasks={setHasPendingTasks} />
             </Content>
         </Container>
     );

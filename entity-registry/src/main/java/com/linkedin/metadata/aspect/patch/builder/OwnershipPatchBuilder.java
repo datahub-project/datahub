@@ -4,10 +4,12 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<OwnershipPatchBuilder> {
@@ -15,6 +17,40 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
   private static final String BASE_PATH = "/owners/";
   private static final String OWNER_KEY = "owner";
   private static final String TYPE_KEY = "type";
+  private static final String TYPE_URN_KEY = "typeUrn";
+  private static final String LAST_MODIFIED_KEY = "lastModified";
+  private static final String TIME_KEY = "time";
+  private static final String ACTOR_KEY = "actor";
+
+  public OwnershipPatchBuilder addLastModified(@Nonnull AuditStamp lastModified) {
+    ObjectNode lastModifiedValue = instance.objectNode();
+    lastModifiedValue.put(TIME_KEY, lastModified.getTime());
+    lastModifiedValue.put(ACTOR_KEY, lastModified.getActor().toString());
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), "/" + LAST_MODIFIED_KEY, lastModifiedValue));
+
+    return this;
+  }
+
+  public OwnershipPatchBuilder addOwner(
+      @Nonnull Urn owner, @Nonnull OwnershipType type, @Nullable Urn ownershipTypeUrn) {
+    if (ownershipTypeUrn == null) {
+      return addOwner(owner, type);
+    }
+
+    ObjectNode value = instance.objectNode();
+    value.put(OWNER_KEY, owner.toString());
+    value.put(TYPE_KEY, type.toString());
+    value.put(TYPE_URN_KEY, ownershipTypeUrn.toString());
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), BASE_PATH + owner + "/" + type, value));
+
+    return this;
+  }
 
   public OwnershipPatchBuilder addOwner(@Nonnull Urn owner, @Nonnull OwnershipType type) {
     ObjectNode value = instance.objectNode();

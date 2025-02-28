@@ -2,7 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -11,14 +12,18 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -41,18 +46,30 @@ public class MappingsBuilder {
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 
+  public static final String SYSTEM_CREATED_FIELD = "systemCreated";
+
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
   public static final String WORD_GRAMS_LENGTH_2 = "wordGrams2";
   public static final String WORD_GRAMS_LENGTH_3 = "wordGrams3";
   public static final String WORD_GRAMS_LENGTH_4 = "wordGrams4";
+  public static final Set<String> SUBFIELDS =
+      Set.of(
+          KEYWORD,
+          DELIMITED,
+          LENGTH,
+          NGRAM,
+          WORD_GRAMS_LENGTH_2,
+          WORD_GRAMS_LENGTH_3,
+          WORD_GRAMS_LENGTH_4);
 
   // Alias field mappings constants
-  public static final String ALIAS = "alias";
+  public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String PATH = "path";
 
   public static final String PROPERTIES = "properties";
+  public static final String DYNAMIC_TEMPLATES = "dynamic_templates";
 
   private MappingsBuilder() {}
 
@@ -64,18 +81,21 @@ public class MappingsBuilder {
    * @return mappings
    */
   public static Map<String, Object> getMappings(
+      @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
-      Collection<StructuredPropertyDefinition> structuredProperties) {
-    Map<String, Object> mappings = getMappings(entitySpec);
+      Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+    Map<String, Object> mappings = getMappings(entityRegistry, entitySpec);
 
     String entityName = entitySpec.getEntityAnnotation().getName();
     Map<String, Object> structuredPropertiesForEntity =
         getMappingsForStructuredProperty(
             structuredProperties.stream()
                 .filter(
-                    prop -> {
+                    urnProp -> {
                       try {
-                        return prop.getEntityTypes()
+                        return urnProp
+                            .getSecond()
+                            .getEntityTypes()
                             .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
                       } catch (URISyntaxException e) {
                         return false;
@@ -100,10 +120,12 @@ public class MappingsBuilder {
             return merged.isEmpty() ? null : merged;
           });
     }
+
     return mappings;
   }
 
-  public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
+  public static Map<String, Object> getMappings(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
     entitySpec
@@ -114,10 +136,19 @@ public class MappingsBuilder {
         .forEach(
             searchScoreFieldSpec ->
                 mappings.putAll(getMappingsForSearchScoreField(searchScoreFieldSpec)));
-
+    entitySpec
+        .getSearchableRefFieldSpecs()
+        .forEach(
+            searchableRefFieldSpec ->
+                mappings.putAll(
+                    getMappingForSearchableRefField(
+                        entityRegistry,
+                        searchableRefFieldSpec,
+                        searchableRefFieldSpec.getSearchableRefAnnotation().getDepth())));
     // Fixed fields
     mappings.put("urn", getMappingsForUrn());
     mappings.put("runId", getMappingsForRunId());
+    mappings.put(SYSTEM_CREATED_FIELD, getMappingsForSystemCreated());
 
     return ImmutableMap.of(PROPERTIES, mappings);
   }
@@ -144,11 +175,16 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
   }
 
+  private static Map<String, Object> getMappingsForSystemCreated() {
+    return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.DATE_FIELD_TYPE).build();
+  }
+
   public static Map<String, Object> getMappingsForStructuredProperty(
-      Collection<StructuredPropertyDefinition> properties) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return properties.stream()
         .map(
-            property -> {
+            urnProperty -> {
+              StructuredPropertyDefinition property = urnProperty.getSecond();
               Map<String, Object> mappingForField = new HashMap<>();
               String valueType = property.getValueType().getId();
               if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())) {
@@ -163,7 +199,7 @@ public class MappingsBuilder {
                 mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
               }
               return Map.entry(
-                  sanitizeStructuredPropertyFQN(property.getQualifiedName()), mappingForField);
+                  toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
@@ -221,7 +257,7 @@ public class MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.LONG_FIELD_TYPE);
     } else if (fieldType == FieldType.DATETIME) {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-    } else if (fieldType == FieldType.OBJECT) {
+    } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
@@ -241,6 +277,12 @@ public class MappingsBuilder {
         .getNumValuesFieldName()
         .ifPresent(
             fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
+
+    if (ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).get();
+      mappings.put(modifiedAtFieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE));
+    }
+
     mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;
@@ -297,6 +339,45 @@ public class MappingsBuilder {
         ImmutableMap.of(TYPE, ESUtils.DOUBLE_FIELD_TYPE));
   }
 
+  private static Map<String, Object> getMappingForSearchableRefField(
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
+      @Nonnull final int depth) {
+    Map<String, Object> mappings = new HashMap<>();
+    Map<String, Object> mappingForField = new HashMap<>();
+    Map<String, Object> mappingForProperty = new HashMap<>();
+    if (depth == 0) {
+      mappings.put(
+          searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName(), getMappingsForUrn());
+      return mappings;
+    }
+    String entityType = searchableRefFieldSpec.getSearchableRefAnnotation().getRefType();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+    entitySpec
+        .getSearchableFieldSpecs()
+        .forEach(
+            searchableFieldSpec ->
+                mappingForField.putAll(getMappingsForField(searchableFieldSpec)));
+    entitySpec
+        .getSearchableRefFieldSpecs()
+        .forEach(
+            entitySearchableRefFieldSpec ->
+                mappingForField.putAll(
+                    getMappingForSearchableRefField(
+                        entityRegistry,
+                        entitySearchableRefFieldSpec,
+                        Math.min(
+                            depth - 1,
+                            entitySearchableRefFieldSpec
+                                .getSearchableRefAnnotation()
+                                .getDepth()))));
+    mappingForField.put("urn", getMappingsForUrn());
+    mappingForProperty.put("properties", mappingForField);
+    mappings.put(
+        searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName(), mappingForProperty);
+    return mappings;
+  }
+
   private static Map<String, Object> getMappingsForFieldNameAliases(
       @Nonnull final SearchableFieldSpec searchableFieldSpec) {
     Map<String, Object> mappings = new HashMap<>();
@@ -305,7 +386,7 @@ public class MappingsBuilder {
     fieldNameAliases.forEach(
         alias -> {
           Map<String, Object> aliasMappings = new HashMap<>();
-          aliasMappings.put(TYPE, ALIAS);
+          aliasMappings.put(TYPE, ALIAS_FIELD_TYPE);
           aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
           mappings.put(alias, aliasMappings);
         });

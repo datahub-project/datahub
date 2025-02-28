@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Dataset, Entity, EntityType } from '../../../types.generated';
 import { DatasetStatsSummary } from '../../entity/dataset/shared/DatasetStatsSummary';
-import { getLastUpdatedMs } from '../../entity/dataset/shared/utils';
+import { getDatasetLastUpdatedMs } from '../../entityV2/shared/utils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ArrowWrapper } from './ParentContainers';
 
@@ -49,7 +49,10 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                     rowCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].rowCount}
                     columnCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].columnCount}
                     sizeInBytes={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].sizeInBytes}
-                    lastUpdatedMs={getLastUpdatedMs((entity as any)?.properties, (entity as any)?.lastOperation)}
+                    lastUpdatedMs={
+                        getDatasetLastUpdatedMs((entity as any)?.properties, (entity as any)?.lastOperation)
+                            ?.lastUpdatedMs
+                    }
                     queryCountLast30Days={(entity as Dataset).statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={(entity as Dataset).statsSummary?.uniqueUserCountLast30Days}
                     mode="tooltip-content"

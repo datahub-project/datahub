@@ -31,7 +31,7 @@ type Props = {
     assertion: Assertion;
     monitor?: Monitor;
     canEdit: boolean;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
@@ -51,7 +51,7 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Stopped!', duration: 2 });
-                    refetch();
+                    refetch?.();
                     analytics.event({
                         type: EventType.StopAssertionMonitorEvent,
                         monitorUrn,
@@ -73,7 +73,7 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Started!', duration: 2 });
-                    refetch();
+                    refetch?.();
                     analytics.event({
                         type: EventType.StartAssertionMonitorEvent,
                         monitorUrn,

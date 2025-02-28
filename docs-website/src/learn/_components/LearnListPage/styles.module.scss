@@ -1,0 +1,13 @@
+.filterBar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  .buttonActive {
+    background-color: var(--ifm-color-primary);
+    border: 1px solid var(--ifm-color-primary);
+    color: #ffffff;
+  }
+}

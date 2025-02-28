@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.gms.factory.telemetry.TelemetryUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.HashMap;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +34,12 @@ public class RemoveClientIdAspectStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return upgradeContext -> {
       _entityService.deleteAspect(
-          TelemetryUtils.CLIENT_ID_URN, INVALID_CLIENT_ID_ASPECT, new HashMap<>(), true);
-      return (UpgradeStepResult)
-          new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+          upgradeContext.opContext(),
+          TelemetryUtils.CLIENT_ID_URN,
+          INVALID_CLIENT_ID_ASPECT,
+          new HashMap<>(),
+          true);
+      return (UpgradeStepResult) new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

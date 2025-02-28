@@ -12,7 +12,7 @@ type Props = {
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     closeDrawer: () => void;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 export const AssertionProfileDrawer = ({

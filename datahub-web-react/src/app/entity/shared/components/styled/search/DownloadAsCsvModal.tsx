@@ -82,19 +82,29 @@ export default function DownloadAsCsvModal({
             path: location.pathname,
         });
 
+        let sizeForDownload = SEARCH_PAGE_SIZE_FOR_DOWNLOAD;
+        let timeTaken = 0;
+
         function fetchNextPage() {
+            const startTime = new Date().getTime();
             downloadSearchResults({
                 scrollId: nextScrollId,
                 query,
-                count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
+                count: sizeForDownload,
                 orFilters: filters,
                 viewUrn,
             })
                 .then((refetchData) => {
+                    timeTaken += new Date().getTime() - startTime;
                     accumulatedResults = [
                         ...accumulatedResults,
                         ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                     ];
+                    console.log(
+                        `Downloaded ${accumulatedResults.length} rows out of ${
+                            refetchData?.total
+                        } rows. Time taken for download so far: ${timeTaken / 1000}s`,
+                    );
                     // If we have a "next offset", then we continue.
                     // Otherwise, we terminate fetching.
                     if (refetchData?.nextScrollId) {
@@ -111,8 +121,14 @@ export default function DownloadAsCsvModal({
                     }
                 })
                 .catch((_) => {
-                    setIsDownloadingCsv(false);
-                    showFailedDownloadNotification();
+                    if (sizeForDownload > 10) {
+                        sizeForDownload = Math.floor(sizeForDownload / 2);
+                        console.log(`Failed to download, retrying with smaller page size of ${sizeForDownload}`);
+                        fetchNextPage();
+                    } else {
+                        setIsDownloadingCsv(false);
+                        showFailedDownloadNotification();
+                    }
                 });
         }
         fetchNextPage();
@@ -123,7 +139,7 @@ export default function DownloadAsCsvModal({
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
             title="Download as..."
-            visible={showDownloadAsCsvModal}
+            open={showDownloadAsCsvModal}
             footer={
                 <>
                     <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">

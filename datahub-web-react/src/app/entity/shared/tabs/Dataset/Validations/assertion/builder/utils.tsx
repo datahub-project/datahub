@@ -1,37 +1,47 @@
-import React from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { keyBy } from 'lodash';
+import React from 'react';
+import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 import {
-    DatasetFilterType,
-    DatasetFreshnessSourceType,
-    EntityType,
-    FreshnessFieldKind,
-    SchemaFieldDataType,
-    FreshnessAssertionScheduleType,
+    Assertion,
     AssertionActionType,
+    AssertionEvaluationParametersInput,
     AssertionEvaluationParametersType,
-    VolumeAssertionType,
     AssertionStdOperator,
     AssertionStdParameters,
+    AssertionType,
     AssertionValueChangeType,
-    IncrementingSegmentSpecInput,
-    SqlAssertionType,
-    FieldAssertionType,
-    SchemaField,
-    MonitorMode,
-    FreshnessAssertionType,
-    Assertion,
-    Monitor,
+    CreateFieldAssertionInput,
+    CreateFreshnessAssertionInput,
+    CreateSchemaAssertionInput,
+    CreateSqlAssertionInput,
+    CreateVolumeAssertionInput,
+    DataPlatform,
+    DatasetFilterType,
+    DatasetFreshnessSourceType,
     Entity,
+    EntityType,
+    FieldAssertionType,
+    FreshnessAssertionScheduleType,
+    FreshnessAssertionType,
+    FreshnessFieldKind,
+    IncrementingSegmentSpecInput,
+    Monitor,
+    MonitorMode,
+    SchemaField,
+    SchemaFieldDataType,
+    SqlAssertionType,
+    VolumeAssertionType,
 } from '../../../../../../../../types.generated';
 import {
     BIGQUERY_URN,
+    DATABRICKS_URN,
     REDSHIFT_URN,
     SNOWFLAKE_URN,
-    DATABRICKS_URN,
 } from '../../../../../../../ingest/source/builder/constants';
-import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
+import { AssertionActionsFormState, AssertionMonitorBuilderState } from './types';
+import { cleanAssertionDescription, removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -50,7 +60,7 @@ export type SourceOption = {
 const PLATFORM_ASSERTION_CONFIGS = {
     [SNOWFLAKE_URN]: {
         freshness: {
-            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            defaultSourceType: DatasetFreshnessSourceType.InformationSchema,
             sourceTypes: [
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
@@ -72,7 +82,9 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                 </a>
                             </b>{' '}
                             view to determine whether a Table has changed. Note that this requires the Enterprise
-                            Edition (or higher) of Snowflake and is only supported for Tables, not Views.
+                            Edition (or higher) of Snowflake and is only supported for Tables, not Views. This View has
+                            a latency of up to 180 minutes in Snowflake, so this is not recommended for high frequency
+                            checks.
                         </>
                     ),
                 },
@@ -108,7 +120,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
     },
     [BIGQUERY_URN]: {
         freshness: {
-            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            defaultSourceType: DatasetFreshnessSourceType.InformationSchema,
             sourceTypes: [
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
@@ -301,19 +313,31 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.AuditLog,
         name: 'Audit Log',
         description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.InformationSchema,
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FileMetadata,
         name: 'File Metadata',
         description: "Use the underlying file system's metadata to determine whether the asset has changed",
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -326,7 +350,11 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.LastModified,
             dataTypes: LAST_MODIFIED_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -339,14 +367,18 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.HighWatermark,
             dataTypes: HIGH_WATERMARK_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.DatahubOperation,
         name: 'DataHub Operation',
         description:
             'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
 ];
 
@@ -354,34 +386,11 @@ const allSourceOptions: SourceOption[] = [
 const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
     return `${type}.${kind || ''}`;
 };
-
-/* eslint-disable no-param-reassign */
-/** Remove the GraphQL __typename fields from any object */
-function removeTypenameFields(obj) {
-    // Check if the argument is an object and not null
-    if (typeof obj === 'object' && obj !== null) {
-        // Iterate over object properties
-        Object.keys(obj).forEach((key) => {
-            if (key === '__typename') {
-                // Remove __typename property
-                delete obj[key];
-            } else if (typeof obj[key] === 'object') {
-                // Recurse for nested objects and arrays
-                removeTypenameFields(obj[key]);
-            }
-        });
-    } else if (Array.isArray(obj)) {
-        // Handle arrays, as typeof will return 'object' for arrays
-        obj.forEach((item) => removeTypenameFields(item));
-    }
-    return obj;
-}
-
 /** Map of all source options to allow constant lookup by Source Type and Field Kind */
 const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourceOptionKey(type, field?.kind));
 
 export const builderStateToSharedFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         description: builderState.assertion?.description,
         schedule: {
             type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
@@ -411,7 +420,7 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
 };
 
 export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedFreshnessAssertionVariables(builderState),
@@ -419,7 +428,6 @@ export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderSt
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFreshnessParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -471,7 +479,7 @@ export const builderStateToVolumeTypeAssertionVariables = (builderState: Asserti
 
 export const builderStateToSharedVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     const volumeTypeVariables = builderStateToVolumeTypeAssertionVariables(builderState);
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
@@ -491,7 +499,7 @@ export const builderStateToSharedVolumeAssertionVariables = (builderState: Asser
 };
 
 export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedVolumeAssertionVariables(builderState),
@@ -499,14 +507,13 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetVolumeParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
 };
 
 export const builderStateToSharedSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
         description: builderState.assertion?.description,
         statement: builderState.assertion?.sqlAssertion?.statement,
@@ -540,21 +547,20 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
 };
 
 export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedSqlAssertionVariables(builderState),
             // Monitor parameters
             evaluationSchedule: builderState.schedule,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
 };
 
 export const builderStateToSharedFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
         description: builderState.assertion?.description,
         fieldValuesAssertion:
@@ -581,7 +587,7 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
 };
 
 export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedFieldAssertionVariables(builderState),
@@ -589,8 +595,29 @@ export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState:
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFieldParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
+        },
+    });
+};
+
+export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeNestedTypeNames({
+        assertionUrn: builderState?.assertion?.urn,
+        input: {
+            assertion: {
+                compatibility: builderState?.assertion?.schemaAssertion?.compatibility,
+                fields: builderState?.assertion?.schemaAssertion?.fields,
+            },
+            description: builderState.assertion?.description,
+            mode: MonitorMode.Active,
+            entityUrn: builderState.entityUrn,
+            actions: builderState.assertion?.actions
+                ? {
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
+                : undefined,
+            evaluationSchedule: builderState.schedule,
         },
     });
 };
@@ -632,12 +659,23 @@ export const builderStateToTestFieldAssertionVariables = (builderState: Assertio
     };
 };
 
+export const builderStateToTestSchemaAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeNestedTypeNames({
+        entityUrn: builderState.entityUrn,
+        compatibility: builderState?.assertion?.schemaAssertion?.compatibility,
+        fields: builderState?.assertion?.schemaAssertion?.fields,
+    });
+};
+
 export const getAssertionTypesForEntityType = (entityType: EntityType) => {
     return ASSERTION_TYPES.filter((type) => type.entityTypes.includes(entityType));
 };
 
-export const getDefaultFreshnessSourceOption = (platformUrn: string, connectionForEntityExists: boolean) => {
-    if (!connectionForEntityExists) {
+export const getDefaultFreshnessSourceOption = (
+    platformUrn: string,
+    monitorsConnectionForEntityExists: boolean,
+): DatasetFreshnessSourceType => {
+    if (!monitorsConnectionForEntityExists) {
         return DatasetFreshnessSourceType.DatahubOperation;
     }
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
@@ -645,26 +683,26 @@ export const getDefaultFreshnessSourceOption = (platformUrn: string, connectionF
 
 export const getDefaultDatasetFreshnessAssertionParametersState = (
     platformUrn: string,
-    connectionForEntityExists: boolean,
+    monitorsConnectionForEntityExists: boolean,
 ) => {
     return {
         type: AssertionEvaluationParametersType.DatasetFreshness,
         datasetFreshnessParameters: {
-            sourceType: getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists),
+            sourceType: getDefaultFreshnessSourceOption(platformUrn, monitorsConnectionForEntityExists),
             auditLog: {},
         },
     };
 };
 
 export const getFreshnessSourceOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
-    const allowedSourceTypes = connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].freshness.sourceTypes
+    const allowedSourceTypes: DatasetFreshnessSourceType[] | undefined = connectionForEntityExists
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.sourceTypes
         : [DatasetFreshnessSourceType.DatahubOperation];
-    return allSourceOptions.filter((option) => allowedSourceTypes.includes(option.type));
+    return allSourceOptions.filter((option) => allowedSourceTypes?.includes(option.type));
 };
 
 export const getFreshnessSourceOptionPlatformDescription = (platformUrn: string, type: DatasetFreshnessSourceType) => {
-    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.sourceTypeDetails[type]?.description;
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.sourceTypeDetails[type]?.description;
 };
 
 export const getFreshnessSourceOption = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
@@ -721,17 +759,21 @@ export const toggleResolveIncidentState = (state: AssertionActionsFormState, new
     };
 };
 
-export const builderStateToUpdateAssertionActionsVariables = (
-    urn: string,
-    builderState: AssertionActionsBuilderState,
-) => {
-    return {
-        urn,
-        input: {
-            onSuccess: builderState.actions?.onSuccess || [],
-            onFailure: builderState.actions?.onFailure || [],
-        },
-    };
+export const builderStateToUpdateAssertionMetadataVariables = (
+    builderState: AssertionMonitorBuilderState,
+): UpdateAssertionMetadataMutationVariables | undefined => {
+    return builderState.assertion?.actions && builderState.assertion?.urn
+        ? {
+              urn: builderState.assertion.urn,
+              input: {
+                  description: builderState.assertion.description,
+                  actions: {
+                      onSuccess: builderState.assertion.actions.onSuccess || [],
+                      onFailure: builderState.assertion.actions.onFailure || [],
+                  },
+              },
+          }
+        : undefined;
 };
 
 /**
@@ -743,7 +785,7 @@ export const isStructField = (field: SchemaField) => {
     return field.fieldPath.includes('type=struct') || field.fieldPath.includes('.');
 };
 
-const convertAssertionToBuilderState = (assertion: Assertion) => {
+const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorBuilderState['assertion'] => {
     return {
         urn: assertion?.urn,
         type: assertion?.info?.type,
@@ -778,20 +820,91 @@ const convertAssertionToBuilderState = (assertion: Assertion) => {
         },
         fieldAssertion: {
             type: assertion.info?.fieldAssertion?.type,
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore  NOTE: this is type `FieldValuesAssertion` but `AssertionMonitorBuilderState` has hardcoded every individual field so we'll have to manually map it
             fieldValuesAssertion: assertion.info?.fieldAssertion?.fieldValuesAssertion,
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore TODO(@jjoyce0510): can we convert these fields on `AssertionMonitorBuilderState` to just use the generated types instead of manually defining every prop?
             fieldMetricAssertion: assertion.info?.fieldAssertion?.fieldMetricAssertion,
             filter: assertion.info?.fieldAssertion?.filter,
+        },
+        schemaAssertion: {
+            compatibility: assertion.info?.schemaAssertion?.compatibility,
+            fields: assertion.info?.schemaAssertion?.fields,
         },
     };
 };
 
-export const createAssertionMonitorBuilderState = (assertion: Assertion, monitor: Monitor, entity: Entity) => {
+export const createAssertionMonitorBuilderState = (
+    assertion: Assertion,
+    entity: Entity & { platform?: DataPlatform },
+    monitor?: Monitor,
+): AssertionMonitorBuilderState => {
     return {
         entityUrn: entity.urn,
         platformUrn: entity.platform?.urn,
         assertion: convertAssertionToBuilderState(assertion),
         schedule: monitor?.info?.assertionMonitor?.assertions?.[0]?.schedule,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
-        executorId: monitor?.info?.assertionMonitor?.executor?.urn,
     };
+};
+
+export const getAssertionInput = (builderStateData, urn: string) => {
+    const { type, newBuilderStateData } = cleanAssertionDescription(builderStateData);
+
+    switch (type) {
+        case AssertionType.Field:
+            return {
+                type,
+                connectionUrn: urn,
+                fieldTestInput: builderStateToTestFieldAssertionVariables(newBuilderStateData)
+                    .input as CreateFieldAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Freshness:
+            return {
+                type,
+                connectionUrn: urn,
+                freshnessTestInput: builderStateToTestFreshnessAssertionVariables(newBuilderStateData)
+                    .input as CreateFreshnessAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Volume:
+            return {
+                type,
+                connectionUrn: urn,
+                volumeTestInput: builderStateToTestVolumeAssertionVariables(newBuilderStateData)
+                    .input as CreateVolumeAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Sql:
+            return {
+                type,
+                connectionUrn: urn,
+                sqlTestInput: builderStateToTestSqlAssertionVariables(newBuilderStateData)
+                    .input as CreateSqlAssertionInput,
+            };
+        case AssertionType.DataSchema:
+            return {
+                type,
+                connectionUrn: urn,
+                schemaTestInput: builderStateToTestSchemaAssertionVariables(
+                    newBuilderStateData,
+                ) as CreateSchemaAssertionInput,
+                parameters: removeNestedTypeNames(newBuilderStateData.parameters) as AssertionEvaluationParametersInput,
+            };
+        default:
+            return {
+                type,
+                connectionUrn: urn,
+            };
+    }
 };

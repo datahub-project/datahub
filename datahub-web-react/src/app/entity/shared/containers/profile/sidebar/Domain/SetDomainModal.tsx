@@ -195,7 +195,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     return (
         <Modal
             title={titleOverride || 'Set Domain'}
-            visible
+            open
             onCancel={onModalClose}
             footer={
                 <>

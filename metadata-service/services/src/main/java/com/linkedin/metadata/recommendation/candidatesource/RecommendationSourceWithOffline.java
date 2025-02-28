@@ -6,6 +6,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
@@ -22,19 +23,19 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
    * fetching recommendation module offline
    */
   Urn getRecommendationModuleUrn(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext);
 
   /**
    * Get the full recommendations module itself provided the request context.
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
   @Override
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    if (!isEligible(userUrn, requestContext)) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    if (!isEligible(opContext, requestContext)) {
       return Optional.empty();
     }
 
@@ -45,8 +46,9 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
         moduleAspect =
             getEntityService()
                 .getLatestEnvelopedAspect(
+                    opContext,
                     Constants.RECOMMENDATION_MODULE_ENTITY_NAME,
-                    getRecommendationModuleUrn(userUrn, requestContext),
+                    getRecommendationModuleUrn(opContext, requestContext),
                     Constants.RECOMMENDATION_MODULE_ASPECT_NAME);
       } catch (Exception e) {
         return Optional.empty();
@@ -59,6 +61,6 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
       }
     }
 
-    return RecommendationSource.super.getRecommendationModule(userUrn, requestContext);
+    return RecommendationSource.super.getRecommendationModule(opContext, requestContext);
   }
 }

@@ -14,21 +14,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
+@Slf4j
 @Component
-@Import({GrafanaConfiguration.class})
 public class GrafanaServlet extends ProxyServlet {
   @Autowired
   @Qualifier("grafanaConfig")
@@ -54,15 +52,10 @@ public class GrafanaServlet extends ProxyServlet {
   @Qualifier("grafanaRedirectDefault")
   private Set<String> grafanaRedirectDefault;
 
-  private WebApplicationContext springContext;
-
   @Override
   public void init(final ServletConfig config) throws ServletException {
-    springContext =
-        WebApplicationContextUtils.getRequiredWebApplicationContext(config.getServletContext());
-    final AutowireCapableBeanFactory beanFactory = springContext.getAutowireCapableBeanFactory();
-    beanFactory.autowireBean(this);
     super.init(config);
+    log.info("Initialized {}", getClass().getSimpleName());
   }
 
   @Override
@@ -267,7 +260,8 @@ public class GrafanaServlet extends ProxyServlet {
   }
 
   @Override
-  protected void copyRequestHeaders(HttpServletRequest servletRequest, HttpRequest proxyRequest) {
+  protected void copyRequestHeaders(
+      HttpServletRequest servletRequest, ClassicHttpRequest proxyRequest) {
     super.copyRequestHeaders(servletRequest, proxyRequest);
     proxyRequest.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + grafanaConfig.getGrafanaToken());
     proxyRequest.setHeader(HttpHeaders.HOST, grafanaConfig.getGrafanaUri().getHost());
@@ -275,9 +269,9 @@ public class GrafanaServlet extends ProxyServlet {
 
   @Override
   protected void copyResponseEntity(
-      HttpResponse proxyResponse,
+      ClassicHttpResponse proxyResponse,
       HttpServletResponse servletResponse,
-      HttpRequest proxyRequest,
+      ClassicHttpRequest proxyRequest,
       HttpServletRequest servletRequest)
       throws IOException {
     HttpEntity entity = proxyResponse.getEntity();

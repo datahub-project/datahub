@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, List, message, Tag, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import moment from 'moment';
-import { useApolloClient } from '@apollo/client';
-
-
-import CustomAvatar from '../../../../../shared/avatar/CustomAvatar';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { FAILURE_COLOR_HEX, getNameFromType, PAGE_SIZE, SUCCESS_COLOR_HEX, updateListIncidentsCache } from '../incidentUtils';
+import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
+import MarkdownViewer from '../../../components/legacy/MarkdownViewer';
 
 type Props = {
     incident: any;
@@ -88,12 +87,22 @@ const IncidentDescriptionText = styled(Typography.Text)`
     text-align: justify;
 `;
 
+const IncidentDescriptionLabel = styled(Typography.Text)`
+    margin-top: 4px;
+    font-weight: 400;
+    font-size: 10px;
+    color: #8c8c8c;
+    display: block;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: justify;
+`;
+
 const IncidentCreatedTime = styled(Typography.Text)`
     font-weight: 500;
-    font-size: 12px;
+    font-size: 10px;
     line-height: 20px;
     color: #8c8c8c;
-    margin-left: 8px;
 `;
 
 const IncidentResolvedText = styled(Typography.Text)`
@@ -135,13 +144,6 @@ const MenuIcon = styled(MoreOutlined)`
     margin-left: 5px;
 `;
 
-const MenuItem = styled.div`
-    font-size: 12px;
-    padding-left: 12px;
-    padding-right: 12px;
-    color: rgba(0, 0, 0, 0.85);
-`;
-
 export default function IncidentListItem({ incident, refetch }: Props) {
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
@@ -149,35 +151,27 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [isResolvedModalVisible, setIsResolvedModalVisible] = useState(false);
 
-    const client = useApolloClient();
-
-    // Fetching the user's data
-    const { data: createdActor } = useGetUserQuery({ variables: { urn: incident.created.actor } });
-    const { data: resolvedActor } = useGetUserQuery({ variables: { urn: incident.status.lastUpdated.actor } });
-
-    // Converting the created time into local Time zone
-    const localeTimezone = getLocaleTimezone();
-    const incidentCreatedTime =
-        (incident.created &&
-            `${moment.utc(incident.created.time).local().format('DD MMM YYYY')} (${localeTimezone})`) ||
-        undefined;
+    // Fetching the most recent actor's data.
+    const { data: createdActor } = useGetUserQuery({
+        variables: { urn: incident.created.actor, groupsCount: 0 },
+        fetchPolicy: 'cache-first',
+    });
+    const { data: lastUpdatedActor } = useGetUserQuery({
+        variables: { urn: incident.status.lastUpdated.actor, groupsCount: 0 },
+        fetchPolicy: 'cache-first',
+    });
 
     // Converting the created time into UTC
-    const incidentDate = incident.created.time && new Date(incident.created.time);
-    const incidentTimeUTC = incidentDate && `${incidentDate.toUTCString()}`;
+    const createdDate = incident.created.time && new Date(incident.created.time);
+    const lastModifiedDate = incident.status.lastUpdated.time && new Date(incident.status.lastUpdated.time);
 
     // Updating the incident status on button click
-    const updateIncidentStatus = async (state: IncidentState, resolvedMessage: string) => {
+    const updateIncidentStatus = (state: IncidentState, resolvedMessage: string) => {
         message.loading({ content: 'Updating...' });
-        try {
-            await updateIncidentStatusMutation({
-                variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
-            }).then(()=>{
-                const newIncident={
-                    urn: incident.urn,
-                    message: resolvedMessage,
-                    state
-                }
+        updateIncidentStatusMutation({
+            variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
+        })
+            .then(() => {
                 message.destroy();
                 analytics.event({
                     type: EventType.EntityActionEvent,
@@ -185,20 +179,21 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     entityUrn: incident.urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: 'Incident updated successfully! .', duration: 2 });
-                updateListIncidentsCache(client,newIncident,PAGE_SIZE)
-                setTimeout(() => { 
+                message.success({ content: 'Incident updated! .', duration: 2 });
+                setTimeout(() => {
                     refetchEntity?.();
-                    refetch?.();
-                }, 1000);
+                }, 3000);
+                refetch?.();
                 setIsResolvedModalVisible(false);
             })
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to update incident: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to update incident! An unexpected error occurred',
+                    permissionMessage:
+                        'Unauthorized to update incident for this asset. Please contact your DataHub administrator.',
+                });
+            });
     };
 
     // Handle the Resolved Modal visibility
@@ -206,15 +201,19 @@ export default function IncidentListItem({ incident, refetch }: Props) {
         setIsResolvedModalVisible(!isResolvedModalVisible);
     };
 
-    const menu = (
-        <Menu>
-            <Menu.Item key="0">
-                <MenuItem onClick={() => updateIncidentStatus(IncidentState.Active, '')} data-testid="reopen-incident">
+    const items = [
+        {
+            key: 0,
+            label: (
+                <MenuItemStyle
+                    onClick={() => updateIncidentStatus(IncidentState.Active, '')}
+                    data-testid="reopen-incident"
+                >
                     Reopen incident
-                </MenuItem>
-            </Menu.Item>
-        </Menu>
-    );
+                </MenuItemStyle>
+            ),
+        },
+    ];
 
     return (
         <>
@@ -231,9 +230,23 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 </IncidentTypeTag>
                             </TitleContainer>
                             <DescriptionContainer>
-                                <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
+                                <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
+                                <MarkdownViewer source={incident?.description} />
+                                {incident.status.state === IncidentState.Resolved ? (
+                                    <>
+                                        <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
+                                        <IncidentDescriptionText>
+                                            {incident?.status?.message || 'No additional details'}
+                                        </IncidentDescriptionText>
+                                    </>
+                                ) : null}
                             </DescriptionContainer>
                             <DescriptionContainer>
+                                <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>
+                                    <IncidentCreatedTime>
+                                        Created {toRelativeTimeString(createdDate)} by{' '}
+                                    </IncidentCreatedTime>
+                                </Tooltip>
                                 {createdActor?.corpUser && (
                                     <Link
                                         to={entityRegistry.getEntityUrl(
@@ -241,18 +254,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                             createdActor?.corpUser?.urn,
                                         )}
                                     >
-                                        <CustomAvatar
-                                            size={26}
-                                            name={entityRegistry.getDisplayName(
-                                                EntityType.CorpUser,
-                                                createdActor?.corpUser,
-                                            )}
-                                        />
+                                        {entityRegistry.getDisplayName(EntityType.CorpUser, createdActor?.corpUser)}
                                     </Link>
                                 )}
-                                <Tooltip placement="right" title={incidentTimeUTC}>
-                                    <IncidentCreatedTime>{incidentCreatedTime}</IncidentCreatedTime>
-                                </Tooltip>
                             </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
@@ -263,28 +267,29 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status.message === null ? (
+                                    incident?.status?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated &&
-                                        `Resolved on  ${moment
-                                            .utc(incident.status.lastUpdated.time)
-                                            .format('DD MMM YYYY')} by `}
-                                    {resolvedActor?.corpUser && (
+                                    {incident?.status?.lastUpdated && (
+                                        <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
+                                            Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
+                                        </Tooltip>
+                                    )}
+                                    {lastUpdatedActor?.corpUser && (
                                         <Link
                                             to={entityRegistry.getEntityUrl(
                                                 EntityType.CorpUser,
-                                                resolvedActor?.corpUser?.urn,
+                                                lastUpdatedActor?.corpUser?.urn,
                                             )}
                                         >
                                             {entityRegistry.getDisplayName(
                                                 EntityType.CorpUser,
-                                                resolvedActor?.corpUser,
+                                                lastUpdatedActor?.corpUser,
                                             )}
                                         </Link>
                                     )}
@@ -293,7 +298,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <CheckCircleFilled
                                 style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
                             />
-                            <Dropdown overlay={menu} trigger={['click']}>
+                            <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
                             </Dropdown>
                         </IncidentResolvedTextContainer>

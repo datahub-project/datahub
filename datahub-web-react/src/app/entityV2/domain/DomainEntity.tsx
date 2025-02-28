@@ -1,23 +1,38 @@
+import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined } from '@ant-design/icons';
-import { Domain, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
-import { DomainEntitiesTab } from './DomainEntitiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import DataProductsTab from './DataProductsTab/DataProductsTab';
-import { EntityProfileTab } from '../shared/constants';
+import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import DomainIcon from '../../domain/DomainIcon';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { EntityProfileTab } from '../shared/constants';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
-import { DomainSummaryTab } from './summary/DomainSummaryTab';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityActionItem } from '../shared/entity/EntityActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import DataProductsTab from './DataProductsTab/DataProductsTab';
+import { DomainEntitiesTab } from './DomainEntitiesTab';
+import { Preview } from './preview/Preview';
+import { DomainSummaryTab } from './summary/DomainSummaryTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub Domain entity.
@@ -71,6 +86,8 @@ export class DomainEntity implements Entity<Domain> {
 
     getCollectionName = () => 'Domains';
 
+    useEntityQuery = useGetDomainQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -78,14 +95,7 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.MOVE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.DELETE,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             isIconEditable
@@ -100,6 +110,10 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                     name: 'Assets',
+                    getDynamicName: (entityData, _, loading) => {
+                        const assetCount = entityData?.entities?.total;
+                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    },
                     component: DomainEntitiesTab,
                     icon: AppstoreOutlined,
                 },
@@ -112,49 +126,92 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DATA_PRODUCTS_TAB,
                     name: 'Data Products',
+                    getDynamicName: (entityData, _, loading) => {
+                        const dataProductsCount = entityData?.dataProducts?.total;
+                        return <TabNameWithCount name="Data Products" count={dataProductsCount} loading={loading} />;
+                    },
                     component: DataProductsTab,
                     icon: FileDoneOutlined,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarEntitiesSection,
-                },
-                {
-                    component: SidebarOwnerSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
-    renderPreview = (_: PreviewType, data: Domain) => {
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarEntitiesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
+        },
+    ];
+
+    renderPreview = (previewType: PreviewType, data: Domain) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 domain={data}
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Domain;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 domain={data}
                 urn={data.urn}
+                data={genericProperties}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

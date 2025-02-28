@@ -49,6 +49,12 @@ record TestEntityInfo includes CustomProperties {
   }
   foreignKeyArray: optional array[Urn]
 
+  @Searchable = {
+    "/nestedFieldToBeRemoved": null
+  }
+  @Relationship = {
+    "/nestedFieldToBeRemoved": null
+  }
   nestedRecordField: optional record SimpleNestedRecord1 {
     @Searchable = {
       "fieldType": "COUNT"
@@ -63,6 +69,10 @@ record TestEntityInfo includes CustomProperties {
       "fieldType": "URN_PARTIAL"
     }
     nestedForeignKey: optional Urn
+
+    @Relationship = {}
+    @Searchable = {}
+    nestedFieldToBeRemoved: optional string
   }
 
   nestedRecordArrayField: optional array[record SimpleNestedRecord2 {
@@ -92,15 +102,69 @@ record TestEntityInfo includes CustomProperties {
   }
   esObjectField: optional map[string, string]
 
-    @Searchable = {
-      "fieldName": "doubleField",
-      "fieldType": "DOUBLE"
-    }
-    doubleField: optional double
+  @Searchable = {
+     "fieldName": "doubleField",
+     "fieldType": "DOUBLE"
+  }
+  doubleField: optional double
 
-    @Searchable = {
-      "fieldName": "removed",
-      "fieldType": "BOOLEAN"
+  @Searchable = {
+     "fieldName": "removed",
+     "fieldType": "BOOLEAN"
+  }
+  removed: optional boolean
+
+   @Searchable = {
+      "/*": {
+        "name": "esObjectFieldLong",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+     }
+  }
+  esObjectFieldLong: optional map[string, long]
+
+   @Searchable = {
+      "/*": {
+          "name": "esObjectFieldBoolean",
+          "fieldType": "OBJECT",
+          "queryByDefault": true
+      }
+  }
+  esObjectFieldBoolean: optional map[string, boolean]
+
+  @Searchable = {
+      "/*": {
+        "name": "esObjectFieldFloat",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
     }
-    removed: optional boolean
+  }
+  esObjectFieldFloat: optional map[string, float]
+
+  @Searchable = {
+    "/$key": {
+      "fieldType": "MAP_ARRAY",
+      "queryByDefault": false
+    }
+  }
+  mapArrayField: optional map[string, array[Urn]]
+
+  @Searchable = {
+       "/*": {
+        "name": "esObjectFieldDouble",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+     }
+  }
+  esObjectFieldDouble: optional map[string, double]
+
+  @Searchable = {
+      "/*": {
+        "name": "esObjectFieldInteger",
+        "fieldType": "OBJECT",
+        "queryByDefault": true
+      }
+  }
+  esObjectFieldInteger: optional map[string, int]
+
 }

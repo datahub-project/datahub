@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useHistory } from 'react-router';
 import { message } from 'antd';
 import { DatasetFreshnessSourceType } from '../../../../../../../../types.generated';
@@ -29,7 +29,13 @@ export const useAssertionURNCopyLink = (urn: string) => {
         const assertionUrn = urn;
 
         // Create a URL with the assertion_urn query parameter
-        const assertionUrl = `${window.location.href}?assertion_urn=${encodeURIComponent(assertionUrn)}`;
+        const currentUrl = new URL(window.location.href);
+
+        // Add or update the assertion_urn query parameter
+        currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));
+
+        // The updated URL with the new or modified query parameter
+        const assertionUrl = currentUrl.href;
 
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(assertionUrl).then(
@@ -76,14 +82,21 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
 };
 
 /**
- * Hook for managing the assertion_urn query parameter and expanding relevant row keys.
- * @param {Array} groups - Array of assertion groups.
- * @param {Function} setExpandedRowKeys - Function to set the expanded row keys.
- * @returns {Object} - Object with assertionUrnParam and other relevant data.
+ * Hook for managing the expanded row keys based on the `assertion_urn` query parameter.
+ *
+ * This hook ensures that relevant rows are expanded if an `assertion_urn` is present in the URL query parameters.
+ * If no `assertion_urn` is provided, it expands all groups initially.
+ *
+ * @param {Array} groups - Array of assertion groups, where each group contains a list of assertions.
+ * @returns {Object} - Object containing the expanded row keys and a function to update them.
+ *  - expandedRowKeys: Array of currently expanded row keys.
+ *  - setExpandedRowKeys: Function to manually set the expanded row keys.
  */
-export const useExpandRowBasedOnAssertionUrn = (groups, setExpandedRowKeys) => {
+export const useExpandedRowKeys = (groups) => {
     const location = useLocation();
-    const assertionUrnParam = getQueryParams('assertion_urn', location);
+    const assertionUrnParam = new URLSearchParams(location.search).get('assertion_urn');
+    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+    const [processed, setProcessed] = useState(false);
 
     useEffect(() => {
         if (assertionUrnParam) {
@@ -95,10 +108,17 @@ export const useExpandRowBasedOnAssertionUrn = (groups, setExpandedRowKeys) => {
             )?.name;
 
             if (rowKeyToExpand) {
-                setExpandedRowKeys([rowKeyToExpand]);
+                setExpandedRowKeys((prevKeys) => [...prevKeys, rowKeyToExpand]);
             }
-        }
-    }, [groups, setExpandedRowKeys, assertionUrnParam, location.search]);
 
-    return { assertionUrnParam };
+            setProcessed(true);
+        } else if (!processed) {
+            // If no assertion URN is present initially, set expandedRowKeys from groups
+            const allGroupKeys = groups.map((group) => group.name);
+            setExpandedRowKeys(allGroupKeys);
+            setProcessed(true);
+        }
+    }, [groups, assertionUrnParam, processed]);
+
+    return { expandedRowKeys, setExpandedRowKeys };
 };

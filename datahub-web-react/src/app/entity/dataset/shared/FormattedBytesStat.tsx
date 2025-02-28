@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { formatBytes, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 
 export const FormattedBytesStat = ({ bytes }: { bytes: number }) => {

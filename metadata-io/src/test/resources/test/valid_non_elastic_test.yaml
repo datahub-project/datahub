@@ -1,0 +1,7 @@
+on:
+  types:
+    - dataset
+rules:
+  and:
+    - property: datasetProperties.uri
+      operator: exists

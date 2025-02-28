@@ -1,197 +1,21 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# OIDC Authentication
+# Configuring OIDC Authentication
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library.
 This enables operators of DataHub to integrate with 3rd party identity providers like Okta, Google, Keycloak, & more to authenticate their users.
 
-## 1. Register an app with your Identity Provider
+## 1. Get your credentials
 
-<Tabs>
-<TabItem value="google" label="Google Identity">
+Before you do anything, you'll want to set up DataHub with your SSO provider, and get prerequisite credentials:
+1. _Client ID_ - A unique identifier for your application with the identity provider
+2. _Client Secret_ - A shared secret to use for exchange between you and your identity provider.
+3. _Discovery URL_ - A URL where the OIDC API of your identity provider can be discovered.
 
-#### Create a project in the Google API Console
+[👉 See the steps here](./initialize-oidc.md)
 
-Using an account linked to your organization, navigate to the [Google API Console](https://console.developers.google.com/) and select **New project**.
-Within this project, we will configure the OAuth2.0 screen and credentials.
-
-#### Create OAuth2.0 consent screen
-
-Navigate to **OAuth consent screen**. This is where you'll configure the screen your users see when attempting to
-log in to DataHub. Select **Internal** (if you only want your company users to have access) and then click **Create**.
-Note that in order to complete this step you should be logged into a Google account associated with your organization.
-
-Fill out the details in the App Information & Domain sections. Make sure the 'Application Home Page' provided matches where DataHub is deployed
-at your organization. Once you've completed this, **Save & Continue**.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google-setup-1.png"/>
-</p>
-
-#### Configure the scopes
-
-Next, click **Add or Remove Scopes**. Select the following scope and click **Save & Continue**.
-
-- .../auth/userinfo.email
-- .../auth/userinfo.profile
-- openid
-
-</TabItem>
-<TabItem value="okta" label="Okta">
-
-#### Create an application in Okta Developer Console
-
-Log in to your Okta admin account & navigate to the developer console. Select **Applications**, then **Add Application**, the **Create New App** to create a new app.
-Select `Web` as the **Platform**, and `OpenID Connect` as the **Sign on method**.
-
-Click **Create** and name your application under **General Settings** and save.
-
-- **Login Redirect URI** : `https://your-datahub-domain.com/callback/oidc`.
-- **Logout Redirect URI**. `https://your-datahub-domain.com`
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-2.png"/>
-</p>
-
-:::note Optional
-If you're enabling DataHub login as an Okta tile, you'll need to provide the **Initiate Login URI**. You
-can set if to `https://your-datahub-domain.com/authenticate`. If you're just testing locally, this can be `http://localhost:9002`.
-:::
-
-</TabItem>
-<TabItem value="azure" label="Azure">
-
-#### Create an application registration in Microsoft Azure portal
-
-Using an account linked to your organization, navigate to the [Microsoft Azure Portal](https://portal.azure.com). Select **App registrations**, then **New registration** to register a new app.
-
-Name your app registration and choose who can access your application.
-
-- **Redirect URI** : Select **Web** as type and enter `https://your-datahub-domain.com/callback/oidc`
-
-Azure supports more than one redirect URI, so both can be configured at the same time from the **Authentication** tab once the registration is complete.
-At this point, your app registration should look like the following. Finally, click **Register**.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-app-registration.png"/>
-</p>
-
-:::note Optional
-Once registration is done, you will land on the app registration **Overview** tab.  
-On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments). Finally, click **Save**.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
-</p>
-
-:::
-
-#### Configure Certificates & secrets
-
-On the left-side navigation bar, click on **Certificates & secrets** under **Manage**.  
-Select **Client secrets**, then **New client secret**. Type in a meaningful description for your secret and select an expiry. Click the **Add** button when you are done.
-Copy the value of your newly create secret since Azure will never display its value afterwards.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-certificates-secrets.png"/>
-</p>
-
-#### Configure API permissions
-
-On the left-side navigation bar, click on **API permissions** under **Manage**. DataHub requires the following four Microsoft Graph APIs:
-
-- User.Read _(should be already configured)_
-- profile
-- email
-- openid
-
-Click on **Add a permission**, then from the **Microsoft APIs** tab select **Microsoft Graph**, then **Delegated permissions**. From the **OpenId permissions** category, select `email`, `openid`, `profile` and click **Add permissions**.
-
-At this point, you should be looking at a screen like the following:
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-api-permissions.png"/>
-</p>
-
-</TabItem>
-</Tabs>
-
-## 2. Obtain Client Credentials & Discovery URL
-
-The goal of this step should be to obtain the following values, which will need to be configured before deploying DataHub:
-
-- **Client ID** - A unique identifier for your application with the identity provider
-- **Client Secret** - A shared secret to use for exchange between you and your identity provider
-- **Discovery URL** - A URL where the OIDC API of your identity provider can be discovered. This should suffixed by
-  `.well-known/openid-configuration`. Sometimes, identity providers will not explicitly include this URL in their setup guides, though
-  this endpoint _will_ exist as per the OIDC specification. For more info see http://openid.net/specs/openid-connect-discovery-1_0.html.
-
-<Tabs>
-
-<TabItem value="google" label="Google Identity">
-
-**Obtain Client Credentials**
-
-Navigate to the **Credentials** tab. Click **Create Credentials** & select **OAuth client ID** as the credential type.
-
-On the following screen, select **Web application** as your Application Type.
-Add the domain where DataHub is hosted to your 'Authorized Javascript Origins'.
-
-```
-https://your-datahub-domain.com
-```
-
-Add the domain where DataHub is hosted with the path `/callback/oidc` appended to 'Authorized Redirect URLs'. Finally, click **Create**
-
-```
-https://your-datahub-domain.com/callback/oidc
-```
-
-You will now receive a pair of values, a client id and a client secret. Bookmark these for the next step.
-
-</TabItem>
-<TabItem value="okta" label="Okta">
-
-**Obtain Client Credentials**
-
-After registering the app, you should see the client credentials. Bookmark the `Client id` and `Client secret` for the next step.
-
-**Obtain Discovery URI**
-
-On the same page, you should see an `Okta Domain`. Your OIDC discovery URI will be formatted as follows:
-
-```
-https://your-okta-domain.com/.well-known/openid-configuration
-```
-
-For example, `https://dev-33231928.okta.com/.well-known/openid-configuration`.
-
-At this point, you should be looking at a screen like the following:
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-1.png"/>
-</p>
-
-</TabItem>
-<TabItem value="azure" label="Azure">
-
-**Obtain Application (Client) ID**
-
-On the left-side navigation bar, go back to the **Overview** tab. You should see the `Application (client) ID`. Save its value for the next step.
-
-**Obtain Discovery URI**
-
-On the same page, you should see a `Directory (tenant) ID`. Your OIDC discovery URI will be formatted as follows:
-
-```
-https://login.microsoftonline.com/{tenant ID}/v2.0/.well-known/openid-configuration
-```
-
-</TabItem>
-</Tabs>
-
-## 3. Configure DataHub Frontend Server
+## 2. Configure DataHub Frontend Server
 
 ### Docker
 
@@ -309,7 +133,7 @@ AUTH_OIDC_GROUPS_CLAIM=<your-groups-claim-name>
 | AUTH_OIDC_EXTRACT_GROUPS_ENABLED    | Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Note that if this is enabled, each login will re-sync group membership with the groups in your Identity Provider, clearing the group membership that has been assigned through the DataHub UI. Enable with care! | false   |
 | AUTH_OIDC_GROUPS_CLAIM              | Only applies if `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` is set to true. This determines which OIDC claims will contain a list of string group names. Accepts multiple claim names with comma-separated values. I.e: `groups, teams, departments`.                                                                                                                                                                     | groups  |
 
-## 4. Restart datahub-frontend-react
+## 3. Restart datahub-frontend-react
 
 Once configured, restarting the `datahub-frontend-react` container will enable an indirect authentication flow in which DataHub delegates authentication to the specified identity provider.
 

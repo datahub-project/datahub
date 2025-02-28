@@ -7,7 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -15,6 +14,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,7 @@ public class TestFetcher {
 
   private static final String LAST_UPDATED_TIME_FIELD = "lastUpdatedTimestamp";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
 
   private static final SortCriterion SORT_CRITERION =
@@ -47,12 +48,13 @@ public class TestFetcher {
     return false;
   }
 
-  public TestFetchResult fetchOne(Urn testUrn) {
+  public TestFetchResult fetchOne(@Nonnull OperationContext opContext, Urn testUrn) {
     try {
       EntityResponse entityResponse =
           (EntityResponse)
               _entityService
                   .getEntitiesV2(
+                      opContext,
                       TEST_ENTITY_NAME,
                       ImmutableSet.of(testUrn),
                       ImmutableSet.of(TEST_INFO_ASPECT_NAME))
@@ -67,24 +69,25 @@ public class TestFetcher {
     }
   }
 
-  public TestFetchResult fetch(int start, int count)
+  public TestFetchResult fetch(@Nonnull OperationContext systemOpContext, int start, int count)
       throws RemoteInvocationException, URISyntaxException {
-    return fetch(start, count, "");
+    return fetch(systemOpContext, start, count, "");
   }
 
-  public TestFetchResult fetch(int start, int count, String query)
+  public TestFetchResult fetch(
+      @Nonnull OperationContext systemOpContext, int start, int count, String query)
       throws RemoteInvocationException, URISyntaxException {
     log.debug("Batch fetching tests. start: {}, count: {}", start, count);
     // First fetch all test urns from start - start + count
     SearchResult result =
         _entitySearchService.search(
+            systemOpContext.withSearchFlags(flags -> flags.setFulltext(false)),
             List.of(TEST_ENTITY_NAME),
             query,
             null,
-            SORT_CRITERION,
+            Collections.singletonList(SORT_CRITERION),
             start,
-            count,
-            new SearchFlags().setFulltext(false));
+            count);
     List<Urn> testUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
@@ -95,7 +98,10 @@ public class TestFetcher {
     // Fetch aspects for each urn
     final Map<Urn, EntityResponse> testEntities =
         _entityService.getEntitiesV2(
-            TEST_ENTITY_NAME, new HashSet<>(testUrns), ImmutableSet.of(TEST_INFO_ASPECT_NAME));
+            systemOpContext,
+            TEST_ENTITY_NAME,
+            new HashSet<>(testUrns),
+            ImmutableSet.of(TEST_INFO_ASPECT_NAME));
     return new TestFetchResult(
         testUrns.stream()
             .map(testEntities::get)

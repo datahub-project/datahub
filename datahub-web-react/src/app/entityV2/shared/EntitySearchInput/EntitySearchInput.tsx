@@ -1,4 +1,5 @@
-import { Select, Tag, Tooltip } from 'antd';
+import { Select, Tag } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useGetEntitiesLazyQuery } from '../../../../graphql/entity.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../../graphql/search.generated';
@@ -12,6 +13,8 @@ type Props = {
     placeholder?: string;
     mode?: 'multiple' | 'single';
     style?: any;
+    tagStyle?: React.CSSProperties;
+    optionStyle?: React.CSSProperties;
     onChangeSelectedUrns: (newUrns: string[]) => void;
 };
 
@@ -42,6 +45,8 @@ export const EntitySearchInput = ({
     entityTypes,
     placeholder,
     style,
+    tagStyle,
+    optionStyle,
     mode,
     onChangeSelectedUrns,
 }: Props) => {
@@ -146,6 +151,7 @@ export const EntitySearchInput = ({
             onSelect={onSelect}
             onDeselect={onDeselect}
             onSearch={onSearch}
+            data-testid="entity-search-input"
             tagRender={(tagProps) => {
                 let displayName = tagProps.value;
                 if (entityCache.has(tagProps.value as string)) {
@@ -153,14 +159,18 @@ export const EntitySearchInput = ({
                     displayName = entityRegistry.getDisplayName(entity?.type, entity) || displayName;
                 }
                 return (
-                    <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                    <Tag closable={tagProps.closable} onClose={tagProps.onClose} style={tagStyle}>
                         <Tooltip title={displayName}>{displayName}</Tooltip>
                     </Tag>
                 );
             }}
         >
             {searchResults?.map((result) => (
-                <Select.Option value={result.entity.urn}>
+                <Select.Option
+                    value={result.entity.urn}
+                    style={optionStyle}
+                    data-testid={`${result.entity.urn}-entity-search-input-result`}
+                >
                     <EntitySearchInputResult entity={result.entity} />
                 </Select.Option>
             ))}

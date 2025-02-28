@@ -2,10 +2,12 @@ import datetime
 import logging
 from typing import Any, Dict, Optional
 
+import cachetools
 import pydantic
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
+from datahub.utilities.cachetools_keys import self_methodkey
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,7 @@ class OperationConfig(ConfigModel):
             and profile_day_of_week is None
             and profile_date_of_month is None
         ):
-            raise ConfigurationError(
+            raise ValueError(
                 "Lower freq profiling setting is enabled but no day of week or date of month is specified. Profiling will be done.",
             )
         return values
@@ -45,7 +47,7 @@ class OperationConfig(ConfigModel):
         if profile_day_of_week is None:
             return None
         if profile_day_of_week < 0 or profile_day_of_week > 6:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Invalid value {profile_day_of_week} for profile_day_of_week. Must be between 0 to 6 (both inclusive)."
             )
         return profile_day_of_week
@@ -56,12 +58,19 @@ class OperationConfig(ConfigModel):
         if profile_date_of_month is None:
             return None
         if profile_date_of_month < 1 or profile_date_of_month > 31:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Invalid value {profile_date_of_month} for profile_date_of_month. Must be between 1 to 31 (both inclusive)."
             )
         return profile_date_of_month
 
 
+# TRICKY: The operation_config is time-dependent. Because we don't want to change
+# whether or not we're running profiling mid-ingestion, we cache the result of this method.
+# An additional benefit is that we only print the log lines on the first call.
+@cachetools.cached(
+    cache=cachetools.LRUCache(maxsize=1),
+    key=self_methodkey,
+)
 def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     if operation_config.lower_freq_profile_enabled is False:
         return True
@@ -69,10 +78,10 @@ def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     today = datetime.date.today()
     if (
         operation_config.profile_day_of_week is not None
-        and operation_config.profile_date_of_month != today.weekday()
+        and operation_config.profile_day_of_week != today.weekday()
     ):
         logger.info(
-            "Profiling won't be done because weekday does not match config profile_date_of_month.",
+            "Profiling won't be done because weekday does not match config profile_day_of_week.",
         )
         return False
     if (

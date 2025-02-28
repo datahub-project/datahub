@@ -106,7 +106,10 @@ public class UpdatePostResolverTest {
     input.setContent(content);
     when(dataFetchingEnvironment.getArgument("input")).thenReturn(input);
     when(postService.updatePost(
-            TEST_URN, PostType.HOME_PAGE_ANNOUNCEMENT.toString(), postContentObj, authentication))
+            any(),
+            eq(TEST_URN),
+            eq(PostType.HOME_PAGE_ANNOUNCEMENT.toString()),
+            eq(postContentObj)))
         .thenReturn(true);
 
     assertTrue(resolver.get(dataFetchingEnvironment).join());

@@ -28,10 +28,8 @@ public class EntityChangeEventSinkManager {
           CompletableFuture.runAsync(
               () -> {
                 try {
-                  log.debug(
-                      String.format(
-                          "Sinking event to sink with type %s",
-                          sink.getClass().getCanonicalName()));
+                  log.info(
+                      "Sinking event to sink with type {}", sink.getClass().getCanonicalName());
                   sink.sink(event);
                 } catch (Exception e) {
                   // This is very bad. It means that we could not sync events to the external

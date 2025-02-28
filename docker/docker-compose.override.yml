@@ -1,20 +1,19 @@
 # Default override to use MySQL as a backing store for datahub-gms (same as docker-compose.mysql.yml).
 ---
-version: '3.9'
 services:
   datahub-gms:
     env_file: datahub-gms/env/docker.env
     environment:
-      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-      - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
     environment:
       - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
   mysql-setup:
-    container_name: mysql-setup
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
     build:
@@ -28,14 +27,13 @@ services:
       datahub_setup_job: true
   kafka-setup:
     environment:
-      - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
+    - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
   mysql:
-    container_name: mysql
     hostname: mysql
-    image: mysql:${DATAHUB_MYSQL_VERSION:-5.7}
+    image: mysql:${DATAHUB_MYSQL_VERSION:-8.2}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     ports:
-      - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     env_file: mysql/env/docker.env
     restart: on-failure
     healthcheck:
@@ -45,7 +43,6 @@ services:
       retries: 3
       timeout: 5s
     volumes:
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - mysqldata:/var/lib/mysql
+    - mysqldata:/var/lib/mysql
 volumes:
   mysqldata:

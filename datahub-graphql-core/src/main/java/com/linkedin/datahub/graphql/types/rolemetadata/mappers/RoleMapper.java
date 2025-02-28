@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.rolemetadata.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Actor;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -18,13 +19,15 @@ import com.linkedin.role.RoleUserArray;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RoleMapper implements ModelMapper<EntityResponse, Role> {
 
   public static final RoleMapper INSTANCE = new RoleMapper();
 
-  public static Role map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static Role map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   private static RoleProperties mapRoleProperties(final com.linkedin.role.RoleProperties e) {
@@ -59,7 +62,7 @@ public class RoleMapper implements ModelMapper<EntityResponse, Role> {
   }
 
   @Override
-  public Role apply(EntityResponse input) {
+  public Role apply(@Nullable QueryContext context, EntityResponse input) {
 
     final Role result = new Role();
     final Urn entityUrn = input.getUrn();

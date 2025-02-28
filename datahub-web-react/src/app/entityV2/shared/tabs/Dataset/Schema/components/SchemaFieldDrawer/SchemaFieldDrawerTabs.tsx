@@ -1,10 +1,14 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tabs, Tooltip } from 'antd';
+import { Tabs } from 'antd';
+import { Tooltip } from '@components';
 import { EntitySidebarTab } from '../../../../../types';
+
+export const TABS_WIDTH = 56;
 
 const UnborderedTabs = styled(Tabs)`
     height: 100%;
+    width: ${TABS_WIDTH}px;
     &&& .ant-tabs-nav {
         margin-bottom: 0;
     }
@@ -60,7 +64,7 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                     <Tab
                         tab={
                             <Tooltip title={name} placement="left" showArrow={false}>
-                                <TabIcon style={tabIconStyle} />
+                                <TabIcon style={tabIconStyle} data-testid={`${name}-field-drawer-tab-header`} />
                             </Tooltip>
                         }
                         key={tab.name}

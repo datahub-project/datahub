@@ -1,14 +1,16 @@
 import React, { useRef, useState } from 'react';
-import { LoadingOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
+import { useGetAutoCompleteResultsQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
-import { SearchBar } from '../search/SearchBar';
+import { SearchBar } from '../searchV2/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DomainSearchResultItem from './DomainSearchResultItem';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const DomainSearchWrapper = styled.div`
+    flex-shrink: 0;
     position: relative;
 `;
 
@@ -16,42 +18,50 @@ const ResultsWrapper = styled.div`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
-    max-height: 380px;
-    overflow: auto;
     padding: 8px;
     position: absolute;
     max-height: 210px;
     overflow: auto;
-    width: calc(100% - 24px);
-    left: 12px;
-    top: 45px;
+    width: calc(100% - 32px);
+    left: 16px;
+    top: 55px;
     z-index: 1;
 `;
 
-const LoadingWrapper = styled.div`
+const LoadingWrapper = styled(ResultsWrapper)`
     display: flex;
-    align-items: center;
     justify-content: center;
-    height: 350px;
-    font-size: 30px;
+    padding: 16px 0;
+    font-size: 16px;
 `;
 
-function DomainSearch() {
+const SearchIcon = styled(SearchOutlined)`
+    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    padding: 16px;
+    width: 100%;
+    font-size: 20px;
+`;
+
+type Props = {
+    isCollapsed?: boolean;
+    unhideSidebar?: () => void;
+};
+
+function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { data, loading } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetAutoCompleteResultsQuery({
         variables: {
             input: {
-                types: [EntityType.Domain],
+                type: EntityType.Domain,
                 query,
-                start: 0,
-                count: 50,
             },
         },
+        skip: !query,
     });
 
-    const searchResults = data?.searchAcrossEntities?.searchResults;
+    const entities = data?.autoComplete?.entities || [];
     const timerRef = useRef(-1);
 
     const handleQueryChange = (q: string) => {
@@ -61,50 +71,51 @@ function DomainSearch() {
         }, 250);
     };
 
-    const renderLoadingIndicator = () => (
-        <LoadingWrapper>
-            <LoadingOutlined />
-        </LoadingWrapper>
-    );
-
-    const renderSearchResults = () => (
-        <ResultsWrapper>
-            {searchResults?.map((result) => (
-                <DomainSearchResultItem
-                    key={result.entity.urn}
-                    entity={result.entity}
-                    entityRegistry={entityRegistry}
-                    query={query}
-                    onResultClick={() => setIsSearchBarFocused(false)}
-                />
-            ))}
-        </ResultsWrapper>
-    );
-
     return (
         <DomainSearchWrapper>
-            <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <SearchBar
-                    initialQuery={query || ''}
-                    placeholderText="Search Domains"
-                    suggestions={[]}
-                    hideRecommendations
-                    style={{
-                        padding: 12,
-                        paddingBottom: 5,
-                    }}
-                    inputStyle={{
-                        height: 30,
-                        fontSize: 12,
-                    }}
-                    onSearch={() => null}
-                    onQueryChange={(q) => handleQueryChange(q)}
-                    entityRegistry={entityRegistry}
-                    onFocus={() => setIsSearchBarFocused(true)}
-                />
-                {loading && renderLoadingIndicator()}
-                {!loading && isSearchBarFocused && !!searchResults?.length && renderSearchResults()}
-            </ClickOutside>
+            {isCollapsed && unhideSidebar ? (
+                <SearchIcon onClick={unhideSidebar} />
+            ) : (
+                <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
+                    <SearchBar
+                        initialQuery={query || ''}
+                        placeholderText="Search Domains"
+                        suggestions={[]}
+                        hideRecommendations
+                        style={{ padding: 9 }}
+                        inputStyle={{
+                            height: 30,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            backgroundColor: ANTD_GRAY[3],
+                        }}
+                        textColor={ANTD_GRAY[10]}
+                        placeholderColor={REDESIGN_COLORS.PLACEHOLDER_PURPLE}
+                        onSearch={() => null}
+                        onQueryChange={(q) => handleQueryChange(q)}
+                        entityRegistry={entityRegistry}
+                        onFocus={() => setIsSearchBarFocused(true)}
+                    />
+                    {loading && isSearchBarFocused && (
+                        <LoadingWrapper>
+                            <LoadingOutlined />
+                        </LoadingWrapper>
+                    )}
+                    {!loading && isSearchBarFocused && !!entities?.length && (
+                        <ResultsWrapper>
+                            {entities?.map((entity) => (
+                                <DomainSearchResultItem
+                                    key={entity.urn}
+                                    entity={entity}
+                                    entityRegistry={entityRegistry}
+                                    query={query}
+                                    onResultClick={() => setIsSearchBarFocused(false)}
+                                />
+                            ))}
+                        </ResultsWrapper>
+                    )}
+                </ClickOutside>
+            )}
         </DomainSearchWrapper>
     );
 }

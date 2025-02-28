@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -18,6 +18,8 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -56,7 +58,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "",
         null,
-        null,
+        Collections.emptyList(),
         0,
         10,
         setConvertSchemaFieldsToDatasets(
@@ -65,7 +67,9 @@ public class SearchResolverTest {
                 .setSkipAggregates(false)
                 .setSkipHighlighting(true) // empty/wildcard
                 .setMaxAggValues(20)
-                .setSkipCache(false),
+                .setSkipCache(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             true));
   }
 
@@ -95,7 +99,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "",
         null,
-        null,
+        Collections.emptyList(),
         1,
         11,
         setConvertSchemaFieldsToDatasets(
@@ -127,7 +131,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "not a wildcard",
         null, // Verify that view filter was used.
-        null,
+        Collections.emptyList(),
         0,
         10,
         setConvertSchemaFieldsToDatasets(
@@ -136,7 +140,9 @@ public class SearchResolverTest {
                 .setSkipAggregates(false)
                 .setSkipHighlighting(false) // empty/wildcard
                 .setMaxAggValues(20)
-                .setSkipCache(false),
+                .setSkipCache(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             true));
   }
 
@@ -144,14 +150,13 @@ public class SearchResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.search(
+                any(),
                 Mockito.anyString(),
                 Mockito.anyString(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.anyInt(),
-                Mockito.anyInt(),
-                Mockito.any(Authentication.class),
-                Mockito.any()))
+                Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setEntities(new SearchEntityArray())
@@ -167,21 +172,20 @@ public class SearchResolverTest {
       String entityName,
       String query,
       Filter filter,
-      SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int limit,
       com.linkedin.metadata.query.SearchFlags searchFlags)
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .search(
+            any(),
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filter),
-            Mockito.eq(sortCriterion),
+            Mockito.eq(sortCriteria),
             Mockito.eq(start),
-            Mockito.eq(limit),
-            Mockito.any(Authentication.class),
-            Mockito.eq(searchFlags));
+            Mockito.eq(limit));
   }
 
   private SearchResolverTest() {}

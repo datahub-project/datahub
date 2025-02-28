@@ -1,25 +1,46 @@
+import {
+    ConsoleSqlOutlined,
+    FileOutlined,
+    ShareAltOutlined,
+    UnorderedListOutlined,
+    WarningOutlined,
+} from '@ant-design/icons';
 import * as React from 'react';
-import { ConsoleSqlOutlined, FileOutlined, ShareAltOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { DataFlow, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { GenericEntityProperties } from '../shared/types';
-import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { getDataProduct, isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -65,6 +86,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getCollectionName = () => 'Pipelines';
 
+    useEntityQuery = useGetDataFlowQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -72,14 +95,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             useEntityQuery={useGetDataFlowQuery}
             useUpdateQuery={useUpdateDataFlowMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Documentation',
@@ -90,34 +106,65 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
                     icon: ConsoleSqlOutlined,
-                },
-            ]}
-            sidebarSections={[
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
                     properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                        urn,
                     },
                 },
                 {
-                    component: SidebarGlossaryTermsSection,
+                    name: 'Incidents',
+                    icon: WarningOutlined,
+                    component: IncidentTab,
+                    getDynamicName: (_, dataFlow, loading) => {
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
                 },
                 {
-                    component: SidebarTagsSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -138,11 +185,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataFlow) => {
+    renderPreview = (previewType: PreviewType, data: DataFlow) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -154,6 +202,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
+                headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };
@@ -164,6 +214,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.properties?.name || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}
@@ -182,6 +233,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
+                parentContainers={data.parentContainers}
             />
         );
     };

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -38,7 +39,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -47,7 +47,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,7 +73,8 @@ public class NotebookType
           DOMAINS_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME);
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -95,14 +95,13 @@ public class NotebookType
     final Map<String, String> facetFilters = Collections.emptyMap();
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             NOTEBOOK_ENTITY_NAME,
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -115,8 +114,8 @@ public class NotebookType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            NOTEBOOK_ENTITY_NAME, query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), NOTEBOOK_ENTITY_NAME, query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -135,8 +134,13 @@ public class NotebookType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            NOTEBOOK_ENTITY_NAME, pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            NOTEBOOK_ENTITY_NAME,
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -144,8 +148,8 @@ public class NotebookType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            NotebookUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+            context.getOperationContext(), NotebookUrn.createFromString(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -170,10 +174,12 @@ public class NotebookType
     try {
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               NOTEBOOK_ENTITY_NAME,
-              new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              urns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
+              ASPECTS_TO_RESOLVE);
 
       return urns.stream()
           .map(urn -> notebookMap.getOrDefault(urn, null))
@@ -182,7 +188,7 @@ public class NotebookType
                   entityResponse == null
                       ? null
                       : DataFetcherResult.<Notebook>newResult()
-                          .data(NotebookMapper.map(entityResponse))
+                          .data(NotebookMapper.map(context, entityResponse))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -204,13 +210,13 @@ public class NotebookType
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    CorpuserUrn actor =
-        CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-    Collection<MetadataChangeProposal> proposals = NotebookUpdateInputMapper.map(input, actor);
+    CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+    Collection<MetadataChangeProposal> proposals =
+        NotebookUpdateInputMapper.map(context, input, actor);
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }
@@ -223,11 +229,7 @@ public class NotebookType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
-        PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType(),
-        urn,
-        orPrivilegeGroups);
+        context, PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final NotebookUpdateInput updateInput) {

@@ -1,20 +1,17 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
-import EntityContext from '../EntityContext';
-import { GenericEntityProperties } from '../types';
-import EmbeddedHeader from './EmbeddedHeader';
-import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
-import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
-import UpstreamHealth from './UpstreamHealth/UpstreamHealth';
+import { EntityContext } from '../../../entity/shared/EntityContext';
+import { GenericEntityProperties } from '../../../entity/shared/types';
+import { TabContextType } from '../types';
 import NonExistentEntityPage from '../entity/NonExistentEntityPage';
-import DataProductSection from '../containers/profile/sidebar/DataProduct/DataProductSection';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
+import EntityProfileSidebar from '../containers/profile/sidebar/EntityProfileSidebar';
+import { getFinalSidebarTabs } from '../containers/profile/utils';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -24,8 +21,9 @@ const LoadingWrapper = styled.div`
     font-size: 50px;
 `;
 
-const StyledDivider = styled(Divider)`
-    margin: 12px 0;
+const SidebarWrapper = styled.div`
+    display: flex;
+    height: 100vh;
 `;
 
 interface Props<T> {
@@ -48,6 +46,7 @@ interface Props<T> {
 }
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
+    const entityRegistry = useEntityRegistryV2();
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
@@ -55,7 +54,11 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         return <NonExistentEntityPage />;
     }
 
-    const readOnly = false;
+    if (!entityData?.type) return null;
+
+    const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
+    const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
+    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
 
     return (
         <EntityContext.Provider
@@ -76,22 +79,17 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <LoadingOutlined />
                 </LoadingWrapper>
             )}
-            {!loading && entityData && (
-                <>
-                    <EmbeddedHeader />
-                    <StyledDivider />
-                    <UpstreamHealth />
-                    <StyledDivider />
-                    <SidebarAboutSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarOwnerSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarTagsSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarDomainSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <DataProductSection readOnly={readOnly} />
-                </>
+            {!loading && entityData && entityData.type && (
+                <EntitySidebarContext.Provider
+                    value={{
+                        ...entitySidebarContextDefaults,
+                        separateSiblings: true,
+                    }}
+                >
+                    <SidebarWrapper>
+                        <EntityProfileSidebar tabs={finalTabs} contextType={TabContextType.CHROME_SIDEBAR} />
+                    </SidebarWrapper>
+                </EntitySidebarContext.Provider>
             )}
         </EntityContext.Provider>
     );

@@ -4,6 +4,7 @@ import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
 import com.linkedin.common.TimeStamp
+import com.linkedin.common.FabricType
 
 /**
  * Information about a Data processing flow
@@ -63,4 +64,15 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     }
   }
   lastModified: optional TimeStamp
+
+  /**
+   * Environment for this flow
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  env: optional FabricType
 }

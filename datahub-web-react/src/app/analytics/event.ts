@@ -1,15 +1,27 @@
 import {
+    AllowedValue,
     DataHubViewType,
     EntityChangeType,
     EntityType,
+    FormPromptType,
+    FormType,
+    LineageDirection,
     NotificationSinkType,
+    OidcSettings,
+    OwnerInput,
+    PropertyCardinality,
+    PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
+    StructuredPropertyFilterStatus,
 } from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
+import { PersonaType } from '../homeV2/shared/types';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
 import { ActorType } from '../settings/personal/notifications/constants';
+
+// NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
 
 /**
  * Valid event types.
@@ -91,12 +103,26 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
+    CreateStructuredPropertyClickEvent,
+    CreateStructuredPropertyEvent,
+    EditStructuredPropertyEvent,
+    DeleteStructuredPropertyEvent,
+    ViewStructuredPropertyEvent,
+    ApplyStructuredPropertyEvent,
+    UpdateStructuredPropertyOnAssetEvent,
+    RemoveStructuredPropertyEvent,
+    ClickDocRequestCTA,
+    CompleteDocRequestPrompt,
+    CompleteVerification,
+    OpenTaskCenter,
     // SaaS only events
     CreateTestEvent,
     UpdateTestEvent,
     DeleteTestEvent,
     CreateAssertionMonitorEvent,
     UpdateAssertionMonitorEvent,
+    UpdateAssertionMetadataEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
     SlackIntegrationSuccessEvent,
@@ -111,17 +137,53 @@ export enum EventType {
     NotificationSettingsErrorEvent,
     InboxPageViewEvent,
     IntroduceYourselfViewEvent,
+    IntroduceYourselfSubmitEvent,
+    IntroduceYourselfSkipEvent,
+    SharedEntityEvent,
+    UnsharedEntityEvent,
+    ExpandLineageEvent,
+    ContractLineageEvent,
+    ShowHideLineageColumnsEvent,
+    SearchLineageColumnsEvent,
+    FilterLineageColumnsEvent,
+    DrillDownLineageEvent,
+    InferDocsClickEvent,
+    CreateFormClickEvent,
+    SaveFormAsDraftEvent,
+    PublishFormEvent,
+    UnpublishFormEvent,
+    DeleteFormEvent,
+    CreateQuestionEvent,
+    EditQuestionEvent,
+    SSOConfigurationEvent,
+    ProposeStructuredPropertiesMutation,
+    ProposeDomainMutation,
+    ProposeOwnersMutation,
+    LinkAssetVersionEvent,
+    UnlinkAssetVersionEvent,
+    ShowAllVersionsEvent,
 }
 
 /**
  * Base Interface for all React analytics events.
  */
 interface BaseEvent {
+    /** the urn of the actor who triggered this event */
     actorUrn?: string;
+    /** timestamp for when this occurred */
     timestamp?: number;
+    /** date for when this occurred */
     date?: string;
+    /** the specs for the user's machine */
     userAgent?: string;
+    /** unique ID given to a user's browser */
     browserId?: string;
+    /** whether Acryl 2.0 UI is enabled or not at the time of this event */
+    isThemeV2Enabled?: boolean;
+    /** the persona urn for this user - groups users based on their titles */
+    userPersona?: PersonaType;
+    /** the selected title of this user ie. "Data Analyst" */
+    userTitle?: string;
 }
 
 /**
@@ -137,6 +199,37 @@ export interface PageViewEvent extends BaseEvent {
  */
 export interface IntroduceYourselfViewEvent extends BaseEvent {
     type: EventType.IntroduceYourselfViewEvent;
+}
+
+/**
+ * Submitted the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSubmitEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSubmitEvent;
+    role: string;
+    platformUrns: Array<string>;
+}
+
+/**
+ * Skipped the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSkipEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSkipEvent;
+}
+
+export interface SharedEntityEvent extends BaseEvent {
+    type: EventType.SharedEntityEvent;
+    entityType?: EntityType;
+    entityUrn: string;
+    connectionUrn?: string;
+    connectionUrns?: string[];
+}
+
+export interface UnsharedEntityEvent extends BaseEvent {
+    type: EventType.UnsharedEntityEvent;
+    entityType?: EntityType;
+    entityUrn: string;
+    connectionUrns: string[];
 }
 
 /**
@@ -234,6 +327,7 @@ export interface SearchResultClickEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     index: number;
     total: number;
+    pageNumber: number;
 }
 
 export interface SearchFiltersClearAllEvent extends BaseEvent {
@@ -272,6 +366,7 @@ export interface HomePageBrowseResultClickEvent extends BaseEvent {
  */
 export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleSidebarEvent;
+    /** describes whether the user is opening or closing the browse v2 sidebar */
     action: 'open' | 'close';
 }
 
@@ -280,7 +375,9 @@ export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
  */
 export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
+    /** which section in the browse sidebar is being opened or closed */
     targetNode: 'entity' | 'environment' | 'platform' | 'browse';
+    /** describes whether the user is opening or closing the section inside of the browse sidebar */
     action: 'open' | 'close';
     entity?: string;
     environment?: string;
@@ -353,7 +450,10 @@ export const EntityActionType = {
     ProposalCreated: 'ProposalCreated',
     ProposalAccepted: 'ProposalAccepted',
     ProposalRejected: 'ProposalRejected',
+    ProposalsAccepted: 'ProposalsAccepted',
+    ProposalsRejected: 'ProposalsRejected',
 };
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
@@ -595,6 +695,12 @@ export interface UpdateAssertionMonitorEvent extends BaseEvent {
     assertionType: string;
     entityUrn: string;
 }
+export interface UpdateAssertionMetadataEvent extends BaseEvent {
+    type: EventType.UpdateAssertionMetadataEvent;
+    assertionType: string;
+    assertionUrn: string;
+    entityUrn: string;
+}
 
 export interface StartAssertionMonitorEvent extends BaseEvent {
     type: EventType.StartAssertionMonitorEvent;
@@ -729,6 +835,45 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
+export enum DocRequestCTASource {
+    TaskCenter = 'TaskCenter',
+    AssetPage = 'AssetPage',
+}
+
+export interface ClickDocRequestCTA extends BaseEvent {
+    type: EventType.ClickDocRequestCTA;
+    source: DocRequestCTASource;
+}
+
+export enum DocRequestView {
+    ByQuestion = 'ByQuestion',
+    ByAsset = 'ByAsset',
+    BulkVerify = 'BulkVerify',
+}
+
+export interface CompleteDocRequestPrompt extends BaseEvent {
+    type: EventType.CompleteDocRequestPrompt;
+    source: DocRequestView;
+    promptId: string;
+    required: boolean;
+    numAssets: number;
+}
+
+export interface CompleteVerification extends BaseEvent {
+    type: EventType.CompleteVerification;
+    source: DocRequestView;
+    numAssets: number;
+}
+
+export interface OpenTaskCenter extends BaseEvent {
+    type: EventType.OpenTaskCenter;
+}
+
 export interface SlackIntegrationSuccessEvent extends BaseEvent {
     type: EventType.SlackIntegrationSuccessEvent;
     configType: string;
@@ -818,6 +963,227 @@ export interface NotificationSettingsErrorEvent extends BaseEvent {
     actorType: ActorType;
 }
 
+export interface ExpandLineageEvent extends BaseEvent {
+    type: EventType.ExpandLineageEvent;
+    direction: LineageDirection;
+    levelsExpanded: '1' | 'all';
+    entityUrn: string;
+    entityType: EntityType;
+}
+
+export interface ContractLineageEvent extends BaseEvent {
+    type: EventType.ContractLineageEvent;
+    direction: LineageDirection;
+    entityUrn: string;
+    entityType?: EntityType;
+}
+
+export interface ShowHideLineageColumnsEvent extends BaseEvent {
+    type: EventType.ShowHideLineageColumnsEvent;
+    action: 'show' | 'hide';
+    entityUrn: string;
+    entityType: EntityType;
+    entityPlatformUrn?: string;
+}
+
+export interface SearchLineageColumnsEvent extends BaseEvent {
+    type: EventType.SearchLineageColumnsEvent;
+    entityUrn: string;
+    entityType: EntityType;
+    searchTextLength: number;
+}
+
+export interface FilterLineageColumnsEvent extends BaseEvent {
+    type: EventType.FilterLineageColumnsEvent;
+    action: 'enable' | 'disable';
+    entityUrn: string;
+    entityType: EntityType;
+    shownCount: number;
+}
+
+export interface DrillDownLineageEvent extends BaseEvent {
+    type: EventType.DrillDownLineageEvent;
+    action: 'select' | 'deselect';
+    entityUrn: string;
+    entityType: EntityType;
+    parentUrn: string;
+    parentEntityType: EntityType;
+    dataType?: string;
+}
+
+export interface CreateFormClickEvent extends BaseEvent {
+    type: EventType.CreateFormClickEvent;
+}
+
+interface FormEvent extends BaseEvent {
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+export interface SaveFormAsDraftEvent extends FormEvent {
+    type: EventType.SaveFormAsDraftEvent;
+}
+
+export interface PublishFormEvent extends FormEvent {
+    type: EventType.PublishFormEvent;
+}
+
+export interface UnpublishFormEvent extends FormEvent {
+    type: EventType.UnpublishFormEvent;
+}
+
+export interface DeleteFormEvent extends FormEvent {
+    type: EventType.DeleteFormEvent;
+}
+
+interface QuestionEvent extends BaseEvent {
+    formUrn?: string;
+    questionId: string;
+    questionType: FormPromptType;
+    required: boolean;
+    allowMultiple?: boolean;
+    restrictedGlossaryTerms?: boolean;
+    restrictedOwners?: boolean;
+    restrictedOwnershipTypes?: boolean;
+    restrictedDomains?: boolean;
+}
+
+export interface CreateQuestionEvent extends QuestionEvent {
+    type: EventType.CreateQuestionEvent;
+}
+
+export interface EditQuestionEvent extends QuestionEvent {
+    type: EventType.EditQuestionEvent;
+}
+
+export interface CreateStructuredPropertyClickEvent extends BaseEvent {
+    type: EventType.CreateStructuredPropertyClickEvent;
+}
+
+interface StructuredPropertyEvent extends BaseEvent {
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+    showInFilters?: StructuredPropertyFilterStatus;
+    isHidden: boolean;
+    showInSearchFilters: boolean;
+    showAsAssetBadge: boolean;
+    showInAssetSummary: boolean;
+    showInColumnsTable: boolean;
+}
+
+export interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.CreateStructuredPropertyEvent;
+}
+
+export interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.EditStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.DeleteStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface ViewStructuredPropertyEvent extends BaseEvent {
+    type: EventType.ViewStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+interface StructuredPropertyOnAssetEvent extends BaseEvent {
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+}
+export interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.ApplyStructuredPropertyEvent;
+    values: PropertyValueInput[];
+}
+
+export interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.UpdateStructuredPropertyOnAssetEvent;
+    values: PropertyValueInput[];
+}
+
+export interface ProposeStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.ProposeStructuredPropertiesMutation;
+    values: PropertyValueInput[];
+}
+
+export interface ProposeDomainEvent extends BaseEvent {
+    type: EventType.ProposeDomainMutation;
+    // The target entity urn for the proposal
+    resourceUrn: string;
+    // The domain urn which is being proposed
+    domainUrn: string;
+    description?: string;
+}
+
+export interface ProposeOwnersEvent extends BaseEvent {
+    type: EventType.ProposeOwnersMutation;
+    // The target entity urn for the proposal
+    resourceUrn: string;
+    owners: OwnerInput[];
+    description?: string;
+}
+
+export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.RemoveStructuredPropertyEvent;
+}
+
+export interface InferDocsClickEvent extends BaseEvent {
+    type: EventType.InferDocsClickEvent;
+    surface:
+        | 'schema-table'
+        | 'schema-profile'
+        | 'schema-docs-editor'
+        | 'entity-sidebar'
+        | 'entity-docs-tab'
+        | 'entity-docs-editor'
+        | 'query-viewer-modal'
+        | 'query-builder-form';
+}
+
+export type ObfuscatedOidcSettings = { [k in keyof Partial<OidcSettings>]: boolean | string };
+export interface SSOConfigurationEvent extends BaseEvent {
+    type: EventType.SSOConfigurationEvent;
+    action: 'enable-sso' | 'disable-sso' | 'initialize-sso' | 'update-sso' | 'expand-advanced';
+    oldSettings?: ObfuscatedOidcSettings;
+    newSettings?: ObfuscatedOidcSettings;
+    isAdvancedVisible?: boolean; // true if advanced section is opened when user is hitting save
+}
+
+export interface LinkAssetVersionEvent extends BaseEvent {
+    type: EventType.LinkAssetVersionEvent;
+    newAssetUrn: string;
+    oldAssetUrn?: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface UnlinkAssetVersionEvent extends BaseEvent {
+    type: EventType.UnlinkAssetVersionEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface ShowAllVersionsEvent extends BaseEvent {
+    type: EventType.ShowAllVersionsEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+    numVersions?: number;
+    uiLocation: 'preview' | 'more-options';
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -825,6 +1191,8 @@ export type Event =
     | PageViewEvent
     | HomePageViewEvent
     | IntroduceYourselfViewEvent
+    | IntroduceYourselfSubmitEvent
+    | IntroduceYourselfSkipEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent
@@ -902,8 +1270,14 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent
+    | ClickDocRequestCTA
+    | CompleteDocRequestPrompt
+    | CompleteVerification
+    | OpenTaskCenter
     | CreateAssertionMonitorEvent
     | UpdateAssertionMonitorEvent
+    | UpdateAssertionMetadataEvent
     | StartAssertionMonitorEvent
     | StopAssertionMonitorEvent
     | SlackIntegrationSuccessEvent
@@ -916,4 +1290,36 @@ export type Event =
     | SubscriptionDeleteErrorEvent
     | NotificationSettingsSuccessEvent
     | NotificationSettingsErrorEvent
-    | InboxPageViewEvent;
+    | InboxPageViewEvent
+    | SharedEntityEvent
+    | UnsharedEntityEvent
+    | ExpandLineageEvent
+    | ContractLineageEvent
+    | ShowHideLineageColumnsEvent
+    | SearchLineageColumnsEvent
+    | FilterLineageColumnsEvent
+    | DrillDownLineageEvent
+    | InferDocsClickEvent
+    | CreateFormClickEvent
+    | SaveFormAsDraftEvent
+    | PublishFormEvent
+    | UnpublishFormEvent
+    | DeleteFormEvent
+    | CreateQuestionEvent
+    | EditQuestionEvent
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent
+    | ProposeStructuredPropertyEvent
+    | SSOConfigurationEvent
+    | ProposeStructuredPropertyEvent
+    | ProposeDomainEvent
+    | ProposeOwnersEvent
+    | LinkAssetVersionEvent
+    | UnlinkAssetVersionEvent
+    | ShowAllVersionsEvent;

@@ -46,7 +46,7 @@ public class AnomalyMapperTest {
     info.getReview().setMessage("Test source message");
 
     // Exercise
-    Anomaly anomaly = AnomalyMapper.map(entityResponse);
+    Anomaly anomaly = AnomalyMapper.map(null, entityResponse);
 
     // Verify
     assertEquals(anomaly.getDescription(), info.getDescription());
@@ -68,7 +68,7 @@ public class AnomalyMapperTest {
     entityResponse.getAspects().put(Constants.ANOMALY_INFO_ASPECT_NAME, envelopedAspect);
 
     // Exercise
-    Anomaly anomaly = AnomalyMapper.map(entityResponse);
+    Anomaly anomaly = AnomalyMapper.map(null, entityResponse);
 
     // Verify
     assertNull(anomaly.getDescription());

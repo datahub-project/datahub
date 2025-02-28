@@ -1,6 +1,7 @@
 import { Input } from 'antd';
 import React, { Dispatch, SetStateAction } from 'react';
 import styled from 'styled-components';
+import { onClickPreventSelect } from '../common';
 
 const SearchInput = styled(Input)`
     border-radius: 4px;
@@ -29,10 +30,10 @@ export default function ColumnSearch({ searchText, setSearchText }: Props) {
     // See https://reactflow.dev/api-reference/types/node-props#notes
     return (
         <SearchInput
-            className="nodrag"
             defaultValue={searchText}
             placeholder="Find column"
             onChange={(e) => setSearchText(e.target.value.trim())}
+            onClick={onClickPreventSelect}
         />
     );
 }

@@ -24,7 +24,7 @@ export const AddLinkButton = () => {
                 commandName="insertLink"
                 onClick={handleButtonClick}
             />
-            <LinkModal visible={isModalVisible} handleClose={handleClose} />
+            <LinkModal open={isModalVisible} handleClose={handleClose} />
         </>
     );
 };

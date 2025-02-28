@@ -28,7 +28,7 @@ export default function translateFieldPathSegment(fieldPathSegment, i, fieldPath
     // structs that qualify a union are represented as [union]union_field.[type=QualifiedStruct].qualified_struct_field
     // we convert into union_field. (QualifiedStruct) qualified_struct_field
     if (fieldPathSegment.startsWith('[type=') && fieldPathSegment.endsWith(']')) {
-        const typeName = fieldPathSegment.replace('[type=', '').replace(']', '');
+        const typeName = fieldPathSegment.replace(/\[type=/g, '').replace(/\]/g, '');
         // if the qualified struct is the last element, just show the qualified struct
         if (i === fieldPathParts.length - 1) {
             return ` ${typeName}`;

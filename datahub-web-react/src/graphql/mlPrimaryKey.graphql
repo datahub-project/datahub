@@ -1,11 +1,27 @@
 query getMLPrimaryKey($urn: String!) {
     mlPrimaryKey(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLPrimaryKey
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
@@ -13,5 +29,6 @@ query getMLPrimaryKey($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }

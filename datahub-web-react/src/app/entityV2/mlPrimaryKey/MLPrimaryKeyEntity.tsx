@@ -1,23 +1,28 @@
+import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { DotChartOutlined, PartitionOutlined } from '@ant-design/icons';
-import { MlPrimaryKey, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
 import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
+import { EntityType, MlPrimaryKey, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -70,6 +75,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         };
     };
 
+    useEntityQuery = useGetMlPrimaryKeyQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -90,33 +97,48 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                     name: 'Lineage',
                     component: LineageTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarStructuredProperties,
+        },
+        {
+            component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -124,22 +146,33 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlPrimaryKey) => {
+    renderPreview = (previewType: PreviewType, data: MlPrimaryKey) => {
         const genericProperties = this.getGenericEntityProperties(data);
         // eslint-disable-next-line
         const platform = data?.['featureTables']?.relationships?.[0]?.entity?.platform;
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                previewType={previewType}
             />
         );
     };
@@ -152,6 +185,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         return (
             <Preview
                 urn={data.urn}
+                data={genericProperties}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
                 description={data.description || ''}

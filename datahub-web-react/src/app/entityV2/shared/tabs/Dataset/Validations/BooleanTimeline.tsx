@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { Bar } from '@visx/shape';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
@@ -7,9 +7,10 @@ import { scaleUtc } from '@visx/scale';
 import { ANTD_GRAY } from '../../../constants';
 
 export type BooleanResult = {
-    result: boolean;
+    isSuccess: boolean;
     title: React.ReactNode;
     content: React.ReactNode;
+    resultUrl?: string;
 };
 
 export type BooleanDataPoint = {
@@ -52,7 +53,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
             index: i,
             title: result.result.title,
             content: result.result.content,
-            result: result.result.result,
+            isSuccess: result.result.isSuccess,
             time: result.time,
         };
     });
@@ -66,7 +67,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = d.result ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
+                        const fillColor = d.isSuccess ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
                         return (
                             <Popover
                                 key={d.time}

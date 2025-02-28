@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Callable, Dict, Iterable, Union, cast
 
 from pyiceberg.conversions import from_bytes
@@ -33,6 +34,9 @@ from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+
+LOGGER = logging.getLogger(__name__)
 
 
 class IcebergProfiler:
@@ -109,92 +113,103 @@ class IcebergProfiler:
         Yields:
             Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
         """
-        current_snapshot = table.current_snapshot()
-        if not current_snapshot:
-            # Table has no data, cannot profile, or we can't get current_snapshot.
-            return
+        with PerfTimer() as timer:
+            LOGGER.debug(f"Starting profiling of dataset: {dataset_name}")
+            current_snapshot = table.current_snapshot()
+            if not current_snapshot:
+                # Table has no data, cannot profile, or we can't get current_snapshot.
+                return
 
-        row_count = (
-            int(current_snapshot.summary.additional_properties["total-records"])
-            if current_snapshot.summary
-            else 0
-        )
-        column_count = len(
-            [
-                field.field_id
-                for field in table.schema().fields
-                if field.field_type.is_primitive
-            ]
-        )
-        dataset_profile = DatasetProfileClass(
-            timestampMillis=get_sys_time(),
-            rowCount=row_count,
-            columnCount=column_count,
-        )
-        dataset_profile.fieldProfiles = []
+            row_count = (
+                int(current_snapshot.summary.additional_properties["total-records"])
+                if current_snapshot.summary
+                else 0
+            )
+            column_count = len(
+                [
+                    field.field_id
+                    for field in table.schema().fields
+                    if field.field_type.is_primitive
+                ]
+            )
+            dataset_profile = DatasetProfileClass(
+                timestampMillis=get_sys_time(),
+                rowCount=row_count,
+                columnCount=column_count,
+            )
+            dataset_profile.fieldProfiles = []
 
-        total_count = 0
-        null_counts: Dict[int, int] = {}
-        min_bounds: Dict[int, Any] = {}
-        max_bounds: Dict[int, Any] = {}
-        try:
-            for manifest in current_snapshot.manifests(table.io):
-                for manifest_entry in manifest.fetch_manifest_entry(table.io):
-                    data_file = manifest_entry.data_file
+            total_count = 0
+            null_counts: Dict[int, int] = {}
+            min_bounds: Dict[int, Any] = {}
+            max_bounds: Dict[int, Any] = {}
+            try:
+                for manifest in current_snapshot.manifests(table.io):
+                    for manifest_entry in manifest.fetch_manifest_entry(table.io):
+                        data_file = manifest_entry.data_file
+                        if self.config.include_field_null_count:
+                            null_counts = self._aggregate_counts(
+                                null_counts, data_file.null_value_counts
+                            )
+                        if self.config.include_field_min_value:
+                            self._aggregate_bounds(
+                                table.schema(),
+                                min,
+                                min_bounds,
+                                data_file.lower_bounds,
+                            )
+                        if self.config.include_field_max_value:
+                            self._aggregate_bounds(
+                                table.schema(),
+                                max,
+                                max_bounds,
+                                data_file.upper_bounds,
+                            )
+                        total_count += data_file.record_count
+            except Exception as e:
+                # Catch any errors that arise from attempting to read the Iceberg table's manifests
+                # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
+                self.report.report_warning(
+                    "profiling",
+                    f"Error while profiling dataset {dataset_name}: {e}",
+                )
+            if row_count:
+                # Iterating through fieldPaths introduces unwanted stats for list element fields...
+                for field_path, field_id in table.schema()._name_to_id.items():
+                    field = table.schema().find_field(field_id)
+                    column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                     if self.config.include_field_null_count:
-                        null_counts = self._aggregate_counts(
-                            null_counts, data_file.null_value_counts
+                        column_profile.nullCount = cast(
+                            int, null_counts.get(field_id, 0)
                         )
+                        column_profile.nullProportion = float(
+                            column_profile.nullCount / row_count
+                        )
+
                     if self.config.include_field_min_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            min,
-                            min_bounds,
-                            data_file.lower_bounds,
+                        column_profile.min = (
+                            self._render_value(
+                                dataset_name, field.field_type, min_bounds.get(field_id)
+                            )
+                            if field_id in min_bounds
+                            else None
                         )
                     if self.config.include_field_max_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            max,
-                            max_bounds,
-                            data_file.upper_bounds,
+                        column_profile.max = (
+                            self._render_value(
+                                dataset_name, field.field_type, max_bounds.get(field_id)
+                            )
+                            if field_id in max_bounds
+                            else None
                         )
-                    total_count += data_file.record_count
-        except Exception as e:
-            # Catch any errors that arise from attempting to read the Iceberg table's manifests
-            # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
-            self.report.report_warning(
-                "profiling",
-                f"Error while profiling dataset {dataset_name}: {e}",
+                    dataset_profile.fieldProfiles.append(column_profile)
+            time_taken = timer.elapsed_seconds()
+            self.report.report_table_profiling_time(
+                time_taken, dataset_name, table.metadata_location
             )
-        if row_count:
-            # Iterating through fieldPaths introduces unwanted stats for list element fields...
-            for field_path, field_id in table.schema()._name_to_id.items():
-                field = table.schema().find_field(field_id)
-                column_profile = DatasetFieldProfileClass(fieldPath=field_path)
-                if self.config.include_field_null_count:
-                    column_profile.nullCount = cast(int, null_counts.get(field_id, 0))
-                    column_profile.nullProportion = float(
-                        column_profile.nullCount / row_count
-                    )
-
-                if self.config.include_field_min_value:
-                    column_profile.min = (
-                        self._render_value(
-                            dataset_name, field.field_type, min_bounds.get(field_id)
-                        )
-                        if field_id in min_bounds
-                        else None
-                    )
-                if self.config.include_field_max_value:
-                    column_profile.max = (
-                        self._render_value(
-                            dataset_name, field.field_type, max_bounds.get(field_id)
-                        )
-                        if field_id in max_bounds
-                        else None
-                    )
-                dataset_profile.fieldProfiles.append(column_profile)
+            LOGGER.debug(
+                f"Finished profiling of dataset: {dataset_name} in {time_taken}"
+            )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,

@@ -42,7 +42,7 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
     // Policy list paging.
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
- 
+
     const { loading, error, data, refetch } = useListActionRequestsQuery({
         variables: {
             input: {
@@ -56,7 +56,7 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
     });
 
     useEffect(() => {
-            analytics.event({ type: EventType.InboxPageViewEvent });
+        analytics.event({ type: EventType.InboxPageViewEvent });
     }, []);
     let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
 
@@ -81,7 +81,7 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading your requests..." />}
-            {error && message.error('Failed to load your requests :(')}
+            {error && message.error('Failed to load proposals. An unknown error occurred!')}
             <ActionRequestsContainer>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 <ActionRequestsStyledList

@@ -118,6 +118,7 @@ interface Props {
     setSelectedFilterOptions: (filterValues: FilterOptionType[]) => void;
     nestedOptions?: FilterOptionType[];
     addPadding?: boolean;
+    includeCount?: boolean;
 }
 
 export default function FilterOption({
@@ -126,16 +127,27 @@ export default function FilterOption({
     setSelectedFilterOptions,
     nestedOptions,
     addPadding,
+    includeCount = true,
 }: Props) {
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
-    const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
+    const { icon, label } = getFilterIconAndLabel(
+        field,
+        value,
+        entityRegistry,
+        entity || null,
+        14,
+        filterOption.displayName,
+    );
     const showParentEntityPath = field === DOMAINS_FILTER_NAME && entity?.type === EntityType.Domain;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
-    // only entity type filters return 10,000 max aggs
-    const countText = count === MAX_COUNT_VAL && field === ENTITY_SUB_TYPE_FILTER_NAME ? '10k+' : formatNumber(count);
+
+    const getCountText = () => {
+        // only entity type filters return 10,000 max aggs
+        return count === MAX_COUNT_VAL && field === ENTITY_SUB_TYPE_FILTER_NAME ? '10k+' : formatNumber(count);
+    };
 
     function updateFilterValues() {
         if (isFilterOptionSelected(selectedFilterOptions, value)) {
@@ -174,7 +186,7 @@ export default function FilterOption({
                                 <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
                                     {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
                                 </Label>
-                                <CountText>{countText}</CountText>
+                                {includeCount && <CountText>{getCountText()}</CountText>}
                                 {nestedOptions && nestedOptions.length > 0 && (
                                     <ArrowButton
                                         icon={<CaretUpOutlined />}

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.anomaly.AnomalySource;
@@ -13,11 +13,13 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AnomalyKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -28,9 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 public class AnomalyService extends BaseService {
 
   public AnomalyService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**
@@ -41,9 +44,10 @@ public class AnomalyService extends BaseService {
    * @return an instance of {@link AnomalyInfo} for the Anomaly, null if it does not exist.
    */
   @Nullable
-  public AnomalyInfo getAnomalyInfo(@Nonnull final Urn anomalyUrn) {
+  public AnomalyInfo getAnomalyInfo(
+      @Nonnull OperationContext opContext, @Nonnull final Urn anomalyUrn) {
     Objects.requireNonNull(anomalyUrn, "anomalyUrn must not be null");
-    final EntityResponse response = getAnomalyEntityResponse(anomalyUrn);
+    final EntityResponse response = getAnomalyEntityResponse(opContext, anomalyUrn);
     if (response != null && response.getAspects().containsKey(Constants.ANOMALY_INFO_ASPECT_NAME)) {
       return new AnomalyInfo(
           response.getAspects().get(Constants.ANOMALY_INFO_ASPECT_NAME).getValue().data());
@@ -60,9 +64,10 @@ public class AnomalyService extends BaseService {
    * @return an instance of {@link AnomaliesSummary} for the Entity, null if it does not exist.
    */
   @Nullable
-  public AnomaliesSummary getAnomaliesSummary(@Nonnull final Urn entityUrn) {
+  public AnomaliesSummary getAnomaliesSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response = getAnomaliesSummaryResponse(entityUrn);
+    final EntityResponse response = getAnomaliesSummaryResponse(opContext, entityUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.ANOMALIES_SUMMARY_ASPECT_NAME)) {
       return new AnomaliesSummary(
@@ -76,25 +81,30 @@ public class AnomalyService extends BaseService {
    * Produces a Metadata Change Proposal to update the Anomalies Summary aspect for a given entity.
    */
   public void updateAnomaliesSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final AnomaliesSummary newSummary) throws Exception {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final AnomaliesSummary newSummary)
+      throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(newSummary, "newSummary must not be null");
     this.entityClient.ingestProposal(
+        opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.ANOMALIES_SUMMARY_ASPECT_NAME, newSummary),
-        this.systemAuthentication,
         false);
   }
 
   /** Deletes an anomaly with a given URN */
-  public void deleteAnomaly(@Nonnull final Urn anomalyUrn) throws Exception {
+  public void deleteAnomaly(@Nonnull OperationContext opContext, @Nonnull final Urn anomalyUrn)
+      throws Exception {
     Objects.requireNonNull(anomalyUrn, "anomalyUrn must not be null");
-    this.entityClient.deleteEntity(anomalyUrn, this.systemAuthentication);
-    this.entityClient.deleteEntityReferences(anomalyUrn, this.systemAuthentication);
+    this.entityClient.deleteEntity(opContext, anomalyUrn);
+    this.entityClient.deleteEntityReferences(opContext, anomalyUrn);
   }
 
   /** Raises a new anomaly for an asset */
   public Urn raiseAnomaly(
+      @Nonnull OperationContext opContext,
       @Nonnull final AnomalyType type,
       @Nullable final Integer severity,
       @Nullable final String description,
@@ -123,14 +133,15 @@ public class AnomalyService extends BaseService {
             .setLastUpdated(new AuditStamp().setActor(actor).setTime(System.currentTimeMillis())));
     newInfo.setCreated(new AuditStamp().setActor(actor).setTime(System.currentTimeMillis()));
     this.entityClient.ingestProposal(
+        opContext,
         AspectUtils.buildMetadataChangeProposal(urn, Constants.ANOMALY_INFO_ASPECT_NAME, newInfo),
-        this.systemAuthentication,
         false);
     return urn;
   }
 
   /** Updates an existing anomaly's status. */
   public void updateAnomalyStatus(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final AnomalyState state,
       @Nullable final AnomalyStatusProperties properties,
@@ -139,7 +150,7 @@ public class AnomalyService extends BaseService {
     Objects.requireNonNull(urn, "urn must not be null");
     Objects.requireNonNull(state, "state must not be null");
     Objects.requireNonNull(actor, "actor must not be null");
-    final AnomalyInfo existingInfo = getAnomalyInfo(urn);
+    final AnomalyInfo existingInfo = getAnomalyInfo(opContext, urn);
     if (existingInfo != null) {
       final AnomalyStatus newStatus =
           new AnomalyStatus()
@@ -148,9 +159,9 @@ public class AnomalyService extends BaseService {
               .setLastUpdated(new AuditStamp().setActor(actor).setTime(System.currentTimeMillis()));
       existingInfo.setStatus(newStatus);
       this.entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.ANOMALY_INFO_ASPECT_NAME, existingInfo),
-          this.systemAuthentication,
           false);
     } else {
       throw new IllegalArgumentException(
@@ -166,14 +177,15 @@ public class AnomalyService extends BaseService {
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
-  private EntityResponse getAnomalyEntityResponse(@Nonnull final Urn anomalyUrn) {
+  private EntityResponse getAnomalyEntityResponse(
+      @Nonnull OperationContext opContext, @Nonnull final Urn anomalyUrn) {
     Objects.requireNonNull(anomalyUrn, "anomalyUrn must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.ANOMALY_ENTITY_NAME,
           anomalyUrn,
-          ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME),
-          this.systemAuthentication);
+          ImmutableSet.of(Constants.ANOMALY_INFO_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Anomaly with urn %s", anomalyUrn), e);
@@ -188,14 +200,15 @@ public class AnomalyService extends BaseService {
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
-  private EntityResponse getAnomaliesSummaryResponse(@Nonnull final Urn entityUrn) {
+  private EntityResponse getAnomaliesSummaryResponse(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           entityUrn.getEntityType(),
           entityUrn,
-          ImmutableSet.of(Constants.ANOMALIES_SUMMARY_ASPECT_NAME),
-          this.systemAuthentication);
+          ImmutableSet.of(Constants.ANOMALIES_SUMMARY_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Anomalies Summary for entity with urn %s", entityUrn),

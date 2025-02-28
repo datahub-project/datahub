@@ -1,13 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilterWithUrns;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExtraProperty;
@@ -15,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
@@ -25,6 +28,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -54,6 +60,7 @@ public class ListDataProductAssetsResolver
   private static final int DEFAULT_COUNT = 10;
 
   private final EntityClient _entityClient;
+  private final ViewService _viewService;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -73,10 +80,10 @@ public class ListDataProductAssetsResolver
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
       if (entityResponse != null
           && entityResponse
               .getAspects()
@@ -120,7 +127,7 @@ public class ListDataProductAssetsResolver
             .distinct()
             .collect(Collectors.toList());
 
-    final List<String> finalEntityNames =
+    final List<String> entityNames =
         inputEntityNames.size() > 0 ? inputEntityNames : entitiesToQuery;
 
     // escape forward slash since it is a reserved character in Elasticsearch
@@ -130,7 +137,7 @@ public class ListDataProductAssetsResolver
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
     Set<String> finalOutputPorts = outputPorts;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // if no assets in data product properties, exit early before search and return empty
           // results
@@ -143,6 +150,14 @@ public class ListDataProductAssetsResolver
             return results;
           }
 
+          final DataHubViewInfo maybeResolvedView =
+              (input.getViewUrn() != null)
+                  ? resolveView(
+                      context.getOperationContext(),
+                      _viewService,
+                      UrnUtils.getUrn(input.getViewUrn()))
+                  : null;
+
           List<FacetFilterInput> filters = input.getFilters();
           final List<Urn> urnsToFilterOn = getUrnsToFilterOn(assetUrns, finalOutputPorts, filters);
           // need to remove output ports filter so we don't send to elastic
@@ -150,14 +165,33 @@ public class ListDataProductAssetsResolver
             filters.removeIf(f -> f.getField().equals(OUTPUT_PORTS_FILTER_FIELD));
           }
           // add urns from the aspect to our filters
-          final Filter baseFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
-          final Filter finalFilter = buildFilterWithUrns(new HashSet<>(urnsToFilterOn), baseFilter);
+          final Filter inputFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+          final Filter baseFilter =
+              buildFilterWithUrns(
+                  context.getDataHubAppConfig(), new HashSet<>(urnsToFilterOn), inputFilter);
 
-          SearchFlags searchFlags = null;
+          final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
+          } else {
+            searchFlags = null;
           }
+
+          List<String> finalEntityNames =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntityNames.size() == 0) {
+            return SearchUtils.createEmptySearchResults(start, count);
+          }
+
+          Filter finalFilter =
+              maybeResolvedView != null
+                  ? FilterUtils.combineFilters(
+                      baseFilter, maybeResolvedView.getDefinition().getFilter())
+                  : baseFilter;
 
           try {
             log.debug(
@@ -170,15 +204,18 @@ public class ListDataProductAssetsResolver
 
             SearchResults results =
                 UrnSearchResultsMapper.map(
+                    context,
                     _entityClient.searchAcrossEntities(
+                        context
+                            .getOperationContext()
+                            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                         finalEntityNames,
                         sanitizedQuery,
                         finalFilter,
                         start,
                         count,
-                        searchFlags,
                         null,
-                        ResolverUtils.getAuthentication(environment)));
+                        null));
             results
                 .getSearchResults()
                 .forEach(
@@ -208,7 +245,9 @@ public class ListDataProductAssetsResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

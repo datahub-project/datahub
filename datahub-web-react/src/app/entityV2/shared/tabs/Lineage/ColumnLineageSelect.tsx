@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Button, Select, Tooltip } from 'antd';
+import { Button, Select } from 'antd';
+import { Tooltip } from '@components';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';
@@ -7,7 +8,7 @@ import { useHistory, useLocation } from 'react-router';
 import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
 import updateQueryParams from '../../../../shared/updateQueryParams';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 
 const StyledSelect = styled(Select)`
@@ -16,13 +17,13 @@ const StyledSelect = styled(Select)`
     max-width: 200px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     transition: color 0s;
     display: flex;
     align-items: center;
 
     ${(props) =>
-        props.isSelected &&
+        props.$isSelected &&
         `
         color: ${blue[5]};
         &:focus, &:hover {
@@ -70,11 +71,13 @@ export default function ColumnsLineageSelect({
                     allowClear
                     placeholder="Select column"
                 >
-                    {entityWithSchema?.schemaMetadata?.fields.map((field) => {
+                    {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
                             <Select.Option value={field.fieldPath}>
-                                <Tooltip title={fieldPath}>{fieldPath}</Tooltip>
+                                <Tooltip title={fieldPath} showArrow={false}>
+                                    {fieldPath}
+                                </Tooltip>
                             </Select.Option>
                         );
                     })}
@@ -83,18 +86,20 @@ export default function ColumnsLineageSelect({
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
                             <Select.Option key={key} value={field?.schemaField?.fieldPath || ''}>
-                                <Tooltip title={fieldPath}>{fieldPath}</Tooltip>
+                                <Tooltip title={fieldPath} showArrow={false}>
+                                    {fieldPath}
+                                </Tooltip>
                             </Select.Option>
                         );
                     })}
                 </StyledSelect>
             )}
-            <Tooltip title={columnButtonTooltip}>
+            <Tooltip title={columnButtonTooltip} showArrow={false}>
                 <StyledButton
                     type="text"
                     onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}
                     data-testid="column-lineage-toggle"
-                    isSelected={isColumnLevelLineage}
+                    $isSelected={isColumnLevelLineage}
                 >
                     <ImpactAnalysisIcon />
                     <TextWrapper>

@@ -1,9 +1,9 @@
 package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -11,6 +11,9 @@ import javax.annotation.Nonnull;
 public class MappingsBuilder {
 
   public static final String URN_FIELD = "urn";
+  public static final String TAGS_FIELD = "tags";
+  public static final String OWNERS_FIELD = "owners";
+  public static final String DOMAINS_FIELD = "domains";
   public static final String MESSAGE_ID_FIELD = "messageId";
   public static final String TIMESTAMP_FIELD = "@timestamp";
   public static final String TIMESTAMP_MILLIS_FIELD = "timestampMillis";
@@ -56,7 +59,10 @@ public class MappingsBuilder {
 
     aspectSpec
         .getTimeseriesFieldSpecs()
-        .forEach(x -> mappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+        .forEach(
+            x ->
+                mappings.put(
+                    x.getName(), getFieldMapping(x.getTimeseriesFieldAnnotation().getFieldType())));
     aspectSpec
         .getTimeseriesFieldCollectionSpecs()
         .forEach(x -> mappings.put(x.getName(), getTimeseriesFieldCollectionSpecMapping(x)));
@@ -69,19 +75,20 @@ public class MappingsBuilder {
     Map<String, Object> collectionMappings = new HashMap<>();
     collectionMappings.put(
         timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
-        getFieldMapping(DataSchema.Type.STRING));
+        getFieldMapping(TimeseriesFieldAnnotation.FieldType.KEYWORD));
     timeseriesFieldCollectionSpec
         .getTimeseriesFieldSpecMap()
         .values()
         .forEach(
             x ->
                 collectionMappings.put(
-                    x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+                    x.getName(), getFieldMapping(x.getTimeseriesFieldAnnotation().getFieldType())));
     return ImmutableMap.of("properties", collectionMappings);
   }
 
-  private static Map<String, Object> getFieldMapping(DataSchema.Type dataSchemaType) {
-    switch (dataSchemaType) {
+  private static Map<String, Object> getFieldMapping(
+      TimeseriesFieldAnnotation.FieldType fieldType) {
+    switch (fieldType) {
       case INT:
         return ImmutableMap.of("type", "integer");
       case LONG:
@@ -90,6 +97,8 @@ public class MappingsBuilder {
         return ImmutableMap.of("type", "float");
       case DOUBLE:
         return ImmutableMap.of("type", "double");
+      case DATETIME:
+        return ImmutableMap.of("type", "date");
       default:
         return ImmutableMap.of("type", "keyword");
     }

@@ -1,55 +1,36 @@
 import React from 'react';
 
-import {
-    Assertion,
-    AssertionInfo,
-    AssertionType,
-    DatasetAssertionInfo,
-    FieldAssertionInfo,
-    FreshnessAssertionInfo,
-    SchemaAssertionInfo,
-    VolumeAssertionInfo,
-} from '../../../../../../../../../types.generated';
-import { DatasetAssertionDescription } from '../../../DatasetAssertionDescription';
-import { FreshnessAssertionDescription } from '../../../FreshnessAssertionDescription';
-import { VolumeAssertionDescription } from '../../../VolumeAssertionDescription';
-import { SqlAssertionDescription } from '../../../SqlAssertionDescription';
-import { FieldAssertionDescription } from '../../../FieldAssertionDescription';
-import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription';
+import { Typography } from 'antd';
+import { Assertion, Monitor } from '../../../../../../../../../types.generated';
+import { useBuildAssertionDescriptionLabels } from './utils';
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
+    options?: {
+        noSecondarySpacing?: boolean;
+        showColumnTag?: boolean;
+        hideSecondaryLabel?: boolean;
+    };
 };
 
 // Component useful for rendering descriptions of assertions.
-export const AssertionDescription = ({ assertion }: Props) => {
-    if (!assertion.info) {
-        return <>No description found</>;
-    }
-    if (assertion.info?.description) {
-        return <>{assertion.info.description}</>;
-    }
-    const assertionInfo = assertion.info as AssertionInfo;
-    const assertionType = assertionInfo.type;
+export const AssertionDescription = ({ assertion, monitor, options }: Props) => {
+    const assertionInfo = assertion.info;
+    const monitorSchedule = monitor?.info?.assertionMonitor?.assertions.find(
+        (assrn) => assrn.assertion.urn === assertion.urn,
+    )?.schedule;
+    const { primaryLabel, secondaryLabel } = useBuildAssertionDescriptionLabels(assertionInfo, monitorSchedule, {
+        showColumnTag: options?.showColumnTag,
+    });
+
     return (
         <>
-            {assertionType === AssertionType.Dataset && (
-                <DatasetAssertionDescription assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo} />
-            )}
-            {assertionType === AssertionType.Freshness && (
-                <FreshnessAssertionDescription
-                    assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
-                />
-            )}
-            {assertionType === AssertionType.Volume && (
-                <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
-            )}
-            {assertionType === AssertionType.Sql && <SqlAssertionDescription assertionInfo={assertionInfo} />}
-            {assertionType === AssertionType.Field && (
-                <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
-            )}
-            {assertionType === AssertionType.DataSchema && (
-                <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
+            {primaryLabel}
+            {!options?.hideSecondaryLabel && (
+                <Typography.Text style={{ marginLeft: options?.noSecondarySpacing ? 0 : 12 }}>
+                    {secondaryLabel}
+                </Typography.Text>
             )}
         </>
     );

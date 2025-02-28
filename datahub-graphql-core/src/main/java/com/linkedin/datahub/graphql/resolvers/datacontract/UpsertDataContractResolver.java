@@ -102,14 +102,17 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
 
             try {
               _entityClient.batchIngestProposals(
+                  context.getOperationContext(),
                   ImmutableList.of(propertiesProposal, statusProposal),
-                  context.getAuthentication(),
                   false);
 
               //  Hydrate the contract entities based on the urns from step 1
               final EntityResponse entityResponse =
                   _entityClient.getV2(
-                      Constants.DATA_CONTRACT_ENTITY_NAME, urn, null, context.getAuthentication());
+                      context.getOperationContext(),
+                      Constants.DATA_CONTRACT_ENTITY_NAME,
+                      urn,
+                      null);
 
               // Package and return result
               return DataContractMapper.mapContract(entityResponse);
@@ -130,7 +133,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
     try {
 
       // Validate the target entity exists
-      if (!_entityClient.exists(entityUrn, context.getAuthentication())) {
+      if (!_entityClient.exists(context.getOperationContext(), entityUrn)) {
         throw new DataHubGraphQLException(
             String.format("Provided entity with urn %s does not exist!", entityUrn),
             DataHubGraphQLErrorCode.BAD_REQUEST);
@@ -141,7 +144,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
         final List<FreshnessContractInput> freshnessInputs = input.getFreshness();
         for (FreshnessContractInput freshnessInput : freshnessInputs) {
           final Urn assertionUrn = UrnUtils.getUrn(freshnessInput.getAssertionUrn());
-          if (!_entityClient.exists(assertionUrn, context.getAuthentication())) {
+          if (!_entityClient.exists(context.getOperationContext(), assertionUrn)) {
             throw new DataHubGraphQLException(
                 String.format("Provided assertion with urn %s does not exist!", assertionUrn),
                 DataHubGraphQLErrorCode.BAD_REQUEST);
@@ -154,7 +157,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
         final List<SchemaContractInput> schemaInputs = input.getSchema();
         for (SchemaContractInput schemaInput : schemaInputs) {
           final Urn assertionUrn = UrnUtils.getUrn(schemaInput.getAssertionUrn());
-          if (!_entityClient.exists(assertionUrn, context.getAuthentication())) {
+          if (!_entityClient.exists(context.getOperationContext(), assertionUrn)) {
             throw new DataHubGraphQLException(
                 String.format("Provided assertion with urn %s does not exist!", assertionUrn),
                 DataHubGraphQLErrorCode.BAD_REQUEST);
@@ -167,7 +170,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
         final List<DataQualityContractInput> dqInputs = input.getDataQuality();
         for (DataQualityContractInput dqInput : dqInputs) {
           final Urn assertionUrn = UrnUtils.getUrn(dqInput.getAssertionUrn());
-          if (!_entityClient.exists(assertionUrn, context.getAuthentication())) {
+          if (!_entityClient.exists(context.getOperationContext(), assertionUrn)) {
             throw new DataHubGraphQLException(
                 String.format("Provided assertion with urn %s does not exist!", assertionUrn),
                 DataHubGraphQLErrorCode.BAD_REQUEST);

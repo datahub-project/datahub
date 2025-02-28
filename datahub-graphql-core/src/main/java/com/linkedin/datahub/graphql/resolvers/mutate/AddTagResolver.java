@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
@@ -25,6 +26,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final TagAssociationInput input =
         bindArgument(environment.getArgument("input"), TagAssociationInput.class);
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
@@ -36,9 +38,10 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               tagUrn,
               targetUrn,
               input.getSubResource(),
@@ -54,10 +57,9 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
             }
 
             log.info("Adding Tag. input: {}", input.toString());
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.addTagsToResources(
+                context.getOperationContext(),
                 ImmutableList.of(tagUrn),
                 ImmutableList.of(
                     new ResourceRefInput(
@@ -73,6 +75,8 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

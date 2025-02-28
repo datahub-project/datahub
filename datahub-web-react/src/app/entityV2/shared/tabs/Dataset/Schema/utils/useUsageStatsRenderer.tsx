@@ -1,13 +1,12 @@
 import { geekblue } from '@ant-design/colors';
-import { Tooltip } from 'antd';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { DatasetProfile, UsageQueryResult } from '../../../../../../../types.generated';
+import { UsageQueryResult } from '../../../../../../../types.generated';
 // import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../EntityContext';
-import { REDESIGN_COLORS } from '../../../../constants';
 import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
 
 export const UsageBar = styled.div<{ width: number }>`
@@ -29,9 +28,6 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            if (props.isFieldSelected) {
-                return `${REDESIGN_COLORS.WHITE}`;
-            }
             return props.hasStats ? '#533fd1' : '#C6C0E0';
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
@@ -43,11 +39,10 @@ export default function useUsageStatsRenderer(
     expandedDrawerFieldPath?: string | null,
 ) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
 
-    const latestProfile = datasetProfiles && datasetProfiles[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
     const usageStatsRenderer = (fieldPath: string) => {
         const isFieldSelected = expandedDrawerFieldPath === fieldPath;
@@ -62,7 +57,7 @@ export default function useUsageStatsRenderer(
                         <LineageDisabledIcon height={20} width={20} />
                     </Icon> */}
 
-                <Tooltip placement="top" title={!fieldProfile ? 'No column statistics' : ''}>
+                <Tooltip placement="top" title={!fieldProfile ? 'No column statistics' : 'Has column statistics'}>
                     <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
                         <QueryStatsOutlinedIcon />
                     </IconWrapper>

@@ -52,7 +52,7 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 style={modalStyle}
                 bodyStyle={bodyStyle}
                 title={undefined}
-                visible
+                open
                 footer={null}
                 closable={false}
                 onCancel={onConfirmClose}

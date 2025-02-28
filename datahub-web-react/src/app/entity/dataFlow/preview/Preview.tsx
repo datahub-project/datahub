@@ -8,7 +8,9 @@ import {
     EntityPath,
     EntityType,
     GlobalTags,
+    Health,
     Owner,
+    ParentContainersResult,
     SearchInsight,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
@@ -38,6 +40,8 @@ export const Preview = ({
     deprecation,
     degree,
     paths,
+    health,
+    parentContainers,
 }: {
     urn: string;
     name: string;
@@ -56,6 +60,8 @@ export const Preview = ({
     jobCount?: number | null;
     degree?: number;
     paths?: EntityPath[];
+    health?: Health[] | null;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -87,6 +93,8 @@ export const Preview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
+            parentContainers={parentContainers}
         />
     );
 };

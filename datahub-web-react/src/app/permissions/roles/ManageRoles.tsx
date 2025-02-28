@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
+import { Button, Empty, message, Pagination, Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -176,7 +177,7 @@ export const ManageRoles = () => {
             render: (_: any, record: any) => {
                 return (
                     <>
-                        {(record?.users.length && (
+                        {(record?.users?.length && (
                             <AvatarsGroup
                                 users={record?.users}
                                 groups={record?.resolvedGroups}
@@ -217,8 +218,8 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.users?.relationships.map((relationship) => relationship.entity as CorpUser),
-        policies: role?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy),
+        users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (
@@ -284,7 +285,7 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
+            <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>
     );
 };

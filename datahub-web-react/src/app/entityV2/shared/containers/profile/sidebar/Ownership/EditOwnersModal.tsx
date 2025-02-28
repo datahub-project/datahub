@@ -1,25 +1,24 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Button, Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
-
-import {
-    CorpUser,
-    Entity,
-    EntityType,
-    OwnerEntityType,
-    OwnershipTypeEntity,
-} from '../../../../../../../types.generated';
+import { getModalDomContainer } from '@src/utils/focus';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { LoadingOutlined } from '@ant-design/icons';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import {
     useBatchAddOwnersMutation,
     useBatchRemoveOwnersMutation,
 } from '../../../../../../../graphql/mutations.generated';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
-import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
+import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '../../../../../../../graphql/ownership.generated';
+import OwnershipTypesSelect from './OwnershipTypesSelect';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -31,6 +30,12 @@ const StyleTag = styled(Tag)`
     display: flex;
     justify-content: start;
     align-items: center;
+`;
+
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    margin: 5px;
 `;
 
 export enum OperationType {
@@ -72,6 +77,8 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const mutationUrn = useMutationUrn();
+    const { refetch: entityRefetch } = useEntityContext();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -79,7 +86,7 @@ export const EditOwnersModal = ({
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
+            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-${displayName}`}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
@@ -107,7 +114,8 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData, loading } = useListOwnershipTypesQuery({
+    const [proposeOwnersMutation] = useProposeOwnersMutation();
+    const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
         variables: {
             input: {},
         },
@@ -129,26 +137,31 @@ export const EditOwnersModal = ({
     }, [ownershipTypes, defaultOwnerType]);
 
     // User and group dropdown search results!
-    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
-    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-    const userSearchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const userSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
+    const groupSearchResults: Array<Entity> = groupSearchData?.autoComplete?.entities || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
+        EntityType.CorpGroup,
+        EntityType.CorpUser,
+    ]);
+    const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
     const inputEl = useRef(null);
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        searchQuery({
-            variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
+        if (text) {
+            searchQuery({
+                variables: {
+                    input: {
+                        type,
+                        query: text,
+                        limit: 10,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     // Invokes the user search API for both users and groups.
@@ -301,6 +314,58 @@ export const EditOwnersModal = ({
         }
     };
 
+    const proposeOwners = () => {
+        message.loading('Proposing...');
+
+        // Get the formatted inputs
+        const inputs = selectedOwners.map((selectedActor) => {
+            return {
+                ownerUrn: selectedActor.value.ownerUrn,
+                // Convert EntityType to OwnerEntityType
+                ownerEntityType:
+                    selectedActor.value.ownerEntityType === EntityType.CorpUser
+                        ? OwnerEntityType.CorpUser
+                        : OwnerEntityType.CorpGroup,
+                ownershipTypeUrn: selectedOwnerType,
+            };
+        });
+
+        proposeOwnersMutation({
+            variables: {
+                input: {
+                    resourceUrn: mutationUrn,
+                    owners: inputs,
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.ProposeOwnersMutation,
+                    resourceUrn: mutationUrn,
+                    owners: inputs,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                message.destroy();
+                message.success('Successfully proposed owners. It is pending approval.');
+                onModalClose();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Unable to propose owners. Something went wrong.',
+                    badRequestMessage:
+                        'Failed to propose owners. Owners with these values are already proposed or applied.',
+                    permissionMessage:
+                        'Unauthorized to propose owners. The "Manage Owner Proposals" privilege is required for this asset.',
+                });
+                onModalClose();
+            });
+    };
+
     // Function to handle the modal action's
     const onOk = () => {
         if (selectedOwners.length === 0) {
@@ -343,11 +408,20 @@ export const EditOwnersModal = ({
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Done
+                    <Button
+                        type="default"
+                        onClick={proposeOwners}
+                        disabled={!selectedOwners?.length}
+                        data-testid="propose-owners-on-entity-button"
+                    >
+                        Propose
+                    </Button>
+                    <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
+                        Add
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
@@ -379,8 +453,25 @@ export const EditOwnersModal = ({
                                 value: owner.value.ownerUrn,
                                 label: owner.label,
                             }))}
+                            notFoundContent={
+                                !loading ? (
+                                    <Empty
+                                        description="No Users or Groups Found"
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        style={{ color: ANTD_GRAY[7] }}
+                                    />
+                                ) : null
+                            }
                         >
-                            {ownerSearchOptions}
+                            {loading ? (
+                                <Select.Option value="loading" key="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            ) : (
+                                ownerSearchOptions
+                            )}
                         </SelectInput>
                     </Form.Item>
                 </Form.Item>
@@ -388,26 +479,13 @@ export const EditOwnersModal = ({
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
-                            {loading && <Select />}
-                            {!loading && (
-                                <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
-                                    {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
-                                        const ownershipTypeUrn = ownershipType?.urn || '';
-                                        const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
-                                        const ownershipTypeDescription = ownershipType?.info?.description || '';
-                                        return (
-                                            <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                                                <Typography.Text>{ownershipTypeName}</Typography.Text>
-                                                <Typography.Paragraph
-                                                    style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
-                                                    type="secondary"
-                                                >
-                                                    {ownershipTypeDescription}
-                                                </Typography.Paragraph>
-                                            </Select.Option>
-                                        );
-                                    })}
-                                </Select>
+                            {ownershipTypesLoading && <Select />}
+                            {!ownershipTypesLoading && (
+                                <OwnershipTypesSelect
+                                    selectedOwnerTypeUrn={selectedOwnerType}
+                                    ownershipTypes={ownershipTypes}
+                                    onSelectOwnerType={onSelectOwnerType}
+                                />
                             )}
                         </Form.Item>
                     </Form.Item>

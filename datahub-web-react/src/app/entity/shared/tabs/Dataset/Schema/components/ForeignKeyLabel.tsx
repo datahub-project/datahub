@@ -38,7 +38,7 @@ export default function ForeignKeyLabel({
     const selectedFk = useContext(FkContext);
 
     const onOpenFk = () => {
-        if (selectedFk?.fieldPath.trim() === fieldPath.trim() && selectedFk?.constraint?.name === constraint?.name) {
+        if (selectedFk?.fieldPath?.trim() === fieldPath.trim() && selectedFk?.constraint?.name === constraint?.name) {
             onClick(null);
         } else {
             onClick({ fieldPath, constraint });
@@ -48,6 +48,7 @@ export default function ForeignKeyLabel({
     return (
         <>
             <span
+                aria-label="foreign-key-label"
                 role="button"
                 tabIndex={0}
                 onKeyPress={(e) => (e.key === 'Enter' ? onOpenFk() : null)}

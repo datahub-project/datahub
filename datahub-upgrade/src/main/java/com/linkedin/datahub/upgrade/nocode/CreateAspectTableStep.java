@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
 
@@ -76,12 +77,12 @@ public class CreateAspectTableStep implements UpgradeStep {
       }
 
       try {
-        _server.execute(_server.createSqlUpdate(sqlUpdateStr));
+        _server.execute(_server.sqlUpdate(sqlUpdateStr));
       } catch (Exception e) {
         context.report().addLine("Failed to create table metadata_aspect_v2", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

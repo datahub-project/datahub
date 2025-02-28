@@ -9,7 +9,7 @@ import {
     FieldAssertionType,
     Monitor,
 } from '../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../steps/freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../steps/common/EvaluationScheduleBuilder';
 import { FieldTypeBuilder } from '../steps/field/FieldTypeBuilder';
 import { FieldColumnBuilder } from '../steps/field/FieldColumnBuilder';
 import { FieldValuesParameterBuilder } from '../steps/field/FieldValuesParameterBuilder';
@@ -20,7 +20,7 @@ import { FieldMetricSourceBuilder } from '../steps/field/FieldMetricSourceBuilde
 import { FieldFilterBuilder } from '../steps/field/FieldFilterBuilder';
 import { FieldErrorThresholdBuilder } from '../steps/field/FieldErrorThresholdBuilder';
 import { fieldAssertionToBuilderState } from '../steps/field/utils';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
 
 const Section = styled.div`
     padding-bottom: 20px;

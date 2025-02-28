@@ -2,7 +2,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../EntityContext';
-import { getFormAssociations } from '../../containers/profile/sidebar/FormInfo/utils';
+import { filterFormAssociationsForUser, getFormAssociations } from '../../containers/profile/sidebar/FormInfo/utils';
 import FormItem from './FormItem';
 
 const FormSelectorWrapper = styled.div`
@@ -30,6 +30,7 @@ interface Props {
 export default function FormSelector({ selectFormUrn }: Props) {
     const { entityData } = useEntityData();
     const formAssociations = getFormAssociations(entityData);
+    const filteredAssociations = formAssociations.filter((association) => filterFormAssociationsForUser(association));
 
     return (
         <FormSelectorWrapper>
@@ -37,10 +38,10 @@ export default function FormSelector({ selectFormUrn }: Props) {
             <Subheader>
                 There are multiple open requests for this entity. Choose which one you’d like to view or complete.
             </Subheader>
-            {formAssociations.map((formAssociation, index) => (
+            {filteredAssociations.map((formAssociation, index) => (
                 <div key={formAssociation.form.urn}>
                     <FormItem formAssociation={formAssociation} selectFormUrn={selectFormUrn} />
-                    {index !== formAssociations.length - 1 && <StyledDivider />}
+                    {index !== filteredAssociations.length - 1 && <StyledDivider />}
                 </div>
             ))}
         </FormSelectorWrapper>

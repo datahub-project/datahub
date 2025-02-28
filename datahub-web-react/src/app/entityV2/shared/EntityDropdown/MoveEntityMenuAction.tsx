@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { useUserContext } from '../../../context/useUserContext';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import MoveDomainModal from './MoveDomainModal';
@@ -8,11 +8,11 @@ import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { isMoveDisabled } from './utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 
 export default function MoveEntityMenuAction() {
-    const { entityData, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -26,7 +26,7 @@ export default function MoveEntityMenuAction() {
     }
 
     return (
-        <Tooltip placement="bottom" title={`Move this ${entityRegistry.getEntityName(entityType)}`}>
+        <Tooltip placement="bottom" title={`Move this ${entityRegistry.getEntityName(entityType)}`} showArrow={false}>
             <ActionMenuItem
                 key="move"
                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
@@ -36,7 +36,12 @@ export default function MoveEntityMenuAction() {
                 <FolderOpenOutlined style={{ display: 'flex' }} />
             </ActionMenuItem>
             {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
+                <MoveGlossaryEntityModal
+                    entityData={entityData}
+                    entityType={entityType}
+                    urn={urn}
+                    onClose={() => setIsMoveModalVisible(false)}
+                />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
         </Tooltip>

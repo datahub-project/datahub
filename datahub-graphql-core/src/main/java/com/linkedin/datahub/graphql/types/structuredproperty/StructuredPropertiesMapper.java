@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.structuredproperty;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NumberValue;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -23,23 +25,29 @@ public class StructuredPropertiesMapper {
   public static final StructuredPropertiesMapper INSTANCE = new StructuredPropertiesMapper();
 
   public static com.linkedin.datahub.graphql.generated.StructuredProperties map(
-      @Nonnull final StructuredProperties structuredProperties) {
-    return INSTANCE.apply(structuredProperties);
+      @Nullable QueryContext context,
+      @Nonnull final StructuredProperties structuredProperties,
+      @Nonnull final Urn entityUrn) {
+    return INSTANCE.apply(context, structuredProperties, entityUrn);
   }
 
   public com.linkedin.datahub.graphql.generated.StructuredProperties apply(
-      @Nonnull final StructuredProperties structuredProperties) {
+      @Nullable QueryContext context,
+      @Nonnull final StructuredProperties structuredProperties,
+      @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.StructuredProperties result =
         new com.linkedin.datahub.graphql.generated.StructuredProperties();
     result.setProperties(
         structuredProperties.getProperties().stream()
-            .map(this::mapStructuredProperty)
+            .map(p -> mapStructuredProperty(context, p, entityUrn))
             .collect(Collectors.toList()));
     return result;
   }
 
-  private StructuredPropertiesEntry mapStructuredProperty(
-      StructuredPropertyValueAssignment valueAssignment) {
+  public StructuredPropertiesEntry mapStructuredProperty(
+      @Nullable QueryContext context,
+      StructuredPropertyValueAssignment valueAssignment,
+      @Nonnull final Urn entityUrn) {
     StructuredPropertiesEntry entry = new StructuredPropertiesEntry();
     entry.setStructuredProperty(createStructuredPropertyEntity(valueAssignment));
     final List<PropertyValue> values = new ArrayList<>();
@@ -49,13 +57,14 @@ public class StructuredPropertiesMapper {
         .forEach(
             value -> {
               if (value.isString()) {
-                this.mapStringValue(value.getString(), values, entities);
+                this.mapStringValue(context, value.getString(), values, entities);
               } else if (value.isDouble()) {
                 values.add(new NumberValue(value.getDouble()));
               }
             });
     entry.setValues(values);
     entry.setValueEntities(entities);
+    entry.setAssociatedUrn(entityUrn.toString());
     return entry;
   }
 
@@ -67,11 +76,14 @@ public class StructuredPropertiesMapper {
     return entity;
   }
 
-  private void mapStringValue(
-      String stringValue, List<PropertyValue> values, List<Entity> entities) {
+  private static void mapStringValue(
+      @Nullable QueryContext context,
+      String stringValue,
+      List<PropertyValue> values,
+      List<Entity> entities) {
     try {
       final Urn urnValue = Urn.createFromString(stringValue);
-      entities.add(UrnToEntityMapper.map(urnValue));
+      entities.add(UrnToEntityMapper.map(context, urnValue));
     } catch (Exception e) {
       log.debug("String value is not an urn for this structured property entry");
     }

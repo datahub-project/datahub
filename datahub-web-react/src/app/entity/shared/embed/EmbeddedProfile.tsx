@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { Divider } from 'antd';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
-import EntityContext from '../EntityContext';
+import { EntityContext } from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
 import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -26,6 +26,10 @@ const LoadingWrapper = styled.div`
 
 const StyledDivider = styled(Divider)`
     margin: 12px 0;
+`;
+
+const ProfileWrapper = styled.div`
+    padding: 16px;
 `;
 
 interface Props<T> {
@@ -77,7 +81,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 </LoadingWrapper>
             )}
             {!loading && entityData && (
-                <>
+                <ProfileWrapper>
                     <EmbeddedHeader />
                     <StyledDivider />
                     <UpstreamHealth />
@@ -91,7 +95,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <SidebarDomainSection readOnly={readOnly} />
                     <StyledDivider />
                     <DataProductSection readOnly={readOnly} />
-                </>
+                </ProfileWrapper>
             )}
         </EntityContext.Provider>
     );

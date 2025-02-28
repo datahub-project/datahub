@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelect } from './SearchSelect';
 
 const StyledModal = styled(Modal)`
@@ -21,6 +21,7 @@ type Props = {
     continueText?: string | null;
     onContinue: (entityUrns: string[]) => void;
     onCancel?: () => void;
+    limit?: number;
 };
 
 /**
@@ -36,6 +37,7 @@ export const SearchSelectModal = ({
     continueText,
     onContinue,
     onCancel,
+    limit,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
@@ -64,6 +66,7 @@ export const SearchSelectModal = ({
                 bodyStyle={MODAL_BODY_STYLE}
                 title={titleText || 'Select entities'}
                 width={MODAL_WIDTH_PX}
+                zIndex={999}
                 visible
                 onCancel={onCancelSelect}
                 footer={
@@ -72,6 +75,7 @@ export const SearchSelectModal = ({
                             Cancel
                         </Button>
                         <Button
+                            type="primary"
                             id="continueButton"
                             onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
                             disabled={selectedEntities.length === 0}
@@ -86,6 +90,7 @@ export const SearchSelectModal = ({
                     placeholderText={placeholderText}
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}
+                    limit={limit}
                 />
             </StyledModal>
         </ClickOutside>

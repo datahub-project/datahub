@@ -1,27 +1,28 @@
 import {
     AssertionAction,
-    AssertionType,
     AssertionEvaluationParametersType,
+    AssertionStdOperator,
+    AssertionStdParameterType,
+    AssertionType,
+    AssertionValueChangeType,
+    DatasetFieldAssertionSourceType,
+    DatasetFilterType,
     DatasetFreshnessSourceType,
+    DatasetVolumeSourceType,
     DateInterval,
     EntityType,
-    SchemaFieldDataType,
+    FieldAssertionType,
+    FieldMetricType,
+    FieldTransformType,
+    FieldValuesFailThresholdType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     FreshnessFieldKind,
-    DatasetFilterType,
-    VolumeAssertionType,
     IncrementingSegmentFieldTransformerType,
-    AssertionStdOperator,
-    AssertionStdParameterType,
-    AssertionValueChangeType,
-    DatasetVolumeSourceType,
+    SchemaAssertionCompatibility,
+    SchemaFieldDataType,
     SqlAssertionType,
-    FieldAssertionType,
-    FieldTransformType,
-    FieldValuesFailThresholdType,
-    FieldMetricType,
-    DatasetFieldAssertionSourceType,
+    VolumeAssertionType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -51,7 +52,7 @@ export interface AssertionMonitorBuilderState {
         /**
          * The urn of the assertion. Only available if the assertion has been created and is being updated.
          */
-        urn?: AssertionType | null;
+        urn?: string | null;
 
         /**
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
@@ -585,6 +586,38 @@ export interface AssertionMonitorBuilderState {
         } | null;
 
         /**
+         * Schema Field Assertion
+         */
+        schemaAssertion?: {
+            /**
+             * The type of the Field assertion
+             */
+            compatibility?: SchemaAssertionCompatibility | null;
+
+            /**
+             * Required if type is 'FIELD_VALUES'
+             */
+            fields?:
+                | {
+                      /**
+                       * The V1 field path
+                       */
+                      path?: string;
+
+                      /**
+                       * The standard data type
+                       */
+                      type?: SchemaFieldDataType;
+
+                      /**
+                       * The native data type (optional)
+                       */
+                      nativeType?: string | null;
+                  }[]
+                | null;
+        } | null;
+
+        /**
          * Configurations for actions to be performed on assertion success or failure.
          */
         actions?: {
@@ -607,12 +640,12 @@ export interface AssertionMonitorBuilderState {
         /**
          * A raw cron string
          */
-        cron?: string | null;
+        cron: string;
 
         /**
          * The cron timezone.
          */
-        timezone?: string | null;
+        timezone: string;
     } | null;
 
     /**
@@ -754,27 +787,7 @@ export type StepProps = {
 };
 
 /**
- * State required to use the assertion actions builder.
- */
-export interface AssertionActionsBuilderState {
-    /**
-     * Configurations for actions to be performed on assertion success or failure.
-     */
-    actions?: {
-        /**
-         * Actions to run on assertion success.
-         */
-        onSuccess?: AssertionAction[] | null;
-
-        /**
-         * Actions to run on assertion failure.
-         */
-        onFailure?: AssertionAction[] | null;
-    } | null;
-}
-
-/**
- * State required to use the assertiona actions form.
+ * State required to use the assertion actions form.
  */
 export type AssertionActionsFormState = {
     onFailure?: AssertionAction[] | null;

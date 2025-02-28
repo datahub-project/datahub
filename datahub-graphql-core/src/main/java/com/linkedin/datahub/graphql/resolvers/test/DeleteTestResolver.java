@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -39,12 +40,12 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
     final QueryContext context = environment.getContext();
     final String testUrn = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(testUrn);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (canManageTests(context)) {
             try {
 
-              if (!_entityClient.exists(urn, context.getAuthentication())) {
+              if (!_entityClient.exists(context.getOperationContext(), urn)) {
                 throw new DataHubGraphQLException(
                     String.format("Test with urn %s not found", urn),
                     DataHubGraphQLErrorCode.NOT_FOUND);
@@ -54,9 +55,9 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
               status.setRemoved(true);
 
               _entityClient.ingestProposal(
+                  context.getOperationContext(),
                   AspectUtils.buildMetadataChangeProposal(
                       urn, Constants.STATUS_ASPECT_NAME, status),
-                  context.getAuthentication(),
                   true);
 
               _testEngine.invalidateCache();
@@ -65,7 +66,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (RemoteInvocationException e) {
                       log.error(
                           String.format(
@@ -82,6 +83,8 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

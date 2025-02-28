@@ -1,6 +1,8 @@
 package com.datahub.notification;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.IdentityProvider;
@@ -13,9 +15,10 @@ import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -31,22 +34,23 @@ public class IdentityProviderTest {
 
   @Test
   public void testGetUser() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(CORP_USER_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(TEST_USER_1)),
                 Mockito.eq(
                     ImmutableSet.of(
                         CORP_USER_INFO_ASPECT_NAME,
                         CORP_USER_EDITABLE_INFO_NAME,
-                        CORP_USER_STATUS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                        CORP_USER_STATUS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(TEST_USER_1, mockTestUser1Response()));
 
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
-    final IdentityProvider.User result = identityProvider.getUser(TEST_USER_1);
+    final Authentication mockAuthentication = mock(Authentication.class);
+    final IdentityProvider identityProvider = new IdentityProvider(mockClient);
+    final IdentityProvider.User result =
+        identityProvider.getUser(mock(OperationContext.class), TEST_USER_1);
 
     // Verify the response
     verifyUser(result, expectedUser1());
@@ -54,22 +58,23 @@ public class IdentityProviderTest {
 
   @Test
   public void testBatchGetUsers() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(CORP_USER_ENTITY_NAME),
                 Mockito.eq(TEST_USER_URNS),
                 Mockito.eq(
                     ImmutableSet.of(
                         CORP_USER_INFO_ASPECT_NAME,
                         CORP_USER_EDITABLE_INFO_NAME,
-                        CORP_USER_STATUS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                        CORP_USER_STATUS_ASPECT_NAME))))
         .thenReturn(mockTestUsersResponse());
 
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
-    final Map<Urn, IdentityProvider.User> result = identityProvider.batchGetUsers(TEST_USER_URNS);
+    final Authentication mockAuthentication = mock(Authentication.class);
+    final IdentityProvider identityProvider = new IdentityProvider(mockClient);
+    final Map<Urn, IdentityProvider.User> result =
+        identityProvider.batchGetUsers(mock(OperationContext.class), TEST_USER_URNS);
 
     // Verify the response
     verifyUser(result.get(TEST_USER_1), expectedUser1());

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { useUserContext } from '../../../../context/useUserContext';
 import { EntityLinkList } from '../EntityLinkList';
 import { EmbeddedListSearchModal } from '../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -12,10 +11,6 @@ import { ReferenceSectionProps } from '../../types';
 import { ReferenceSection } from '../../../layout/shared/styledComponents';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 10;
-
-const TagWrapper = styled.div`
-    margin: 2px 0px 2px 0px;
-`;
 
 // TODO: Add group ownership into this.
 export const TagsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
@@ -30,17 +25,13 @@ export const TagsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     }
 
     const renderTag = (tag: any) => {
-        return (
-            <TagWrapper>
-                <TagLink tag={tag} />
-            </TagWrapper>
-        );
+        return <TagLink tag={tag} />;
     };
 
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your tags"
                 tip="Tags that you created"

@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.IncidentsSummaryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
   private final IncidentService _incidentService;
 
   public MigrateIncidentsSummaryStep(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       IncidentService incidentService) {
     super(entityService, VERSION, UPGRADE_ID);
@@ -52,7 +53,7 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext opContext) throws Exception {
 
     int batch = 1;
     String nextScrollId = null;
@@ -60,12 +61,14 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
 
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              opContext,
               Collections.singletonList(Constants.INCIDENT_ENTITY_NAME),
               null,
               null,
               BATCH_SIZE,
               nextScrollId,
-              "5m");
+              "5m",
+              null);
       nextScrollId = scrollResult.getScrollId();
 
       List<Urn> incidentsInBatch =
@@ -74,7 +77,7 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
               .collect(Collectors.toList());
 
       try {
-        batchMigrateIncidentsSummary(incidentsInBatch);
+        batchMigrateIncidentsSummary(opContext, incidentsInBatch);
       } catch (Exception e) {
         log.error("Error while processing batch {} of incidents", batch, e);
       }
@@ -83,15 +86,17 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
     } while (nextScrollId != null);
   }
 
-  private void batchMigrateIncidentsSummary(@Nonnull final List<Urn> incidentUrns) {
+  private void batchMigrateIncidentsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> incidentUrns) {
     for (Urn incidentUrn : incidentUrns) {
-      migrateIncidentsSummary(incidentUrn);
+      migrateIncidentsSummary(opContext, incidentUrn);
     }
   }
 
-  private void migrateIncidentsSummary(@Nonnull final Urn incidentUrn) {
+  private void migrateIncidentsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info to get the related entity urn
-    IncidentInfo incidentInfo = _incidentService.getIncidentInfo(incidentUrn);
+    IncidentInfo incidentInfo = _incidentService.getIncidentInfo(opContext, incidentUrn);
 
     if (incidentInfo == null) {
       log.warn(
@@ -105,7 +110,7 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
 
     // 2. For each urn, fetch and update the Incidents Summary aspect.
     for (Urn urn : entityUrns) {
-      addIncidentToSummary(urn, incidentUrn, incidentInfo);
+      addIncidentToSummary(opContext, urn, incidentUrn, incidentInfo);
     }
   }
 
@@ -114,11 +119,12 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
    * for entity by active and resolved incidents.
    */
   private void addIncidentToSummary(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn incidentUrn,
       @Nonnull final IncidentInfo info) {
     // 1. Fetch the latest incident summary for the entity
-    IncidentsSummary summary = getIncidentsSummary(entityUrn);
+    IncidentsSummary summary = getIncidentsSummary(opContext, entityUrn);
 
     IncidentStatus status = info.getStatus();
     IncidentSummaryDetails details = buildIncidentSummaryDetails(incidentUrn, info);
@@ -141,12 +147,14 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
     }
 
     // 3. Emit the change back!
-    updateIncidentSummary(entityUrn, summary);
+    updateIncidentSummary(opContext, entityUrn, summary);
   }
 
   @Nonnull
-  private IncidentsSummary getIncidentsSummary(@Nonnull final Urn entityUrn) {
-    IncidentsSummary maybeIncidentsSummary = _incidentService.getIncidentsSummary(entityUrn);
+  private IncidentsSummary getIncidentsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    IncidentsSummary maybeIncidentsSummary =
+        _incidentService.getIncidentsSummary(opContext, entityUrn);
     return maybeIncidentsSummary == null
         ? new IncidentsSummary()
             .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
@@ -176,9 +184,11 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
 
   /** Updates the incidents summary for a given entity */
   private void updateIncidentSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final IncidentsSummary newSummary) {
     try {
-      _incidentService.updateIncidentsSummary(entityUrn, newSummary);
+      _incidentService.updateIncidentsSummary(opContext, entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
           String.format(

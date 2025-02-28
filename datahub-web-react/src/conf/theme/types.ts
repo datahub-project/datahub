@@ -18,6 +18,8 @@ export type Theme = {
         'homepage-background-lower-fade': string;
         'box-shadow': string;
         'box-shadow-hover': string;
+        'box-shadow-navbar-redesign'?: string;
+        'border-radius-navbar-redesign'?: string;
         'highlight-color': string;
         'highlight-border-color': string;
     };
@@ -38,6 +40,7 @@ export type Theme = {
                 label: string;
                 path: string;
                 shouldOpenInNewTab: boolean;
+                description?: string;
             }[];
         };
     };

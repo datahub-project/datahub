@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -14,7 +17,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -26,6 +28,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +52,7 @@ public class EntityRunsResolver
 
   @Override
   public CompletableFuture<DataProcessInstanceResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -66,15 +69,15 @@ public class EntityRunsResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildTaskRunsEntityFilter(entityUrn, direction);
-            final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildTaskRunsSortCriteria();
             final SearchResult gmsResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
             final List<Urn> dataProcessInstanceUrns =
                 gmsResult.getEntities().stream()
                     .map(SearchEntity::getEntity)
@@ -83,10 +86,10 @@ public class EntityRunsResolver
             // Step 2: Hydrate the incident entities
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     new HashSet<>(dataProcessInstanceUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS instance model to GraphQL model
             final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -96,7 +99,7 @@ public class EntityRunsResolver
             final List<DataProcessInstance> dataProcessInstances =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(DataProcessInstanceMapper::map)
+                    .map(p -> DataProcessInstanceMapper.map(context, p))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
@@ -109,7 +112,9 @@ public class EntityRunsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildTaskRunsEntityFilter(
@@ -117,23 +122,22 @@ public class EntityRunsResolver
     CriterionArray array =
         new CriterionArray(
             ImmutableList.of(
-                new Criterion()
-                    .setField(
-                        direction.equals(RelationshipDirection.INCOMING)
-                            ? INPUT_FIELD_NAME
-                            : OUTPUT_FIELD_NAME)
-                    .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn)));
+                buildCriterion(
+                    direction.equals(RelationshipDirection.INCOMING)
+                        ? INPUT_FIELD_NAME
+                        : OUTPUT_FIELD_NAME,
+                    Condition.EQUAL,
+                    entityUrn)));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
     return filter;
   }
 
-  private SortCriterion buildTaskRunsSortCriterion() {
+  private List<SortCriterion> buildTaskRunsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

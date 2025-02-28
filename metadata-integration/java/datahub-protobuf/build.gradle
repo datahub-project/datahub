@@ -3,12 +3,12 @@ plugins {
     id "application"
 }
 apply plugin: 'java'
-apply plugin: 'jacoco'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
 apply from: '../versioning.gradle'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
@@ -21,15 +21,15 @@ application {
 }
 
 dependencies {
-  implementation project(':metadata-models')
-  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+    implementation project(':metadata-models')
+    implementation project(path: ':metadata-integration:java:datahub-client')
 
     implementation externalDependency.guava
     implementation externalDependency.protobuf
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
-    compileOnly externalDependency.commonsCli
-    implementation externalDependency.httpAsyncClient
+    implementation externalDependency.commonsCli
+    implementation externalDependency.httpClient
     implementation externalDependency.slf4jApi
     implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok
@@ -39,59 +39,51 @@ dependencies {
 
 import java.nio.file.Paths
 task compileProtobuf {
-  doLast {
-    def basePath = Paths.get("${projectDir}/src/test/resources")
-    [
-        fileTree("${projectDir}/src/test/resources/protobuf") { include "*.proto" },
-        fileTree("${projectDir}/src/test/resources/extended_protobuf") { include "*.proto" }
-    ].collectMany { it.collect() }.each { f ->
-      def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
-      println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
-      exec {
-        workingDir "${projectDir}/src/test/resources"
-        commandLine 'protoc', '--proto_path=.', '--include_imports', '--include_source_info',
-            "--descriptor_set_out=${input.toString().replace(".proto", ".protoc")}",
-            input
-      }
+    doLast {
+        def basePath = Paths.get("${projectDir}/src/test/resources")
+        [
+                fileTree("${projectDir}/src/test/resources/protobuf") { include "*.proto" },
+                fileTree("${projectDir}/src/test/resources/extended_protobuf") { include "*.proto" }
+        ].collectMany { it.collect() }.each { f ->
+            def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
+            println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
+            exec {
+                workingDir "${projectDir}/src/test/resources"
+                commandLine 'protoc', '--proto_path=.', '--include_imports', '--include_source_info',
+                        "--descriptor_set_out=${input.toString().replace(".proto", ".protoc")}",
+                        input
+            }
+        }
     }
-  }
 }
-
-jacocoTestReport {
-  dependsOn test // tests are required to run before generating the report
-}
-
-test.finalizedBy jacocoTestReport
-
 
 task checkShadowJar(type: Exec) {
-  commandLine 'sh', '-c', 'scripts/check_jar.sh'
+   commandLine 'sh', '-c', 'scripts/check_jar.sh'
 }
 
 //mark implementation dependencies which needs to excluded along with transitive dependencies from shadowjar
 //functionality is exactly same as "implementation"
 configurations {
-  provided
-  implementation.extendsFrom provided
+    provided
+    implementation.extendsFrom provided
 }
 
 shadowJar {
   zip64=true
   archiveClassifier = ''
   def exclude_modules = project
-      .configurations
-      .provided
-      .resolvedConfiguration
-      .getLenientConfiguration()
-      .getAllModuleDependencies()
-      .collect {
-        it.name
-      }
+            .configurations
+            .provided
+            .resolvedConfiguration
+            .getLenientConfiguration()
+            .getAllModuleDependencies()
+            .collect {
+                it.name
+            }
   dependencies {
-
     exclude(dependency {
-      exclude_modules.contains(it.name)
-    })
+            exclude_modules.contains(it.name)
+        })
 
   }
   mergeServiceFiles()
@@ -101,21 +93,21 @@ shadowJar {
 }
 
 checkShadowJar {
-  dependsOn shadowJar
+   dependsOn shadowJar
 }
 
 assemble {
-  dependsOn shadowJar
+    dependsOn shadowJar
 }
 
 task sourcesJar(type: Jar) {
-  archiveClassifier = 'sources'
-  from sourceSets.main.allSource
+     archiveClassifier = 'sources'
+     from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar) {
-  archiveClassifier = 'javadoc'
-  from javadoc
+    archiveClassifier = 'javadoc'
+    from javadoc
 }
 
 
@@ -123,35 +115,35 @@ publishing {
   publications {
     shadow(MavenPublication) {
       publication -> project.shadow.component(publication)
-        pom {
-          name = 'Datahub Protobuf'
-          group = 'io.acryl'
-          artifactId = 'datahub-protobuf'
-          description = 'DataHub integration with Protobuf schemas for metadata'
-          url = 'https://datahubproject.io'
-          artifacts = [ shadowJar, javadocJar, sourcesJar ]
+      pom {
+        name = 'Datahub Protobuf'
+        group = 'io.acryl'
+        artifactId = 'datahub-protobuf'
+        description = 'DataHub integration with Protobuf schemas for metadata'
+        url = 'https://datahubproject.io'
+        artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
-          scm {
-            connection = 'scm:git:git://github.com/datahub-project/datahub.git'
-            developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
-            url = 'https://github.com/datahub-project/datahub.git'
-          }
+        scm {
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
+        }
 
-          licenses {
-            license {
-              name = 'The Apache License, Version 2.0'
-              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-            }
-          }
-
-          developers {
-            developer {
-              id = 'datahub'
-              name = 'Datahub'
-              email = 'datahub@acryl.io'
-            }
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
           }
         }
+
+        developers {
+          developer {
+            id = 'datahub'
+            name = 'Datahub'
+            email = 'datahub@acryl.io'
+          }
+        }
+      }
     }
   }
 
@@ -169,16 +161,16 @@ publishing {
 }
 
 signing {
-  def signingKey = findProperty("signingKey")
-  def signingPassword = System.getenv("SIGNING_PASSWORD")
-  useInMemoryPgpKeys(signingKey, signingPassword)
-  sign publishing.publications.shadow
+    def signingKey = findProperty("signingKey")
+    def signingPassword = System.getenv("SIGNING_PASSWORD")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign publishing.publications.shadow
 }
 
 nexusStaging {
-  serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-  username = System.getenv("NEXUS_USERNAME")
-  password = System.getenv("NEXUS_PASSWORD")
+    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    username = System.getenv("NEXUS_USERNAME")
+    password = System.getenv("NEXUS_PASSWORD")
 }
 
 startScripts.dependsOn shadowJar

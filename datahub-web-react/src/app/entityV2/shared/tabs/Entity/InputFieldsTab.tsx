@@ -5,7 +5,7 @@ import { useLocation } from 'react-router';
 import { SchemaField } from '../../../../../types.generated';
 import SchemaEditableContext from '../../../../shared/SchemaEditableContext';
 import { groupByFieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../constants';
 import SchemaTable from '../Dataset/Schema/SchemaTable';
 import getExpandedDrawerFieldPath from '../Dataset/Schema/utils/getExpandedDrawerFieldPath';

@@ -12,15 +12,22 @@ import {
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
     DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
 } from '../constants';
-import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
+import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
-import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState } from './field/utils';
+import {
+    getDefaultDatasetFieldAssertionParametersState,
+    getDefaultDatasetFieldAssertionState,
+    getDefaultDatasetSchemaAssertionParametersState,
+    getDefaultDatasetSchemaAssertionState,
+} from './field/utils';
+import { useAppConfig } from '../../../../../../../../useAppConfig';
 
 const Step = styled.div`
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    margin-top: 32px;
 `;
 
 const Section = styled.div`
@@ -39,10 +46,17 @@ const TypeListContainer = styled.div`
  */
 export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
     const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
+    const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(state.platformUrn);
+    const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors;
+    const appConfig = useAppConfig();
+    const isSchemaAssertionEnabled = !!appConfig?.config?.featureFlags?.schemaAssertionMonitorsEnabled;
+
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,
-        connectionForEntityExists,
-    ).filter((type) => type.visible);
+        monitorsConnectionForEntityExists,
+    )
+        .filter((type) => type.visible)
+        .filter((type) => type.type !== AssertionType.DataSchema || isSchemaAssertionEnabled);
 
     const selectAssertionType = (type: AssertionType) => {
         let newState = { ...state };
@@ -57,7 +71,7 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetFreshnessAssertionParametersState(
                     state.platformUrn as string,
-                    connectionForEntityExists,
+                    monitorsConnectionForEntityExists,
                 ),
             };
         } else if (type === AssertionType.Volume) {
@@ -69,7 +83,7 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetVolumeAssertionParametersState(
                     state.platformUrn as string,
-                    connectionForEntityExists,
+                    monitorsConnectionForEntityExists,
                 ),
             };
         } else if (type === AssertionType.Sql) {
@@ -90,7 +104,18 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetFieldAssertionParametersState(connectionForEntityExists),
             };
+        } else if (type === AssertionType.DataSchema) {
+            newState = {
+                ...newState,
+                assertion: {
+                    type,
+                    schemaAssertion: getDefaultDatasetSchemaAssertionState(),
+                },
+                parameters: getDefaultDatasetSchemaAssertionParametersState(),
+            };
         }
+
+        console.log(newState);
 
         updateState({
             ...newState,
@@ -108,6 +133,9 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 return;
             case AssertionType.Field:
                 goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Field);
+                return;
+            case AssertionType.DataSchema:
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.DataSchema);
                 return;
             default:
                 // Do nothing.

@@ -1,4 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React from 'react';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
@@ -19,8 +20,11 @@ import {
     filterOptionsWithSearch,
     canCreateViewFromFilters,
     isAnyOptionSelected,
+    getStructuredPropFilterDisplayName,
+    getFilterDisplayName,
 } from '../utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
+import { FieldType, FilterField } from '../types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -427,5 +431,61 @@ describe('filter utils - canCreateViewFromFilters', () => {
             { field: ENTITY_SUB_TYPE_FILTER_NAME, values: ['DATASETS', 'CONTAINERS'] },
         ];
         expect(canCreateViewFromFilters(activeFilters)).toBe(true);
+    });
+});
+
+describe('filter utils - getStructuredPropFilterDisplayName', () => {
+    it('should return undefined if the field is not a structured property filter', () => {
+        expect(getStructuredPropFilterDisplayName('test', 'test')).toBe(undefined);
+    });
+
+    it('should return undefined if the value is an entity since those are handled separately', () => {
+        expect(getStructuredPropFilterDisplayName('structuredProperties.steward', 'urn:li:corpuser:admin')).toBe(
+            undefined,
+        );
+    });
+
+    it('should return a formatted date if the structured property has type date', () => {
+        const structuredProperty = { definition: { valueType: { urn: DATE_TYPE_URN } } } as any;
+        expect(
+            getStructuredPropFilterDisplayName(
+                'structuredProperties.deprecationDate',
+                '1727740800000',
+                structuredProperty,
+            ),
+        ).toBe('10/01/2024');
+    });
+
+    it('should return a properly formatted number if it is a number type', () => {
+        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0')).toBe('90');
+    });
+
+    it('should strip rich text formatting to be displayed', () => {
+        expect(
+            getStructuredPropFilterDisplayName(
+                'structuredProperties.retentionTime',
+                '`test` _value_ for a [rich](www.google.com) text **situation** right here!',
+            ),
+        ).toBe('test value for a rich text situation right here!');
+    });
+});
+
+describe('filter utils - getFilterDisplayName', () => {
+    it('should return the displayName for an option if it exists', () => {
+        const option = { value: 'testValue', displayName: 'test name' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('test name');
+    });
+
+    it('should return undefined if no display name and field is not a structured property filter', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('testValue');
+    });
+
+    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe(undefined);
     });
 });

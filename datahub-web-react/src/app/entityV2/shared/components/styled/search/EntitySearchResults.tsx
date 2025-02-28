@@ -1,24 +1,25 @@
-import { Checkbox, List } from 'antd';
+import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+import { EntityAndType } from '../../../../../entity/shared/types';
+import { useSearchContext } from '../../../../../search/context/SearchContext';
 import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
-import { MatchContextContianer } from '../../../../../searchV2/matches/MatchContextContainer';
+import { MatchContextContainer } from '../../../../../searchV2/matches/MatchContextContainer';
 import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityAndType } from '../../../types';
+import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 
 export const StyledList = styled(List)`
-    overflow-y: auto;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
     flex: 1;
+    overflow: auto;
+
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;
     }
+
     > .ant-list-header {
         padding-right: 0px;
         padding-left: 0px;
@@ -29,32 +30,26 @@ export const StyledList = styled(List)`
         padding-bottom: 0px;
         padding-top: 15px;
     }
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 5px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
 ` as typeof List;
 
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
 `;
 
-export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded }>`
+export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compactUserSearchCardStyle: boolean }>`
     padding: 20px;
     display: flex;
     align-items: center;
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-    margin-bottom: ${(props) => (props.areMatchesExpanded ? MATCHES_CONTAINER_HEIGHT + 20 : 20)}px;
+    margin-bottom: ${({ areMatchesExpanded, compactUserSearchCardStyle }) => {
+        if (!areMatchesExpanded) return 0;
+        if (compactUserSearchCardStyle) return MATCHES_CONTAINER_HEIGHT;
+        return MATCHES_CONTAINER_HEIGHT + 20;
+    }}px;
     transition: margin-bottom 0.3s ease;
+    border: 1px solid #ebecf0;
     ${(props) =>
         props.areMatchesExpanded &&
         `
@@ -85,11 +80,15 @@ type Props = {
     setSelectedEntities?: (entities: EntityAndType[]) => any;
     bordered?: boolean;
     entityAction?: React.FC<EntityActionProps>;
+    compactUserSearchCardStyle?: boolean;
+    noResultsMessage?: string;
+    selectLimit?: number;
 };
 
 const MatchContextAndEntityContainer = styled.div`
     position: relative;
     margin: 16px;
+    overflow: hidden;
 `;
 
 export const EntitySearchResults = ({
@@ -100,6 +99,9 @@ export const EntitySearchResults = ({
     setSelectedEntities,
     bordered = true,
     entityAction,
+    compactUserSearchCardStyle,
+    noResultsMessage,
+    selectLimit,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -130,26 +132,51 @@ export const EntitySearchResults = ({
 
     const [urnToExpandedSection, setUrnToExpandedSection] = React.useState<Record<string, PreviewSection>>({});
 
+    // when in CLL impact analysis, default open up the column paths card slideout
+    useInitializeColumnLineageCards(searchResults, setUrnToExpandedSection);
+
+    const { isFullViewCard } = useSearchContext();
+
     return (
         <StyledList
+            locale={{
+                emptyText: (
+                    <>
+                        <Empty
+                            description={noResultsMessage || 'No results found'}
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    </>
+                ),
+            }}
             bordered={bordered}
             dataSource={searchResults}
             renderItem={(searchResult) => {
                 const { entity } = searchResult;
-                const expandedSection = urnToExpandedSection[entity.urn];
+                const expandedSection = isFullViewCard ? urnToExpandedSection[entity.urn] : undefined;
                 return (
                     <MatchContextAndEntityContainer>
-                        <MatchContextContianer
+                        <MatchContextContainer
                             selected={false}
                             item={searchResult}
                             onClick={() => {}}
                             urnToExpandedSection={urnToExpandedSection}
                             setUrnToExpandedSection={setUrnToExpandedSection}
+                            compactUserSearchCardStyle={compactUserSearchCardStyle}
                         >
-                            <ListItem isSelectMode={isSelectMode || false} areMatchesExpanded={expandedSection}>
+                            <ListItem
+                                isSelectMode={isSelectMode || false}
+                                areMatchesExpanded={expandedSection}
+                                compactUserSearchCardStyle={compactUserSearchCardStyle || false}
+                            >
                                 {isSelectMode && (
                                     <StyledCheckbox
                                         checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                        disabled={
+                                            selectLimit !== undefined &&
+                                            selectedEntities.length >= selectLimit &&
+                                            !selectedEntityUrns.includes(entity.urn)
+                                        }
                                         onChange={(e) =>
                                             onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
                                         }
@@ -158,7 +185,7 @@ export const EntitySearchResults = ({
                                 {entityRegistry.renderSearchResult(entity.type, searchResult)}
                                 {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
                             </ListItem>
-                        </MatchContextContianer>
+                        </MatchContextContainer>
                     </MatchContextAndEntityContainer>
                 );
             }}

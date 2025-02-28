@@ -6,7 +6,9 @@ source:
     username: sa
     password: test!Password
     database: DemoData
-    host_port: localhost:51433
+    host_port: localhost:21433
+    platform_instance: my-instance
+    include_containers_for_pipelines: true
     # use_odbc: True
     # uri_args:
     #   driver: "ODBC Driver 17 for SQL Server"

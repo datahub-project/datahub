@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { EntityType, MlModelGroup } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
 const TabContent = styled.div`
@@ -24,7 +24,11 @@ export default function MLModelGroupsTab() {
             title: 'Group',
             dataIndex: 'name',
             render: (name, record) => {
-                return <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>{name}</Link>;
+                return (
+                    <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
+                        {record.properties?.name || name}
+                    </Link>
+                );
             },
         },
         {

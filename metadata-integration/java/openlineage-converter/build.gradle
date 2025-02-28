@@ -1,0 +1,58 @@
+apply plugin: 'java-library'
+apply plugin: 'com.gradleup.shadow'
+apply plugin: 'signing'
+apply plugin: 'maven-publish'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
+apply from: '../versioning.gradle'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(path: ':entity-registry')
+    implementation project(path: ':metadata-integration:java:datahub-event')
+    implementation project(path: ':metadata-models')
+    implementation project(path: ':metadata-models', configuration: "dataTemplate")
+    compileOnly "io.openlineage:openlineage-java:$openLineageVersion"
+
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.commonsLang
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+
+    implementation externalDependency.json
+
+    testImplementation externalDependency.testng
+}
+
+test {
+    forkEvery = 1
+    useJUnit()
+}
+
+test {
+    useJUnit()
+    useTestNG()
+}
+
+shadowJar {
+    zip64 = true
+    archiveClassifier = ''
+    exclude('log4j2.*', 'log4j.*')
+}
+
+jar {
+    archiveClassifier = 'lib'
+}
+
+//task sourcesJar(type: Jar) {
+//    classifier 'sources'
+//    from sourceSets.main.allJava
+//}
+
+//task javadocJar(type: Jar, dependsOn: javadoc) {
+//    classifier 'javadoc'
+//    from javadoc.destinationDir
+//}

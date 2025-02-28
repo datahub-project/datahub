@@ -11,8 +11,8 @@ import {
     StringMapEntry,
     Maybe,
 } from '../../../../../../types.generated';
-import AssertionSuccessIcon from '../../../../../../images/assertion_success_dot.svg?react';
-import AssertionFailureIcon from '../../../../../../images/assertion_failure_dot.svg?react';
+import AssertionSuccessIcon from '../../../../../../images/assertion_v2_success_dot.svg?react';
+import AssertionFailureIcon from '../../../../../../images/assertion_v2_failure_dot.svg?react';
 import AssertionErrorIcon from '../../../../../../images/assertion_error_dot.svg?react';
 import AssertionInitIcon from '../../../../../../images/assertion_init_dot.svg?react'; // TODO
 import AssertionNoResultsIcon from '../../../../../../images/assertion_no_results_dot.svg?react'; // TODO
@@ -28,7 +28,7 @@ export const sortAssertions = (a, b) => {
     if (!b.runEvents?.runEvents?.length) {
         return -1;
     }
-    return b.runEvents.runEvents[0].timestampMillis - a.runEvents.runEvents[0].timestampMillis;
+    return b?.runEvents?.runEvents[0]?.timestampMillis - a?.runEvents?.runEvents[0]?.timestampMillis;
 };
 
 /**

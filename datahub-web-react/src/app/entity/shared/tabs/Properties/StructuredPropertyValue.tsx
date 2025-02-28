@@ -1,4 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { Entity, EntityType } from '@src/types.generated';
+import { getSchemaFieldParentLink } from '@src/app/entity/schemaField/utils';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { Typography } from 'antd';
@@ -7,18 +9,20 @@ import { ValueColumnData } from './types';
 import { ANTD_GRAY } from '../../constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import ExternalLink from '../../../../../images/link-out.svg?react';
-import MarkdownViewer, { MarkdownView } from '../../components/legacy/MarkdownViewer';
+import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
 import EntityIcon from '../../components/styled/EntityIcon';
 
 const ValueText = styled(Typography.Text)`
     font-family: 'Manrope';
     font-weight: 400;
-    font-size: 14px;
+    font-size: 12px;
     color: ${ANTD_GRAY[9]};
     display: block;
+    width: 100%;
+    margin-bottom: 2px;
 
-    ${MarkdownView} {
-        font-size: 14px;
+    .remirror-editor.ProseMirror {
+        font-size: 12px;
     }
 `;
 
@@ -28,39 +32,86 @@ const StyledIcon = styled(Icon)`
 
 const IconWrapper = styled.span`
     margin-right: 4px;
+    display: flex;
+`;
+
+const EntityWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const EntityName = styled(Typography.Text)`
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+`;
+
+const StyledHighlight = styled(Highlight)<{ truncateText?: boolean }>`
+    line-height: 1.5;
+    text-wrap: wrap;
+
+    ${(props) =>
+        props.truncateText &&
+        `
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+        display: block;
+    `}
 `;
 
 interface Props {
     value: ValueColumnData;
     isRichText?: boolean;
     filterText?: string;
+    truncateText?: boolean;
+    isFieldColumn?: boolean;
 }
 
-export default function StructuredPropertyValue({ value, isRichText, filterText }: Props) {
+export default function StructuredPropertyValue({ value, isRichText, filterText, truncateText, isFieldColumn }: Props) {
     const entityRegistry = useEntityRegistry();
+
+    const getEntityLink = (entity: Entity) =>
+        entity.type === EntityType.SchemaField
+            ? getSchemaFieldParentLink(entity.urn)
+            : entityRegistry.getEntityUrl(entity.type, entity.urn);
 
     return (
         <ValueText>
             {value.entity ? (
-                <>
+                <EntityWrapper>
                     <IconWrapper>
-                        <EntityIcon entity={value.entity} />
+                        <EntityIcon entity={value.entity} size={12} />
                     </IconWrapper>
-                    {entityRegistry.getDisplayName(value.entity.type, value.entity)}
-                    <Typography.Link
-                        href={entityRegistry.getEntityUrl(value.entity.type, value.entity.urn)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
+                    <EntityName ellipsis={{ tooltip: true }}>
+                        {entityRegistry.getDisplayName(value.entity.type, value.entity)}
+                    </EntityName>
+                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
-                </>
+                </EntityWrapper>
             ) : (
                 <>
                     {isRichText ? (
-                        <MarkdownViewer source={value.value as string} />
+                        <CompactMarkdownViewer
+                            content={value.value?.toString() ?? ''}
+                            lineLimit={isFieldColumn ? 1 : undefined}
+                            hideShowMore={isFieldColumn}
+                            scrollableY={!isFieldColumn}
+                        />
                     ) : (
-                        <Highlight search={filterText}>{value.value?.toString()}</Highlight>
+                        <>
+                            {truncateText ? (
+                                <Typography.Text ellipsis={{ tooltip: true }}>
+                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                </Typography.Text>
+                            ) : (
+                                <StyledHighlight search={filterText} truncateText={truncateText}>
+                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                </StyledHighlight>
+                            )}
+                        </>
                     )}
                 </>
             )}

@@ -12,6 +12,7 @@ const TimeWindowPills = styled.div`
     gap: 8px;
     justify-content: start;
     margin: 24px 4px;
+    margin-top: 0px;
 `;
 
 type Props = {

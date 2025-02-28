@@ -1,7 +1,8 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { Tooltip } from '@components';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
@@ -22,7 +23,7 @@ type PropsData = {
 };
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onSave: () => void;
     editModalData: PropsData;
@@ -30,7 +31,7 @@ type Props = {
 /** Regex Validations */
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
+export default function UserEditProfileModal({ open, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();
     const { readOnlyModeEnabled } = config.featureFlags;
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -101,7 +102,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>

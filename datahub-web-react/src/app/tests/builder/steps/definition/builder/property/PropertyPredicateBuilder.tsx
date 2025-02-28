@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { PropertyPredicate } from '../types';
 import { Property } from './types/properties';
-import { getPropertyWithId } from './utils';
+import { getPropertyById, isStructuredPropertyId, isOwnershipTypeId } from './utils';
 import { CustomPropertyPredicateBuilder } from './CustomPropertyPredicateBuilder';
 import { TypedPropertyPredicateBuilder } from './TypedPropertyPredicateBuilder';
-
-const CUSTOM_ID = 'custom';
+import { StructuredPropertyPredicateBuilder } from './StructuredPropertyPredicateBuilder';
+import { OwnershipTypePredicateBuilder } from './OwnershipTypePredicateBuilder';
 
 const PredicateContainer = styled.div`
     display: flex;
@@ -20,37 +20,86 @@ type Props = {
 };
 
 /**
+ * Which builder to use for editing the selected predicate
+ */
+enum PropertyPredicateBuilderType {
+    /**
+     * Display the default property select.
+     */
+    PROPERTY_SELECT = 'PROPERTY_SELECT',
+    /**
+     * Display the structured property predicate builder. Used for generating predicates that reference specific structured properties
+     */
+    STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY',
+    /**
+     * Display the ownership type property predicate builder. Used for generating predicates that reference specific custom ownership types
+     */
+    OWNERSHIP_TYPE = 'OWNERSHIP_TYPE',
+    /**
+     * Display the freeform custom property builder. Used when a property cannot be found (is not supported) by the default property select.
+     */
+    CUSTOM = 'CUSTOM',
+}
+
+/**
  * This component allows you to construct a single Property Predicate.
  */
 export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChangePredicate }: Props) => {
     /**
-     * Whether to show a custom property + operator input
+     * Controls which experience is displayed for building a predicate.
+     *
+     * By default, we show the experience allowing using to select a property from a list
+     * then an operator then a set of values.
      */
-    const [isCustomPredicate, setIsCustomPredicate] = useState(false);
+    const [builderType, setBuilderType] = useState(PropertyPredicateBuilderType.PROPERTY_SELECT);
 
     /**
-     * If we are not aware of the property id, fallback to building a custom predicate
+     * Apply the following logic to determine which builder to display:
+     *
+     * 0. If no property has been selected yet (it's undefined), we show the default Property Select as
+     *    the entry point for property selection.
+     *
+     * 1. If the property id matches the shape of a "structured property reference", e.g. "structuredProperties.urn:li:structuredProperty:xyz",
+     *    then display the structured property predicate builder.
+     *
+     * 2. If the property id matches the shape of a "custom ownership type reference", e.g. "ownership.ownerTypes.urn:li:ownershipType:xyz",
+     *    then display the ownership type predicate builder.
+     *
+     * 3. If the property id can be used to find a property object definition from the provided "properties" list above,
+     *    then the property is well-supported by the default property select experience, so display that.
+     *
+     * 4. If the property is unrecognized, then fall back to showing the "custom property editor", which is really just a
+     *    freeform text box where you can enter the name of a specific property instead of selecting it.
      */
     useEffect(() => {
-        const maybePropertyId = selectedPredicate?.property;
-        if (maybePropertyId && !getPropertyWithId(maybePropertyId, properties)) {
-            setIsCustomPredicate(true);
-        }
-    }, [selectedPredicate, properties, setIsCustomPredicate]);
+        const selectedPropertyId = selectedPredicate?.property;
 
-    const onChangeProperty = (propertyId: string) => {
-        if (propertyId === CUSTOM_ID) {
-            // We should render the custom property viewer.
-            setIsCustomPredicate(true);
-            return;
+        if (!selectedPropertyId) {
+            // Case 0
+            setBuilderType(PropertyPredicateBuilderType.PROPERTY_SELECT);
+        } else if (isStructuredPropertyId(selectedPropertyId)) {
+            // Case 1
+            setBuilderType(PropertyPredicateBuilderType.STRUCTURED_PROPERTY);
+        } else if (isOwnershipTypeId(selectedPropertyId)) {
+            // Case 2
+            setBuilderType(PropertyPredicateBuilderType.OWNERSHIP_TYPE);
+        } else if (getPropertyById(selectedPropertyId, properties)) {
+            // Case 3
+            setBuilderType(PropertyPredicateBuilderType.PROPERTY_SELECT);
+        } else {
+            // Case 4
+            setBuilderType(PropertyPredicateBuilderType.CUSTOM);
         }
+    }, [selectedPredicate, properties, setBuilderType]);
+
+    const onChangeProperty = (propertyId?: string) => {
         const newPredicate = {
             property: propertyId,
         };
         onChangePredicate(newPredicate);
     };
 
-    const onChangeOperator = (operatorId: string) => {
+    const onChangeOperator = (operatorId?: string) => {
         const newPredicate = {
             ...selectedPredicate,
             operator: operatorId,
@@ -59,7 +108,7 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
         onChangePredicate(newPredicate);
     };
 
-    const onChangeValues = (values: string[] | undefined) => {
+    const onChangeValues = (values?: string[]) => {
         const newPredicate = {
             ...selectedPredicate,
             values,
@@ -69,17 +118,35 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
 
     return (
         <PredicateContainer>
-            {isCustomPredicate ? (
-                <CustomPropertyPredicateBuilder
+            {(builderType === PropertyPredicateBuilderType.PROPERTY_SELECT && (
+                <TypedPropertyPredicateBuilder
+                    selectedPredicate={selectedPredicate}
+                    properties={properties}
+                    onChangeProperty={onChangeProperty}
+                    onChangeOperator={onChangeOperator}
+                    onChangeValues={onChangeValues}
+                />
+            )) ||
+                null}
+            {builderType === PropertyPredicateBuilderType.STRUCTURED_PROPERTY && (
+                <StructuredPropertyPredicateBuilder
                     selectedPredicate={selectedPredicate}
                     onChangeProperty={onChangeProperty}
                     onChangeOperator={onChangeOperator}
                     onChangeValues={onChangeValues}
                 />
-            ) : (
-                <TypedPropertyPredicateBuilder
+            )}
+            {builderType === PropertyPredicateBuilderType.OWNERSHIP_TYPE && (
+                <OwnershipTypePredicateBuilder
                     selectedPredicate={selectedPredicate}
-                    properties={properties}
+                    onChangeProperty={onChangeProperty}
+                    onChangeOperator={onChangeOperator}
+                    onChangeValues={onChangeValues}
+                />
+            )}
+            {builderType === PropertyPredicateBuilderType.CUSTOM && (
+                <CustomPropertyPredicateBuilder
+                    selectedPredicate={selectedPredicate}
                     onChangeProperty={onChangeProperty}
                     onChangeOperator={onChangeOperator}
                     onChangeValues={onChangeValues}

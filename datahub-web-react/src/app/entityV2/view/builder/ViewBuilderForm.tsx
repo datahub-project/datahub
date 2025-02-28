@@ -43,10 +43,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     };
 
     const setViewType = (viewType: DataHubViewType) => {
-        updateState({
-            ...state,
-            viewType,
-        });
+        updateState({ ...state, viewType });
     };
 
     const canManageGlobalViews = userContext?.platformPrivileges?.manageGlobalViews || false;

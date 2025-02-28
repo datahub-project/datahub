@@ -90,7 +90,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
         <>
             {summary.types.map((type, idx) => {
                 return (
-                    <SummaryText>
+                    <SummaryText key={type.entityType}>
                         {type.count}{' '}
                         {pluralize(
                             type.count,

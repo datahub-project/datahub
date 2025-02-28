@@ -3,6 +3,8 @@ import { Button, message, Typography } from 'antd';
 import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
 
+import useSortInput from '@src/app/search/sorting/useSortInput';
+import SearchSortSelect from '@src/app/search/sorting/SearchSortSelect';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
@@ -45,6 +47,8 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    singleSelect?: boolean;
+    hideToolbar?: boolean;
 };
 
 /**
@@ -54,7 +58,14 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    singleSelect,
+    hideToolbar,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -64,6 +75,8 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [sortOption, setSortOption] = useState<string | undefined>();
+    const sortInput = useSortInput(sortOption);
 
     // Compute search filters
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -90,6 +103,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],
+                sortInput,
             },
         },
     });
@@ -159,17 +173,21 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
                 />
+                <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>
-            <TabToolbar>
-                <SearchSelectBar
-                    isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
-                    onChangeSelectAll={onChangeSelectAll}
-                    showCancel={false}
-                    showActions={false}
-                    refetch={refetch}
-                    selectedEntities={selectedEntities}
-                />
-            </TabToolbar>
+            {!hideToolbar && (
+                <TabToolbar>
+                    <SearchSelectBar
+                        isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
+                        onChangeSelectAll={onChangeSelectAll}
+                        showCancel={false}
+                        showActions={false}
+                        refetch={refetch}
+                        selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
+                    />
+                </TabToolbar>
+            )}
             <EmbeddedListSearchResults
                 loading={loading}
                 searchResponse={searchAcrossEntities}
@@ -186,6 +204,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                singleSelect={singleSelect}
             />
         </Container>
     );

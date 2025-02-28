@@ -1,8 +1,7 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
+import static org.mockito.Mockito.mock;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -12,458 +11,466 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class TagServiceTest {
 
-  private static final Urn TEST_TAG_URN_1 = UrnUtils.getUrn("urn:li:tag:test");
-  private static final Urn TEST_TAG_URN_2 = UrnUtils.getUrn("urn:li:tag:test2");
-
   private static final Urn TEST_ENTITY_URN_1 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
   private static final Urn TEST_ENTITY_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)");
+  private static final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Test
-  private void testAddTagToEntityExistingTag() throws Exception {
-    GlobalTags existingGlobalTags = new GlobalTags();
-    existingGlobalTags.setTags(
-        new TagAssociationArray(
-            ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))));
-    EntityClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
+  public void testAddGlobalTagsToEntity() throws Exception {
+    final TagService service = createMockTagService();
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
-        service.buildAddTagsProposals(
+        service.batchAddTags(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+            null);
 
-    TagAssociationArray expected =
-        new TagAssociationArray(
-            ImmutableList.of(
-                new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
-                new TagAssociation().setTag(TagUrn.createFromUrn(newTagUrn))));
+    String expectedEntityTagPatch =
+        String.format(
+            "[{\"op\":\"add\",\"path\":\"/tags/%s\",\"value\":{\"tag\":\"%s\"}}]",
+            newTagUrn, newTagUrn);
 
     MetadataChangeProposal event1 = events.get(0);
+    Assert.assertEquals(event1.getEntityUrn(), TEST_ENTITY_URN_1);
     Assert.assertEquals(event1.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
     Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(), event1.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect1.getTags(), expected);
 
-    MetadataChangeProposal event2 = events.get(0);
+    Assert.assertEquals(
+        event1.getAspect().getValue().asString(StandardCharsets.UTF_8), expectedEntityTagPatch);
+
+    MetadataChangeProposal event2 = events.get(1);
+    Assert.assertEquals(event2.getEntityUrn(), TEST_ENTITY_URN_2);
     Assert.assertEquals(event2.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
     Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(), event2.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect2.getTags(), expected);
+
+    Assert.assertEquals(
+        event2.getAspect().getValue().asString(StandardCharsets.UTF_8), expectedEntityTagPatch);
   }
 
   @Test
-  private void testAddGlobalTagsToEntityNoExistingTag() throws Exception {
-    EntityClient mockClient = createMockGlobalTagsClient(null);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
+  public void testAddGlobalTagsToSchemaField() throws Exception {
+    final TagService service = createMockTagService();
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
-        service.buildAddTagsProposals(
+        service.batchAddTags(
+            opContext,
+            ImmutableList.of(newTagUrn),
+            ImmutableList.of(
+                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield1"),
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield2")),
+            null);
+
+    String expectedSchemaFieldTagPatch1 =
+        String.format(
+            "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/myfield1/globalTags/tags/%s\",\"value\":{\"tag\":\"%s\"}}]",
+            newTagUrn, newTagUrn);
+
+    MetadataChangeProposal event1 = events.get(0);
+    Assert.assertEquals(event1.getEntityUrn(), TEST_ENTITY_URN_1);
+    Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
+
+    Assert.assertEquals(
+        event1.getAspect().getValue().asString(StandardCharsets.UTF_8),
+        expectedSchemaFieldTagPatch1);
+
+    MetadataChangeProposal event2 = events.get(1);
+    Assert.assertEquals(event2.getEntityUrn(), TEST_ENTITY_URN_2);
+    Assert.assertEquals(event2.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
+
+    String expectedSchemaFieldTagPatch2 =
+        String.format(
+            "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/myfield2/globalTags/tags/%s\",\"value\":{\"tag\":\"%s\"}}]",
+            newTagUrn, newTagUrn);
+
+    Assert.assertEquals(
+        event2.getAspect().getValue().asString(StandardCharsets.UTF_8),
+        expectedSchemaFieldTagPatch2);
+  }
+
+  @Test
+  public void testRemoveGlobalTagsToEntity() throws Exception {
+    final TagService service = createMockTagService();
+
+    Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
+    List<MetadataChangeProposal> events =
+        service.batchRemoveTags(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+            null);
 
-    TagAssociationArray expectedTermsArray =
-        new TagAssociationArray(
-            ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(newTagUrn))));
+    String expectedEntityTagPatch =
+        String.format("[{\"op\":\"remove\",\"path\":\"/tags/%s\",\"value\":null}]", newTagUrn);
 
     MetadataChangeProposal event1 = events.get(0);
+    Assert.assertEquals(event1.getEntityUrn(), TEST_ENTITY_URN_1);
     Assert.assertEquals(event1.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
     Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(), event1.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect1.getTags(), expectedTermsArray);
 
-    MetadataChangeProposal event2 = events.get(0);
+    Assert.assertEquals(
+        event1.getAspect().getValue().asString(StandardCharsets.UTF_8), expectedEntityTagPatch);
+
+    MetadataChangeProposal event2 = events.get(1);
+    Assert.assertEquals(event2.getEntityUrn(), TEST_ENTITY_URN_2);
     Assert.assertEquals(event2.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
     Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(), event2.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect2.getTags(), expectedTermsArray);
+
+    Assert.assertEquals(
+        event2.getAspect().getValue().asString(StandardCharsets.UTF_8), expectedEntityTagPatch);
   }
 
   @Test
-  private void testAddTagToSchemaFieldExistingTag() throws Exception {
-    EditableSchemaMetadata existingMetadata = new EditableSchemaMetadata();
-    existingMetadata.setEditableSchemaFieldInfo(
-        new EditableSchemaFieldInfoArray(
-            ImmutableList.of(
-                new EditableSchemaFieldInfo()
-                    .setFieldPath("myfield")
-                    .setGlobalTags(
-                        new GlobalTags()
-                            .setTags(
-                                new TagAssociationArray(
-                                    ImmutableList.of(
-                                        new TagAssociation()
-                                            .setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))))))));
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
+  public void testRemoveGlobalTagsToSchemaField() throws Exception {
+    final TagService service = createMockTagService();
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
-        service.buildAddTagsProposals(
+        service.batchRemoveTags(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
-
-    TagAssociationArray expected =
-        new TagAssociationArray(
-            ImmutableList.of(
-                new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
-                new TagAssociation().setTag(TagUrn.createFromUrn(newTagUrn))));
+                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield1"),
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield2")),
+            null);
 
     MetadataChangeProposal event1 = events.get(0);
+    Assert.assertEquals(event1.getEntityUrn(), TEST_ENTITY_URN_1);
     Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(),
-            event1.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect1.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
 
-    MetadataChangeProposal event2 = events.get(0);
+    String expectedSchemaFieldTagPatch1 =
+        String.format(
+            "[{\"op\":\"remove\",\"path\":\"/editableSchemaFieldInfo/myfield1/globalTags/tags/%s\",\"value\":null}]",
+            newTagUrn);
+
+    Assert.assertEquals(
+        event1.getAspect().getValue().asString(StandardCharsets.UTF_8),
+        expectedSchemaFieldTagPatch1);
+
+    MetadataChangeProposal event2 = events.get(1);
+    Assert.assertEquals(event2.getEntityUrn(), TEST_ENTITY_URN_2);
     Assert.assertEquals(event2.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(),
-            event2.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
+
+    String expectedSchemaFieldTagPatch2 =
+        String.format(
+            "[{\"op\":\"remove\",\"path\":\"/editableSchemaFieldInfo/myfield2/globalTags/tags/%s\",\"value\":null}]",
+            newTagUrn);
+
     Assert.assertEquals(
-        editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
+        event2.getAspect().getValue().asString(StandardCharsets.UTF_8),
+        expectedSchemaFieldTagPatch2);
   }
 
   @Test
-  private void testAddGlobalTagsToSchemaFieldNoExistingTag() throws Exception {
+  public void testGetEntityTags() throws Exception {
+    final TagService service = createMockTagService();
+    final Urn tagUrn1 = UrnUtils.getUrn("urn:li:tag:existingTag1");
+    final Urn tagUrn2 = UrnUtils.getUrn("urn:li:tag:existingTag2");
 
-    EditableSchemaMetadata existingMetadata = new EditableSchemaMetadata();
-    existingMetadata.setEditableSchemaFieldInfo(
-        new EditableSchemaFieldInfoArray(
-            ImmutableList.of(
-                new EditableSchemaFieldInfo()
-                    .setFieldPath("myfield")
-                    .setGlobalTags(new GlobalTags()))));
-
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
-
-    Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
-    List<MetadataChangeProposal> events =
-        service.buildAddTagsProposals(
-            ImmutableList.of(newTagUrn),
-            ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
-
-    TagAssociationArray expected =
-        new TagAssociationArray(
-            ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(newTagUrn))));
-
-    MetadataChangeProposal event1 = events.get(0);
-    Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(),
-            event1.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect1.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
-
-    MetadataChangeProposal event2 = events.get(0);
-    Assert.assertEquals(event2.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(),
-            event2.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
-  }
-
-  @Test
-  private void testRemoveTagToEntityExistingTag() throws Exception {
-    GlobalTags existingGlobalTags = new GlobalTags();
-    existingGlobalTags.setTags(
+    final GlobalTags existingTags = new GlobalTags();
+    existingTags.setTags(
         new TagAssociationArray(
             ImmutableList.of(
-                new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
-                new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))));
-    EntityClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
+                new TagAssociation().setTag(TagUrn.createFromUrn(tagUrn1)),
+                new TagAssociation().setTag(TagUrn.createFromUrn(tagUrn2)))));
 
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
-
-    List<MetadataChangeProposal> events =
-        service.buildRemoveTagsProposals(
-            ImmutableList.of(TEST_TAG_URN_1),
-            ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
-
-    GlobalTags expected =
-        new GlobalTags()
-            .setTags(
-                new TagAssociationArray(
-                    ImmutableList.of(
-                        new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))));
-
-    MetadataChangeProposal event1 = events.get(0);
-    Assert.assertEquals(event1.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
-    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    RecordTemplate tagsAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(), event1.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect1, expected);
-
-    MetadataChangeProposal event2 = events.get(0);
-    Assert.assertEquals(event2.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
-    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    RecordTemplate tagsAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(), event2.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect2, expected);
-  }
-
-  @Test
-  private void testRemoveGlobalTagsToEntityNoExistingTag() throws Exception {
-    EntityClient mockClient = createMockGlobalTagsClient(null);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
-
-    Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
-    List<MetadataChangeProposal> events =
-        service.buildRemoveTagsProposals(
-            ImmutableList.of(newTagUrn),
-            ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
-
-    TagAssociationArray expected = new TagAssociationArray(ImmutableList.of());
-
-    MetadataChangeProposal event1 = events.get(0);
-    Assert.assertEquals(event1.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
-    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(), event1.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect1.getTags(), expected);
-
-    MetadataChangeProposal event2 = events.get(0);
-    Assert.assertEquals(event2.getAspectName(), Constants.GLOBAL_TAGS_ASPECT_NAME);
-    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    GlobalTags tagsAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(), event2.getAspect().getContentType(), GlobalTags.class);
-    Assert.assertEquals(tagsAspect2.getTags(), expected);
-  }
-
-  @Test
-  private void testRemoveTagToSchemaFieldExistingTag() throws Exception {
-    EditableSchemaMetadata existingMetadata = new EditableSchemaMetadata();
-    existingMetadata.setEditableSchemaFieldInfo(
-        new EditableSchemaFieldInfoArray(
-            ImmutableList.of(
-                new EditableSchemaFieldInfo()
-                    .setFieldPath("myfield")
-                    .setGlobalTags(
-                        new GlobalTags()
-                            .setTags(
-                                new TagAssociationArray(
-                                    ImmutableList.of(
-                                        new TagAssociation()
-                                            .setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
-                                        new TagAssociation()
-                                            .setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))))))));
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
-
-    List<MetadataChangeProposal> events =
-        service.buildRemoveTagsProposals(
-            ImmutableList.of(TEST_TAG_URN_1),
-            ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
-
-    TagAssociationArray expected =
-        new TagAssociationArray(
-            ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_2))));
-
-    MetadataChangeProposal event1 = events.get(0);
-    Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(),
-            event1.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect1.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
-
-    MetadataChangeProposal event2 = events.get(0);
-    Assert.assertEquals(event2.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(),
-            event2.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        expected);
-  }
-
-  @Test
-  private void testRemoveGlobalTagsToSchemaFieldNoExistingTag() throws Exception {
-
-    EditableSchemaMetadata existingMetadata = new EditableSchemaMetadata();
-    existingMetadata.setEditableSchemaFieldInfo(
-        new EditableSchemaFieldInfoArray(
-            ImmutableList.of(
-                new EditableSchemaFieldInfo()
-                    .setFieldPath("myfield")
-                    .setGlobalTags(new GlobalTags()))));
-
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
-
-    final TagService service = new TagService(mockClient, Mockito.mock(Authentication.class));
-
-    List<MetadataChangeProposal> events =
-        service.buildRemoveTagsProposals(
-            ImmutableList.of(TEST_ENTITY_URN_1),
-            ImmutableList.of(
-                new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
-
-    MetadataChangeProposal event1 = events.get(0);
-    Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event1.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect1 =
-        GenericRecordUtils.deserializeAspect(
-            event1.getAspect().getValue(),
-            event1.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect1.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        Collections.emptyList());
-
-    MetadataChangeProposal event2 = events.get(0);
-    Assert.assertEquals(event2.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-    Assert.assertEquals(event2.getEntityType(), Constants.DATASET_ENTITY_NAME);
-    EditableSchemaMetadata editableSchemaMetadataAspect2 =
-        GenericRecordUtils.deserializeAspect(
-            event2.getAspect().getValue(),
-            event2.getAspect().getContentType(),
-            EditableSchemaMetadata.class);
-    Assert.assertEquals(
-        editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
-        Collections.emptyList());
-  }
-
-  private static EntityClient createMockGlobalTagsClient(@Nullable GlobalTags existingGlobalTags)
-      throws Exception {
-    return createMockEntityClient(existingGlobalTags, Constants.GLOBAL_TAGS_ASPECT_NAME);
-  }
-
-  private static EntityClient createMockSchemaMetadataEntityClient(
-      @Nullable EditableSchemaMetadata existingMetadata) throws Exception {
-    return createMockEntityClient(existingMetadata, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-  }
-
-  private static EntityClient createMockEntityClient(
-      @Nullable RecordTemplate aspect, String aspectName) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
-            mockClient.batchGetV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
-                Mockito.eq(ImmutableSet.of(aspectName)),
-                Mockito.any(Authentication.class)))
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
-            aspect != null
-                ? ImmutableMap.of(
-                    TEST_ENTITY_URN_1,
-                    new EntityResponse()
-                        .setUrn(TEST_ENTITY_URN_1)
-                        .setEntityName(Constants.DATASET_ENTITY_NAME)
-                        .setAspects(
-                            new EnvelopedAspectMap(
-                                ImmutableMap.of(
-                                    aspectName,
-                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))),
-                    TEST_ENTITY_URN_2,
-                    new EntityResponse()
-                        .setUrn(TEST_ENTITY_URN_2)
-                        .setEntityName(Constants.DATASET_ENTITY_NAME)
-                        .setAspects(
-                            new EnvelopedAspectMap(
-                                ImmutableMap.of(
-                                    aspectName,
-                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))))
-                : Collections.emptyMap());
-    return mockClient;
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_TAGS_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(existingTags.data()))))));
+
+    final List<TagAssociation> tags = service.getEntityTags(opContext, TEST_ENTITY_URN_1);
+
+    Assert.assertEquals(tags.size(), 2);
+    Assert.assertEquals(tags.get(0).getTag().toString(), tagUrn1.toString());
+    Assert.assertEquals(tags.get(1).getTag().toString(), tagUrn2.toString());
   }
 
-  private static Authentication mockAuthentication() {
-    Authentication mockAuth = Mockito.mock(Authentication.class);
-    Mockito.when(mockAuth.getActor()).thenReturn(new Actor(ActorType.USER, Constants.SYSTEM_ACTOR));
-    return mockAuth;
+  @Test
+  public void testGetEntityTagsNone() throws Exception {
+    final TagService service = createMockTagService();
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_TAGS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
+
+    final List<TagAssociation> tags = service.getEntityTags(opContext, TEST_ENTITY_URN_1);
+
+    Assert.assertEquals(tags.size(), 0);
+  }
+
+  @Test
+  public void testGetSchemaFieldTagsOnlyEditableSchemaMetadata() throws Exception {
+    final TagService service = createMockTagService();
+
+    final String testFieldPath = "testField";
+    final Urn tagUrn1 = UrnUtils.getUrn("urn:li:tag:existingTag1");
+    final Urn tagUrn2 = UrnUtils.getUrn("urn:li:tag:existingTag2");
+
+    final EditableSchemaMetadata existingEditableSchemaMetadata = new EditableSchemaMetadata();
+    existingEditableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setFieldPath(testFieldPath)
+                    .setGlobalTags(
+                        new GlobalTags()
+                            .setTags(
+                                new TagAssociationArray(
+                                    ImmutableList.of(
+                                        new TagAssociation().setTag(TagUrn.createFromUrn(tagUrn1)),
+                                        new TagAssociation()
+                                            .setTag(TagUrn.createFromUrn(tagUrn2)))))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(existingEditableSchemaMetadata.data()))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
+
+    final List<TagAssociation> tags =
+        service.getSchemaFieldTags(opContext, TEST_ENTITY_URN_1, testFieldPath);
+
+    Assert.assertEquals(tags.size(), 2);
+    Assert.assertEquals(tags.get(0).getTag().toString(), tagUrn1.toString());
+    Assert.assertEquals(tags.get(1).getTag().toString(), tagUrn2.toString());
+  }
+
+  @Test
+  public void testGetSchemaFieldTagsOnlySchemaMetadata() throws Exception {
+    final TagService service = createMockTagService();
+
+    final String testFieldPath = "testField";
+    final Urn tagUrn1 = UrnUtils.getUrn("urn:li:tag:existingTag1");
+    final Urn tagUrn2 = UrnUtils.getUrn("urn:li:tag:existingTag2");
+
+    final SchemaMetadata existingSchemaMetadata = new SchemaMetadata();
+    existingSchemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setFieldPath(testFieldPath)
+                    .setGlobalTags(
+                        new GlobalTags()
+                            .setTags(
+                                new TagAssociationArray(
+                                    ImmutableList.of(
+                                        new TagAssociation().setTag(TagUrn.createFromUrn(tagUrn1)),
+                                        new TagAssociation()
+                                            .setTag(TagUrn.createFromUrn(tagUrn2)))))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.SCHEMA_METADATA_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(existingSchemaMetadata.data()))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
+
+    final List<TagAssociation> tags =
+        service.getSchemaFieldTags(opContext, TEST_ENTITY_URN_1, testFieldPath);
+
+    Assert.assertEquals(tags.size(), 2);
+    Assert.assertEquals(tags.get(0).getTag().toString(), tagUrn1.toString());
+    Assert.assertEquals(tags.get(1).getTag().toString(), tagUrn2.toString());
+  }
+
+  @Test
+  public void testGetSchemaFieldTagsEditableAndNonEditableTags() throws Exception {
+    final TagService service = createMockTagService();
+
+    final String testFieldPath = "testField";
+    final Urn tagUrn1 = UrnUtils.getUrn("urn:li:tag:existingTag1");
+    final Urn tagUrn2 = UrnUtils.getUrn("urn:li:tag:existingTag2");
+
+    final EditableSchemaMetadata existingEditableSchemaMetadata = new EditableSchemaMetadata();
+    existingEditableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setFieldPath(testFieldPath)
+                    .setGlobalTags(
+                        new GlobalTags()
+                            .setTags(
+                                new TagAssociationArray(
+                                    ImmutableList.of(
+                                        new TagAssociation()
+                                            .setTag(TagUrn.createFromUrn(tagUrn1)))))))));
+
+    final SchemaMetadata existingSchemaMetadata = new SchemaMetadata();
+    existingSchemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setFieldPath(testFieldPath)
+                    .setGlobalTags(
+                        new GlobalTags()
+                            .setTags(
+                                new TagAssociationArray(
+                                    ImmutableList.of(
+                                        new TagAssociation()
+                                            .setTag(TagUrn.createFromUrn(tagUrn2)))))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.SCHEMA_METADATA_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(existingSchemaMetadata.data()))))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(existingEditableSchemaMetadata.data()))))));
+
+    final List<TagAssociation> tags =
+        service.getSchemaFieldTags(opContext, TEST_ENTITY_URN_1, testFieldPath);
+
+    Assert.assertEquals(tags.size(), 2);
+    Assert.assertEquals(tags.get(0).getTag().toString(), tagUrn1.toString());
+    Assert.assertEquals(tags.get(1).getTag().toString(), tagUrn2.toString());
+  }
+
+  @Test
+  public void testGetSchemaFieldTagsNoTags() throws Exception {
+    final TagService service = createMockTagService();
+
+    final String testFieldPath = "testField";
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
+
+    final List<TagAssociation> tags =
+        service.getSchemaFieldTags(opContext, TEST_ENTITY_URN_1, testFieldPath);
+
+    Assert.assertEquals(tags.size(), 0);
+  }
+
+  private static TagService createMockTagService() {
+    return new TagService(
+        mock(SystemEntityClient.class), mock(OpenApiClient.class), opContext.getObjectMapper());
   }
 }

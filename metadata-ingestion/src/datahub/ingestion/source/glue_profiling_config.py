@@ -7,6 +7,14 @@ from datahub.ingestion.source_config.operation_config import OperationConfig
 
 
 class GlueProfilingConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Whether profiling should be done.",
+    )
+    profile_table_level_only: bool = Field(
+        default=False,
+        description="Whether to perform profiling at table-level only, or include column-level profiling as well.",
+    )
     row_count: Optional[str] = Field(
         default=None,
         description="The parameter name for row count in glue table.",

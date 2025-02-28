@@ -1,8 +1,8 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import KeyboardTabOutlinedIcon from '@mui/icons-material/KeyboardTabOutlined';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../constants';
 
 const Container = styled.div`
@@ -17,7 +17,7 @@ const StyledKeyboardTabOutlinedIcon = styled(KeyboardTabOutlinedIcon)<{ directio
     ${(props) => (props.direction === 'left' && 'transform: scaleX(-1);') || undefined}
 `;
 
-const CloseButton = styled.div<{ isClosed: boolean }>`
+const CloseButton = styled.div<{ $isClosed: boolean }>`
     cursor: pointer;
     margin: 0px;
     padding: 2px 6px;
@@ -27,17 +27,17 @@ const CloseButton = styled.div<{ isClosed: boolean }>`
     width: 40px;
     border-radius: 6px;
     justify-content: center;
+    color: ${SEARCH_COLORS.TITLE_PURPLE};
     ${(props) =>
-        props.isClosed &&
+        props.$isClosed &&
         `
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.WHITE}; 
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        color: ${REDESIGN_COLORS.WHITE};  
     `}
     :hover {
-        ${(props) =>
-            !props.isClosed &&
-            `color: ${SEARCH_COLORS.TITLE_PURPLE};
-        `}
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        color: ${REDESIGN_COLORS.WHITE};
+    }
 `;
 
 export default function SidebarCollapseIcon() {
@@ -46,7 +46,11 @@ export default function SidebarCollapseIcon() {
     return (
         <Container>
             <Tooltip placement="left" showArrow={false} title={!isClosed ? 'Close sidebar' : 'Open sidebar'}>
-                <CloseButton isClosed={isClosed} onClick={() => setSidebarClosed(!isClosed)}>
+                <CloseButton
+                    $isClosed={isClosed}
+                    onClick={() => setSidebarClosed(!isClosed)}
+                    data-testid="toggleSidebar"
+                >
                     <StyledKeyboardTabOutlinedIcon direction={isClosed ? 'left' : 'right'} />
                 </CloseButton>
             </Tooltip>

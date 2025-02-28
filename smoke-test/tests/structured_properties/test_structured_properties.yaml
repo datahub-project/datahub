@@ -1,13 +1,13 @@
 - id: clusterType
   type: STRING
   display_name: Cluster's type
-  description: "Test Cluster Type Property"
+  description: 'Test Cluster Type Property'
   entity_types:
     - dataset
 - id: clusterName
   type: STRING
   display_name: Cluster's name
-  description: "Test Cluster Name Property"
+  description: 'Test Cluster Name Property'
   entity_types:
     - dataset
 - id: projectNames
@@ -15,9 +15,9 @@
   cardinality: MULTIPLE
   display_name: Project Name
   entity_types:
-    - dataset # or urn:li:logicalEntity:metamodel.datahub.dataset
-    - dataflow
-  description: "Test property for project name"
+    - dataset # or urn:li:entityType:datahub.dataset
+    - dataFlow
+  description: 'Test property for project name'
   allowed_values:
     - value: Tracking
       description: test value 1 for project

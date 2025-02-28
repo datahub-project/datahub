@@ -28,6 +28,7 @@ const tabBarStyle = { paddingLeft: 28, paddingBottom: 0, marginBottom: 0 };
 type Props = {
     urn: string;
     name: string;
+    testDefinitionMd5: string;
     defaultActive?: TestResultType;
     passingCount: number;
     failingCount: number;
@@ -37,6 +38,7 @@ type Props = {
 export default function TestResultsModal({
     urn,
     name,
+    testDefinitionMd5,
     defaultActive = TestResultType.Success,
     passingCount,
     failingCount,
@@ -62,6 +64,20 @@ export default function TestResultsModal({
     const onChangePage = (newPage: number) => {
         setPage(newPage);
     };
+
+    const fixFilters = [
+        {
+            field: resultType === TestResultType.Success ? 'passingTests' : 'failingTests',
+            values: [urn],
+        },
+    ];
+
+    if (testDefinitionMd5 !== null && testDefinitionMd5 !== '') {
+        fixFilters.push({
+            field: resultType === TestResultType.Success ? 'passingTestDefinitionMd5' : 'failingTestDefinitionMd5',
+            values: [testDefinitionMd5],
+        });
+    }
 
     return (
         <StyledModal
@@ -97,14 +113,10 @@ export default function TestResultsModal({
                     onChangeUnionType={setUnionType}
                     fixedFilters={{
                         unionType: UnionType.AND,
-                        filters: [
-                            {
-                                field: resultType === TestResultType.Success ? 'passingTests' : 'failingTests',
-                                values: [urn],
-                            },
-                        ],
+                        filters: fixFilters,
                     }}
                     placeholderText="Search test results..."
+                    skipCache={false} // Skip cache to ensure we always get the latest data
                     defaultShowFilters
                 />
             </Container>

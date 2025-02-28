@@ -8,7 +8,7 @@ import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.support.EncodedResource;
 import org.springframework.core.io.support.PropertySourceFactory;
 
-/** Required for Spring to parse the application.yml provided by this module */
+/** Required for Spring to parse the application.yaml provided by this module */
 public class YamlPropertySourceFactory implements PropertySourceFactory {
 
   @Override

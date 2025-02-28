@@ -1,7 +1,9 @@
-import { Popover, Typography, Button } from 'antd';
+import { Typography, Button } from 'antd';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
+    AssertionRunEvent,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameters,
@@ -12,15 +14,38 @@ import {
 import { decodeSchemaField } from '../../../../../lineage/utils/columnLineageUtils';
 import { getFormattedParameterValue } from './assertionUtils';
 import { DatasetAssertionLogicModal } from './DatasetAssertionLogicModal';
+import { toReadableLocalDateTimeString } from './assertion/profile/shared/utils';
 
 const ViewLogicButton = styled(Button)`
     padding: 0px;
     margin: 0px;
 `;
 
+const AssertionDetailsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+`;
+
+const LastRunSection = styled.div`
+    display: flex;
+    gap: 5px;
+`;
+
+const TypographyContainer = styled.div`
+    word-wrap: break-word;
+`;
+
+const StyledLastRunText = styled(Typography.Text)`
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+`;
+
 type Props = {
     description?: string;
     assertionInfo: DatasetAssertionInfo;
+    lastEvaluation?: AssertionRunEvent;
 };
 
 /**
@@ -320,7 +345,7 @@ const TOOLTIP_MAX_WIDTH = 440;
  *
  * For example, Column 'X' values are in [1, 2, 3]
  */
-export const DatasetAssertionDescription = ({ description, assertionInfo }: Props) => {
+export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } = assertionInfo;
     const [isLogicVisible, setIsLogicVisible] = useState(false);
     /**
@@ -343,12 +368,25 @@ export const DatasetAssertionDescription = ({ description, assertionInfo }: Prop
             title={<Typography.Text strong>Details</Typography.Text>}
             content={
                 <>
-                    <Typography.Text strong>type</Typography.Text>: {nativeType || 'N/A'}
-                    {nativeParameters?.map((parameter) => (
-                        <div>
-                            <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
-                        </div>
-                    ))}
+                    <AssertionDetailsContainer>
+                        {lastEvaluation?.lastObservedMillis && (
+                            <LastRunSection>
+                                <Typography.Text strong>Reported:</Typography.Text>
+                                <StyledLastRunText>
+                                    {lastEvaluation?.lastObservedMillis &&
+                                        toReadableLocalDateTimeString(lastEvaluation.lastObservedMillis)}
+                                </StyledLastRunText>
+                            </LastRunSection>
+                        )}
+                        <TypographyContainer>
+                            <Typography.Text strong>type</Typography.Text>: {nativeType || 'N/A'}
+                            {nativeParameters?.map((parameter) => (
+                                <div key={parameter.key}>
+                                    <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
+                                </div>
+                            ))}
+                        </TypographyContainer>
+                    </AssertionDetailsContainer>
                 </>
             }
         >
@@ -362,7 +400,7 @@ export const DatasetAssertionDescription = ({ description, assertionInfo }: Prop
             )}
             <DatasetAssertionLogicModal
                 logic={logic || 'N/A'}
-                visible={isLogicVisible}
+                open={isLogicVisible}
                 onClose={() => setIsLogicVisible(false)}
             />
         </Popover>
