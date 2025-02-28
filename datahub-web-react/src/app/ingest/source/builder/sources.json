@@ -339,6 +339,6 @@
         "name": "vertexai",
         "displayName": "VertexAI",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertexai/",
-        "recipe": "source:\n  type: vertexai\n  config:\n    tracking_uri: tracking_uri"
+        "recipe": "source:\n  type: vertexai\n  config:\n    project_id: # you GCP project ID \n     region: # region where your GCP project resides  \n   # Credentials\n        # Add GCP credentials"
     }
 ]

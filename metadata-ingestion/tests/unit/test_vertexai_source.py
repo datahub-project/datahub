@@ -1,10 +1,11 @@
+from datetime import datetime
 from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
 from google.cloud import aiplatform
 from google.cloud.aiplatform.base import VertexAiResourceNoun
-from google.cloud.aiplatform.models import Model, VersionInfo
+from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.protobuf import timestamp_pb2
 
@@ -17,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
 from datahub.metadata.schema_classes import (
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
+    MLModelDeploymentPropertiesClass,
     SubTypesClass,
 )
 
@@ -63,6 +65,15 @@ def mock_training_job() -> VertexAiResourceNoun:
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
     return mock_training_job
+
+
+@pytest.fixture
+def mock_endpoint() -> Endpoint:
+    mock_endpoint = MagicMock(spec=Endpoint)
+    mock_endpoint.description = "test endpoint"
+    mock_endpoint.create_time = datetime.now()
+    mock_endpoint.display_name = "test endpoint display name"
+    return mock_endpoint
 
 
 @pytest.fixture
@@ -182,6 +193,23 @@ def test_get_ml_model_properties_workunit(
     assert aspect.hyperParams is None
 
 
+def test_get_endpoint_workunit(
+    source: VertexAISource,
+    mock_endpoint: Endpoint,
+    mock_model: Model,
+    model_version: VersionInfo,
+) -> None:
+    for wu in source._get_endpoint_workunit(mock_endpoint, mock_model, model_version):
+        assert hasattr(wu.metadata, "aspect")
+        aspect = wu.metadata.aspect
+        if isinstance(aspect, MLModelDeploymentPropertiesClass):
+            assert aspect.description == mock_model.description
+            assert aspect.customProperties == {
+                "displayName": mock_endpoint.display_name
+            }
+            assert aspect.createdAt == int(mock_endpoint.create_time.timestamp() * 1000)
+
+
 def test_get_data_process_properties_workunit(
     source: VertexAISource, mock_training_job: VertexAiResourceNoun
 ) -> None:
@@ -241,6 +269,49 @@ def test_get_data_process_input_workunit(
         aspect = wu.metadata.aspect
         assert isinstance(aspect, DataProcessInstanceInputClass)
         assert len(aspect.inputs) == 1
+
+
+def test_vertexai_config_init():
+    config_data = {
+        "project_id": "test-project",
+        "region": "us-central1",
+        "bucket_uri": "gs://test-bucket",
+        "vertexai_url": "https://console.cloud.google.com/vertex-ai",
+        "credential": {
+            "private_key_id": "test-key-id",
+            "private_key": "-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n",
+            "client_email": "test-email@test-project.iam.gserviceaccount.com",
+            "client_id": "test-client-id",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "type": "service_account",
+        },
+    }
+
+    config = VertexAIConfig(**config_data)
+
+    assert config.project_id == "test-project"
+    assert config.region == "us-central1"
+    assert config.bucket_uri == "gs://test-bucket"
+    assert config.vertexai_url == "https://console.cloud.google.com/vertex-ai"
+    assert config.credential is not None
+    assert config.credential.private_key_id == "test-key-id"
+    assert (
+        config.credential.private_key
+        == "-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n"
+    )
+    assert (
+        config.credential.client_email
+        == "test-email@test-project.iam.gserviceaccount.com"
+    )
+    assert config.credential.client_id == "test-client-id"
+    assert config.credential.auth_uri == "https://accounts.google.com/o/oauth2/auth"
+    assert config.credential.token_uri == "https://oauth2.googleapis.com/token"
+    assert (
+        config.credential.auth_provider_x509_cert_url
+        == "https://www.googleapis.com/oauth2/v1/certs"
+    )
 
 
 @pytest.mark.skip(reason="Skipping, this is for debugging purpose")
