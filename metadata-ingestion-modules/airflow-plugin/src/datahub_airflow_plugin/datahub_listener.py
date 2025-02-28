@@ -646,11 +646,14 @@ class DataHubListener:
                 self.graph.get_urns_by_filter(
                     platform="airflow",
                     entity_types=["dataFlow"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
             ingested_datajob_urns = list(
                 self.graph.get_urns_by_filter(
-                    platform="airflow", entity_types=["dataJob"]
+                    platform="airflow",
+                    entity_types=["dataJob"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
 
@@ -691,6 +694,7 @@ class DataHubListener:
                     orchestrator="airflow",
                     flow_id=dag.dag_id,
                     cluster=self.config.cluster,
+                    platform_instance=self.config.platform_instance,
                 )
                 airflow_flow_urns.append(flow_urn)
 
