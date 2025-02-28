@@ -38,7 +38,7 @@ def test_filters_and() -> None:
         F.env("PROD"),
         F.platform(["snowflake", "bigquery"]),
     )
-    platform_check = SearchFilterRule(
+    platform_rule = SearchFilterRule(
         field="platform.keyword",
         condition="EQUAL",
         values=[
@@ -50,13 +50,13 @@ def test_filters_and() -> None:
         {
             "and": [
                 SearchFilterRule(field="origin", condition="EQUAL", values=["PROD"]),
-                platform_check,
+                platform_rule,
             ]
         },
         {
             "and": [
                 SearchFilterRule(field="env", condition="EQUAL", values=["PROD"]),
-                platform_check,
+                platform_rule,
             ]
         },
     ]
@@ -71,7 +71,11 @@ and:
     - platform: [ snowflake, bigquery ]
     - and:
       - platform: [postgres]
-      - domain: [urn:li:domain:analytics]
+      - not:
+            domain: [urn:li:domain:analytics]
+    - field: customProperties
+      condition: EQUAL
+      values: ["dbt_unique_id=source.project.name"]
 """)
     )
     filter_obj: Filter = load_filters(yaml_dict)
@@ -81,53 +85,73 @@ and:
             F.platform(["snowflake", "bigquery"]),
             F.and_(
                 F.platform("postgres"),
-                F.domain("urn:li:domain:analytics"),
+                F.not_(F.domain("urn:li:domain:analytics")),
             ),
+            F.has_custom_property("dbt_unique_id", "source.project.name"),
         ),
     )
-    warehouse_check = SearchFilterRule(
+    warehouse_rule = SearchFilterRule(
         field="platform.keyword",
         condition="EQUAL",
         values=["urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:bigquery"],
     )
-    postgres_check = SearchFilterRule(
+    postgres_rule = SearchFilterRule(
         field="platform.keyword",
         condition="EQUAL",
         values=["urn:li:dataPlatform:postgres"],
     )
-    domain_check = SearchFilterRule(
+    domain_rule = SearchFilterRule(
         field="domains",
         condition="EQUAL",
         values=["urn:li:domain:analytics"],
+        negated=True,
+    )
+    custom_property_rule = SearchFilterRule(
+        field="customProperties",
+        condition="EQUAL",
+        values=["dbt_unique_id=source.project.name"],
     )
 
-    # There's one OR clause in the original filter, and one hidden in the env filter.
-    # The final result should have 2 * 2 = 4 OR clauses.
+    # There's one OR clause in the original filter with 3 clauses,
+    # and one hidden in the env filter with 2 clauses.
+    # The final result should have 3 * 2 = 6 OR clauses.
     assert filter_obj.compile() == [
         {
             "and": [
                 SearchFilterRule(field="origin", condition="EQUAL", values=["PROD"]),
-                warehouse_check,
+                warehouse_rule,
             ],
         },
         {
             "and": [
                 SearchFilterRule(field="origin", condition="EQUAL", values=["PROD"]),
-                postgres_check,
-                domain_check,
+                postgres_rule,
+                domain_rule,
+            ],
+        },
+        {
+            "and": [
+                SearchFilterRule(field="origin", condition="EQUAL", values=["PROD"]),
+                custom_property_rule,
             ],
         },
         {
             "and": [
                 SearchFilterRule(field="env", condition="EQUAL", values=["PROD"]),
-                warehouse_check,
+                warehouse_rule,
             ],
         },
         {
             "and": [
                 SearchFilterRule(field="env", condition="EQUAL", values=["PROD"]),
-                postgres_check,
-                domain_check,
+                postgres_rule,
+                domain_rule,
+            ],
+        },
+        {
+            "and": [
+                SearchFilterRule(field="env", condition="EQUAL", values=["PROD"]),
+                custom_property_rule,
             ],
         },
     ]
