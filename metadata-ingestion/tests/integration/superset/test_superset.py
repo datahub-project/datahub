@@ -668,7 +668,7 @@ def test_superset_stateful_ingest(
         assert checkpoint1
         assert checkpoint1.state
 
-        # Remove one dashboard, chart, dataset and one owner from the superset config.
+        # Remove one dashboard, chart, dataset from the superset config.
         register_mock_api(request_mock=requests_mock, override_data=asset_override)
 
         # Capture MCEs of second run to validate Status(removed=true)
