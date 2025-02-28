@@ -16,6 +16,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -865,7 +866,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_urns_by_filter(
         self,
         *,
-        entity_types: Optional[List[str]] = None,
+        entity_types: Optional[Sequence[str]] = None,
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
@@ -1109,7 +1110,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
                 )
 
-    def _get_types(self, entity_types: Optional[List[str]]) -> Optional[List[str]]:
+    def _get_types(self, entity_types: Optional[Sequence[str]]) -> Optional[List[str]]:
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:

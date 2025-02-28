@@ -16,7 +16,9 @@ from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
-_AndSearchFilterRule = TypedDict("AndSearchFilterRule", {"and": List[SearchFilterRule]})
+_AndSearchFilterRule = TypedDict(
+    "_AndSearchFilterRule", {"and": List[SearchFilterRule]}
+)
 _OrFilters = List[_AndSearchFilterRule]
 
 
