@@ -211,8 +211,8 @@ def test_column_type_decimal():
     result = CustomAthenaRestDialect()._get_column_type(type_="decimal(10,2)")
 
     assert isinstance(result, types.DECIMAL)
-    assert 10 == result.precision
-    assert 2 == result.scale
+    assert result.precision == 10
+    assert result.scale == 2
 
 
 def test_column_type_complex_combination():

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.explain.ExplainResponse;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -214,7 +215,7 @@ public class EntitySearchServiceTest {
         List<SortCriterion> sortCriteria,
         int from,
         int size,
-        List<String> facets) {
+        @Nonnull List<String> facets) {
       return null;
     }
 
@@ -291,17 +292,19 @@ public class EntitySearchServiceTest {
       return null;
     }
 
+    @Nonnull
     @Override
     public ScrollResult fullTextScroll(
-        OperationContext opContext,
-        List<String> entities,
-        String input,
-        Filter postFilters,
+        @Nonnull OperationContext opContext,
+        @Nonnull List<String> entities,
+        @Nonnull String input,
+        @Nullable Filter postFilters,
         List<SortCriterion> sortCriteria,
-        String scrollId,
-        String keepAlive,
-        int size) {
-      return null;
+        @Nullable String scrollId,
+        @Nullable String keepAlive,
+        int size,
+        @Nonnull List<String> facets) {
+      throw new NotImplementedException();
     }
 
     @Override
@@ -313,7 +316,8 @@ public class EntitySearchServiceTest {
         List<SortCriterion> sortCriteria,
         String scrollId,
         String keepAlive,
-        int size) {
+        int size,
+        @Nonnull List<String> facets) {
       return null;
     }
 
@@ -333,7 +337,7 @@ public class EntitySearchServiceTest {
         String scrollId,
         String keepAlive,
         int size,
-        List<String> facets) {
+        @Nonnull List<String> facets) {
       return null;
     }
 

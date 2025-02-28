@@ -298,7 +298,7 @@ def search(
     except KeyError:
         raise click.UsageError(
             f"Failed to find a matching query flavor for {flavor}. Valid values are {[x.lower() for x in SearchFlavor._member_names_]}"
-        )
+        ) from None
     catalog = _get_datahub_lite(read_only=True)
     # sanitize query
     result_ids = set()

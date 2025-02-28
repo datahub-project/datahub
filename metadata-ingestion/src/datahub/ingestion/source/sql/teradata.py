@@ -180,10 +180,11 @@ def optimized_get_columns(
     connection: Connection,
     table_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     use_qvci: bool = False,
     **kw: Dict[str, Any],
 ) -> List[Dict]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 
@@ -314,9 +315,10 @@ def optimized_get_view_definition(
     connection: Connection,
     view_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     **kw: Dict[str, Any],
 ) -> Optional[str]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 

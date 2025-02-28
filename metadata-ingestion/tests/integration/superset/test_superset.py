@@ -391,7 +391,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -646,7 +646,7 @@ def test_superset_stateful_ingest(
 
         urn1 = "urn:li:dashboard:(superset,2)"
         urn2 = "urn:li:chart:(superset,13)"
-        urn3 = "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema1.Test Table 1,PROD)"
+        urn3 = "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
 
         assert urn1 in dashboard_difference_urns
         assert urn2 in chart_difference_urns
