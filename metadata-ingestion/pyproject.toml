@@ -40,8 +40,6 @@ extend-ignore = [
     "B008",  # Allow function call in argument defaults
     "RUF012", # mutable-class-default; incompatible with pydantic
     "RUF015", # unnecessary-iterable-allocation-for-first-element
-    # TODO: Enable these later
-    "B006",  # Mutable args
 ]
 
 [tool.ruff.lint.mccabe]
