@@ -98,6 +98,7 @@ public class PolicyFetcher {
             filter,
             scrollId,
             null,
+            List.of(),
             count);
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
