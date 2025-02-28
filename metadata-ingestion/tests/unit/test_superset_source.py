@@ -71,7 +71,8 @@ def test_superset_build_owners_info(requests_mock):
         )
 
     source = SupersetSource(
-        ctx=PipelineContext(run_id="superset-source-test"), config=SupersetConfig()
+        ctx=PipelineContext(run_id="superset-source-owner-info-test"),
+        config=SupersetConfig(),
     )
     assert source.owner_info == {
         1: "test_user1@example.com",
