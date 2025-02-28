@@ -17,6 +17,7 @@ from openlineage.client.serde import Serde
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -629,11 +630,18 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        browsePaths: List[BrowsePathEntryClass] = []
+        if self.config.platform_instance:
+            urn = make_dataplatform_instance_urn(
+                "airflow", self.config.platform_instance
+            )
+            browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
+        browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
         browse_path_v2_event: MetadataChangeProposalWrapper = (
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                    path=browsePaths,
                 ),
             )
         )
