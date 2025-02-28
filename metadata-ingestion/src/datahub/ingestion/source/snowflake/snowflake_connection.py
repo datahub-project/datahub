@@ -312,7 +312,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             raise ValueError(
                 f"access_token not found in response {response}. "
                 "Please check your OAuth configuration."
-            )
+            ) from None
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
             user=self.username,

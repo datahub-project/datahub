@@ -284,9 +284,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         self,
         query: str,
         flavor: SearchFlavor,
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         snippet: bool = True,
     ) -> Iterable[Searchable]:
+        aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
             base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
             for r in self.duckdb_client.execute(base_query).fetchall():
