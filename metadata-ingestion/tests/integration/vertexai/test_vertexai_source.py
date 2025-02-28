@@ -100,7 +100,9 @@ def mock_training_jobs() -> List[VertexAiResourceNoun]:
 @patch("google.cloud.aiplatform.AutoMLTextTrainingJob.list")
 @patch("google.cloud.aiplatform.AutoMLImageTrainingJob.list")
 @patch("google.cloud.aiplatform.AutoMLVideoTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLForecastingTrainingJob.list")
 def test_vertexai_source_ingestion(
+    mock_automl_forecasting_job_list: List[VertexAiResourceNoun],
     mock_automl_video_job_list: List[VertexAiResourceNoun],
     mock_automl_image_list: List[VertexAiResourceNoun],
     mock_automl_text_job_list: List[VertexAiResourceNoun],
@@ -150,6 +152,8 @@ def test_vertexai_source_ingestion(
     mock_automl_image_list.return_value = []
     assert hasattr(mock_automl_video_job_list, "return_value")
     mock_automl_video_job_list.return_value = []
+    assert hasattr(mock_automl_forecasting_job_list, "return_value")
+    mock_automl_forecasting_job_list.return_value = []
 
     golden_file_path = (
         pytestconfig.rootpath / "tests/integration/vertexai/vertexai_mcps_golden.json"

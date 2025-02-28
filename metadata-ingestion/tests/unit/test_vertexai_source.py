@@ -9,8 +9,10 @@ from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.protobuf import timestamp_pb2
 
+from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai import VertexAIConfig, VertexAISource
+from datahub.metadata._schema_classes import ContainerClass
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -31,6 +33,9 @@ def mock_model() -> Model:
     mock_model_1.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
     mock_model_1.version_id = "1"
     mock_model_1.display_name = "mock_prediction_model_1_display_name"
+    mock_model_1.resource_name = (
+        "projects/872197881936/locations/us-west2/models/3583871344875405312"
+    )
     return mock_model_1
 
 
@@ -311,6 +316,77 @@ def test_vertexai_config_init():
     assert (
         config.credential.auth_provider_x509_cert_url
         == "https://www.googleapis.com/oauth2/v1/certs"
+    )
+
+
+@patch("google.cloud.aiplatform.CustomJob.list")
+@patch("google.cloud.aiplatform.CustomTrainingJob.list")
+@patch("google.cloud.aiplatform.CustomContainerTrainingJob.list")
+@patch("google.cloud.aiplatform.CustomPythonPackageTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLTabularTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLTextTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLImageTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLVideoTrainingJob.list")
+@patch("google.cloud.aiplatform.AutoMLForecastingTrainingJob.list")
+def test_get_training_jobs_workunit(
+    mock_automl_forecasting_job_list: List[VertexAiResourceNoun],
+    mock_automl_video_job_list: List[VertexAiResourceNoun],
+    mock_automl_image_list: List[VertexAiResourceNoun],
+    mock_automl_text_job_list: List[VertexAiResourceNoun],
+    mock_automl_tabular_job_list: List[VertexAiResourceNoun],
+    mock_custom_python_job_list: List[VertexAiResourceNoun],
+    mock_custom_container_job_list: List[VertexAiResourceNoun],
+    mock_custom_training_job_list: List[VertexAiResourceNoun],
+    mock_custom_job_list: List[VertexAiResourceNoun],
+    source: VertexAISource,
+    mock_training_job: VertexAiResourceNoun,
+) -> None:
+    assert hasattr(mock_custom_job_list, "return_value")
+    mock_custom_job_list.return_value = [mock_training_job]
+    assert hasattr(mock_custom_training_job_list, "return_value")
+    mock_custom_training_job_list.return_value = []
+    assert hasattr(mock_custom_container_job_list, "return_value")
+    mock_custom_container_job_list.return_value = []
+    assert hasattr(mock_custom_python_job_list, "return_value")
+    mock_custom_python_job_list.return_value = []
+    assert hasattr(mock_automl_tabular_job_list, "return_value")
+    mock_automl_tabular_job_list.return_value = []
+    assert hasattr(mock_automl_text_job_list, "return_value")
+    mock_automl_text_job_list.return_value = []
+    assert hasattr(mock_automl_image_list, "return_value")
+    mock_automl_image_list.return_value = []
+    assert hasattr(mock_automl_video_job_list, "return_value")
+    mock_automl_video_job_list.return_value = []
+    assert hasattr(mock_automl_forecasting_job_list, "return_value")
+    mock_automl_forecasting_job_list.return_value = []
+
+    container_key = ProjectIdKey(
+        project_id=source.config.project_id, platform=source.platform
+    )
+
+    for wc in source._get_training_jobs_workunit():
+        assert hasattr(wc.metadata, "aspect")
+        aspect = wc.metadata.aspect
+        if isinstance(aspect, DataProcessInstancePropertiesClass):
+            assert (
+                aspect.name
+                == f"{source.config.project_id}.job.{mock_training_job.name}"
+            )
+            assert (
+                aspect.customProperties["displayName"] == mock_training_job.display_name
+            )
+        if isinstance(aspect, SubTypesClass):
+            assert aspect.typeNames == ["Training Job"]
+
+        if isinstance(aspect, ContainerClass):
+            assert aspect.container == container_key.as_urn()
+
+
+def test_make_model_external_url(mock_model: Model, source: VertexAISource) -> None:
+    assert (
+        source._make_model_external_url(mock_model)
+        == f"{source.config.vertexai_url}/models/locations/{source.config.region}/models/{mock_model.name}"
+        f"?project={source.config.project_id}"
     )
 
 

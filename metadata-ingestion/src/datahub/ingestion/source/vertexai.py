@@ -3,7 +3,7 @@ import logging
 import os
 import tempfile
 import time
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Any, Iterable, List, Optional, TypeVar
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform import (
@@ -16,7 +16,7 @@ from google.cloud.aiplatform import (
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model, VersionInfo
-from pydantic import PrivateAttr, root_validator
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -84,14 +84,6 @@ class GCPCredential(ConfigModel):
     )
 
     _fix_private_key_newlines = pydantic_multiline_string("private_key")
-
-    @root_validator(skip_on_failure=True)
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if values.get("client_x509_cert_url") is None:
-            values["client_x509_cert_url"] = (
-                f"https://www.googleapis.com/robot/v1/metadata/x509/{values['client_email']}"
-            )
-        return values
 
     def create_credential_temp_file(self, project_id: str) -> str:
         # Adding project_id from the top level config
@@ -737,11 +729,6 @@ class VertexAISource(Source):
         job_id = self._make_vertexai_job_name(entity_id=job.name)
         urn = builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
         return urn
-
-    def _make_vertexai_name(
-        self, entity_type: str, entity_id: str, separator: str = "."
-    ) -> str:
-        return f"{self.config.project_id}{separator}{entity_type}{separator}{entity_id}"
 
     def _make_vertexai_model_group_name(
         self, entity_id: str, separator: str = "."
