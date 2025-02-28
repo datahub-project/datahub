@@ -16,8 +16,8 @@ from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
-AndSearchFilterRule = TypedDict("AndSearchFilterRule", {"and": List[SearchFilterRule]})
-OrFilters = List[AndSearchFilterRule]
+_AndSearchFilterRule = TypedDict("AndSearchFilterRule", {"and": List[SearchFilterRule]})
+_OrFilters = List[_AndSearchFilterRule]
 
 
 class _BaseFilter(ConfigModel):
@@ -26,7 +26,7 @@ class _BaseFilter(ConfigModel):
         populate_by_name = True
 
     @abc.abstractmethod
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         pass
 
 
@@ -41,7 +41,7 @@ class _PlatformFilter(_BaseFilter):
             values=[DataPlatformUrn(platform).urn() for platform in self.platform],
         )
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         return [{"and": [self._build_rule()]}]
 
 
@@ -60,7 +60,7 @@ class _DomainFilter(_BaseFilter):
             values=self.domain,
         )
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         return [{"and": [self._build_rule()]}]
 
 
@@ -69,7 +69,7 @@ class _EnvFilter(_BaseFilter):
     # If the env filter is specified, these will be excluded.
     env: List[str]
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         return [
             # For most entity types, we look at the origin field.
             {
@@ -104,7 +104,7 @@ class _CustomCondition(_BaseFilter):
     condition: str
     values: List[str]
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         rule = SearchFilterRule(
             field=self.field,
             condition=self.condition,
@@ -119,7 +119,7 @@ class _And(_BaseFilter):
     and_: Sequence["Filter"] = pydantic.Field(alias="and")
     # TODO: Add validator to ensure that the "and" field is not empty
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         # The "and" operator must be implemented by doing a Cartesian product
         # of the OR clauses.
         # Example 1:
@@ -151,8 +151,8 @@ class _And(_BaseFilter):
 
     @classmethod
     def _merge_ands(
-        cls, a: AndSearchFilterRule, b: AndSearchFilterRule
-    ) -> AndSearchFilterRule:
+        cls, a: _AndSearchFilterRule, b: _AndSearchFilterRule
+    ) -> _AndSearchFilterRule:
         return {
             "and": [
                 *a["and"],
@@ -167,7 +167,7 @@ class _Or(_BaseFilter):
     or_: Sequence["Filter"] = pydantic.Field(alias="or")
     # TODO: Add validator to ensure that the "or" field is not empty
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         merged_filter = []
         for filter in self.or_:
             merged_filter.extend(filter.compile())
@@ -179,7 +179,7 @@ class _Not(_BaseFilter):
 
     not_: "Filter" = pydantic.Field(alias="not")
 
-    def compile(self) -> OrFilters:
+    def compile(self) -> _OrFilters:
         # TODO: Eventually we'll want to implement a full DNF normalizer.
         # https://en.wikipedia.org/wiki/Disjunctive_normal_form#Conversion_to_DNF
 
@@ -189,7 +189,7 @@ class _Not(_BaseFilter):
 
         # ¬(A and B) -> (¬A) OR (¬B)
         and_filters = inner_filter[0]["and"]
-        final_filters: OrFilters = []
+        final_filters: _OrFilters = []
         for rule in and_filters:
             final_filters.append({"and": [rule.negate()]})
 
@@ -225,3 +225,41 @@ def load_filters(obj: Any) -> Filter:
         return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
     else:
         return pydantic.parse_obj_as(Filter, obj)  # type: ignore
+
+
+class FilterDsl:
+    @staticmethod
+    def and_(*args: "Filter") -> _And:
+        return _And(and_=list(args))
+
+    @staticmethod
+    def or_(*args: "Filter") -> _Or:
+        return _Or(or_=list(args))
+
+    @staticmethod
+    def not_(arg: "Filter") -> _Not:
+        return _Not(not_=arg)
+
+    @staticmethod
+    def platform(platform: Union[str, List[str]]) -> _PlatformFilter:
+        return _PlatformFilter(
+            platform=[platform] if isinstance(platform, str) else platform
+        )
+
+    @staticmethod
+    def domain(domain: Union[str, List[str]]) -> _DomainFilter:
+        return _DomainFilter(domain=[domain] if isinstance(domain, str) else domain)
+
+    @staticmethod
+    def env(env: Union[str, List[str]]) -> _EnvFilter:
+        return _EnvFilter(env=[env] if isinstance(env, str) else env)
+
+    @staticmethod
+    def has_custom_property(key: str, value: str) -> _CustomCondition:
+        return _CustomCondition(
+            field="customProperties",
+            condition="EQUAL",
+            values=[f"{key}={value}"],
+        )
+
+    # TODO add custom filter
