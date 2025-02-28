@@ -640,7 +640,7 @@ class CSVEnricherSource(Source):
                 )
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}"
+                    f"Cannot read remote file {self.config.filename}: {e}"
                 ) from e
         else:
             with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
