@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
+import { Empty, message, Pagination, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -197,12 +198,13 @@ export const ManageRoles = () => {
                     <ActionsContainer>
                         <Tooltip title={`Assign the ${record.name} role to users`}>
                             <AddUsersButton
+                                variant="text"
                                 onClick={() => {
                                     setIsBatchAddRolesModalVisible(true);
                                     setFocusRole(record.role);
                                 }}
                             >
-                                ADD USERS
+                                Add Users
                             </AddUsersButton>
                         </Tooltip>
                     </ActionsContainer>

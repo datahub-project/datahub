@@ -1562,8 +1562,9 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         page_size: int,
-        query_filter: dict = {},
+        query_filter: Optional[dict] = None,
     ) -> Iterable[dict]:
+        query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,

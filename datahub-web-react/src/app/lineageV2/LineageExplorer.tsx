@@ -1,4 +1,5 @@
 import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
+import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
 import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
@@ -36,7 +37,7 @@ export default function LineageExplorer(props: Props) {
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
-    const [showDataProcessInstances, setShowDataProcessInstances] = useState(false);
+    const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
 
     const [showGhostEntities, setShowGhostEntities] = useState(false);
 

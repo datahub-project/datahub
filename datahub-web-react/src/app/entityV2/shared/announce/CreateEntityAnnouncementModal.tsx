@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
+import { Form, Input, Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
-import EditNoteIcon from '@mui/icons-material/EditNote';
+import { Button, colors } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useCreatePostMutation, useUpdatePostMutation } from '../../../../graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '../../../../types.generated';
 import { PostEntry } from '../../../settings/posts/PostsListColumns';
@@ -43,10 +44,11 @@ const EditorContainer = styled.div`
 `;
 
 const ModalHeaderContainer = styled.div`
-    height: 86px;
     display: flex;
     align-items: center;
-    font-size: 20px;
+    font-size: 16px;
+    color: ${colors.gray[600]}
+    font-weight: bold; 
     font-family: 'Mulish', sans-serif;
     font-weight: lighter;
 `;
@@ -55,21 +57,10 @@ const ModalTitle = styled.div`
     display: flex;
     align-items: center;
     gap: 10px;
-    max-height: 240px;
 `;
 
 const StyledModal = styled(Modal)`
     width: 680px !important;
-    .ant-modal-header {
-        padding: 0px 32px;
-    }
-`;
-
-const StyledButton = styled(Button)`
-    background: #533fd1;
-    color: #f9fafc;
-    border-radius: 5px;
-    border: 1px;
 `;
 
 export default function CreateEntityAnnouncementModal({
@@ -202,28 +193,25 @@ export default function CreateEntityAnnouncementModal({
         <StyledModal
             title={
                 <ModalHeaderContainer>
-                    <ModalTitle>
-                        <EditNoteIcon fontSize="medium" />
-                        {titleText}
-                    </ModalTitle>
+                    <ModalTitle>{titleText}</ModalTitle>
                 </ModalHeaderContainer>
             }
             open
             onCancel={onCloseModal}
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text" id="createPostButton">
+                <ModalButtonContainer>
+                    <Button onClick={onCloseModal} variant="text" id="createPostButton">
                         Cancel
                     </Button>
-                    <StyledButton
+                    <Button
                         id={CREATE_POST_BUTTON_ID}
                         data-testid={!editData ? 'create-announcement-button' : 'update-announcement-button'}
                         onClick={!editData ? onCreatePost : onUpdatePost}
                         disabled={!createButtonEnabled}
                     >
                         {!editData ? 'Create' : 'Update'}
-                    </StyledButton>
-                </>
+                    </Button>
+                </ModalButtonContainer>
             }
         >
             <Form

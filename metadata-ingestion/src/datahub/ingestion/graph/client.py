@@ -1685,9 +1685,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         entity_name: str,
         urns: List[str],
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         with_system_metadata: bool = False,
     ) -> Dict[str, Any]:
+        aspects = aspects or []
         payload = {
             "urns": urns,
             "aspectNames": aspects,
