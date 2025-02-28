@@ -70,16 +70,11 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
     DatasetLineageTypeClass,
-    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    TagAssociationClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-    GlobalTagsClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -343,10 +338,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
         # redundant to systemically store them both in the URN.
         if platform_instance in platform_without_databases:
-        if platform_instance in platform_without_databases:
             database_name = None
 
-        if platform_instance == "druid" and schema_name == "druid":
         if platform_instance == "druid" and schema_name == "druid":
             # Follow DataHub's druid source convention.
             schema_name = None
@@ -354,18 +347,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         # If the information about the datasource is already contained in the dataset response,
         # can just return the urn directly
         if table_name and database_id:
-        # If the information about the datasource is already contained in the dataset response,
-        # can just return the urn directly
-        if table_name and database_id:
             return make_dataset_urn(
-                platform=platform_instance,
                 platform=platform_instance,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
                 env=self.config.env,
             )
-
 
         raise ValueError("Could not construct dataset URN")
 
@@ -639,7 +627,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         dataset = SupersetDataset(**dataset_response["result"])
 
-
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
@@ -687,15 +674,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
-
         aspects_items: List[Any] = []
         aspects_items.extend(
             [
                 self.gen_schema_metadata(dataset_response),
                 dataset_info,
-                upstream_lineage,
-                global_tags,
                 upstream_lineage,
                 global_tags,
             ]
