@@ -4,7 +4,7 @@ import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
 
 /**
- * Information about the source of an incident raised on an asset.
+ * Information about the origin of the metric cube
  */
 record DataHubMetricCubeOrigin {
   /**
