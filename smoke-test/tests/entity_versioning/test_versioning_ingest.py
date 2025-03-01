@@ -1,13 +1,12 @@
-import time
-
 import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import *
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
 
-OLD_LATEST_URN = DatasetUrn("v", f"vol")
-ENTITY_URN = DatasetUrn("v", f"vi")
+OLD_LATEST_URN = DatasetUrn("v", "versioning_old_latest")
+ENTITY_URN = DatasetUrn("v", "versioning_entity")
 EXISTS_VERSION_SET_URN = VersionSetUrn("exists", DatasetUrn.ENTITY_TYPE)
 NOT_EXISTS_VERSION_SET_URN = VersionSetUrn("not-exists", DatasetUrn.ENTITY_TYPE)
 
