@@ -42,6 +42,10 @@ public class UtilsTest {
 
     assertNotNull(containerUrn);
     assertEquals(containerUrn.toString(), "urn:li:container:iceberg__testInstance.db.schema");
+
+    Namespace namespaceFromUrn =
+        Namespace.of(Utils.namespaceNameFromContainerUrn(containerUrn).split("\\."));
+    assertEquals(namespaceFromUrn, namespace);
   }
 
   @Test
