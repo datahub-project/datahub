@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -18,7 +18,7 @@ from datahub.errors import (
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity
+from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
     DatasetUrnOrStr,
     DomainInputType,
@@ -47,7 +47,7 @@ SchemaFieldInputType: TypeAlias = Union[
     models.SchemaFieldClass,
 ]
 SchemaFieldsInputType: TypeAlias = Union[
-    List[SchemaFieldInputType],
+    Sequence[SchemaFieldInputType],
     models.SchemaMetadataClass,
 ]
 
@@ -72,9 +72,9 @@ UpstreamLineageInputType: TypeAlias = Union[
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(upstream_input, models.UpstreamClass):
-        return upstream_input
-    elif isinstance(upstream_input, models.FineGrainedLineageClass):
+    if isinstance(upstream_input, models.UpstreamClass) or isinstance(
+        upstream_input, models.FineGrainedLineageClass
+    ):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
         return models.UpstreamClass(
@@ -457,6 +457,7 @@ class Dataset(
         terms: Optional[TermsInputType] = None,
         # TODO structured_properties
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
@@ -468,6 +469,7 @@ class Dataset(
             env=env,
         )
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.platform, platform_instance)
 

@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Union
+from typing import List, Optional, Union
 
 import pytest
 from freezegun import freeze_time
@@ -269,7 +269,11 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     ]
 
 
-def get_sample_mcps(mcps_to_append: List = []) -> List[MetadataChangeProposalWrapper]:
+def get_sample_mcps(
+    mcps_to_append: Optional[List] = None,
+) -> List[MetadataChangeProposalWrapper]:
+    if not mcps_to_append:
+        mcps_to_append = []
     mcps = [
         MetadataChangeProposalWrapper(
             entityUrn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",

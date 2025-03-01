@@ -654,21 +654,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
-  @Override
-  @Nonnull
-  public SearchResult searchAcrossEntities(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      int start,
-      int count,
-      List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException {
-    return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
-  }
-
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -720,7 +705,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
-  @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
@@ -729,7 +713,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      int count,
+      @Nullable List<String> facets)
       throws RemoteInvocationException {
     final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
@@ -749,6 +735,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
     if (keepAlive != null) {
       requestBuilder.keepAliveParam(keepAlive);
+    }
+
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
