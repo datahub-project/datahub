@@ -76,10 +76,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       Urn versionSet,
       Urn newLatestVersion,
       VersionPropertiesInput inputProperties) {
-    List<IngestResult> ingestResults = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     String sortId;
-    Long versionSetConstraint;
     Long versionPropertiesConstraint = -1L;
     VersionSetKey versionSetKey =
         (VersionSetKey)
@@ -93,28 +91,13 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
               + newLatestVersion.getEntityType());
     }
     if (!aspectRetriever.entityExists(ImmutableSet.of(versionSet)).get(versionSet)) {
-      MetadataChangeProposal versionSetKeyProposal = new MetadataChangeProposal();
-      versionSetKeyProposal.setEntityUrn(versionSet);
-      versionSetKeyProposal.setEntityType(VERSION_SET_ENTITY_NAME);
-      versionSetKeyProposal.setAspectName(VERSION_SET_KEY_ASPECT_NAME);
-      versionSetKeyProposal.setAspect(GenericRecordUtils.serializeAspect(versionSetKey));
-      versionSetKeyProposal.setChangeType(ChangeType.CREATE_ENTITY);
-      ingestResults.add(
-          entityService.ingestProposal(
-              opContext, versionSetKeyProposal, opContext.getAuditStamp(), false));
-
       sortId = INITIAL_VERSION_SORT_ID;
-      versionSetConstraint = -1L;
     } else {
       SystemAspect versionSetPropertiesAspect =
           aspectRetriever.getLatestSystemAspect(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
-      versionSetConstraint =
-          versionSetPropertiesAspect
-              .getSystemMetadataVersion()
-              .orElse(versionSetPropertiesAspect.getVersion());
       SystemAspect latestVersion =
           aspectRetriever.getLatestSystemAspect(
               versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
@@ -182,36 +165,11 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     headerMap.put(HTTP_HEADER_IF_VERSION_MATCH, versionPropertiesConstraint.toString());
     versionPropertiesProposal.setChangeType(ChangeType.UPSERT);
     versionPropertiesProposal.setHeaders(headerMap);
-    ingestResults.add(
-        entityService.ingestProposal(
-            opContext, versionPropertiesProposal, opContext.getAuditStamp(), false));
 
-    // Might want to refactor this to a Patch w/ Create if not exists logic if more properties get
-    // added
-    // to Version Set Properties
-    VersionSetProperties versionSetProperties =
-        new VersionSetProperties()
-            .setVersioningScheme(
-                VersioningScheme
-                    .ALPHANUMERIC_GENERATED_BY_DATAHUB) // Only one available, will need to add to
-            // input properties once more are added.
-            .setLatest(newLatestVersion);
-    MetadataChangeProposal versionSetPropertiesProposal = new MetadataChangeProposal();
-    versionSetPropertiesProposal.setEntityUrn(versionSet);
-    versionSetPropertiesProposal.setEntityType(VERSION_SET_ENTITY_NAME);
-    versionSetPropertiesProposal.setAspectName(VERSION_SET_PROPERTIES_ASPECT_NAME);
-    versionSetPropertiesProposal.setAspect(
-        GenericRecordUtils.serializeAspect(versionSetProperties));
-    versionSetPropertiesProposal.setChangeType(ChangeType.UPSERT);
-    StringMap versionSetHeaderMap = new StringMap();
-    versionSetHeaderMap.put(HTTP_HEADER_IF_VERSION_MATCH, versionSetConstraint.toString());
-    versionSetPropertiesProposal.setHeaders(versionSetHeaderMap);
-    versionSetPropertiesProposal.setSystemMetadata(systemMetadata);
-    ingestResults.add(
+    IngestResult result =
         entityService.ingestProposal(
-            opContext, versionSetPropertiesProposal, opContext.getAuditStamp(), false));
-
-    return ingestResults;
+            opContext, versionPropertiesProposal, opContext.getAuditStamp(), false);
+    return List.of(result);
   }
 
   /**
