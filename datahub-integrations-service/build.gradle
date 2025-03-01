@@ -150,6 +150,7 @@ docker {
         include '.dockerignore'
         include "docker/${docker_repo}/*"
         include "datahub-integrations-service/src/**"
+        include "datahub-integrations-service/scripts/sync.sh"
         include "datahub-integrations-service/static/**"
         include "datahub-integrations-service/pyproject.toml"
         include "datahub-integrations-service/requirements*"
