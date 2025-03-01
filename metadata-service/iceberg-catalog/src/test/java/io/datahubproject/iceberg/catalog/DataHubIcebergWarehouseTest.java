@@ -18,6 +18,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataplatforminstance.IcebergWarehouseInfo;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
@@ -275,6 +276,57 @@ public class DataHubIcebergWarehouseTest {
   }
 
   @Test
+  public void testGetIcebergMetadataStatusRemoved() throws Exception {
+    String platformInstance = "test-platform";
+    TableIdentifier tableId = TableIdentifier.of("db", "table");
+    Urn resourceUrn =
+        Urn.createFromString("urn:li:platformResource:iceberg.test-platform.db.table");
+
+    DatasetUrn datasetUrn =
+        new DatasetUrn(
+            DataPlatformUrn.createFromString("urn:li:dataPlatform:iceberg"),
+            "uuid",
+            FabricType.PROD);
+
+    IcebergCatalogInfo expectedMetadata =
+        new IcebergCatalogInfo().setMetadataPointer("s3://bucket/path");
+
+    // Mock getDatasetUrn behavior
+    PlatformResourceInfo resourceInfo = new PlatformResourceInfo();
+    resourceInfo.setPrimaryKey(datasetUrn.toString());
+    when(entityService.getLatestAspects(
+            same(operationContext),
+            eq(Set.of(resourceUrn)),
+            eq(Set.of(STATUS_ASPECT_NAME, PLATFORM_RESOURCE_INFO_ASPECT_NAME)),
+            eq(false)))
+        .thenReturn(Map.of(resourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
+
+    when(entityService.getLatestAspects(
+            same(operationContext),
+            eq(Set.of(datasetUrn)),
+            eq(Set.of(STATUS_ASPECT_NAME, DATASET_ICEBERG_METADATA_ASPECT_NAME)),
+            eq(false)))
+        .thenReturn(Map.of(datasetUrn, List.of(new Status().setRemoved(true), expectedMetadata)));
+
+    DataHubIcebergWarehouse warehouse =
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
+
+    Optional<IcebergCatalogInfo> result = warehouse.getIcebergMetadata(tableId);
+
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
   public void testGetIcebergMetadataEnveloped() throws Exception {
     String platformInstance = "test-platform";
     TableIdentifier tableId = TableIdentifier.of("db", "table");
@@ -304,7 +356,14 @@ public class DataHubIcebergWarehouseTest {
             eq(Set.of(datasetUrn)),
             eq(Set.of(STATUS_ASPECT_NAME, DATASET_ICEBERG_METADATA_ASPECT_NAME)),
             eq(false)))
-        .thenReturn(Map.of(datasetUrn, List.of(expectedEnvelopedAspect)));
+        .thenReturn(
+            Map.of(
+                datasetUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(STATUS_ASPECT_NAME)
+                        .setValue(new Aspect(new Status().setRemoved(false).data())),
+                    expectedEnvelopedAspect)));
 
     DataHubIcebergWarehouse warehouse =
         new DataHubIcebergWarehouse(
@@ -324,6 +383,63 @@ public class DataHubIcebergWarehouseTest {
     assertNotNull(result);
     assertEquals(result.getFirst(), expectedEnvelopedAspect);
     assertEquals(result.getSecond(), datasetUrn);
+  }
+
+  @Test
+  public void testGetIcebergMetadataEnvelopedStatusRemoved() throws Exception {
+    String platformInstance = "test-platform";
+    TableIdentifier tableId = TableIdentifier.of("db", "table");
+    Urn resourceUrn =
+        Urn.createFromString("urn:li:platformResource:iceberg.test-platform.db.table");
+
+    DatasetUrn datasetUrn =
+        new DatasetUrn(
+            DataPlatformUrn.createFromString("urn:li:dataPlatform:iceberg"),
+            "uuid",
+            FabricType.PROD);
+
+    EnvelopedAspect expectedEnvelopedAspect = mock(EnvelopedAspect.class);
+
+    // Mock getDatasetUrn behavior
+    PlatformResourceInfo resourceInfo = new PlatformResourceInfo();
+    resourceInfo.setPrimaryKey(datasetUrn.toString());
+    when(entityService.getLatestAspects(
+            same(operationContext),
+            eq(Set.of(resourceUrn)),
+            eq(Set.of(STATUS_ASPECT_NAME, PLATFORM_RESOURCE_INFO_ASPECT_NAME)),
+            eq(false)))
+        .thenReturn(Map.of(resourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
+
+    when(entityService.getLatestEnvelopedAspects(
+            same(operationContext),
+            eq(Set.of(datasetUrn)),
+            eq(Set.of(STATUS_ASPECT_NAME, DATASET_ICEBERG_METADATA_ASPECT_NAME)),
+            eq(false)))
+        .thenReturn(
+            Map.of(
+                datasetUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(STATUS_ASPECT_NAME)
+                        .setValue(new Aspect(new Status().setRemoved(true).data())),
+                    expectedEnvelopedAspect)));
+
+    DataHubIcebergWarehouse warehouse =
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
+
+    Pair<EnvelopedAspect, DatasetUrn> result = warehouse.getIcebergMetadataEnveloped(tableId);
+
+    assertNull(result);
   }
 
   @Test

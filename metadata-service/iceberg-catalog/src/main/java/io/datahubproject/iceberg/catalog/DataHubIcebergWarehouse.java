@@ -119,6 +119,7 @@ public class DataHubIcebergWarehouse {
     return icebergWarehouse.getDataRoot();
   }
 
+  @SneakyThrows
   public Optional<DatasetUrn> getDatasetUrn(TableIdentifier tableIdentifier) {
     Urn resourceUrn = resourceUrn(tableIdentifier);
     Optional<PlatformResourceInfo> platformResourceInfo =
@@ -128,12 +129,7 @@ public class DataHubIcebergWarehouse {
       return Optional.empty();
     }
 
-    try {
-      return Optional.of(DatasetUrn.createFromString(platformResourceInfo.get().getPrimaryKey()));
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(
-          "Invalid dataset urn " + platformResourceInfo.get().getPrimaryKey(), e);
-    }
+    return Optional.of(DatasetUrn.createFromString(platformResourceInfo.get().getPrimaryKey()));
   }
 
   private <T extends RecordTemplate> Optional<T> getLatestAspectNonRemoved(
