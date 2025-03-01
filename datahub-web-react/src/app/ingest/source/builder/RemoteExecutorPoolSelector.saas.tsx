@@ -5,6 +5,8 @@ import {
     useListRemoteExecutorPoolsQuery,
 } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
+import { RemoteExecutorPool } from '@src/types.generated';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '../../executor_saas/utils';
 
 type Props = {
     value?: string | null;
@@ -26,7 +28,7 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
     });
     const { data: defaultPool } = useGetDefaultRemoteExecutorPoolQuery();
 
-    const pools = data?.listRemoteExecutorPools.remoteExecutorPools || [];
+    const pools = (data?.listRemoteExecutorPools.remoteExecutorPools || []) as RemoteExecutorPool[];
     const total = data?.listRemoteExecutorPools.total;
     const defaultPoolId = defaultPool?.defaultRemoteExecutorPool.pool?.executorPoolId || pools[0]?.executorPoolId;
 
@@ -62,8 +64,8 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
             {pools.map((pool) => (
                 <Select.Option key={pool.executorPoolId} value={pool.executorPoolId}>
                     <div>
-                        {pool.executorPoolId}
-                        {pool.remoteExecutors?.remoteExecutors?.find((exec) => exec.executorInternal) ? (
+                        {getDisplayablePoolId(pool, '')}
+                        {checkIsPoolInDataHubCloud(pool) ? (
                             <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
                         ) : null}
                         {pool.isDefault ? (
