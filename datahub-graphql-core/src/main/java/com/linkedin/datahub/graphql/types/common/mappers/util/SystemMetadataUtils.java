@@ -17,21 +17,19 @@ public class SystemMetadataUtils {
 
   @Nullable
   public static Long getLastIngestedTime(@Nonnull EnvelopedAspectMap aspectMap) {
-    RunInfo lastIngestionRun = getLastIngestionRun(aspectMap);
-    return lastIngestionRun != null ? lastIngestionRun.getTime() : null;
+    return getLastIngestionRun(aspectMap).map(RunInfo::getTime).orElse(null);
   }
 
   @Nullable
   public static String getLastIngestedRunId(@Nonnull EnvelopedAspectMap aspectMap) {
-    RunInfo lastIngestionRun = getLastIngestionRun(aspectMap);
-    return lastIngestionRun != null ? lastIngestionRun.getId() : null;
+    return getLastIngestionRun(aspectMap).map(RunInfo::getId).orElse(null);
   }
 
   /**
    * Returns the most recent ingestion run based on the most recent aspects present for the entity.
    */
-  @Nullable
-  private static RunInfo getLastIngestionRun(@Nonnull EnvelopedAspectMap aspectMap) {
+  @Nonnull
+  private static Optional<RunInfo> getLastIngestionRun(@Nonnull EnvelopedAspectMap aspectMap) {
     return aspectMap.values().stream()
         .filter(EnvelopedAspect::hasSystemMetadata)
         .map(EnvelopedAspect::getSystemMetadata)
@@ -47,7 +45,6 @@ public class SystemMetadataUtils {
                     .map(runId -> new RunInfo(runId, systemMetadata.getLastObserved()))
                     .orElse(null))
         .filter(Objects::nonNull)
-        .max(Comparator.comparingLong(RunInfo::getTime))
-        .orElse(null);
+        .max(Comparator.comparingLong(RunInfo::getTime));
   }
 }
