@@ -238,13 +238,21 @@ class _Not(_BaseFilter):
 
     not_: "Filter" = pydantic.Field(alias="not")
 
+    @pydantic.validator("not_", pre=False)
+    def validate_not(cls, v: "Filter") -> "Filter":
+        inner_filter = v.compile()
+        if len(inner_filter) != 1:
+            raise ValueError(
+                "Cannot negate a filter with multiple OR clauses [not yet supported]"
+            )
+        return v
+
     def compile(self) -> _OrFilters:
         # TODO: Eventually we'll want to implement a full DNF normalizer.
         # https://en.wikipedia.org/wiki/Disjunctive_normal_form#Conversion_to_DNF
 
         inner_filter = self.not_.compile()
-        if len(inner_filter) != 1:
-            raise ValueError("Cannot negate a filter with multiple OR clauses")
+        assert len(inner_filter) == 1  # validated above
 
         # ¬(A and B) -> (¬A) OR (¬B)
         and_filters = inner_filter[0]["and"]

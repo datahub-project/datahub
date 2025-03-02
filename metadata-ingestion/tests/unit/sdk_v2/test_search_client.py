@@ -2,8 +2,10 @@ from io import StringIO
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -162,3 +164,51 @@ and:
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
         F.domain("marketing")
+
+
+def test_unsupported_not() -> None:
+    env_filter = F.env("PROD")
+    with pytest.raises(
+        ValidationError,
+        match="Cannot negate a filter with multiple OR clauses",
+    ):
+        F.not_(env_filter)
+
+
+def test_compile_filters() -> None:
+    filter = F.and_(F.env("PROD"), F.platform("snowflake"))
+    expected_filters = [
+        {
+            "and": [
+                {
+                    "field": "origin",
+                    "condition": "EQUAL",
+                    "values": ["PROD"],
+                    "negated": False,
+                },
+                {
+                    "field": "platform.keyword",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                    "negated": False,
+                },
+            ]
+        },
+        {
+            "and": [
+                {
+                    "field": "env",
+                    "condition": "EQUAL",
+                    "values": ["PROD"],
+                    "negated": False,
+                },
+                {
+                    "field": "platform.keyword",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                    "negated": False,
+                },
+            ]
+        },
+    ]
+    assert compile_filters(filter) == expected_filters
