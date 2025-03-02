@@ -333,6 +333,8 @@ class FilterDsl:
             platform=[platform] if isinstance(platform, str) else platform
         )
 
+    # TODO: Add a platform_instance filter
+
     @staticmethod
     def domain(domain: Union[str, List[str]], /) -> _DomainFilter:
         return _DomainFilter(domain=[domain] if isinstance(domain, str) else domain)
@@ -349,4 +351,6 @@ class FilterDsl:
             values=[f"{key}={value}"],
         )
 
+    # TODO: Add a soft-deletion status filter
+    # TODO: add a container / browse path filter
     # TODO add shortcut for custom filters
