@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 def compile_filters(
     filter: Optional[Filter],
 ) -> Optional[List[Dict[str, List[RawSearchFilterRule]]]]:
-    # TODO: not every filter type is supported for every entity type
-    # if we can detect issues with the filters at compile time, we should
-    # raise an error
+    # TODO: Not every filter type is supported for every entity type.
+    # If we can detect issues with the filters at compile time, we should
+    # raise an error.
 
     if filter is None:
         return None
