@@ -76,5 +76,4 @@ class DataHubClient:
     def search(self) -> SearchClient:
         return SearchClient(self)
 
-    # TODO: search client
     # TODO: lineage client

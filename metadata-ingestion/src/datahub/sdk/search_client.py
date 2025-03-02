@@ -42,6 +42,7 @@ class SearchClient:
         query: Optional[str] = None,
         filter: Optional[Filter] = None,
     ) -> Iterable[Urn]:
+        # TODO: Add better limit / pagination support.
         for urn in self._client._graph.get_urns_by_filter(
             query=query,
             extra_or_filters=compile_filters(filter),

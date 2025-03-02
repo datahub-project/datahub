@@ -362,3 +362,13 @@ class FilterDsl:
     # TODO: Add a soft-deletion status filter
     # TODO: add a container / browse path filter
     # TODO add shortcut for custom filters
+
+    @staticmethod
+    def custom_filter(
+        field: str, condition: str, values: List[str]
+    ) -> _CustomCondition:
+        return _CustomCondition(
+            field=field,
+            condition=condition,
+            values=values,
+        )

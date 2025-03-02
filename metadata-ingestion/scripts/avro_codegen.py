@@ -354,7 +354,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union, Literal
 
 import functools
 from deprecated.sphinx import deprecated as _sphinx_deprecated
@@ -680,7 +680,7 @@ if TYPE_CHECKING:
     from datahub.metadata.schema_classes import {key_aspect_class}
 
 class {class_name}(_SpecificUrn):
-    ENTITY_TYPE: ClassVar[str] = "{entity_type}"
+    ENTITY_TYPE: ClassVar[Literal["{entity_type}"]] = "{entity_type}"
     _URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
