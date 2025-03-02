@@ -89,7 +89,6 @@ class NifiAuthType(Enum):
     CLIENT_CERT = "CLIENT_CERT"
     KERBEROS = "KERBEROS"
     BASIC_AUTH = "BASIC_AUTH"
-    TOKEN_AUTH = "TOKEN_AUTH"
 
 
 class ProcessGroupKey(ContainerKey):
@@ -151,9 +150,6 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         default=None,
         description="Path to PEM file containing certs for the root CA(s) for the NiFi."
         "Set to False to disable SSL verification.",
-    )
-    token_value: Optional[str] = Field (
-        default=None, description="token_value for token_auth method"
     )
 
     # As of now, container entities retrieval does not respect browsePathsV2 similar to container aspect.
@@ -326,7 +322,6 @@ class NifiProcessorType:
     PutKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.PublishKafka_2_0"
     ConsumeKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_2_0"
     ConsumeAMQP = "org.apache.nifi.amqp.processors.ConsumeAMQP"
-    PutElasticSearch = "org.apache.nifi.processors.elasticsearch.PutElasticsearchHttp"
 
 
 # To support new processor type,
@@ -351,7 +346,6 @@ class NifiProcessorProvenanceEventAnalyzer:
         NifiProcessorType.PutKafka_2_0: NifiEventType.SEND,
         NifiProcessorType.ConsumeKafka_2_0: NifiEventType.RECEIVE,
         NifiProcessorType.ConsumeAMQP: NifiEventType.RECEIVE,
-        NifiProcessorType.PutElasticSearch: NifiEventType.SEND
     }
 
     def __init__(self) -> None:
@@ -371,7 +365,6 @@ class NifiProcessorProvenanceEventAnalyzer:
             NifiProcessorType.PutKafka_2_0: self.process_putKafka_provenance_event,
             NifiProcessorType.ConsumeKafka_2_0: self.process_consumeKafka_provenance_event,
             NifiProcessorType.ConsumeAMQP: self.process_consumeAmqp_provenance_event,
-            NifiProcessorType.PutElasticSearch: self.process_putElasticSearch_provenance_event
         }
 
     def process_putKafka_provenance_event(self,event):
@@ -386,20 +379,6 @@ class NifiProcessorProvenanceEventAnalyzer:
             platform,
             topic,
             dict(topic=topic),
-            dataset_urn,
-        )
-
-    def process_putElasticSearch_provenance_event(self,event):
-        attributes = event.get ("attributes", [])
-        topic=get_attribute_value(attributes, "opensearch_index")
-        platform="elasticsearch"
-        if topic is None:
-            topic='dummy'
-        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
-        return ExternalDataset(
-            platform,
-            get_attribute_value(attributes, "opensearch_index"),
-            dict(index=topic),
             dataset_urn,
         )
 
@@ -448,7 +427,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_url = s3_url[: s3_url.rindex("/")]
         s3_path = s3_url[len("s3://") :]
         if self.remove_partition_s3:
-            path = Path (s3_path)
+            path = Path(s3_path)
             filtered_parts = [part for part in path.parts if '=' not in part]
             path = Path (*filtered_parts)
             s3_path = str(path)
@@ -1212,10 +1191,6 @@ class NifiSource(StatefulIngestionSourceBase):
     def authenticate(self):
         if self.config.auth is NifiAuthType.NO_AUTH:
             # Token not required
-            return
-        if self.config.auth is NifiAuthType.TOKEN_AUTH:
-            self.session.headers.update ({"Authorization": "Bearer " + self.config.token_value})
-            print(self.config.token_value)
             return
         if self.config.auth is NifiAuthType.BASIC_AUTH:
             assert self.config.username is not None
