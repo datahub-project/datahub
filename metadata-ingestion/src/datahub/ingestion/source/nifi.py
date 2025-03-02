@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
-
+from pathlib import Path
 import requests
 from cached_property import cached_property
 from dateutil import parser
@@ -89,6 +89,7 @@ class NifiAuthType(Enum):
     CLIENT_CERT = "CLIENT_CERT"
     KERBEROS = "KERBEROS"
     BASIC_AUTH = "BASIC_AUTH"
+    TOKEN_AUTH = "TOKEN_AUTH"
 
 
 class ProcessGroupKey(ContainerKey):
@@ -151,6 +152,9 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         description="Path to PEM file containing certs for the root CA(s) for the NiFi."
         "Set to False to disable SSL verification.",
     )
+    token_value: Optional[str] = Field (
+        default=None, description="token_value for token_auth method"
+    )
 
     # As of now, container entities retrieval does not respect browsePathsV2 similar to container aspect.
     # Consider enabling this when entities with browsePathsV2 pointing to container also get listed in container entities.
@@ -163,6 +167,10 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         default=True,
         description="When enabled, emits incremental/patch lineage for Nifi processors."
         " When disabled, re-states lineage on each run.",
+    )
+
+    remove_partition_s3: Optional[bool] = Field (
+        default=None, description="Whether to remove partition values from s3 path"
     )
 
     @root_validator(skip_on_failure=True)
@@ -313,6 +321,12 @@ class NifiProcessorType:
     FetchSFTP = "org.apache.nifi.processors.standard.FetchSFTP"
     GetSFTP = "org.apache.nifi.processors.standard.GetSFTP"
     PutSFTP = "org.apache.nifi.processors.standard.PutSFTP"
+    PutKafka_2_6 = "org.apache.nifi.processors.kafka.pubsub.PublishKafka_2_6"
+    ConsumeKafka_2_6 = "org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_2_6"
+    PutKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.PublishKafka_2_0"
+    ConsumeKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_2_0"
+    ConsumeAMQP = "org.apache.nifi.amqp.processors.ConsumeAMQP"
+    PutElasticSearch = "org.apache.nifi.processors.elasticsearch.PutElasticsearchHttp"
 
 
 # To support new processor type,
@@ -321,6 +335,8 @@ class NifiProcessorType:
 # map it in provenance_event_to_lineage_map
 class NifiProcessorProvenanceEventAnalyzer:
     env: str
+    remove_partition_s3: bool
+    config: NifiSourceConfig
 
     KNOWN_INGRESS_EGRESS_PROCESORS = {
         NifiProcessorType.ListS3: NifiEventType.CREATE,
@@ -330,6 +346,12 @@ class NifiProcessorProvenanceEventAnalyzer:
         NifiProcessorType.FetchSFTP: NifiEventType.FETCH,
         NifiProcessorType.GetSFTP: NifiEventType.RECEIVE,
         NifiProcessorType.PutSFTP: NifiEventType.SEND,
+        NifiProcessorType.PutKafka_2_6: NifiEventType.SEND,
+        NifiProcessorType.ConsumeKafka_2_6: NifiEventType.RECEIVE,
+        NifiProcessorType.PutKafka_2_0: NifiEventType.SEND,
+        NifiProcessorType.ConsumeKafka_2_0: NifiEventType.RECEIVE,
+        NifiProcessorType.ConsumeAMQP: NifiEventType.RECEIVE,
+        NifiProcessorType.PutElasticSearch: NifiEventType.SEND
     }
 
     def __init__(self) -> None:
@@ -344,7 +366,72 @@ class NifiProcessorProvenanceEventAnalyzer:
             NifiProcessorType.FetchSFTP: self.process_sftp_provenance_event,
             NifiProcessorType.GetSFTP: self.process_sftp_provenance_event,
             NifiProcessorType.PutSFTP: self.process_sftp_provenance_event,
+            NifiProcessorType.PutKafka_2_6: self.process_putKafka_provenance_event,
+            NifiProcessorType.ConsumeKafka_2_6: self.process_consumeKafka_provenance_event,
+            NifiProcessorType.PutKafka_2_0: self.process_putKafka_provenance_event,
+            NifiProcessorType.ConsumeKafka_2_0: self.process_consumeKafka_provenance_event,
+            NifiProcessorType.ConsumeAMQP: self.process_consumeAmqp_provenance_event,
+            NifiProcessorType.PutElasticSearch: self.process_putElasticSearch_provenance_event
         }
+
+    def process_putKafka_provenance_event(self,event):
+        transitUri = event.get ("transitUri")
+        if transitUri is None:
+            transitUri='dummy'
+        else:
+            topic = transitUri.split('/')[-1]
+        platform="kafka"
+        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            topic,
+            dict(topic=topic),
+            dataset_urn,
+        )
+
+    def process_putElasticSearch_provenance_event(self,event):
+        attributes = event.get ("attributes", [])
+        topic=get_attribute_value(attributes, "opensearch_index")
+        platform="elasticsearch"
+        if topic is None:
+            topic='dummy'
+        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            get_attribute_value(attributes, "opensearch_index"),
+            dict(index=topic),
+            dataset_urn,
+        )
+
+    def process_consumeKafka_provenance_event(self, event):
+        attributes = event.get ("attributes", [])
+        topic=get_attribute_value(attributes, "kafka.topic")
+        platform="kafka"
+        if topic is None:
+            topic='dummy'
+        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            get_attribute_value(attributes, "kafka.topic"),
+            dict(topic=topic),
+            dataset_urn,
+        )
+
+    def process_consumeAmqp_provenance_event(self, event):
+        transitUri = event.get ("transitUri")
+        if transitUri is None:
+            topic='dummy'
+        else:
+            topic = transitUri.split('/')[-1]
+        platform="rmq"
+        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            topic,
+            dict(queue=topic),
+            dataset_urn,
+        )
+
 
     def process_s3_provenance_event(self, event):
         logger.debug(f"Processing s3 provenance event: {event}")
@@ -360,6 +447,11 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_url = f"s3://{s3_bucket}/{s3_key}"
         s3_url = s3_url[: s3_url.rindex("/")]
         s3_path = s3_url[len("s3://") :]
+        if self.remove_partition_s3:
+            path = Path (s3_path)
+            filtered_parts = [part for part in path.parts if '=' not in part]
+            path = Path (*filtered_parts)
+            s3_path = str(path)
         dataset_name = s3_path.replace("/", ".")
         platform = "s3"
         dataset_urn = builder.make_dataset_urn(platform, s3_path, self.env)
@@ -1094,6 +1186,7 @@ class NifiSource(StatefulIngestionSourceBase):
 
         eventAnalyzer = NifiProcessorProvenanceEventAnalyzer()
         eventAnalyzer.env = self.config.env
+        eventAnalyzer.remove_partition_s3 = self.config.remove_partition_s3
         components = self.nifi_flow.components.values()
         logger.debug(f"Processing {len(components)} components")
         for component in components:
@@ -1120,7 +1213,10 @@ class NifiSource(StatefulIngestionSourceBase):
         if self.config.auth is NifiAuthType.NO_AUTH:
             # Token not required
             return
-
+        if self.config.auth is NifiAuthType.TOKEN_AUTH:
+            self.session.headers.update ({"Authorization": "Bearer " + self.config.token_value})
+            print(self.config.token_value)
+            return
         if self.config.auth is NifiAuthType.BASIC_AUTH:
             assert self.config.username is not None
             assert self.config.password is not None
