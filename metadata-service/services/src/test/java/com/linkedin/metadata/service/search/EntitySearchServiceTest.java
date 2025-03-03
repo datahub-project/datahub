@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.action.explain.ExplainResponse;
@@ -357,6 +358,12 @@ public class EntitySearchServiceTest {
     @Override
     public IndexConvention getIndexConvention() {
       return null;
+    }
+
+    @Override
+    public @Nonnull Map<Urn, Map<String, Object>> raw(
+        @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
+      return Map.of();
     }
 
     @Nonnull
