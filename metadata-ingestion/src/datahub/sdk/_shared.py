@@ -508,6 +508,10 @@ LinksInputType: TypeAlias = Sequence[LinkInputType]
 class HasInstitutionalMemory(Entity):
     __slots__ = ()
 
+    # Internally the aspect is called institutionalMemory, and so much of the code
+    # uses that name. However, the public-facing API is called "links", since
+    # that's what we call these in the UI.
+
     def _ensure_institutional_memory(
         self,
     ) -> List[models.InstitutionalMemoryMetadataClass]:
