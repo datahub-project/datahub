@@ -204,7 +204,7 @@ def get_column_type(
     """
 
     TypeClass: Optional[Type] = None
-    for sql_type in _field_type_mapping.keys():
+    for sql_type in _field_type_mapping:
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
             break
@@ -973,7 +973,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     inspector=inspector,
                 )
             ),
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column["nullable"],
             recursive=False,
             globalTags=gtc,
