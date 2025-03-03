@@ -50,8 +50,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -60,7 +60,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -108,8 +108,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -118,7 +118,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -166,8 +166,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -176,7 +176,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -224,8 +224,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -234,7 +234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -282,8 +282,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -292,7 +292,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -309,7 +309,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-a78xni",
+        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

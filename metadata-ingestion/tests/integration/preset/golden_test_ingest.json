@@ -50,8 +50,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -113,8 +113,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -170,8 +170,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -227,8 +227,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -284,8 +284,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -341,8 +341,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1720594800000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }

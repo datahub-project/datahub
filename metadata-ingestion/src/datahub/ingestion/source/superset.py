@@ -47,10 +47,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
     ChangeAuditStamps,
     Status,
-    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -66,6 +64,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -376,9 +375,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
-        last_modified = ChangeAuditStamps(
-            created=None,
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
+
+        change_audit_stamps = ChangeAuditStamps(
+            created=None, lastModified=last_modified
         )
         dashboard_url = f"{self.config.display_uri}{dashboard_data.get('url', '')}"
 
@@ -424,9 +424,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             description="",
             title=title,
             charts=chart_urns,
-            lastModified=last_modified,
             dashboardUrl=dashboard_url,
             customProperties=custom_properties,
+            lastModified=change_audit_stamps,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
 
@@ -439,6 +439,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 for urn in (dashboard_owners_list or [])
             ],
+            lastModified=last_modified,
         )
         dashboard_snapshot.aspects.append(owners_info)
 
@@ -481,10 +482,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         title = chart_data.get("slice_name", "")
 
         # note: the API does not currently supply created_by usernames due to a bug
-        last_modified = ChangeAuditStamps(
-            created=None,
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
+
+        change_audit_stamps = ChangeAuditStamps(
+            created=None, lastModified=last_modified
         )
+
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
@@ -541,10 +544,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             type=chart_type,
             description="",
             title=title,
-            lastModified=last_modified,
             chartUrl=chart_url,
             inputs=[datasource_urn] if datasource_urn else None,
             customProperties=custom_properties,
+            lastModified=change_audit_stamps,
         )
         chart_snapshot.aspects.append(chart_info)
 
@@ -557,6 +560,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 for urn in (chart_owners_list or [])
             ],
+            lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
         return chart_snapshot
@@ -632,8 +636,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
+        modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         modified_ts = int(
             dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
+
+        change_audit_stamps = ChangeAuditStamps(
+            created=None, lastModified=last_modified
         )
 
         upstream_warehouse_platform = (
@@ -671,8 +681,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
-            lastModified=TimeStamp(time=modified_ts),
             externalUrl=dataset_url,
+            lastModified=change_audit_stamps,
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
@@ -700,6 +710,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 for urn in (dataset_owners_list or [])
             ],
+            lastModified=last_modified,
         )
         aspects_items.append(owners_info)
 
