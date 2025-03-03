@@ -48,6 +48,6 @@ class GCPCredential(ConfigModel):
         if project_id:
             configs["project_id"] = project_id
         with tempfile.NamedTemporaryFile(delete=False) as fp:
-            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
+            cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
             fp.write(cred_json.encode())
             return fp.name

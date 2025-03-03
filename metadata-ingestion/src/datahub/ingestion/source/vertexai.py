@@ -194,7 +194,7 @@ class VertexAISource(Source):
     def _get_training_job_workunits(
         self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self._generate_data_process_workunits(job)
+        yield from self._gen_data_process_workunits(job)
         yield from self._get_job_output_workunits(job)
         yield from self._get_job_input_workunits(job)
 
@@ -207,9 +207,9 @@ class VertexAISource(Source):
         """
         ml_model_group_urn = self._make_ml_model_group_urn(model)
 
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=ml_model_group_urn,
-            aspect=MLModelGroupPropertiesClass(
+        aspects: List[_Aspect] = list()
+        aspects.append(
+            MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
                 created=TimeStampClass(time=int(model.create_time.timestamp() * 1000))
@@ -221,10 +221,18 @@ class VertexAISource(Source):
                 if model.update_time
                 else None,
                 customProperties={"displayName": model.display_name},
-            ),
+            )
         )
 
-        yield from auto_workunit([mcp])
+        # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
+        # aspects.append(SubTypesClass(typeNames=["Training Job"]))
+        # aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
+
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                ml_model_group_urn, aspects=aspects
+            )
+        )
 
     def _make_ml_model_group_urn(self, model: Model) -> str:
         urn = builder.make_ml_model_group_urn(
@@ -234,7 +242,7 @@ class VertexAISource(Source):
         )
         return urn
 
-    def _generate_data_process_workunits(
+    def _gen_data_process_workunits(
         self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -276,7 +284,7 @@ class VertexAISource(Source):
 
         aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
 
-        # TO BE ADDED
+        # TODO add status of the job
         # aspects.append(
         #     DataProcessInstanceRunEventClass(
         #             status=DataProcessRunStatusClass.COMPLETE,
@@ -438,17 +446,19 @@ class VertexAISource(Source):
 
         dataset = self._search_dataset(dataset_id) if dataset_id else None
         if dataset:
-            yield from self._get_dataset_workunits(dataset_urn=dataset_urn, ds=dataset)
-            # Create URN of Training Job
-            job_id = self._make_vertexai_job_name(entity_id=job.name)
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=builder.make_data_process_instance_urn(job_id),
-                aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
-            )
             logger.info(
                 f"Found the name of input dataset ({dataset_name}) with dataset id ({dataset_id})"
             )
-            yield from auto_workunit([mcp])
+            # Yield aspect of input dataset
+            yield from self._get_dataset_workunits(dataset_urn=dataset_urn, ds=dataset)
+
+            # Yield aspect(DataProcessInstanceInputClass) of training job
+            job_id = self._make_vertexai_job_name(entity_id=job.name)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=builder.make_data_process_instance_urn(job_id),
+                aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
+            ).as_workunit()
+
         else:
             logger.error(
                 f"Unable to find the name of input dataset ({dataset_name}) with dataset id ({dataset_id})"
