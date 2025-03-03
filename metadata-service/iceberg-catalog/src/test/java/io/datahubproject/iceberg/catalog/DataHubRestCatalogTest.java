@@ -275,8 +275,8 @@ public class DataHubRestCatalogTest {
     SearchResult mockResult = mock(SearchResult.class);
     List<SearchEntity> entitiesList =
         Arrays.asList(
-            createSearchEntity("urn:li:container:iceberg__parent.ns1"),
-            createSearchEntity("urn:li:container:iceberg__parent.ns2"));
+            createSearchEntity("urn:li:container:iceberg__platformInstance.parent.ns1"),
+            createSearchEntity("urn:li:container:iceberg__platformInstance.parent.ns2"));
     SearchEntityArray entities = new SearchEntityArray();
     entities.addAll(entitiesList);
     when(mockResult.getEntities()).thenReturn(entities);
