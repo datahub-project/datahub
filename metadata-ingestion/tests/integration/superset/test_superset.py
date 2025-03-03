@@ -47,11 +47,10 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "published": True,
                         "owners": [
                             {
-                                "username": "test_username_1",
-                            },
-                            {
-                                "username": "test_username_2",
-                            },
+                                "first_name": "Test",
+                                "id": 1,
+                                "last_name": "Owner1",
+                            }
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
@@ -69,8 +68,10 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "published": False,
                         "owners": [
                             {
-                                "first_name": "name",
-                            },
+                                "first_name": "Unknown",
+                                "id": 100,
+                                "last_name": "Owner",
+                            }
                         ],
                         "certified_by": "",
                         "certification_details": "",
@@ -164,9 +165,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "owners": [
                             {
                                 "first_name": "Test",
-                                "id": 1,
-                                "last_name": "Owner1",
-                                "username": "test_username_1",
+                                "id": 3,
+                                "last_name": "Owner3",
                             }
                         ],
                         "schema": "test_schema1",
@@ -196,7 +196,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                 "first_name": "Test",
                                 "id": 2,
                                 "last_name": "Owner2",
-                                "username": "test_username_2",
                             }
                         ],
                         "schema": "test_schema2",
@@ -262,7 +261,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     "name": "Test Table 1",
                     "normalize_columns": True,
                     "offset": 0,
-                    "owners": [{"first_name": "Test", "id": 1, "last_name": "Owner1"}],
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
+                        }
+                    ],
                     "rendered_sql": "SELECT * FROM test_table1",
                     "schema": "test_schema1",
                     "select_star": "SELECT * FROM test_schema1.test_table1 LIMIT 100",
@@ -333,7 +338,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     "name": "Test Table 2",
                     "normalize_columns": True,
                     "offset": 0,
-                    "owners": [{"first_name": "Test", "id": 2, "last_name": "Owner2"}],
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
+                        }
+                    ],
                     "rendered_sql": "SELECT * FROM test_table2",
                     "schema": "test_schema2",
                     "select_star": "SELECT * FROM test_schema2.test_table2 LIMIT 100",
@@ -554,11 +565,10 @@ def test_superset_stateful_ingest(
                         "published": True,
                         "owners": [
                             {
-                                "username": "test_username_1",
-                            },
-                            {
-                                "username": "test_username_2",
-                            },
+                                "first_name": "Test",
+                                "id": 4,
+                                "last_name": "Owner4",
+                            }
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
@@ -640,9 +650,8 @@ def test_superset_stateful_ingest(
                         "owners": [
                             {
                                 "first_name": "Test",
-                                "id": 2,
-                                "last_name": "Owner2",
-                                "username": "test_username_2",
+                                "id": 5,
+                                "last_name": "Owner5",
                             }
                         ],
                         "schema": "test_schema2",

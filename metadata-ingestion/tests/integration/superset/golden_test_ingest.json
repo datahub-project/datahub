@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_username_1, test_username_2",
+                            "Owners": "unknown",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -42,7 +42,12 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
@@ -100,7 +105,12 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
