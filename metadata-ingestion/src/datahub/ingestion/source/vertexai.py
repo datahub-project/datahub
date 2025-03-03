@@ -88,7 +88,6 @@ class VertexAIConfig(EnvConfigMixin):
 
 
 class MLTypes(StrEnum):
-    # Generic SubTypes
     TRAINING_JOB = "Training Job"
     MODEL = "ML Model"
     MODEL_GROUP = "ML Model Group"
