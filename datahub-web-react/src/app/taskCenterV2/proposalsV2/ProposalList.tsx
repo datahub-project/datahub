@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { message, Typography } from 'antd';
-import styled from 'styled-components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Pagination } from '@src/alchemy-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { message, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import styled from 'styled-components';
+import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestAssignee } from '../../../types.generated';
 import { Message } from '../../shared/Message';
-import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
-import ProposalsTable from './proposalsTable/ProposalsTable';
 import ActionsBar from './ActionsBar';
+import ProposalsTable from './proposalsTable/ProposalsTable';
+import { MY_PROPOSALS_GROUP_NAME } from './utils';
 
 const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: hidden;
@@ -36,9 +37,11 @@ const DEFAULT_PAGE_SIZE = 25;
 type Props = {
     title?: string;
     assignee?: ActionRequestAssignee;
+    groupName?: string;
+    userUrn?: string;
 };
 
-export const ProposalList = ({ title, assignee }: Props) => {
+export const ProposalList = ({ title, assignee, groupName, userUrn }: Props) => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -59,7 +62,11 @@ export const ProposalList = ({ title, assignee }: Props) => {
         fetchPolicy: 'no-cache',
     });
 
-    const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
+    let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
+
+    if (groupName === MY_PROPOSALS_GROUP_NAME) {
+        actionRequests = actionRequests.filter((request) => request.created.actor?.urn === userUrn);
+    }
 
     const totalActionRequests = data?.listActionRequests?.total || 0;
 

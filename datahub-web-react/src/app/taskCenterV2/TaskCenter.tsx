@@ -6,10 +6,10 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { Requests } from '../taskCenter/requests/Requests';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
+import { Requests } from './requests/Requests';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
