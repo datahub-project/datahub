@@ -27,6 +27,10 @@ authentication:
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+    - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
+      configs:
+        guestUser: ${GUEST_AUTHENTICATION_USER:guest}
+        enabled: ${GUEST_AUTHENTICATION_ENABLED:false}
 
   # Normally failures are only warnings, enable this to throw them.
   logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}

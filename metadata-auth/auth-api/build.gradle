@@ -27,6 +27,7 @@ dependencies() {
  
   implementation externalDependency.guava
   compileOnly externalDependency.lombok
+  compileOnly externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
 
@@ -34,7 +35,7 @@ dependencies() {
   testImplementation externalDependency.mockito
   testImplementation project(path: ':metadata-operation-context')
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.6'
-
+  testImplementation externalDependency.springBootTest
 }
 
 task sourcesJar(type: Jar) {
