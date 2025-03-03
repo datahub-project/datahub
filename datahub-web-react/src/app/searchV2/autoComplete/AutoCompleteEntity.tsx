@@ -80,14 +80,11 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
             .filter(Boolean) ?? [];
 
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
-    // Need to reverse parentContainers since it returns direct parent first.
-    const orderedParentContainers = [...parentContainers].reverse();
 
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
     // Parent entities are either a) containers or b) entity-type specific parents (glossary nodes, domains, etc)
-    const parentEntities =
-        (orderedParentContainers?.length && orderedParentContainers) || getParentEntities(entity) || [];
+    const parentEntities = (parentContainers?.length && parentContainers) || getParentEntities(entity) || [];
 
     const showPlatforms = !!platforms.length;
     const showPlatformDivider = !!platforms.length && !!parentContainers.length;
