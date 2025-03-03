@@ -402,6 +402,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         custom_properties = {
             "Status": str(dashboard_data.get("status")),
             "IsPublished": str(dashboard_data.get("published", False)).lower(),
+            "Owners": ", ".join(
+                map(
+                    lambda owner: self.owner_info.get(owner.get("id", -1)),
+                    dashboard_data.get("owners", []),
+                )
+            ),
             "IsCertified": str(
                 True if dashboard_data.get("certified_by") else False
             ).lower(),

@@ -14,6 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
+                            "Owners": "test_owner1@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -78,6 +79,7 @@
                         "customProperties": {
                             "Status": "draft",
                             "IsPublished": "false",
+                            "Owners": "test_owner4@example.com",
                             "IsCertified": "false"
                         },
                         "title": "test_dashboard_title_2",

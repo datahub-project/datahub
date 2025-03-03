@@ -14,6 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
+                            "Owners": "test_owner4@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -59,7 +60,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -117,7 +118,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -175,7 +176,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -233,7 +234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -323,7 +324,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -413,7 +414,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -503,7 +504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -593,7 +594,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -683,7 +684,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -773,7 +774,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -863,7 +864,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -953,7 +954,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1043,7 +1044,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1060,7 +1061,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1077,24 +1078,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,13)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1111,7 +1095,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1128,7 +1112,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-shcxa8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
