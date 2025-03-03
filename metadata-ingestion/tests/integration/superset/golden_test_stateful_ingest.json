@@ -50,8 +50,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner6@example.com"
                         }
                     }
                 }
@@ -60,7 +60,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -108,8 +108,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner6@example.com"
                         }
                     }
                 }
@@ -118,7 +118,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -166,8 +166,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -176,7 +176,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -224,8 +224,8 @@
                         "owners": [],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner4@example.com"
                         }
                     }
                 }
@@ -234,7 +234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -314,8 +314,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -324,7 +324,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -404,8 +404,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -414,7 +414,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -494,8 +494,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -504,7 +504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -584,8 +584,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -594,7 +594,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -674,8 +674,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -684,7 +684,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -764,8 +764,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -774,7 +774,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -854,8 +854,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -864,7 +864,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -944,8 +944,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -954,7 +954,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1034,8 +1034,8 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -1044,7 +1044,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1061,7 +1061,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1078,7 +1078,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1095,7 +1095,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1112,7 +1112,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1129,7 +1129,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-shcxa8",
+        "runId": "superset-2020_04_14-07_00_00-3rnahm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

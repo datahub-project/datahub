@@ -49,6 +49,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
     Status,
+    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -642,10 +643,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
-        change_audit_stamps = ChangeAuditStamps(
-            created=None, lastModified=last_modified
-        )
-
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
@@ -682,7 +679,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             name=dataset.table_name,
             description="",
             externalUrl=dataset_url,
-            lastModified=change_audit_stamps,
+            lastModified=TimeStamp(time=modified_ts),
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
