@@ -42,7 +42,12 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
-from datahub.metadata.urns import DataPlatformUrn, StructuredPropertyUrn, TagUrn, GlossaryTermUrn
+from datahub.metadata.urns import (
+    DataPlatformUrn,
+    GlossaryTermUrn,
+    StructuredPropertyUrn,
+    TagUrn,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -137,9 +142,11 @@ class SchemaFieldSpecification(StrictModel):
             globalTags=[TagUrn(tag.tag).name for tag in schema_field.globalTags.tags]
             if schema_field.globalTags
             else None,
-            glossaryTerms=[GlossaryTermUrn(term.urn).name for term in schema_field.glossaryTerms.terms]
-            if
-            schema_field.glossaryTerms
+            glossaryTerms=[
+                GlossaryTermUrn(term.urn).name
+                for term in schema_field.glossaryTerms.terms
+            ]
+            if schema_field.glossaryTerms
             else None,
             isPartitioningKey=schema_field.isPartitioningKey,
             jsonProps=(
@@ -154,7 +161,7 @@ class SchemaFieldSpecification(StrictModel):
         return v
 
     @root_validator(pre=True)
-    def sync_description_and_doc(cls, values) -> dict:
+    def sync_description_and_doc(cls, values: Dict) -> Dict:
         """Synchronize doc and description fields if one is provided but not the other."""
         description = values.get("description")
         doc = values.get("doc")
@@ -178,7 +185,7 @@ class SchemaFieldSpecification(StrictModel):
             "bytes",
             "fixed",
         ]
-        type = self.type.lower()
+        type = self.type.lower() if self.type else self.type
         if type not in set(get_args(PrimitiveType)):
             raise ValueError(f"Type {self.type} is not a valid primitive type")
 
@@ -238,28 +245,6 @@ class SchemaFieldSpecification(StrictModel):
         self.simplify_structured_properties()
 
         return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
-
-    def model_dump(self, **kwargs):
-        """Custom model_dump to handle YAML serialization properly."""
-        exclude = kwargs.pop("exclude", set())
-
-        # If description and doc are identical, exclude doc from the output
-        if self.description == self.doc and self.description is not None:
-            exclude.add("doc")
-
-        # if nativeDataType and type are identical, exclude nativeDataType from the output
-        if self.nativeDataType == self.type and self.nativeDataType is not None:
-            exclude.add("nativeDataType")
-
-        # if the id is the same as the urn's fieldPath, exclude id from the output
-        from datahub.metadata.urns import SchemaFieldUrn
-
-        if self.urn:
-            field_urn = SchemaFieldUrn.from_string(self.urn)
-            if field_urn.field_path == self.id:
-                exclude.add("urn")
-
-        return super().model_dump(exclude=exclude, exclude_defaults=True, **kwargs)
 
 
 class SchemaSpecification(BaseModel):
@@ -365,8 +350,9 @@ class Dataset(StrictModel):
     @staticmethod
     def get_patch_builder(urn: str) -> DatasetPatchBuilder:
         return DatasetPatchBuilder(urn)
-    
+
     def patch_builder(self) -> DatasetPatchBuilder:
+        assert self.urn
         return DatasetPatchBuilder(self.urn)
 
     @classmethod
@@ -732,7 +718,8 @@ class Dataset(StrictModel):
                 else:
                     structured_properties_map[sp.propertyUrn] = sp.values
 
-        from datahub.metadata.urns import TagUrn, GlossaryTermUrn
+        from datahub.metadata.urns import GlossaryTermUrn, TagUrn
+
         return Dataset(  # type: ignore[arg-type]
             id=dataset_urn.name,
             platform=platform_urn.platform_name,
@@ -750,7 +737,9 @@ class Dataset(StrictModel):
             schema=Dataset._schema_from_schema_metadata(graph, urn),
             tags=[TagUrn(tag.tag).name for tag in tags.tags] if tags else None,
             glossary_terms=(
-                [GlossaryTermUrn(term.urn).name for term in glossary_terms.terms] if glossary_terms else None
+                [GlossaryTermUrn(term.urn).name for term in glossary_terms.terms]
+                if glossary_terms
+                else None
             ),
             owners=yaml_owners,
             properties=(
@@ -933,12 +922,14 @@ class Dataset(StrictModel):
 
 
 def _update_dict_preserving_comments(
-    target: Dict, source: Dict, optional_fields: List[str] = ["urn"]
+    target: Dict, source: Dict, optional_fields: List[str] = None
 ) -> None:
     """
     Updates a target dictionary with values from source, preserving comments and structure.
     This modifies the target dictionary in-place.
     """
+    if optional_fields is None:
+        optional_fields = ["urn"]
     # For each key in the source dict
     for key, value in source.items():
         if key in target:
