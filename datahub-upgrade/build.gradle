@@ -13,6 +13,11 @@ ext {
 }
 
 dependencies {
+  implementation platform("software.amazon.awssdk:bom:$awsSdk2Version")
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sqs'
+  implementation 'software.amazon.awssdk:sts'
+
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:restli-client-api')

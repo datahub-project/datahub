@@ -223,6 +223,7 @@ public class ESBulkProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
+    flush(); // Make sure pending operations are flushed
     bulkProcessor.close();
   }
 

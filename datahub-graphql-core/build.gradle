@@ -52,6 +52,10 @@ graphqlCodegen {
     ]
 }
 
+test {
+  testLogging.exceptionFormat = 'full'
+}
+
 clean {
     delete 'src/mainGeneratedGraphQL'
 }
