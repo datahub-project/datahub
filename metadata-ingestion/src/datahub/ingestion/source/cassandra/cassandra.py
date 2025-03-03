@@ -59,9 +59,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.sdk._entity import Entity
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 

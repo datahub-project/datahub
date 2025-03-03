@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -399,6 +401,21 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public Optional<SearchResponse> raw(
       @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
     return esSearchDAO.raw(opContext, indexName, jsonQuery);
+  }
+
+  @Override
+  @Nonnull
+  public Map<Urn, Map<String, Object>> raw(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
+    return esSearchDAO.rawEntity(opContext, urns).entrySet().stream()
+        .flatMap(
+            entry ->
+                Optional.ofNullable(entry.getValue().getHits().getHits())
+                    .filter(hits -> hits.length > 0)
+                    .map(hits -> Map.entry(entry.getKey(), hits[0]))
+                    .stream())
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSourceAsMap()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
