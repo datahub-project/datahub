@@ -107,7 +107,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
                                 "type": "TECHNICAL_OWNER"
                             }
                         ],

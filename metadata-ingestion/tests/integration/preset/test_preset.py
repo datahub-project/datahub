@@ -69,7 +69,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "status": "published",
                         "published": True,
                         "owners": [
-                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
+                            {
+                                "first_name": "Test",
+                                "id": 1,
+                                "last_name": "Owner1",
+                            }
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
@@ -86,7 +90,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "status": "draft",
                         "published": False,
                         "owners": [
-                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            }
                         ],
                         "certified_by": "",
                         "certification_details": "",
@@ -340,7 +348,11 @@ def test_preset_stateful_ingest(
                         "status": "published",
                         "published": True,
                         "owners": [
-                            {"first_name": "Test", "id": 1, "last_name": "Owner1"}
+                            {
+                                "first_name": "Unknown",
+                                "id": 100,
+                                "last_name": "Owners",
+                            }
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
