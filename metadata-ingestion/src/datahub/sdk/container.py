@@ -16,7 +16,6 @@ from datahub.metadata.urns import (
     ContainerUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     DomainInputType,
     HasContainer,
@@ -33,6 +32,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Auto, auto
 
 
@@ -74,6 +74,7 @@ class Container(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         # Hack: while the type annotations say container_key is always a ContainerKey,
         # we allow ContainerUrn to make the graph-based constructor work.
@@ -82,6 +83,7 @@ class Container(
         else:
             urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         # This needs to come first to ensure that the display name is registered.
         self._ensure_container_props(name=display_name)

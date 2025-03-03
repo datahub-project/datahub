@@ -271,12 +271,12 @@ class DremioAPIOperations:
                     self.cancel_query(job_id)
                     raise DremioAPIException(
                         f"Query execution timed out after {timeout} seconds"
-                    )
+                    ) from None
                 except RuntimeError as e:
-                    raise DremioAPIException(f"{str(e)}")
+                    raise DremioAPIException() from e
 
         except requests.RequestException as e:
-            raise DremioAPIException(f"Error executing query: {str(e)}")
+            raise DremioAPIException("Error executing query") from e
 
     def fetch_results(self, job_id: str) -> List[Dict]:
         """Fetch job results with status checking"""

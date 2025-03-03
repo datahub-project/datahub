@@ -129,7 +129,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "BAR"
@@ -176,7 +176,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "PIE"
@@ -223,7 +223,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "AREA"
@@ -270,7 +270,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "HISTOGRAM"

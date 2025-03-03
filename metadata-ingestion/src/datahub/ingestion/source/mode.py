@@ -1494,7 +1494,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429
+                    raise HTTPError429 from None
 
                 raise http_error
 
