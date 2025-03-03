@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_owner1@example.com",
+                            "Owners": "test_owner1@example.com, test_owner2@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -45,6 +45,10 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
                                 "type": "TECHNICAL_OWNER"
                             }
                         ],

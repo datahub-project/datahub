@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_owner4@example.com",
+                            "Owners": "test_owner1@example.com, test_owner2@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -44,7 +44,11 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:test_owner4@example.com",
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
                                 "type": "TECHNICAL_OWNER"
                             }
                         ],
@@ -60,7 +64,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -118,7 +122,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -176,7 +180,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -234,7 +238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -292,7 +296,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -309,7 +313,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-tzy8u0",
+        "runId": "preset-2024_07_10-07_00_00-xazuyh",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

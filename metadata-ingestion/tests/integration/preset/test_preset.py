@@ -75,7 +75,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                 "first_name": "Test",
                                 "id": 1,
                                 "last_name": "Owner1",
-                            }
+                            },
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            },
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
@@ -364,9 +369,14 @@ def test_preset_stateful_ingest(
                         "owners": [
                             {
                                 "first_name": "Test",
-                                "id": 4,
-                                "last_name": "Owners4",
-                            }
+                                "id": 1,
+                                "last_name": "Owners1",
+                            },
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owners2",
+                            },
                         ],
                         "certified_by": "Certification team",
                         "certification_details": "Approved",
