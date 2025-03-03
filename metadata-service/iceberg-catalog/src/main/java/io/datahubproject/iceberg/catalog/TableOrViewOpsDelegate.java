@@ -1,26 +1,23 @@
 package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
 import static io.datahubproject.iceberg.catalog.Utils.*;
-import static io.datahubproject.iceberg.catalog.Utils.platformInstanceMcp;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
-import com.linkedin.common.AuditStamp;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -28,6 +25,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +38,10 @@ import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.*;
 import org.apache.iceberg.io.FileIO;
-import org.apache.iceberg.view.*;
+import org.apache.iceberg.view.SQLViewRepresentation;
+import org.apache.iceberg.view.ViewMetadata;
+import org.apache.iceberg.view.ViewMetadataParser;
+import org.apache.iceberg.view.ViewRepresentation;
 
 @Slf4j
 abstract class TableOrViewOpsDelegate<M> {
@@ -68,13 +69,13 @@ abstract class TableOrViewOpsDelegate<M> {
   }
 
   public M refresh() {
-    IcebergCatalogInfo icebergMeta = warehouse.getIcebergMetadata(tableIdentifier);
+    Optional<IcebergCatalogInfo> icebergMeta = warehouse.getIcebergMetadata(tableIdentifier);
 
-    if (icebergMeta == null || !isExpectedType(icebergMeta.isView())) {
+    if (icebergMeta.isEmpty() || !isExpectedType(icebergMeta.get().isView())) {
       return null;
     }
 
-    String location = icebergMeta.getMetadataPointer();
+    String location = icebergMeta.get().getMetadataPointer();
     if (io == null) {
       String locationDir = location.substring(0, location.lastIndexOf("/"));
       io =
@@ -125,7 +126,6 @@ abstract class TableOrViewOpsDelegate<M> {
     }
 
     DatasetUrn datasetUrn;
-    AuditStamp auditStamp = auditStamp();
     // attempt to commit
     io =
         fileIOFactory.createIO(
@@ -134,9 +134,11 @@ abstract class TableOrViewOpsDelegate<M> {
             Set.of(metadata.location()));
     String newMetadataLocation = metadataWriter.get();
 
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
+
     if (creation) {
       try {
-        datasetUrn = warehouse.createDataset(tableIdentifier, isView(), auditStamp);
+        datasetUrn = warehouse.createDataset(tableIdentifier, isView(), icebergBatch);
       } catch (ValidationException e) {
         throw new AlreadyExistsException("%s already exists: %s", capitalize(type()), name());
       }
@@ -144,35 +146,25 @@ abstract class TableOrViewOpsDelegate<M> {
       datasetUrn = existingDatasetAspect.getSecond();
     }
 
-    MetadataChangeProposal icebergMcp = newMcp(DATASET_ICEBERG_METADATA_ASPECT_NAME, datasetUrn);
-    icebergMcp.setAspect(
-        serializeAspect(
-            new IcebergCatalogInfo().setMetadataPointer(newMetadataLocation).setView(isView())));
-
+    IcebergCatalogInfo icebergCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataLocation).setView(isView());
+    IcebergBatch.EntityBatch datasetBatch;
     if (creation) {
-      icebergMcp.setChangeType(ChangeType.CREATE_ENTITY);
+      datasetBatch =
+          icebergBatch.createEntity(
+              datasetUrn,
+              DATASET_ENTITY_NAME,
+              DATASET_ICEBERG_METADATA_ASPECT_NAME,
+              icebergCatalogInfo);
     } else {
       String existingVersion = existingDatasetAspect.getFirst().getSystemMetadata().getVersion();
-      StringMap headers = icebergMcp.getHeaders();
-      if (headers == null) {
-        headers = new StringMap();
-        icebergMcp.setHeaders(headers);
-      }
-      headers.put(HTTP_HEADER_IF_VERSION_MATCH, existingVersion);
-      icebergMcp.setChangeType(
-          ChangeType.UPSERT); // ideally should be UPDATE, but seems not supported yet.
-    }
-    try {
-      ingestMcp(icebergMcp, auditStamp);
-    } catch (ValidationException e) {
-      if (creation) {
-        // this is likely because table/view already exists i.e. created concurrently in a race
-        // condition
-        throw new AlreadyExistsException("%s already exists: %s", capitalize(type()), name());
-      } else {
-        throw new CommitFailedException(
-            "Cannot commit to %s %s: stale metadata", capitalize(type()), name());
-      }
+      datasetBatch =
+          icebergBatch.conditionalUpdateEntity(
+              datasetUrn,
+              DATASET_ENTITY_NAME,
+              DATASET_ICEBERG_METADATA_ASPECT_NAME,
+              icebergCatalogInfo,
+              existingVersion);
     }
 
     if (base == null || (base.currentSchemaId() != metadata.currentSchemaId())) {
@@ -181,62 +173,55 @@ abstract class TableOrViewOpsDelegate<M> {
       AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
       SchemaMetadata schemaMetadata =
           converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
-      MetadataChangeProposal schemaMcp = newMcp(SCHEMA_METADATA_ASPECT_NAME, datasetUrn);
-      schemaMcp.setAspect(serializeAspect(schemaMetadata));
-      schemaMcp.setChangeType(ChangeType.UPSERT);
-      ingestMcp(schemaMcp, auditStamp);
+      datasetBatch.aspect(SCHEMA_METADATA_ASPECT_NAME, schemaMetadata);
     }
 
     if (creation) {
-      DatasetProperties datasetProperties = new DatasetProperties();
-      datasetProperties.setName(tableIdentifier.name());
-      datasetProperties.setQualifiedName(name());
+      datasetBatch.platformInstance(platformInstance());
 
-      MetadataChangeProposal datasetPropertiesMcp =
-          newMcp(DATASET_PROPERTIES_ASPECT_NAME, datasetUrn, true);
-      datasetPropertiesMcp.setAspect(serializeAspect(datasetProperties));
-      datasetPropertiesMcp.setChangeType(ChangeType.UPSERT);
-
-      ingestMcp(datasetPropertiesMcp, auditStamp);
-
-      MetadataChangeProposal platformInstanceMcp =
-          platformInstanceMcp(platformInstance(), datasetUrn, DATASET_ENTITY_NAME);
-      ingestMcp(platformInstanceMcp, auditStamp);
+      DatasetProperties datasetProperties =
+          new DatasetProperties().setName(tableIdentifier.name()).setQualifiedName(name());
+      datasetBatch.aspect(DATASET_PROPERTIES_ASPECT_NAME, datasetProperties);
 
       Container container = new Container();
       container.setContainer(containerUrn(platformInstance(), tableIdentifier.namespace()));
-
-      MetadataChangeProposal containerMcp = newMcp(CONTAINER_ASPECT_NAME, datasetUrn, true);
-      containerMcp.setAspect(serializeAspect(container));
-      containerMcp.setChangeType(ChangeType.UPSERT);
-      ingestMcp(containerMcp, auditStamp);
+      datasetBatch.aspect(CONTAINER_ASPECT_NAME, container);
 
       SubTypes subTypes = new SubTypes().setTypeNames(new StringArray(capitalize(type())));
-      MetadataChangeProposal subTypesMcp = newMcp(SUB_TYPES_ASPECT_NAME, datasetUrn, true);
-      subTypesMcp.setAspect(serializeAspect(subTypes));
-      subTypesMcp.setChangeType(ChangeType.UPSERT);
-      ingestMcp(subTypesMcp, auditStamp);
+      datasetBatch.aspect(SUB_TYPES_ASPECT_NAME, subTypes);
     }
 
-    sendProfileUpdate(metadata, auditStamp, datasetUrn);
-    onCommit(metadata.metadata(), auditStamp, datasetUrn);
+    additionalMcps(metadata.metadata(), datasetBatch);
+
+    try {
+      AspectsBatch aspectsBatch = icebergBatch.asAspectsBatch();
+      entityService.ingestProposal(operationContext, aspectsBatch, false);
+    } catch (ValidationException e) {
+      if (creation) {
+        // this is likely because table/view already exists i.e. created concurrently in a race
+        // condition
+        throw new AlreadyExistsException("%s already exists: %s", capitalize(type()), name());
+      } else {
+        throw new CommitFailedException("Cannot commit to %s %s: stale metadata", type(), name());
+      }
+    }
+
+    DatasetProfile datasetProfile =
+        getDataSetProfile(metadata.metadata())
+            .setTimestampMillis(icebergBatch.getAuditStamp().getTime());
+
+    MetadataChangeProposal datasetProfileMcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(datasetUrn)
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
+            .setAspect(serializeAspect(datasetProfile))
+            .setChangeType(ChangeType.UPSERT);
+    entityService.ingestProposal(
+        operationContext, datasetProfileMcp, icebergBatch.getAuditStamp(), true);
   }
 
   protected abstract DatasetProfile getDataSetProfile(M metadata);
-
-  private void sendProfileUpdate(
-      MetadataWrapper<M> metadata, AuditStamp auditStamp, DatasetUrn datasetUrn) {
-
-    DatasetProfile dataSetProfile = getDataSetProfile(metadata.metadata());
-    if (dataSetProfile != null) {
-      dataSetProfile.setTimestampMillis(auditStamp.getTime());
-
-      MetadataChangeProposal dataSetProfileMcp = newMcp(DATASET_PROFILE_ASPECT_NAME, datasetUrn);
-      dataSetProfileMcp.setAspect(serializeAspect(dataSetProfile));
-      dataSetProfileMcp.setChangeType(ChangeType.UPSERT);
-      ingestMcp(dataSetProfileMcp, auditStamp);
-    }
-  }
 
   FileIO io() {
     return io;
@@ -250,28 +235,10 @@ abstract class TableOrViewOpsDelegate<M> {
     return warehouse.getPlatformInstance();
   }
 
-  protected MetadataChangeProposal newMcp(String aspectName, DatasetUrn datasetUrn) {
-    return newMcp(aspectName, datasetUrn, false); // Default to async index update
-  }
-
-  protected MetadataChangeProposal newMcp(
-      String aspectName, DatasetUrn datasetUrn, boolean syncIndexUpdate) {
-    MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(datasetUrn);
-    mcp.setEntityType(DATASET_ENTITY_NAME);
-    mcp.setAspectName(aspectName);
-
-    if (syncIndexUpdate) {
-      StringMap headers = new StringMap();
-      headers.put(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true));
-      mcp.setHeaders(headers);
-    }
-
-    return mcp;
-  }
-
-  protected void ingestMcp(MetadataChangeProposal mcp, AuditStamp auditStamp) {
-    entityService.ingestProposal(operationContext, mcp, auditStamp, false);
+  // override-able for testing
+  @VisibleForTesting
+  IcebergBatch newIcebergBatch(OperationContext operationContext) {
+    return new IcebergBatch(operationContext);
   }
 
   abstract boolean isView();
@@ -284,7 +251,7 @@ abstract class TableOrViewOpsDelegate<M> {
 
   abstract RuntimeException noSuchEntityException();
 
-  void onCommit(M metadata, AuditStamp auditStamp, DatasetUrn datasetUrn) {}
+  void additionalMcps(M metadata, IcebergBatch.EntityBatch datasetBatch) {}
 }
 
 @Slf4j
@@ -325,7 +292,7 @@ class ViewOpsDelegate extends TableOrViewOpsDelegate<ViewMetadata> {
   }
 
   @Override
-  void onCommit(ViewMetadata metadata, AuditStamp auditStamp, DatasetUrn datasetUrn) {
+  void additionalMcps(ViewMetadata metadata, IcebergBatch.EntityBatch datasetBatch) {
     SQLViewRepresentation sqlViewRepresentation = null;
     for (ViewRepresentation representation : metadata.currentVersion().representations()) {
       if (representation instanceof SQLViewRepresentation) {
@@ -344,11 +311,7 @@ class ViewOpsDelegate extends TableOrViewOpsDelegate<ViewMetadata> {
               .setViewLogic(sqlViewRepresentation.sql())
               .setMaterialized(false)
               .setViewLanguage(sqlViewRepresentation.dialect());
-      MetadataChangeProposal viewPropertiesMcp = newMcp(VIEW_PROPERTIES_ASPECT_NAME, datasetUrn);
-      viewPropertiesMcp.setAspect(serializeAspect(viewProperties));
-      viewPropertiesMcp.setChangeType(ChangeType.UPSERT);
-
-      ingestMcp(viewPropertiesMcp, auditStamp);
+      datasetBatch.aspect(VIEW_PROPERTIES_ASPECT_NAME, viewProperties);
     }
   }
 
@@ -374,21 +337,18 @@ class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
 
   @Override
   protected DatasetProfile getDataSetProfile(TableMetadata metadata) {
-    Snapshot currentSnapshot = metadata.currentSnapshot();
-    if (currentSnapshot == null) {
-      return null;
-    }
 
     DatasetProfile dataSetProfile = new DatasetProfile();
-    if (currentSnapshot.summary() != null) {
+    long colCount = metadata.schema().columns().size();
+    dataSetProfile.setColumnCount(colCount);
+
+    Snapshot currentSnapshot = metadata.currentSnapshot();
+    if (currentSnapshot != null && currentSnapshot.summary() != null) {
       String totalRecordsStr = currentSnapshot.summary().get(SnapshotSummary.TOTAL_RECORDS_PROP);
       if (totalRecordsStr != null) {
         dataSetProfile.setRowCount(Long.parseLong(totalRecordsStr));
       }
     }
-
-    long colCount = metadata.schema().columns().size();
-    dataSetProfile.setColumnCount(colCount);
 
     return dataSetProfile;
   }
