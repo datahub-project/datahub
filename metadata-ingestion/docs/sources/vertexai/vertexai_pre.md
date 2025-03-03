@@ -3,7 +3,7 @@
 #### Credential to access to GCP
 1. Follow the section on credentials to access Vertex AI  [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
-#### Create a service account in the Extractor Project
+#### Create a service account and assign roles
 
 1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
    and assign the previously created role to this service account.
