@@ -395,6 +395,16 @@ public interface EntitySearchService {
       @Nonnull List<String> facets);
 
   /**
+   * Fetch raw entity documents
+   *
+   * @param opContext operational context
+   * @param urns the document identifiers
+   * @return map of documents by urn
+   */
+  @Nonnull
+  Map<Urn, Map<String, Object>> raw(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns);
+
+  /**
    * Return index convention
    *
    * @return convent
