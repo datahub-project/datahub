@@ -152,13 +152,11 @@ def _build_complex_dataset() -> Dataset:
 
     # Check standard aspects.
     assert d.subtype == "Table"
+    assert d.owners is not None and len(d.owners) == 1
+    assert d.links is not None and len(d.links) == 2
+    assert d.tags is not None and len(d.tags) == 2
+    assert d.terms is not None and len(d.terms) == 1
     assert d.domain == DomainUrn("Marketing")
-    assert d.tags is not None
-    assert len(d.tags) == 2
-    assert d.terms is not None
-    assert len(d.terms) == 1
-    assert d.owners is not None
-    assert len(d.owners) == 1
 
     assert len(d.schema) == 2
 

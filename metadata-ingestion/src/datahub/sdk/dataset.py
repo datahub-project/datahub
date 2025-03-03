@@ -424,10 +424,10 @@ class Dataset(
     HasSubtype,
     HasContainer,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
-    HasInstitutionalMemory,
     Entity,
 ):
     __slots__ = ()
