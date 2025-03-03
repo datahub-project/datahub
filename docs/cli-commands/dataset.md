@@ -4,24 +4,6 @@ The `dataset` command allows you to interact with Dataset entities in DataHub. T
 
 ## Commands
 
-### upsert
-
-Create or update Dataset metadata in DataHub.
-
-```shell
-datahub dataset upsert -f PATH_TO_YAML_FILE
-```
-
-**Options:**
-- `-f, --file` - Path to the YAML file containing Dataset metadata (required)
-
-**Example:**
-```shell
-datahub dataset upsert -f dataset.yaml
-```
-
-This command will parse the YAML file, validate that any entity references exist in DataHub, and then emit the corresponding metadata change proposals to update or create the Dataset.
-
 ### sync
 
 Synchronize Dataset metadata between YAML files and DataHub.
@@ -46,24 +28,7 @@ datahub dataset sync -f dataset.yaml --from-datahub
 
 The `sync` command offers bidirectional synchronization, allowing you to keep your local YAML files in sync with the DataHub platform. The `upsert` command actually uses `sync` with the `--to-datahub` flag internally.
 
-### get
-
-Retrieve Dataset metadata from DataHub and optionally write it to a file.
-
-```shell
-datahub dataset get --urn DATASET_URN [--to-file OUTPUT_FILE]
-```
-
-**Options:**
-- `--urn` - The Dataset URN to retrieve (required)
-- `--to-file` - Path to write the Dataset metadata as YAML (optional)
-
-**Example:**
-```shell
-datahub dataset get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,example_table,PROD)" --to-file my_dataset.yaml
-```
-
-If the URN does not start with `urn:li:dataset:`, it will be automatically prefixed.
+For details on the supported YAML format, see the [Dataset YAML Format](#dataset-yaml-format) section.
 
 ### file
 
@@ -86,7 +51,48 @@ datahub dataset file --lintCheck dataset.yaml
 datahub dataset file --lintFix dataset.yaml
 ```
 
-This command helps maintain consistent formatting of your Dataset YAML files.
+This command helps maintain consistent formatting of your Dataset YAML files. For more information on the expected format, refer to the [Dataset YAML Format](#dataset-yaml-format) section.
+
+### upsert
+
+Create or update Dataset metadata in DataHub.
+
+```shell
+datahub dataset upsert -f PATH_TO_YAML_FILE
+```
+
+**Options:**
+- `-f, --file` - Path to the YAML file containing Dataset metadata (required)
+
+**Example:**
+```shell
+datahub dataset upsert -f dataset.yaml
+```
+
+This command will parse the YAML file, validate that any entity references exist in DataHub, and then emit the corresponding metadata change proposals to update or create the Dataset.
+
+For details on the required structure of your YAML file, see the [Dataset YAML Format](#dataset-yaml-format) section.
+
+### get
+
+Retrieve Dataset metadata from DataHub and optionally write it to a file.
+
+```shell
+datahub dataset get --urn DATASET_URN [--to-file OUTPUT_FILE]
+```
+
+**Options:**
+- `--urn` - The Dataset URN to retrieve (required)
+- `--to-file` - Path to write the Dataset metadata as YAML (optional)
+
+**Example:**
+```shell
+datahub dataset get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,example_table,PROD)" --to-file my_dataset.yaml
+```
+
+If the URN does not start with `urn:li:dataset:`, it will be automatically prefixed.
+
+The output file will be formatted according to the [Dataset YAML Format](#dataset-yaml-format) section.
 
 ### add_sibling
 
@@ -130,9 +136,7 @@ schema:
       doc: "First field"           # Alias for description
       nativeDataType: "VARCHAR"    # Native platform type (defaults to type if not specified)
       nullable: false              # Whether field can be null (default: false)
-      jsonPath: "$.field1"         # JSON path for the field
-      label: "Field One"           # Display label
-      recursive: false             # Whether field is recursive (default: false)
+      label: "Field One"           # Display label (optional business label for the field)
       isPartOfKey: true            # Whether field is part of primary key
       isPartitioningKey: false     # Whether field is a partitioning key
       jsonProps: {"customProp": "value"} # Custom JSON properties
@@ -146,6 +150,7 @@ schema:
       structured_properties:
         property1: "value1"
         property2: 42
+  file: example.schema.avsc      # Optional schema file (required if defining tables with nested fields)
 
 # Additional metadata (all optional)
 properties:                        # Custom properties as key-value pairs
@@ -214,12 +219,11 @@ The Schema Field object supports the following properties:
 |----------|------|-------------|
 | `id` | string | Field identifier/path (required if `urn` not provided) |
 | `urn` | string | URN of the schema field (required if `id` not provided) |
-| `type` | string | Data type (one of the supported field types) |
+| `type` | string | Data type (one of the supported [Field Types](#field-types)) |
 | `nativeDataType` | string | Native data type in the source platform (defaults to `type` if not specified) |
 | `description` | string | Field description |
 | `doc` | string | Alias for description |
 | `nullable` | boolean | Whether the field can be null (default: false) |
-| `jsonPath` | string | JSON path for the field |
 | `label` | string | Display label for the field |
 | `recursive` | boolean | Whether the field is recursive (default: false) |
 | `isPartOfKey` | boolean | Whether the field is part of the primary key |
@@ -228,6 +232,24 @@ The Schema Field object supports the following properties:
 | `globalTags` | array | List of tags associated with the field |
 | `glossaryTerms` | array | List of glossary terms associated with the field |
 | `structured_properties` | object | Structured properties for the field |
+
+
+**Important Note on Schema Field Types**:
+When specifying fields in the YAML file, you must follow an all-or-nothing approach with the `type` field:
+- If you want the command to generate the schema for you, specify the `type` field for ALL fields.
+- If you only want to add field-level metadata (like tags, glossary terms, or structured properties), do NOT specify the `type` field for ANY field.
+
+Example of fields with only metadata (no types):
+```yaml
+schema:   
+  fields:     
+    - id: "field1"                 # Field identifier
+      structured_properties:
+        prop1: prop_value
+    - id: "field2"
+      structured_properties:
+        prop1: prop_value
+```
 
 ### Ownership Types
 
