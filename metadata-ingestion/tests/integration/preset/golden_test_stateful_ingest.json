@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "unknown",
+                            "Owners": "test_owner4@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -34,7 +34,7 @@
                             },
                             "lastModified": {
                                 "time": 1720594800000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.preset.io/dashboard/test_dashboard_url_1"
@@ -44,7 +44,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:",
+                                "owner": "urn:li:corpuser:test_owner4@example.com",
                                 "type": "TECHNICAL_OWNER"
                             }
                         ],
@@ -60,7 +60,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -91,7 +91,7 @@
                             },
                             "lastModified": {
                                 "time": 1720594800000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.preset.io/explore/test_chart_url_10",
@@ -118,7 +118,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -149,7 +149,7 @@
                             },
                             "lastModified": {
                                 "time": 1720594800000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.preset.io/explore/test_chart_url_11",
@@ -176,7 +176,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -207,7 +207,7 @@
                             },
                             "lastModified": {
                                 "time": 1720594800000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.preset.io/explore/test_chart_url_12",
@@ -234,7 +234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -265,7 +265,7 @@
                             },
                             "lastModified": {
                                 "time": 1720594800000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.preset.io/explore/test_chart_url_13",
@@ -292,7 +292,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -309,7 +309,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-2yjep3",
+        "runId": "preset-2024_07_10-07_00_00-a78xni",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

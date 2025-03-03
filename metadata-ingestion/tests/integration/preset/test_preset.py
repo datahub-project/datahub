@@ -60,7 +60,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "1",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
@@ -81,7 +83,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "2",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_2",
@@ -111,7 +115,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "10",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_1",
@@ -123,7 +129,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "11",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_2",
@@ -135,7 +143,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "12",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_3",
@@ -147,7 +157,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "id": "13",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_4",
@@ -339,7 +351,9 @@ def test_preset_stateful_ingest(
                     {
                         "id": "1",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
                         },
                         "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
@@ -349,9 +363,9 @@ def test_preset_stateful_ingest(
                         "published": True,
                         "owners": [
                             {
-                                "first_name": "Unknown",
-                                "id": 100,
-                                "last_name": "Owners",
+                                "first_name": "Test",
+                                "id": 4,
+                                "last_name": "Owners4",
                             }
                         ],
                         "certified_by": "Certification team",
