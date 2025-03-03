@@ -4,7 +4,7 @@ source:
     project_id: "acryl-poc"
     region:  "us-west2"
 #    credential:
-#      private_key: "private_key"
+#      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
 #      private_key_id: "project_key_id"
 #      client_email: "client_email"
 #      client_id: "client_id"

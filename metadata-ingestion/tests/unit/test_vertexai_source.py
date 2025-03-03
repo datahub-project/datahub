@@ -13,7 +13,10 @@ from google.protobuf import timestamp_pb2
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai import (
+    VertexAIConfig,
+    VertexAISource,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -242,7 +245,7 @@ def test_get_endpoint_workunit(
 def test_get_data_process_properties_workunit(
     source: VertexAISource, mock_training_job: VertexAiResourceNoun
 ) -> None:
-    for wu in source._get_data_process_properties_workunit(mock_training_job):
+    for wu in source._get_data_process_properties_workunits(mock_training_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
@@ -394,7 +397,6 @@ def test_get_training_jobs_workunit(
     This function mocks customJob and AutoMLTabularTrainingJob, 
     and verifies the properties of the work units
     """
-
     for wc in source._get_training_jobs_workunit():
         assert hasattr(wc.metadata, "aspect")
         aspect = wc.metadata.aspect
@@ -457,7 +459,7 @@ def test_real_model_workunit(
 def test_real_get_data_process_properties(
     source: VertexAISource, real_autoML_tabular_job: _TrainingJob
 ) -> None:
-    for wu in source._get_data_process_properties_workunit(real_autoML_tabular_job):
+    for wu in source._get_data_process_properties_workunits(real_autoML_tabular_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
