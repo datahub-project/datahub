@@ -8,7 +8,7 @@ from typing import List, Set, Tuple
 import click
 from click_default_group import DefaultGroup
 
-from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.dataset.dataset import Dataset, DatasetRetrievalConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
@@ -210,8 +210,11 @@ def sync(file: str, to_datahub: bool) -> None:
             else:
                 # Sync from DataHub
                 if graph.exists(dataset.urn):
+                    dataset_get_config = DatasetRetrievalConfig()
+                    if dataset.downstreams:
+                        dataset_get_config.include_downstreams = True
                     existing_dataset: Dataset = Dataset.from_datahub(
-                        graph=graph, urn=dataset.urn
+                        graph=graph, urn=dataset.urn, config=dataset_get_config
                     )
                     existing_dataset.to_yaml(Path(file))
                 else:

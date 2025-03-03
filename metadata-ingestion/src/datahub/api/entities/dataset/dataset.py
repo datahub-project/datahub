@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union, get_args
 
+import avro
 import yaml
 from pydantic import BaseModel, Field, root_validator, validator
 from ruamel.yaml import YAML
@@ -61,6 +62,46 @@ class StrictModel(BaseModel):
         extra = "forbid"
 
 
+class StructuredPropertiesHelper:
+    @staticmethod
+    def simplify_structured_properties_list(
+        structured_properties: Optional[
+            Dict[str, Union[float, int, str, List[Union[float, int, str]]]]
+        ],
+    ) -> Optional[Dict[str, Union[float, int, str, List[Union[float, int, str]]]]]:
+        def urn_strip(urn: str) -> str:
+            if urn.startswith("urn:li:structuredProperty:"):
+                return urn[len("urn:li:structuredProperty:") :]
+            return urn
+
+        if structured_properties:
+            simplified_structured_properties = (
+                {urn_strip(k): v for k, v in structured_properties.items()}
+                if structured_properties
+                else None
+            )
+            if simplified_structured_properties:
+                # convert lists to single values if possible
+                for k, v in simplified_structured_properties.items():
+                    if isinstance(v, list):
+                        v = [
+                            int(x) if isinstance(x, float) and x.is_integer() else x
+                            for x in v
+                        ]
+                        if len(v) == 1:
+                            simplified_structured_properties[k] = v[0]
+                        else:
+                            simplified_structured_properties[k] = v
+                    else:
+                        simplified_structured_properties[k] = (
+                            int(v)
+                            if v and isinstance(v, float) and v.is_integer()
+                            else v
+                        )
+            return simplified_structured_properties
+        return None
+
+
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
     urn: Optional[str] = None
@@ -83,39 +124,17 @@ class SchemaFieldSpecification(StrictModel):
     isPartitioningKey: Optional[bool] = None
     jsonProps: Optional[dict] = None
 
-    def simplify_structured_properties(self) -> None:
-        if self.structured_properties:
-            # convert lists to single values if possible
-            for k, v in self.structured_properties.items():
-                if isinstance(v, list):
-                    v = [
-                        int(x) if isinstance(x, float) and x.is_integer() else x
-                        for x in v
-                    ]
-                    if len(v) == 1:
-                        self.structured_properties[k] = v[0]
-                    else:
-                        self.structured_properties[k] = v
-                else:
-                    self.structured_properties[k] = (
-                        int(v) if v and isinstance(v, float) and v.is_integer() else v
-                    )
-
     def with_structured_properties(
         self,
-        structured_properties: Optional[Dict[str, List[Union[str, int, float]]]],
+        structured_properties: Optional[
+            Dict[str, Union[float, int, str, List[Union[float, int, str]]]]
+        ],
     ) -> "SchemaFieldSpecification":
-        def urn_strip(urn: str) -> str:
-            if urn.startswith("urn:li:structuredProperty:"):
-                return urn[len("urn:li:structuredProperty:") :]
-            return urn
-
         self.structured_properties = (
-            {urn_strip(k): v for k, v in structured_properties.items()}
-            if structured_properties
-            else None
+            StructuredPropertiesHelper.simplify_structured_properties_list(
+                structured_properties
+            )
         )
-        self.simplify_structured_properties()
         return self
 
     @classmethod
@@ -126,7 +145,7 @@ class SchemaFieldSpecification(StrictModel):
             id=Dataset._simplify_field_path(schema_field.fieldPath),
             urn=make_schema_field_urn(parent_urn, schema_field.fieldPath),
             type=SchemaFieldSpecification._from_datahub_type(
-                schema_field.type, schema_field.nativeDataType
+                schema_field.type, schema_field.nativeDataType, allow_complex=True
             ),
             nativeDataType=schema_field.nativeDataType,
             nullable=schema_field.nullable,
@@ -204,7 +223,9 @@ class SchemaFieldSpecification(StrictModel):
 
     @staticmethod
     def _from_datahub_type(
-        input_type: models.SchemaFieldDataTypeClass, native_data_type: str
+        input_type: models.SchemaFieldDataTypeClass,
+        native_data_type: str,
+        allow_complex: bool = False,
     ) -> str:
         if isinstance(input_type.type, models.StringTypeClass):
             return "string"
@@ -218,6 +239,14 @@ class SchemaFieldSpecification(StrictModel):
             return "bytes"
         elif isinstance(input_type.type, models.BooleanTypeClass):
             return "boolean"
+        elif allow_complex and isinstance(input_type.type, models.ArrayTypeClass):
+            return "array"
+        elif allow_complex and isinstance(input_type.type, models.MapTypeClass):
+            return "map"
+        elif allow_complex and isinstance(input_type.type, models.UnionTypeClass):
+            return "union"
+        elif allow_complex:
+            return "record"
         raise ValueError(f"Type {input_type} is not a valid primitive type")
 
     def dict(self, **kwargs):
@@ -237,12 +266,16 @@ class SchemaFieldSpecification(StrictModel):
 
         if self.urn:
             field_urn = SchemaFieldUrn.from_string(self.urn)
-            if field_urn.field_path == self.id:
+            if Dataset._simplify_field_path(field_urn.field_path) == self.id:
                 exclude.add("urn")
 
         kwargs.pop("exclude_defaults", None)
 
-        self.simplify_structured_properties()
+        self.structured_properties = (
+            StructuredPropertiesHelper.simplify_structured_properties_list(
+                self.structured_properties
+            )
+        )
 
         return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
 
@@ -250,6 +283,7 @@ class SchemaFieldSpecification(StrictModel):
 class SchemaSpecification(BaseModel):
     file: Optional[str] = None
     fields: Optional[List[SchemaFieldSpecification]] = None
+    raw_schema: Optional[str] = None
 
     @validator("file")
     def file_must_be_avsc(cls, v):
@@ -272,6 +306,10 @@ class StructuredPropertyValue(ConfigModel):
     value: Union[str, float, List[str], List[float]]
     created: Optional[str] = None
     lastModified: Optional[str] = None
+
+
+class DatasetRetrievalConfig(BaseModel):
+    include_downstreams: Optional[bool] = False
 
 
 class Dataset(StrictModel):
@@ -324,6 +362,10 @@ class Dataset(StrictModel):
         if v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
+
+    @validator("structured_properties")
+    def simplify_structured_properties(cls, v):
+        return StructuredPropertiesHelper.simplify_structured_properties_list(v)
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
         return AuditStampClass(
@@ -402,7 +444,7 @@ class Dataset(StrictModel):
         # We don't check references for tags
         return list(set(references))
 
-    def generate_mcp(
+    def generate_mcp(  # noqa: C901
         self,
     ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
         mcp = MetadataChangeProposalWrapper(
@@ -417,9 +459,12 @@ class Dataset(StrictModel):
         yield mcp
 
         if self.schema_metadata:
+            schema_fields = set()
             if self.schema_metadata.file:
                 with open(self.schema_metadata.file) as schema_fp:
                     schema_string = schema_fp.read()
+                    schema_fields_list = avro_schema_to_mce_fields(schema_string)
+                    schema_fields = {field.fieldPath for field in schema_fields_list}
                     schema_metadata = SchemaMetadataClass(
                         schemaName=self.name or self.id or self.urn or "",
                         platform=self.platform_urn,
@@ -509,6 +554,27 @@ class Dataset(StrictModel):
                     yield mcp
 
                 for field in self.schema_metadata.fields:
+                    if schema_fields:
+                        # search for the field in the schema fields set
+                        matched_fields = [
+                            schema_field
+                            for schema_field in schema_fields
+                            if field.id == schema_field
+                            or field.id == Dataset._simplify_field_path(schema_field)
+                        ]
+                        if not matched_fields:
+                            raise ValueError(
+                                f"Field {field.id} not found in the schema file"
+                            )
+                        if len(matched_fields) > 1:
+                            raise ValueError(
+                                f"Field {field.id} matches multiple entries {matched_fields}in the schema file. Use the fully qualified field path."
+                            )
+                        assert len(matched_fields) == 1
+                        assert (
+                            self.urn is not None
+                        )  # validator should have filled this in
+                        field.urn = make_schema_field_urn(self.urn, matched_fields[0])
                     field_urn = field.urn or make_schema_field_urn(
                         self.urn,  # type: ignore[arg-type]
                         field.id,  # type: ignore[arg-type]
@@ -650,6 +716,10 @@ class Dataset(StrictModel):
 
     @staticmethod
     def _simplify_field_path(field_path: str) -> str:
+        # field paths with [type=array] or [type=map] or [type=union] should never be simplified
+        for type in ["array", "map", "union"]:
+            if f"[type={type}]" in field_path:
+                return field_path
         if field_path.startswith("[version=2.0]"):
             # v2 field path
             field_components = []
@@ -681,7 +751,26 @@ class Dataset(StrictModel):
         )
 
         if schema_metadata:
+            # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
+            # Otherwise, we extract all fields
+            if (
+                schema_metadata.platformSchema
+                and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)
+                and schema_metadata.platformSchema.rawSchema
+            ):
+                try:
+                    maybe_avro_schema = avro.schema.parse(
+                        schema_metadata.platformSchema.rawSchema
+                    )
+                    schema_fields = avro_schema_to_mce_fields(maybe_avro_schema)
+                except Exception as e:
+                    logger.debug("Failed to parse avro schema: %s", e)
+                    schema_fields = []
+
             schema_specification = SchemaSpecification(
+                raw_schema=schema_metadata.platformSchema.rawSchema
+                if hasattr(schema_metadata.platformSchema, "rawSchema")
+                else None,
                 fields=[
                     SchemaFieldSpecification.from_schema_field(
                         field, urn
@@ -709,8 +798,21 @@ class Dataset(StrictModel):
                         )
                         for field in schema_metadata.fields
                     ]
-                ]
+                ],
             )
+            if schema_fields and schema_specification.fields:
+                # Source was an avro schema, so we only include fields with structured properties, tags or glossary terms
+                schema_specification.fields = [
+                    field
+                    for field in schema_specification.fields
+                    if field.structured_properties
+                    or field.globalTags
+                    or field.glossaryTerms
+                ]
+                if (
+                    not schema_specification.fields
+                ):  # set fields to None if there are no fields after filtering
+                    schema_specification.fields = None
             return schema_specification
         else:
             return None
@@ -732,7 +834,12 @@ class Dataset(StrictModel):
         return yaml_owners
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, urn: str) -> "Dataset":
+    def from_datahub(
+        cls,
+        graph: DataHubGraph,
+        urn: str,
+        config: DatasetRetrievalConfig = DatasetRetrievalConfig(),
+    ) -> "Dataset":
         dataset_urn = DatasetUrn.from_string(urn)
         platform_urn = DataPlatformUrn.from_string(dataset_urn.platform)
         dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
@@ -757,7 +864,16 @@ class Dataset(StrictModel):
                 else:
                     structured_properties_map[sp.propertyUrn] = sp.values
 
-        from datahub.metadata.urns import GlossaryTermUrn, TagUrn
+        if config.include_downstreams:
+            related_downstreams = graph.get_related_entities(
+                urn,
+                relationship_types=[
+                    "DownstreamOf",
+                ],
+                direction=DataHubGraph.RelationshipDirection.INCOMING,
+            )
+            downstreams = [r.urn for r in related_downstreams]
+            breakpoint()
 
         return Dataset(  # type: ignore[arg-type]
             id=dataset_urn.name,
@@ -788,6 +904,7 @@ class Dataset(StrictModel):
             structured_properties=(
                 structured_properties_map if structured_properties else None
             ),
+            downstreams=downstreams if config.include_downstreams else None,
         )
 
     def dict(self, **kwargs):
@@ -902,6 +1019,8 @@ class Dataset(StrictModel):
                     existing_data = yaml_handler.load(fp)
 
                 # Determine if the file contains a list or a single document
+                if isinstance(existing_data, dict):
+                    existing_data = [existing_data]
                 if isinstance(existing_data, list):
                     # Handle list case
                     updated = False
@@ -911,12 +1030,42 @@ class Dataset(StrictModel):
                     if model_id is not None:
                         # Try to find and update existing item
                         for item in existing_data:
-                            item_identifier = item.get(identifier, Dataset(**item).urn)
+                            existing_dataset = Dataset(**item)
+                            item_identifier = item.get(identifier, existing_dataset.urn)
                             if item_identifier == model_id:
                                 # Found the item to update - preserve structure while updating values
                                 updated = True
+                                if (
+                                    existing_dataset.schema_metadata
+                                    and existing_dataset.schema_metadata.file
+                                ):
+                                    # Preserve the existing schema file path
+                                    new_data["schema"]["file"] = (
+                                        existing_dataset.schema_metadata.file
+                                    )
+                                    # Check if the content of the schema file has changed
+                                    with open(
+                                        existing_dataset.schema_metadata.file
+                                    ) as schema_fp:
+                                        schema_fp_content = schema_fp.read()
+
+                                    if (
+                                        schema_fp_content
+                                        != new_data["schema"]["raw_schema"]
+                                    ):
+                                        # If the content has changed, update the schema file
+                                        schema_file_path = Path(
+                                            existing_dataset.schema_metadata.file
+                                        )
+                                        schema_file_path.write_text(
+                                            new_data["schema"]["raw_schema"]
+                                        )
+                                # Remove raw_schema from the schema aspect before updating
+                                if "schema" in new_data:
+                                    new_data["schema"].pop("raw_schema")
+
                                 _update_dict_preserving_comments(
-                                    item, new_data, ["urn", "properties"]
+                                    item, new_data, ["urn", "properties", "raw_schema"]
                                 )
                                 break
 
@@ -928,18 +1077,6 @@ class Dataset(StrictModel):
                     # If no update was needed, return early
                     if not updated:
                         return False
-
-                    # Write the updated data back
-                    with open(file, "w") as fp:
-                        yaml_handler.dump(existing_data, fp)
-
-                else:
-                    # Handle single document case
-                    if _dict_equal(existing_data, new_data, ["urn"]):
-                        return False  # No changes needed
-
-                    # Update the existing document while preserving comments
-                    _update_dict_preserving_comments(existing_data, new_data, ["urn"])
 
                     # Write the updated data back
                     with open(file, "w") as fp:
