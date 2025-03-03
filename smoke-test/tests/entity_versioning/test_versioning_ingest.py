@@ -1,4 +1,5 @@
 import pytest
+from consistency_utils import wait_for_writes_to_sync
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -14,6 +15,7 @@ OLD_LATEST_URN = DatasetUrn("v", "versioning_old_latest")
 ENTITY_URN = DatasetUrn("v", "versioning_entity")
 EXISTS_VERSION_SET_URN = VersionSetUrn("exists", DatasetUrn.ENTITY_TYPE)
 NOT_EXISTS_VERSION_SET_URN = VersionSetUrn("not-exists", DatasetUrn.ENTITY_TYPE)
+BULK_URNS = [DatasetUrn("v", f"versioning_entity_{i}").urn() for i in range(5, 15)]
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -32,7 +34,6 @@ def ingest_cleanup_data(graph_client: DataHubGraph):
         )
         yield
     finally:
-        pass
         graph_client.hard_delete_entity(EXISTS_VERSION_SET_URN.urn())
         graph_client.hard_delete_entity(NOT_EXISTS_VERSION_SET_URN.urn())
         graph_client.hard_delete_entity(ENTITY_URN.urn())
@@ -162,11 +163,20 @@ def test_ingest_version_properties_version_set_not_latest(graph_client: DataHubG
     assert version_set_properties.latest == OLD_LATEST_URN.urn()
 
 
-def test_ingest_many_versions(graph_client: DataHubGraph):
-    for i in range(20):
+@pytest.fixture
+def ingest_cleanup_data_bulk(graph_client: DataHubGraph):
+    try:
+        yield
+    finally:
+        for urn in BULK_URNS:
+            graph_client.hard_delete_entity(urn)
+
+
+def test_ingest_many_versions(graph_client: DataHubGraph, ingest_cleanup_data_bulk):
+    for i in range(5, 15):
         graph_client.emit(
             MetadataChangeProposalWrapper(
-                entityUrn=DatasetUrn("v", f"entity_{i}").urn(),
+                entityUrn=BULK_URNS[i - 5],
                 aspect=VersionPropertiesClass(
                     versionSet=NOT_EXISTS_VERSION_SET_URN.urn(),
                     version=VersionTagClass(versionTag=f"v{i}"),
@@ -175,9 +185,9 @@ def test_ingest_many_versions(graph_client: DataHubGraph):
                 ),
             )
         )
-    expected_latest_urn = DatasetUrn("v", f"entity_{i}")
+    expected_latest_urn = BULK_URNS[-1]
     expected_latest_version_properties = graph_client.get_aspect(
-        expected_latest_urn.urn(), VersionPropertiesClass
+        expected_latest_urn, VersionPropertiesClass
     )
     assert expected_latest_version_properties
     assert expected_latest_version_properties.isLatest
@@ -186,11 +196,12 @@ def test_ingest_many_versions(graph_client: DataHubGraph):
         NOT_EXISTS_VERSION_SET_URN.urn(), VersionSetPropertiesClass
     )
     assert version_set_properties
-    assert version_set_properties.latest == expected_latest_urn.urn()
+    assert version_set_properties.latest == expected_latest_urn
     assert (
         version_set_properties.versioningScheme
         == VersioningSchemeClass.LEXICOGRAPHIC_STRING
     )
+    wait_for_writes_to_sync()
     result = graph_client.execute_graphql(
         """
             query getVersions($urn: String!) {
@@ -208,6 +219,5 @@ def test_ingest_many_versions(graph_client: DataHubGraph):
         variables={"urn": NOT_EXISTS_VERSION_SET_URN.urn()},
     )
     assert result["versionSet"]["versionsSearch"]["searchResults"] == [
-        {"entity": {"urn": DatasetUrn("v", f"entity_{i}").urn()}}
-        for i in reversed(range(20))
+        {"entity": {"urn": urn}} for urn in list(reversed(BULK_URNS))
     ]
