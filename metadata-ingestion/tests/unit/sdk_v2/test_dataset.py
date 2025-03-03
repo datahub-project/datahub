@@ -113,6 +113,10 @@ def _build_complex_dataset() -> Dataset:
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
+        links=[
+            "https://example.com/doc1",
+            ("https://example.com/doc2", "Documentation 2"),
+        ],
         tags=[
             TagUrn("tag1"),
             TagUrn("tag2"),
@@ -177,6 +181,12 @@ def _build_complex_dataset() -> Dataset:
     )
     assert d["field2"].terms is not None
     assert len(d["field2"].terms) == 2
+
+    # Add assertions for links
+    assert d.links is not None
+    assert len(d.links) == 2
+    assert d.links[0].url == "https://example.com/doc1"
+    assert d.links[1].url == "https://example.com/doc2"
 
     return d
 
@@ -369,3 +379,41 @@ def test_browse_path() -> None:
     assert d.browse_path == path
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_browse_path_golden.json")
+
+
+def test_links_add_remove() -> None:
+    d = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        schema=[
+            ("field1", "string"),
+            ("field2", "int64", "field2 description"),
+        ],
+        links=[
+            "https://example.com/doc1",
+            ("https://example.com/doc2", "Documentation 2"),
+        ],
+    )
+
+    # Test initial state
+    assert d.links is not None
+    assert len(d.links) == 2
+    assert d.links[0].url == "https://example.com/doc1"
+    assert d.links[0].description == "https://example.com/doc1"
+    assert d.links[1].url == "https://example.com/doc2"
+    assert d.links[1].description == "Documentation 2"
+
+    # Test link add/remove flows
+    for _ in range(2):  # Second iteration should be a no-op
+        d.add_link(("https://example.com/doc3", "Documentation 3"))
+        assert len(d.links) == 3
+        assert d.links[2].url == "https://example.com/doc3"
+        assert d.links[2].description == "Documentation 3"
+
+    for _ in range(2):  # Second iteration should be a no-op
+        d.remove_link("https://example.com/doc1")
+        assert len(d.links) == 2
+        assert d.links[0].url == "https://example.com/doc2"
+        assert d.links[1].url == "https://example.com/doc3"
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_links_add_remove_golden.json")
