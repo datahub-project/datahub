@@ -50,6 +50,7 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionTagClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 T = TypeVar("T")
 
@@ -84,6 +85,15 @@ class VertexAIConfig(EnvConfigMixin):
             logger.debug(
                 f"Creating temporary credential file at {self._credentials_path}"
             )
+
+
+class MLTypes(StrEnum):
+    # Generic SubTypes
+    TRAINING_JOB = "Training Job"
+    MODEL = "ML Model"
+    MODEL_GROUP = "ML Model Group"
+    ENDPOINT = "Endpoint"
+    DATASET = "Dataset"
 
 
 @platform_name("Vertex AI", id="vertexai")
@@ -137,12 +147,8 @@ class VertexAISource(Source):
         # TODO Fetch Experiments and Experiment Runs
 
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
-        container_key = ProjectIdKey(
-            project_id=self.config.project_id, platform=self.platform
-        )
-
         yield from gen_containers(
-            container_key=container_key,
+            container_key=self._get_project_container(),
             name=self.config.project_id,
             sub_types=["Project"],
         )
@@ -225,7 +231,7 @@ class VertexAISource(Source):
         )
 
         # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
-        # aspects.append(SubTypesClass(typeNames=["Training Job"]))
+        # aspects.append(SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]))
         # aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
 
         yield from auto_workunit(
@@ -280,7 +286,7 @@ class VertexAISource(Source):
                 externalUrl=self._make_job_external_url(job), id=job.name
             )
         )
-        aspects.append(SubTypesClass(typeNames=["Training Job"]))
+        aspects.append(SubTypesClass(typeNames=[MLTypes.TRAINING_JOB]))
 
         aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
 
@@ -395,7 +401,7 @@ class VertexAISource(Source):
             )
         )
 
-        aspects.append(SubTypesClass(typeNames=["Dataset"]))
+        aspects.append(SubTypesClass(typeNames=[MLTypes.DATASET]))
 
         # Create a container for Project as parent of the dataset
         aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
@@ -491,7 +497,7 @@ class VertexAISource(Source):
             )
         )
 
-        aspects.append(SubTypesClass(typeNames=["Endpoint"]))
+        aspects.append(SubTypesClass(typeNames=[MLTypes.ENDPOINT]))
 
         yield from auto_workunit(
             MetadataChangeProposalWrapper.construct_many(endpoint_urn, aspects=aspects)
