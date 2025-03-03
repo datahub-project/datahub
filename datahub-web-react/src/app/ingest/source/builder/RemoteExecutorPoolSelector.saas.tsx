@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Select } from 'antd';
+import { Input, Select } from 'antd';
 import {
     useGetDefaultRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
 } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { RemoteExecutorPool } from '@src/types.generated';
 import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '../../executor_saas/utils';
 
@@ -16,6 +17,9 @@ type Props = {
 };
 
 export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, placeholder = 'Select a pool' }: Props) {
+    const { config } = useAppConfig();
+    const isExecutorPoolEnabled = config?.featureFlags.displayExecutorPools;
+
     const [searchText, setSearchText] = useState('');
 
     const { data, loading } = useListRemoteExecutorPoolsQuery({
@@ -47,6 +51,17 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
     const handleSearch = (text: string) => {
         setSearchText(text);
     };
+
+    if (!isExecutorPoolEnabled) {
+        return (
+            <Input
+                placeholder={placeholder}
+                value={value || ''}
+                onChange={(event) => handleChange(event.target.value)}
+                onBlur={handleBlur}
+            />
+        );
+    }
 
     return (
         <Select

@@ -59,4 +59,5 @@ public class FeatureFlags {
   private boolean requestMinimalSlackPermissions = false;
   private boolean showTaskCenterRedesign = false;
   private boolean usePropagationsFramework = false;
+  private boolean displayExecutorPools = false;
 }

@@ -1333,6 +1333,11 @@ type FeatureFlagsConfig {
   If enabled, use general propagations framework over specialized propagations actions.
   """
   usePropagationsFramework: Boolean!
+
+  """
+  If enabled, show remote executor pools across the UI
+  """
+  displayExecutorPools: Boolean!
 }
 
 """

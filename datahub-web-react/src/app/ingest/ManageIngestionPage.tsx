@@ -67,7 +67,8 @@ export const ManageIngestionPage = () => {
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
 
     // TODO: For now remote executors privilege is tied to manage ingestion
-    const showRemoteExecutorsTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion; // Saas only
+    const showRemoteExecutorsTab =
+        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && config.featureFlags.displayExecutorPools; // Saas only
 
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const isShowNavBarRedesign = useShowNavBarRedesign();
