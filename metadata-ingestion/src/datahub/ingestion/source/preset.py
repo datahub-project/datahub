@@ -87,7 +87,6 @@ class PresetSource(SupersetSource):
 
         super().__init__(ctx, config)
         self.config = config
-        self.report = SupersetSourceReport()
         self.platform = "preset"
 
     def login(self):

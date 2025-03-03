@@ -149,8 +149,20 @@ class SupersetConfig(
         description="regex patterns for tables to filter to assign domain_key. ",
     )
     database_pattern: Optional[AllowDenyPattern] = Field(
-        default=None,
+        default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter out datasets in ingestion.",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for dataset to filter in ingestion.",
+    )
+    chart_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="Patterns for selecting chart names that are to be included",
+    )
+    dashboard_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="Patterns for selecting dashboard names that are to be included",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -319,16 +331,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
-        database_name = (
-            dataset_response.get("result", {}).get("database", {}).get("database_name")
-        )
-        database_name = self.config.database_alias.get(database_name, database_name)
+        platform = self.get_platform_from_database_id(database_id)
 
-        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
-        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
-        # redundant to systemically store them both in the URN.
-        if platform_instance in platform_without_databases:
-            database_name = None
+        database_name = self.get_processed_database_name(dataset_response, platform)
 
         if platform_instance == "druid" and schema_name == "druid":
             # Follow DataHub's druid source convention.
@@ -424,6 +429,15 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for dashboard_data in self.paginate_entity_api_results("dashboard", PAGE_SIZE):
             try:
+                dashboard_id = str(dashboard_data.get("id"))
+                dashboard_title = dashboard_data.get("dashboard_title", "")
+
+                if not self.config.dashboard_pattern.allowed(dashboard_title):
+                    self.report.report_dropped(
+                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
+                    )
+                    continue
+
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
@@ -436,7 +450,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
             yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
             yield from self._get_domain_wu(
-                title=dashboard_data.get("dashboard_title", ""),
+                title=dashboard_title,
                 entity_urn=dashboard_snapshot.urn,
             )
 
@@ -529,12 +543,30 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         for chart_data in self.paginate_entity_api_results("chart", PAGE_SIZE):
             try:
+                chart_id = str(chart_data.get("id"))
+                chart_name = chart_data.get("slice_name", "")
+
+                if not self.config.chart_pattern.allowed(chart_name):
+                    self.report.report_dropped(
+                        f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
+                    )
+                    continue
+
+                # Emit a warning if charts use data from a dataset that will be filtered out
+                datasource_id = chart_data.get("datasource_id")
+                if datasource_id:
+                    filter_key = self.get_database_filter_key(datasource_id)
+                    if filter_key:
+                        self.report.warning(
+                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset from {filter_key} which is filtered by database_pattern"
+                        )
+
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
             except Exception as e:
                 self.report.warning(
-                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
+                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('slice_name')}. Error: \n{e}"
                 )
                 continue
             # Emit the chart
@@ -662,19 +694,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
             try:
                 dataset_id = dataset_data.get("id")
-                dataset_response = self.get_dataset_info(dataset_id)
+                dataset_name = dataset_data.get("table_name", "")
 
-                database_name = (
-                    dataset_response.get("result", {})
-                    .get("database", {})
-                    .get("database_name", "")
-                )
+                # Check if dataset should be filtered by database
+                filter_key = self.get_database_filter_key(dataset_id)
+                if filter_key:
+                    self.report.report_dropped(
+                        f"Dataset '{dataset_name}' from {filter_key}"
+                    )
+                    continue
 
-                if (
-                    self.config.database_pattern
-                    and not self.config.database_pattern.allowed(database_name)
-                ):
-                    self.report.report_dropped(database_name)
+                # Check if dataset should be filtered by dataset name
+                if not self.config.dataset_pattern.allowed(dataset_name):
+                    self.report.report_dropped(
+                        f"Dataset '{dataset_name}' filtered by dataset_pattern"
+                    )
                     continue
 
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
@@ -711,6 +745,51 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
+
+    def get_database_filter_key(self, datasource_id) -> Optional[str]:
+        try:
+            dataset_response = self.get_dataset_info(datasource_id)
+            database_id = (
+                dataset_response.get("result", {}).get("database", {}).get("id")
+            )
+            platform = self.get_platform_from_database_id(database_id)
+            database_name = self.get_processed_database_name(dataset_response, platform)
+
+            filter_key = (
+                platform if platform in platform_without_databases else database_name
+            )
+
+            if (
+                self.config.database_pattern
+                and not self.config.database_pattern.allowed(filter_key)
+            ):
+                return filter_key
+
+            return None
+        except Exception as e:
+            self.report.warning(
+                f"Error checking database pattern for datasource {datasource_id}: {e}"
+            )
+            return None
+
+    def get_processed_database_name(self, dataset_response, platform) -> Optional[str]:
+        raw_database_name = (
+            dataset_response.get("result", {})
+            .get("database", {})
+            .get("database_name", "")
+        )
+
+        database_name = self.config.database_alias.get(
+            raw_database_name, raw_database_name
+        )
+
+        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
+        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
+        # redundant to systemically store them both in the URN.
+        if platform in platform_without_databases:
+            database_name = None
+
+        return database_name
 
     def _get_domain_wu(self, title: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
         domain_urn = None
