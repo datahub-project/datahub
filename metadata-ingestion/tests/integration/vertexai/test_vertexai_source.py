@@ -1,46 +1,36 @@
+import contextlib
 from pathlib import Path
 from typing import Any, Dict, List, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
-from _pytest.config import Config
 from google.cloud.aiplatform import Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.protobuf import timestamp_pb2
+from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
 
-
-@pytest.fixture
-def project_id() -> str:
-    return "test-project-id"
-
-
-@pytest.fixture
-def region() -> str:
-    return "us-west2"
-
+PROJECT_ID = "test-project-id"
+REGION = "us-west2"
 
 @pytest.fixture
 def sink_file_path(tmp_path: Path) -> str:
     return str(tmp_path / "vertexai_source_mcps.json")
 
 
-@pytest.fixture
-def pipeline_config(
-    project_id: str, region: str, sink_file_path: str
-) -> Dict[str, Any]:
+def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     source_type = "vertexai"
     return {
         "run_id": "vertexai-source-test",
         "source": {
             "type": source_type,
             "config": {
-                "project_id": project_id,
-                "region": region,
+                "project_id": PROJECT_ID,
+                "region": REGION,
             },
         },
         "sink": {
@@ -85,90 +75,54 @@ def mock_training_jobs() -> List[VertexAiResourceNoun]:
     return [mock_training_job]
 
 
-@patch("google.cloud.aiplatform.init")
-@patch("google.cloud.aiplatform.Model.list")
-@patch("google.cloud.aiplatform.datasets.TextDataset.list")
-@patch("google.cloud.aiplatform.datasets.TabularDataset.list")
-@patch("google.cloud.aiplatform.datasets.ImageDataset.list")
-@patch("google.cloud.aiplatform.datasets.TimeSeriesDataset.list")
-@patch("google.cloud.aiplatform.datasets.VideoDataset.list")
-@patch("google.cloud.aiplatform.CustomJob.list")
-@patch("google.cloud.aiplatform.CustomTrainingJob.list")
-@patch("google.cloud.aiplatform.CustomContainerTrainingJob.list")
-@patch("google.cloud.aiplatform.CustomPythonPackageTrainingJob.list")
-@patch("google.cloud.aiplatform.AutoMLTabularTrainingJob.list")
-@patch("google.cloud.aiplatform.AutoMLTextTrainingJob.list")
-@patch("google.cloud.aiplatform.AutoMLImageTrainingJob.list")
-@patch("google.cloud.aiplatform.AutoMLVideoTrainingJob.list")
-@patch("google.cloud.aiplatform.AutoMLForecastingTrainingJob.list")
 def test_vertexai_source_ingestion(
-    mock_automl_forecasting_job_list: List[VertexAiResourceNoun],
-    mock_automl_video_job_list: List[VertexAiResourceNoun],
-    mock_automl_image_list: List[VertexAiResourceNoun],
-    mock_automl_text_job_list: List[VertexAiResourceNoun],
-    mock_automl_tabular_job_list: List[VertexAiResourceNoun],
-    mock_custom_python_job_list: List[VertexAiResourceNoun],
-    mock_custom_container_job_list: List[VertexAiResourceNoun],
-    mock_custom_training_job_list: List[VertexAiResourceNoun],
-    mock_custom_job_list: List[VertexAiResourceNoun],
-    mock_video_ds_list: List[VertexAiResourceNoun],
-    mock_time_series_ds_list: List[VertexAiResourceNoun],
-    mock_image_ds_list: List[VertexAiResourceNoun],
-    mock_tabular_ds_list: List[VertexAiResourceNoun],
-    mock_text_ds_list: List[VertexAiResourceNoun],
-    mock_model_list: List[Model],
-    mock_init: MagicMock,
     pytestconfig: Config,
     sink_file_path: str,
-    pipeline_config: Dict[str, Any],
     mock_models: List[Model],
     mock_training_jobs: List[VertexAiResourceNoun],
 ) -> None:
-    assert hasattr(mock_model_list, "return_value")
-    mock_model_list.return_value = mock_models
-    assert hasattr(mock_text_ds_list, "return_value")
-    mock_text_ds_list.return_value = []
-    assert hasattr(mock_tabular_ds_list, "return_value")
-    mock_tabular_ds_list.return_value = []
-    assert hasattr(mock_image_ds_list, "return_value")
-    mock_image_ds_list.return_value = []
-    assert hasattr(mock_time_series_ds_list, "return_value")
-    mock_time_series_ds_list.return_value = []
-    assert hasattr(mock_video_ds_list, "return_value")
-    mock_video_ds_list.return_value = []
-    assert hasattr(mock_custom_job_list, "return_value")
-    mock_custom_job_list.return_value = mock_training_jobs
-    assert hasattr(mock_custom_training_job_list, "return_value")
-    mock_custom_training_job_list.return_value = []
-    assert hasattr(mock_custom_container_job_list, "return_value")
-    mock_custom_container_job_list.return_value = []
-    assert hasattr(mock_custom_python_job_list, "return_value")
-    mock_custom_python_job_list.return_value = []
-    assert hasattr(mock_automl_tabular_job_list, "return_value")
-    mock_automl_tabular_job_list.return_value = []
-    assert hasattr(mock_automl_text_job_list, "return_value")
-    mock_automl_text_job_list.return_value = []
-    assert hasattr(mock_automl_image_list, "return_value")
-    mock_automl_image_list.return_value = []
-    assert hasattr(mock_automl_video_job_list, "return_value")
-    mock_automl_video_job_list.return_value = []
-    assert hasattr(mock_automl_forecasting_job_list, "return_value")
-    mock_automl_forecasting_job_list.return_value = []
+    mocks = {}
+    with contextlib.ExitStack() as exit_stack:
+        for path_to_mock in [
+            "google.cloud.aiplatform.init",
+            "google.cloud.aiplatform.Model.list",
+            "google.cloud.aiplatform.datasets.TextDataset.list",
+            "google.cloud.aiplatform.datasets.TabularDataset.list",
+            "google.cloud.aiplatform.datasets.ImageDataset.list",
+            "google.cloud.aiplatform.datasets.TimeSeriesDataset.list",
+            "google.cloud.aiplatform.datasets.VideoDataset.list",
+            "google.cloud.aiplatform.CustomJob.list",
+            "google.cloud.aiplatform.CustomTrainingJob.list",
+            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
+            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
+        ]:
+            mock = exit_stack.enter_context(patch(path_to_mock))
+            if path_to_mock == "google.cloud.aiplatform.Model.list":
+                mock.return_value = mock_models
+            else:
+                mock.return_value = []
+            mocks[path_to_mock] = mock
 
-    golden_file_path = (
-        pytestconfig.rootpath / "tests/integration/vertexai/vertexai_mcps_golden.json"
-    )
+        golden_file_path = (
+            pytestconfig.rootpath
+            / "tests/integration/vertexai/vertexai_mcps_golden.json"
+        )
 
-    print(f"mcps file path: {str(sink_file_path)}")
-    print(f"golden file path: {str(golden_file_path)}")
+        print(f"mcps file path: {str(sink_file_path)}")
+        print(f"golden file path: {str(golden_file_path)}")
 
-    pipeline = Pipeline.create(pipeline_config)
-    pipeline.run()
-    pipeline.pretty_print_summary()
-    pipeline.raise_from_status()
+        pipeline = Pipeline.create(get_pipeline_config(sink_file_path))
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
 
-    mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig,
-        output_path=sink_file_path,
-        golden_path=golden_file_path,
-    )
+        mce_helpers.check_golden_file(
+            pytestconfig=pytestconfig,
+            output_path=sink_file_path,
+            golden_path=golden_file_path,
+        )
