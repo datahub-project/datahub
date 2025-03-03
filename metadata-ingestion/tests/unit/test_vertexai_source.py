@@ -237,7 +237,7 @@ def test_get_endpoint_workunit(
 def test_get_data_process_properties_workunit(
     source: VertexAISource, mock_training_job: VertexAiResourceNoun
 ) -> None:
-    for wu in source._generate_data_process_workunits(mock_training_job):
+    for wu in source._gen_data_process_workunits(mock_training_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
@@ -461,7 +461,7 @@ def test_real_model_workunit(
 def test_real_get_data_process_properties(
     source: VertexAISource, real_autoML_tabular_job: _TrainingJob
 ) -> None:
-    for wu in source._generate_data_process_workunits(real_autoML_tabular_job):
+    for wu in source._gen_data_process_workunits(real_autoML_tabular_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
