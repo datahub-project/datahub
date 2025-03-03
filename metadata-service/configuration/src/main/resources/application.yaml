@@ -736,15 +736,42 @@ cache:
           structuredPropertyKey: 86400 # 1 day
         chart:
           usageFeatures: 21600 # 6hrs
+          domains: 20
         dataset:
           usageFeatures: 21600 # 6hrs
           storageFeatures: 21600 # 6hrs
+          domains: 20
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+          domains: 20
         globalSettings:
           globalSettingsInfo: 60
         dataHubSecret:
           dataHubSecretValue: 600 # 10 min
+        domain:
+          domainProperties: 20
+        dataJob:
+          domains: 20
+        dataFlow:
+          domains: 20
+        notebook:
+          domains: 20
+        container:
+          domains: 20
+        glossaryTerm:
+          domains: 20
+        mlModel:
+          domains: 20
+        mlModelGroup:
+          domains: 20
+        mlFeatureTable:
+          domains: 20
+        mlFeature:
+          domains: 20
+        mlPrimaryKey:
+          domains: 20
+        dataProduct:
+          domains: 20
 
 graphQL:
   concurrency:
