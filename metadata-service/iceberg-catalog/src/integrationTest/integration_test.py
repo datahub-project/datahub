@@ -212,6 +212,9 @@ def test_iceberg_quick(spark_session, warehouse):
     _test_basic_view_ops(spark_session)
     _test_rename_ops(spark_session)
 
+    result = spark_session.sql("show namespaces")
+    assert (result[result["namespace"] == "default"].count() == 1)
+
 
 def _create_table(spark_session, ns, table_name):
     spark_session.sql("create namespace if not exists default")
@@ -221,12 +224,19 @@ def _create_table(spark_session, ns, table_name):
 
     spark_session.sql(f"insert into {ns}.{table_name} values (1, 'foo' ) ")
 
+    result = spark_session.sql("show namespaces")
+    assert (result[result["namespace"] == "default"].count() == 1)
+
+    result = spark_session.sql("show namespaces in default")
+    assert (result[result["namespace"] == f"{ns}"].count() == 1)
+
+
 
 def test_load_tables(spark_session, warehouse):
-    namespace_count = 3
-    table_count = 4
+    namespace_count = 2
+    table_count = 2
     for ns_index in range(namespace_count):
-        ns = f"default_ns{ns_index}"
+        ns = f"default.ns{ns_index}"
         for table_index in range(table_count):
             table_name = f"table_{table_index}"
             _create_table(spark_session, ns, table_name)
