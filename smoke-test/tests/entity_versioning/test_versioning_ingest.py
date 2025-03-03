@@ -1,5 +1,5 @@
 import pytest
-from consistency_utils import wait_for_writes_to_sync
+from tests.consistency_utils import wait_for_writes_to_sync
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
