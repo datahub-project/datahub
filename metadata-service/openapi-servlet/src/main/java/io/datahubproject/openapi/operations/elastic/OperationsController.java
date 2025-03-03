@@ -275,7 +275,7 @@ public class OperationsController {
             scrollId,
             keepAlive,
             size,
-            null);
+            List.of());
 
     return ResponseEntity.ok(response);
   }
@@ -385,8 +385,7 @@ public class OperationsController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     ExplainResponse responseB =
         searchService.explain(
@@ -398,8 +397,7 @@ public class OperationsController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     String a = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseA);
     String b = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseB);

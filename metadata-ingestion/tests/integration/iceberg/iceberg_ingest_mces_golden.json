@@ -11,16 +11,23 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "name": "taxis",
                         "customProperties": {
                             "owner": "root",
-                            "created-at": "2024-05-22T14:08:04.001538500Z",
+                            "created-at": "2025-02-28T22:28:42.803284675Z",
                             "write.format.default": "parquet",
                             "location": "s3a://warehouse/wh/nyc/taxis",
                             "format-version": "1",
                             "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                            "snapshot-id": "5259199139271057622",
-                            "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-5259199139271057622-1-24dca7b8-d437-458e-ae91-df1d3e30bdc8.avro"
+                            "snapshot-id": "7588721351475793452",
+                            "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-7588721351475793452-1-55e4dfe5-1478-4fda-a866-f03c24e643bb.avro"
+                        },
+                        "name": "taxis",
+                        "qualifiedName": "nyc.taxis",
+                        "created": {
+                            "time": 1740781722803
+                        },
+                        "lastModified": {
+                            "time": 1740781724377
                         },
                         "tags": []
                     }

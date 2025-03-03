@@ -1033,7 +1033,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             cll_nodes.add(dbt_name)
             schema_nodes.add(dbt_name)
 
-        for dbt_name in all_nodes_map.keys():
+        for dbt_name in all_nodes_map:
             if self._is_allowed_node(dbt_name):
                 add_node_to_cll_list(dbt_name)
 
