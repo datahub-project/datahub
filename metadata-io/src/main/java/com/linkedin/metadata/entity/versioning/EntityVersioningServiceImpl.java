@@ -98,14 +98,19 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
+
+      if (versionSetProperties.getVersioningScheme()
+          != VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB) {
+        throw new IllegalArgumentException(
+            "Only versioning scheme supported is ALPHANUMERIC_GENERATED_BY_DATAHUB");
+      }
+
       SystemAspect latestVersion =
           aspectRetriever.getLatestSystemAspect(
               versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
       VersionProperties latestVersionProperties =
           RecordUtils.toRecordTemplate(
               VersionProperties.class, latestVersion.getRecordTemplate().data());
-      // When more impls for versioning scheme are set up, this will need to be resolved to the
-      // correct scheme generation strategy
       sortId = AlphanumericSortIdGenerator.increment(latestVersionProperties.getSortId());
     }
 
@@ -137,9 +142,9 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
             .setComment(inputProperties.getComment(), SetMode.IGNORE_NULL)
             .setVersion(versionTag)
             .setMetadataCreatedTimestamp(opContext.getAuditStamp())
-            .setSortId(sortId);
+            .setSortId(sortId)
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB);
     if (inputProperties.getSourceCreationTimestamp() != null) {
-
       AuditStamp sourceCreatedAuditStamp =
           new AuditStamp().setTime(inputProperties.getSourceCreationTimestamp());
       Urn actor = null;
@@ -169,7 +174,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     IngestResult result =
         entityService.ingestProposal(
             opContext, versionPropertiesProposal, opContext.getAuditStamp(), false);
-    return List.of(result);
+    return result != null ? List.of(result) : List.of();
   }
 
   /**
