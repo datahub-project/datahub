@@ -244,7 +244,7 @@ class SchemaFieldSpecification(StrictModel):
 
         self.simplify_structured_properties()
 
-        return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
+        return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)  # type: ignore[misc]
 
 
 class SchemaSpecification(BaseModel):
@@ -370,7 +370,7 @@ class Dataset(StrictModel):
     def entity_references(self) -> List[str]:
         urn_prefix = f"{StructuredPropertyUrn.URN_PREFIX}:{StructuredPropertyUrn.LI_DOMAIN}:{StructuredPropertyUrn.ENTITY_TYPE}"
         references = []
-        if self.schema_metadata:
+        if self.schema_metadata and self.schema_metadata.fields:
             for field in self.schema_metadata.fields:
                 if field.structured_properties:
                     references.extend(
@@ -425,6 +425,7 @@ class Dataset(StrictModel):
                     raise ValueError(
                         "Either all fields must have type information or none of them should"
                     )
+
                 if all_fields_type_info_present:
                     update_technical_schema = True
                 else:
@@ -439,20 +440,39 @@ class Dataset(StrictModel):
                         hash="",
                         fields=[
                             SchemaFieldClass(
-                                fieldPath=field.id,
+                                fieldPath=field.id,  # type: ignore[arg-type]
                                 type=field.get_datahub_type(),
-                                nativeDataType=field.nativeDataType or field.type,
+                                nativeDataType=field.nativeDataType or field.type,  # type: ignore[arg-type]
                                 nullable=field.nullable,
                                 description=field.description,
                                 label=field.label,
-                                created=field.created,
-                                lastModified=field.lastModified,
+                                created=None,  # This should be auto-populated.
+                                lastModified=None,  # This should be auto-populated.
                                 recursive=field.recursive,
-                                globalTags=field.globalTags,
-                                glossaryTerms=field.glossaryTerms,
+                                globalTags=GlobalTagsClass(
+                                    tags=[
+                                        TagAssociationClass(tag=make_tag_urn(tag))
+                                        for tag in field.globalTags
+                                    ]
+                                )
+                                if field.globalTags is not None
+                                else None,
+                                glossaryTerms=GlossaryTermsClass(
+                                    terms=[
+                                        GlossaryTermAssociationClass(
+                                            urn=make_term_urn(term)
+                                        )
+                                        for term in field.glossaryTerms
+                                    ],
+                                    auditStamp=self._mint_auditstamp("yaml"),
+                                )
+                                if field.glossaryTerms is not None
+                                else None,
                                 isPartOfKey=field.isPartOfKey,
                                 isPartitioningKey=field.isPartitioningKey,
-                                jsonProps=field.jsonProps,
+                                jsonProps=json.dumps(field.jsonProps)
+                                if field.jsonProps is not None
+                                else None,
                             )
                             for field in self.schema_metadata.fields
                         ],
@@ -774,11 +794,12 @@ class Dataset(StrictModel):
             if "fields" in schema_data and isinstance(schema_data["fields"], list):
                 # Process each field using its custom dict method
                 processed_fields = []
-                for field in self.schema_metadata.fields:
-                    if field:
-                        # Use dict method for Pydantic v1
-                        processed_field = field.dict(**kwargs)
-                        processed_fields.append(processed_field)
+                if self.schema_metadata and self.schema_metadata.fields:
+                    for field in self.schema_metadata.fields:
+                        if field:
+                            # Use dict method for Pydantic v1
+                            processed_field = field.dict(**kwargs)
+                            processed_fields.append(processed_field)
 
                 # Replace the fields in the result with the processed ones
                 schema_data["fields"] = processed_fields
@@ -801,10 +822,10 @@ class Dataset(StrictModel):
         # Check which method exists in the parent class
         if hasattr(super(), "model_dump"):
             # For Pydantic v2
-            result = super().model_dump(exclude=exclude, **kwargs)
+            result = super().model_dump(exclude=exclude, **kwargs)  # type: ignore[misc]
         elif hasattr(super(), "dict"):
             # For Pydantic v1
-            result = super().dict(exclude=exclude, **kwargs)
+            result = super().dict(exclude=exclude, **kwargs)  # type: ignore[misc]
         else:
             # Fallback to __dict__ if neither method exists
             result = {k: v for k, v in self.__dict__.items() if k not in exclude}
@@ -817,16 +838,19 @@ class Dataset(StrictModel):
             if "fields" in schema_data and isinstance(schema_data["fields"], list):
                 # Process each field using its custom model_dump
                 processed_fields = []
-                for field in self.schema_metadata.fields:
-                    if field:
-                        # Call the appropriate serialization method on each field
-                        if hasattr(field, "model_dump"):
-                            processed_field = field.model_dump(**kwargs)
-                        elif hasattr(field, "dict"):
-                            processed_field = field.dict(**kwargs)
-                        else:
-                            processed_field = {k: v for k, v in field.__dict__.items()}
-                        processed_fields.append(processed_field)
+                if self.schema_metadata and self.schema_metadata.fields:
+                    for field in self.schema_metadata.fields:
+                        if field:
+                            # Call the appropriate serialization method on each field
+                            if hasattr(field, "model_dump"):
+                                processed_field = field.model_dump(**kwargs)
+                            elif hasattr(field, "dict"):
+                                processed_field = field.dict(**kwargs)
+                            else:
+                                processed_field = {
+                                    k: v for k, v in field.__dict__.items()
+                                }
+                            processed_fields.append(processed_field)
 
                 # Replace the fields in the result with the processed ones
                 schema_data["fields"] = processed_fields
@@ -849,7 +873,7 @@ class Dataset(StrictModel):
         # Set up ruamel.yaml for preserving comments
         yaml_handler = YAML(typ="rt")  # round-trip mode
         yaml_handler.default_flow_style = False
-        yaml_handler.preserve_quotes = True
+        yaml_handler.preserve_quotes = True  # type: ignore[assignment]
         yaml_handler.indent(mapping=2, sequence=2, offset=0)
 
         if file.exists():

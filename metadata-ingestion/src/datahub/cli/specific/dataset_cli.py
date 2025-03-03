@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 
 import click
 from click_default_group import DefaultGroup
@@ -130,7 +130,7 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
                 shutil.copyfile(file, temp_path)
 
                 # Run the linting
-                datasets = Dataset.from_yaml(temp_path)
+                datasets = Dataset.from_yaml(temp.name)
                 for dataset in datasets:
                     dataset.to_yaml(temp_path)
 
@@ -173,10 +173,13 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
 def sync(file: str, to_datahub: bool) -> None:
     """Sync a Dataset file to/from DataHub"""
 
-    failures = []
+    failures: List[str] = []
     with get_default_graph() as graph:
         datasets = Dataset.from_yaml(file)
         for dataset in datasets:
+            assert (
+                dataset.urn is not None
+            )  # Validator should have ensured this is filled. Tell mypy it's not None
             if to_datahub:
                 missing_entity_references = [
                     entity_reference
