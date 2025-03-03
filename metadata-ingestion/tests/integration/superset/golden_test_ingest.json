@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_owner1@example.com",
+                            "Owners": "test_owner1@example.com, test_owner2@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -34,7 +34,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner5@example.com"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
@@ -46,12 +46,16 @@
                             {
                                 "owner": "urn:li:corpuser:test_owner1@example.com",
                                 "type": "TECHNICAL_OWNER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
                             }
                         ],
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner5@example.com"
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -97,7 +101,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner4@example.com"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
@@ -114,7 +118,7 @@
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner4@example.com"
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
@@ -153,7 +157,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner5@example.com"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
@@ -171,7 +175,7 @@
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner5@example.com"
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -210,7 +214,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner3@example.com"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
@@ -228,7 +232,7 @@
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner3@example.com"
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
                 }
@@ -324,7 +328,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner1@example.com"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",
@@ -342,7 +346,7 @@
                         "ownerTypes": {},
                         "lastModified": {
                             "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
                 }
