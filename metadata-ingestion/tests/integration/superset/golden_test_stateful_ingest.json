@@ -14,7 +14,6 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "unknown",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -34,7 +33,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner6@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
@@ -60,7 +59,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -91,7 +90,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner6@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
@@ -118,7 +117,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -149,7 +148,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
@@ -176,7 +175,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -207,7 +206,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner4@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
@@ -234,7 +233,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -272,6 +271,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -321,7 +323,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -359,6 +361,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -408,7 +413,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -446,6 +451,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -495,7 +503,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -533,6 +541,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -582,7 +593,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -620,6 +631,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -669,7 +683,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -707,6 +721,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -756,7 +773,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -794,6 +811,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -843,7 +863,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -881,6 +901,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -930,7 +953,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -968,6 +991,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -1017,7 +1043,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1034,7 +1060,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1051,24 +1077,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(superset,2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1085,7 +1094,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1102,7 +1111,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-xp200l",
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-ybk2v3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

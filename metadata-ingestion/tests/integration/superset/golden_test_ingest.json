@@ -14,7 +14,6 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "unknown",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -34,7 +33,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner5@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
@@ -79,7 +78,6 @@
                         "customProperties": {
                             "Status": "draft",
                             "IsPublished": "false",
-                            "Owners": "unknown",
                             "IsCertified": "false"
                         },
                         "title": "test_dashboard_title_2",
@@ -97,7 +95,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner4@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
@@ -107,7 +105,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:",
+                                "owner": "urn:li:corpuser:test_owner4@example.com",
                                 "type": "TECHNICAL_OWNER"
                             }
                         ],
@@ -153,7 +151,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner5@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
@@ -210,7 +208,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner3@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
@@ -267,7 +265,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
@@ -324,7 +322,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",

@@ -370,7 +370,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             aspects=[Status(removed=False)],
         )
 
-        modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         modified_ts = int(
             dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
@@ -402,12 +402,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         custom_properties = {
             "Status": str(dashboard_data.get("status")),
             "IsPublished": str(dashboard_data.get("published", False)).lower(),
-            "Owners": ", ".join(
-                map(
-                    lambda owner: owner.get("username", "unknown"),
-                    dashboard_data.get("owners", []),
-                )
-            ),
             "IsCertified": str(
                 True if dashboard_data.get("certified_by") else False
             ).lower(),
@@ -474,7 +468,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             aspects=[Status(removed=False)],
         )
 
-        modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         modified_ts = int(
             dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
@@ -632,6 +626,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
@@ -667,9 +665,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
-            lastModified=(
-                TimeStamp(time=dataset.modified_ts) if dataset.modified_ts else None
-            ),
+            lastModified=TimeStamp(time=modified_ts),
             externalUrl=dataset_url,
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
