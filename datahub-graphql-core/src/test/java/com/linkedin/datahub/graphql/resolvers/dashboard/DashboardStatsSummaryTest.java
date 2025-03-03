@@ -124,6 +124,7 @@ public class DashboardStatsSummaryTest {
             any(OperationContext.class),
             Mockito.eq(TEST_DASHBOARD_URN),
             Mockito.eq(UsageTimeRange.MONTH),
+            Mockito.eq(null),
             Mockito.eq(null)))
         .thenThrow(RuntimeException.class);
 

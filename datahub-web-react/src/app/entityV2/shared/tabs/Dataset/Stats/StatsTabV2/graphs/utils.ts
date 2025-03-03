@@ -152,3 +152,47 @@ export function getStartTimeByWindowSize(window?: LookbackWindow): number | unde
 
     return getTimeWindowStart(endTimemillis, window.windowSize.interval, window.windowSize.count);
 }
+
+export function getCalendarStartTimeByTimeRange(time: number, range: TimeRange): number | undefined {
+    const dayjsTime = dayjs(time);
+
+    switch (range) {
+        case TimeRange.Day:
+            return dayjsTime.subtract(1, 'day').valueOf();
+        case TimeRange.Week:
+            return dayjsTime.subtract(1, 'week').valueOf();
+        case TimeRange.Month:
+            return dayjsTime.subtract(1, 'month').valueOf();
+        case TimeRange.Quarter:
+            return dayjsTime.subtract(3, 'months').valueOf();
+        case TimeRange.HalfYear:
+            return dayjsTime.subtract(6, 'months').valueOf();
+        case TimeRange.Year:
+            return dayjsTime.subtract(1, 'year').valueOf();
+        default:
+            return undefined;
+    }
+}
+
+export function roundTimeByTimeRange(time: number | undefined, range: TimeRange) {
+    if (time === undefined) return time;
+
+    const dayjsTime = dayjs(time);
+
+    switch (range) {
+        case TimeRange.Day:
+            return dayjsTime.startOf('day').valueOf();
+        case TimeRange.Week:
+            return dayjsTime.startOf('day').valueOf();
+        case TimeRange.Month:
+            return dayjsTime.startOf('day').valueOf();
+        case TimeRange.Quarter:
+            return dayjsTime.startOf('week').valueOf();
+        case TimeRange.HalfYear:
+            return dayjsTime.startOf('month').valueOf();
+        case TimeRange.Year:
+            return dayjsTime.startOf('month').valueOf();
+        default:
+            return dayjsTime.valueOf();
+    }
+}

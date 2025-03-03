@@ -119,7 +119,11 @@ public class DatasetStatsSummaryResolver
     // else compute usage features normally
     com.linkedin.usage.UsageQueryResult usageQueryResult =
         usageClient.getUsageStats(
-            context.getOperationContext(), resourceUrn.toString(), UsageTimeRange.MONTH, null);
+            context.getOperationContext(),
+            resourceUrn.toString(),
+            UsageTimeRange.MONTH,
+            null,
+            null);
     result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
     result.setUniqueUserCountLast30Days(usageQueryResult.getAggregations().getUniqueUserCount());
     if (usageQueryResult.getAggregations().hasUsers()) {

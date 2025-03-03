@@ -5,7 +5,7 @@ import {
     MAX_VALUE_AGGREGATION,
     SUM_VALUES_AGGREGATION,
     TimeInterval,
-} from '../utils';
+} from '../../utils';
 
 const barChartData = [
     {
