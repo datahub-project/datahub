@@ -43,14 +43,15 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
+    margin-left: 8px;
 `;
 
 const StyledLink = styled(Link)`
     display: flex
     height: 40px;
     align-items: center;
-    gap: 8px;
     max-width: calc(100% - 40px);
+    width: 100%;
 `;
 
 type Props = {
