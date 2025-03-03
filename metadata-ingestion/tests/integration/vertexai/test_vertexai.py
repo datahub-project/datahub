@@ -17,6 +17,7 @@ T = TypeVar("T")
 PROJECT_ID = "test-project-id"
 REGION = "us-west2"
 
+
 @pytest.fixture
 def sink_file_path(tmp_path: Path) -> str:
     return str(tmp_path / "vertexai_source_mcps.json")
@@ -81,9 +82,8 @@ def test_vertexai_source_ingestion(
     mock_models: List[Model],
     mock_training_jobs: List[VertexAiResourceNoun],
 ) -> None:
-    mocks = {}
     with contextlib.ExitStack() as exit_stack:
-        for path_to_mock in [
+        for func_to_mock in [
             "google.cloud.aiplatform.init",
             "google.cloud.aiplatform.Model.list",
             "google.cloud.aiplatform.datasets.TextDataset.list",
@@ -101,12 +101,11 @@ def test_vertexai_source_ingestion(
             "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
             "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
         ]:
-            mock = exit_stack.enter_context(patch(path_to_mock))
-            if path_to_mock == "google.cloud.aiplatform.Model.list":
+            mock = exit_stack.enter_context(patch(func_to_mock))
+            if func_to_mock == "google.cloud.aiplatform.Model.list":
                 mock.return_value = mock_models
             else:
                 mock.return_value = []
-            mocks[path_to_mock] = mock
 
         golden_file_path = (
             pytestconfig.rootpath
