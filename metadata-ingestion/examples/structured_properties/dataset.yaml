@@ -11,15 +11,12 @@
         io.acryl.dataManagement.deprecationDate: '2023-01-01'
         io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
         io.acryl.dataManagement.replicationSLA: 90.0
-      type: string
     - id: url
       structured_properties:
         io.acryl.dataManagement.deprecationDate: '2023-01-01'
-      type: string
     - id: locator.latitude
       structured_properties:
         io.acryl.dataManagement.deprecationDate: '2023-01-01'
-      type: float
   structured_properties: # dataset level structured properties go here
     io.acryl.privacy.retentionTime: 365
     projectNames:
