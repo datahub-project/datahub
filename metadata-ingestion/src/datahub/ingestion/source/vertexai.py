@@ -371,8 +371,8 @@ class VertexAISource(Source):
             model_version = self._search_model_version(model, model_version_str)
             if model and model_version:
                 logger.info(
-                    f" found a training job: {job.display_name} generated "
-                    f"a model (name:{model.display_name} id:{model_version_str})"
+                    f"Found output model (name:{model.display_name} id:{model_version_str}) "
+                    f"for training job: {job.display_name}"
                 )
                 yield from self._gen_ml_model_endpoint_workunits(
                     model, model_version, job_urn
@@ -486,9 +486,13 @@ class VertexAISource(Source):
                 aspect=DataProcessInstanceInputClass(inputs=[dataset_urn]),
             )
             logger.info(
-                f"Found input dataset ({dataset_name}) for training job ({job.display_name})"
+                f"Found the name of input dataset ({dataset_name}) with dataset id ({dataset_id})"
             )
             yield from auto_workunit([mcp])
+        else:
+            logger.error(
+                f"Unable to find the name of input dataset ({dataset_name}) with dataset id ({dataset_id})"
+            )
 
     def _gen_endpoint_workunits(
         self, endpoint: Endpoint, model: Model, model_version: VersionInfo
