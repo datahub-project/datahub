@@ -73,6 +73,7 @@ export default function RowCountGraph() {
                     data={data}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true }}
+                    margin={{ left: 50 }}
                     popoverRenderer={(datum: RowCountData) => (
                         <GraphPopover
                             header={dayjs(datum.x).format('dddd. MMM. D ’YY')}

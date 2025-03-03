@@ -27,7 +27,7 @@ export function groupTimeData<T>(
     interval: TimeInterval,
     timeAccessor: (datum: T) => string | number,
     valueAccessor: (datum: T) => number,
-    aggregationFuncttion: AggregationFunction,
+    aggregationFuncttion: AggregationFunction = LATEST_VALUE_AGGREGATION,
 ): TimeSeriesDatum[] {
     const aggregated: Record<number, number[]> = {};
 
