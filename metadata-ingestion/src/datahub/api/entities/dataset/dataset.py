@@ -965,7 +965,7 @@ class Dataset(StrictModel):
 
 
 def _update_dict_preserving_comments(
-    target: Dict, source: Dict, optional_fields: List[str] = None
+    target: Dict, source: Dict, optional_fields: Optional[List[str]] = None
 ) -> None:
     """
     Updates a target dictionary with values from source, preserving comments and structure.
