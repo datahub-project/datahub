@@ -148,10 +148,6 @@ class SupersetConfig(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
     )
-    database_pattern: Optional[AllowDenyPattern] = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for databases to filter out datasets in ingestion.",
-    )
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion.",
@@ -553,13 +549,20 @@ class SupersetSource(StatefulIngestionSourceBase):
                     continue
 
                 # Emit a warning if charts use data from a dataset that will be filtered out
-                datasource_id = chart_data.get("datasource_id")
-                if datasource_id:
-                    filter_key = self.get_database_filter_key(datasource_id)
-                    if filter_key:
-                        self.report.warning(
-                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset from {filter_key} which is filtered by database_pattern"
+                if self.config.dataset_pattern != AllowDenyPattern.allow_all():
+                    datasource_id = chart_data.get("datasource_id")
+                    if datasource_id:
+                        dataset_response = self.get_dataset_info(datasource_id)
+                        dataset_name = dataset_response.get("result", {}).get(
+                            "table_name", ""
                         )
+
+                        if dataset_name and not self.config.dataset_pattern.allowed(
+                            dataset_name
+                        ):
+                            self.report.warning(
+                                f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
+                            )
 
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
@@ -693,16 +696,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
         for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
             try:
-                dataset_id = dataset_data.get("id")
                 dataset_name = dataset_data.get("table_name", "")
-
-                # Check if dataset should be filtered by database
-                filter_key = self.get_database_filter_key(dataset_id)
-                if filter_key:
-                    self.report.report_dropped(
-                        f"Dataset '{dataset_name}' from {filter_key}"
-                    )
-                    continue
 
                 # Check if dataset should be filtered by dataset name
                 if not self.config.dataset_pattern.allowed(dataset_name):
@@ -745,32 +739,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
-
-    def get_database_filter_key(self, datasource_id) -> Optional[str]:
-        try:
-            dataset_response = self.get_dataset_info(datasource_id)
-            database_id = (
-                dataset_response.get("result", {}).get("database", {}).get("id")
-            )
-            platform = self.get_platform_from_database_id(database_id)
-            database_name = self.get_processed_database_name(dataset_response, platform)
-
-            filter_key = (
-                platform if platform in platform_without_databases else database_name
-            )
-
-            if (
-                self.config.database_pattern
-                and not self.config.database_pattern.allowed(filter_key)
-            ):
-                return filter_key
-
-            return None
-        except Exception as e:
-            self.report.warning(
-                f"Error checking database pattern for datasource {datasource_id}: {e}"
-            )
-            return None
 
     def get_processed_database_name(self, dataset_response, platform) -> Optional[str]:
         raw_database_name = (

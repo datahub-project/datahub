@@ -11,7 +11,6 @@ def test_default_values():
     assert config.env == "PROD"
     assert config.api_key is None
     assert config.api_secret is None
-    assert config.database_pattern == AllowDenyPattern.allow_all()
     assert config.dataset_pattern == AllowDenyPattern.allow_all()
     assert config.chart_pattern == AllowDenyPattern.allow_all()
     assert config.dashboard_pattern == AllowDenyPattern.allow_all()
