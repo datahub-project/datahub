@@ -47,7 +47,7 @@ public class GetDefaultRemoteExecutorPoolResolverTest {
     EntityResponse response = new EntityResponse();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     RemoteExecutorPoolGlobalConfig config = new RemoteExecutorPoolGlobalConfig();
-    config.setDefaultPoolName(DEFAULT_POOL_NAME);
+    config.setDefaultExecutorPoolId(DEFAULT_POOL_NAME);
 
     // Create a map to represent the aspect
     Aspect aspect = new Aspect(config.data());

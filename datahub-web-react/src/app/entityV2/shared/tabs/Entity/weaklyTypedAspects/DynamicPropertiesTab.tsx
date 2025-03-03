@@ -25,7 +25,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
             width: 210,
             title: 'Name',
             dataIndex: 'key',
-            sorter: (a, b) => a?.key.localeCompare(b?.key || '') || 0,
+            sorter: (a, b) => a?.key?.localeCompare(b?.key || '') || 0,
             defaultSortOrder: 'ascend',
             render: (name: string) => <NameText>{name}</NameText>,
         },

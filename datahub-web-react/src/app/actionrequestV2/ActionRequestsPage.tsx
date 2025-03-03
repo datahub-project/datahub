@@ -9,6 +9,10 @@ const PageContainer = styled.div`
     padding-top: 20px;
     background-color: white;
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 `;
 
 const PageHeaderContainer = styled.div`

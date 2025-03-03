@@ -7,6 +7,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import YAML from 'yamljs';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
 import { EntityType, ExecutionRequestResult, FacetMetadata } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
@@ -158,6 +159,10 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === DUPLICATE && ANTD_GRAY[9]) ||
         ANTD_GRAY[7]
     );
+};
+
+export const checkIsExecutionRequestRunning = (executionRequestResult?: Maybe<ExecutionRequestResult>): boolean => {
+    return !executionRequestResult || executionRequestResult.status === RUNNING;
 };
 
 export const validateURL = (fieldName: string) => {

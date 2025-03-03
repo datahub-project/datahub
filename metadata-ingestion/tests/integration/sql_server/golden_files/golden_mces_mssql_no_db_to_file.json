@@ -112,11 +112,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "f5a6c120-500a-4300-9b21-0c3225af1f80",
+                "job_id": "2fc72675-0c68-4260-ab00-c361b96c8c36",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-12-30 19:59:24.690000",
-                "date_modified": "2024-12-30 19:59:24.690000",
+                "date_created": "2025-01-31 08:02:41.167000",
+                "date_modified": "2025-01-31 08:02:41.360000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2279,8 +2279,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-12-30 19:59:24.690000",
-                "date_modified": "2024-12-30 19:59:24.690000"
+                "date_created": "2025-01-31 08:02:40.980000",
+                "date_modified": "2025-01-31 08:02:40.980000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -2329,8 +2329,8 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2024-12-30 19:59:24.690000",
-                "date_modified": "2024-12-30 19:59:24.690000"
+                "date_created": "2025-01-31 08:02:40.987000",
+                "date_modified": "2025-01-31 08:02:40.987000"
             },
             "name": "DemoData.Foo.NewProc",
             "type": {
@@ -4969,7 +4969,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1735588784503,
+                "time": 1738310563767,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -5092,7 +5092,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1735588784511,
+                "time": 1738310563770,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }

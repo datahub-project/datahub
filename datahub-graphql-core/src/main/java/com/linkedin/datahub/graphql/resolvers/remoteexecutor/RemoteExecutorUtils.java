@@ -22,7 +22,9 @@ public class RemoteExecutorUtils {
       final EntityClient entityClient, OperationContext opContext) throws Exception {
     final RemoteExecutorPoolGlobalConfig config =
         tryGetExecutorPoolGlobalConfig(entityClient, opContext);
-    return config != null ? config.getDefaultPoolName() : null;
+    return config != null && config.hasDefaultExecutorPoolId()
+        ? config.getDefaultExecutorPoolId()
+        : null;
   }
 
   @Nullable
@@ -57,9 +59,9 @@ public class RemoteExecutorUtils {
       globalConfig = new RemoteExecutorPoolGlobalConfig();
     }
     if (poolName == null) {
-      globalConfig.removeDefaultPoolName();
+      globalConfig.removeDefaultExecutorPoolId();
     } else {
-      globalConfig.setDefaultPoolName(poolName);
+      globalConfig.setDefaultExecutorPoolId(poolName);
     }
     entityClient.ingestProposal(
         opContext,

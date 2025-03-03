@@ -94,9 +94,12 @@ include ':metadata-operation-context'
 include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
+include ':metadata-service:iceberg-catalog'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
+
+
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
@@ -110,6 +113,11 @@ buildCache {
 }
 
 def installPreCommitHooks() {
+    try {
+        def process = ["git", "config", "--unset-all", "core.hooksPath"].execute()
+    } catch (Exception e) {
+        println "Error removing core.hooksPath: ${e.message}"
+    }
     def preCommitInstalled = false
     try {
         def process = ["which", "pre-commit"].execute()
@@ -136,7 +144,7 @@ def installPreCommitHooks() {
             println "Install output: ${stdout}"
         } catch (Exception e) {
             println "Error installing pre-commit: ${e.message}"
-            return 
+            return
         }
     }
 

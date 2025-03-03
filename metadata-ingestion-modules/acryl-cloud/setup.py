@@ -24,7 +24,7 @@ plugins = {
     | aws_common
     | {
         "opensearch-py==2.4.2",
-        "polars==1.19.0",
+        "polars==1.23.0",
         "elasticsearch==7.13.4",
         "numpy<2",
         "scipy<=1.14.1",
@@ -73,6 +73,7 @@ setup(
                 "datahub-metadata-sharing = acryl_datahub_cloud.datahub_metadata_sharing.metadata_sharing_source:DataHubMetadataSharingSource",
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
                 "datahub-restore = acryl_datahub_cloud.datahub_restore.source:DataHubRestoreSource",
+                "datahub-action-request-owner = acryl_datahub_cloud.action_request.action_request_owner_source:ActionRequestOwnerSource",
             ],
         },
         "include_package_data": True,

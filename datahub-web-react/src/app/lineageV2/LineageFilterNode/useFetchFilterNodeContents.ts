@@ -20,9 +20,13 @@ interface Return {
 
 export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection, skip: boolean): Return {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { hideTransformations } = useContext(LineageNodesContext);
+    const { hideTransformations, showDataProcessInstances } = useContext(LineageNodesContext);
 
-    const orFilters = computeOrFilters([{ field: DEGREE_FILTER_NAME, values: ['1'] }], hideTransformations);
+    const orFilters = computeOrFilters(
+        [{ field: DEGREE_FILTER_NAME, values: ['1'] }],
+        hideTransformations,
+        showDataProcessInstances,
+    );
     const { data } = useAggregateAcrossLineageQuery({
         skip,
         fetchPolicy: 'cache-first',

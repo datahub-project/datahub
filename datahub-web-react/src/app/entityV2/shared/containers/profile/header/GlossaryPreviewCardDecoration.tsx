@@ -29,7 +29,7 @@ const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
 
 export const GlossaryPreviewCardDecoration = ({ urn, entityData, displayProperties }: Props) => {
     const parentNodeCount = entityData?.parentNodes?.count || 0;
-    const urnText = parentNodeCount === 0 ? urn : entityData?.parentNodes?.nodes[parentNodeCount - 1].urn || '';
+    const urnText = parentNodeCount === 0 ? urn : entityData?.parentNodes?.nodes[parentNodeCount - 1]?.urn || '';
     const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urnText);
 
     return <GlossaryItemRibbon color={glossaryColor} />;

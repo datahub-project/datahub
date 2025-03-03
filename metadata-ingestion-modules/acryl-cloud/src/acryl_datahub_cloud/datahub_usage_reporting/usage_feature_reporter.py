@@ -172,6 +172,15 @@ class DataHubUsageFeatureReportingSourceConfig(
         description="Flag to enable polars streaming mode.'",
     )
 
+    # Running the whole pipeline in streaming mode was very unstable in the past.
+    # It seems like with the latest version of Polars it is much more stable.
+    # This option is only needed here until we are sure that the streaming mode is stable.
+    # then we can remove it and control it with the streaming_mode option.
+    experimental_full_streaming: bool = Field(
+        False,
+        description="Flag to enable full streaming mode.'",
+    )
+
     disable_write_usage: bool = Field(
         True,
         description="Flag to disable write usage statistics collection.'",
@@ -299,6 +308,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         doc["_source"]["siblings"]
                         if "siblings" in doc["_source"] and doc["_source"]["siblings"]
                         else []
+                    ),
+                    "combinedSearchRankingMultiplier": (
+                        doc["_source"]["combinedSearchRankingMultiplier"]
+                        if "combinedSearchRankingMultiplier" in doc["_source"]
+                        and doc["_source"]["combinedSearchRankingMultiplier"]
+                        else None
                     ),
                     "isView": (
                         "View" in doc["_source"]["typeNames"]
@@ -544,9 +559,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             usageSearchScoreMultiplier=usage_search_score_multiplier,
             usageFreshnessScoreMultiplier=freshness_factor,
             customDatahubScoreMultiplier=regexp_factor,
-            combinedSearchRankingMultiplier=usage_search_score_multiplier
-            * freshness_factor
-            * regexp_factor,
+            # We make sure the combinedSearchRankingMultiplier is never less than 1
+            combinedSearchRankingMultiplier=max(
+                1, (usage_search_score_multiplier * freshness_factor * regexp_factor)
+            ),
         )
 
     def load_data_from_es(
@@ -968,7 +984,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
         num = 0
-        for row in lazy_frame.collect().to_struct():
+        for row in lazy_frame.collect(
+            streaming=self.config.experimental_full_streaming
+        ).to_struct():
             num += 1
 
             if "siblings" in row and row["siblings"]:
@@ -979,113 +997,68 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             )
 
             if "queries_rank_percentile" in row:
-                search_ranking_multipliers = self.search_score(
-                    urn=row["urn"],
-                    last_update_time=(
-                        row["last_modified_at"]
-                        if "last_modified_at" in row and row["last_modified_at"]
-                        else 0
-                    ),
-                    usage_percentile=(
-                        row["queries_rank_percentile"]
-                        if row["queries_rank_percentile"]
-                        else 0
-                    ),
+                # If usage data is missing we set the search ranking multipliers to 1
+                search_ranking_multipliers = (
+                    self.search_score(
+                        urn=row["urn"],
+                        last_update_time=row.get("last_modified_at", 0) or 0,
+                        usage_percentile=row.get("queries_rank_percentile", 0) or 0,
+                    )
+                    if row.get("queries_rank_percentile", 0)
+                    else SearchRankingMultipliers()
                 )
             elif "viewsCount30Days_rank_percentile" in row:
-                search_ranking_multipliers = self.search_score(
-                    urn=row["urn"],
-                    last_update_time=(
-                        row["last_modified_at"]
-                        if "last_modified_at" in row and row["last_modified_at"]
-                        else 0
-                    ),
-                    usage_percentile=(
-                        row["viewsCount30Days_rank_percentile"]
-                        if row["viewsCount30Days_rank_percentile"]
-                        else 0
-                    ),
+                # If usage data is missing we set the search ranking multipliers to 1
+                search_ranking_multipliers = (
+                    self.search_score(
+                        urn=row["urn"],
+                        last_update_time=row.get("last_modified_at", 0) or 0,
+                        usage_percentile=row.get("viewsCount30Days_rank_percentile", 0)
+                        or 0,
+                    )
+                    if row.get("viewsCount30Days_rank_percentile", 0)
+                    else SearchRankingMultipliers()
                 )
                 logger.debug(f"Urn: {row['urn']} Score: {search_ranking_multipliers}")
 
             usage_feature = UsageFeaturesClass(
-                queryCountLast30Days=(
-                    int(row["totalSqlQueries"])
-                    if "totalSqlQueries" in row and row["totalSqlQueries"]
-                    else 0
-                ),
-                usageCountLast30Days=(
-                    int(row["totalSqlQueries"])
-                    if "totalSqlQueries" in row and row["totalSqlQueries"]
-                    else 0
-                ),
-                queryCountRankLast30Days=(
-                    int(row["queries_rank"])
-                    if "queries_rank" in row and row["queries_rank"] is not None
-                    else None
-                ),
-                queryCountPercentileLast30Days=(
-                    int(row["queries_rank_percentile"])
-                    if "queries_rank_percentile" in row
-                    and row["queries_rank_percentile"]
-                    else 0
-                ),
+                queryCountLast30Days=int(row.get("totalSqlQueries", 0) or 0),
+                usageCountLast30Days=int(row.get("totalSqlQueries", 0) or 0),
+                queryCountRankLast30Days=int(row.get("queries_rank"))
+                if row.get("queries_rank")
+                else None,
+                queryCountPercentileLast30Days=row.get("queries_rank_percentile", 0)
+                or 0,
                 # queryCountPercentileLast30Days=int(
                 #   row["queries_rank_percentile"]) if "queries_rank_percentile" in row and row[
                 #   "queries_rank_percentile"] else 0,
                 topUsersLast30Days=(
-                    list(chain.from_iterable(row["top_users"]))
-                    if row["top_users"]
+                    list(chain.from_iterable(row.get("top_users")))
+                    if row.get("top_users")
                     else None
                 ),
-                uniqueUserCountLast30Days=(
-                    int(row["distinct_user"]) if row["distinct_user"] else 0
+                uniqueUserCountLast30Days=int(row.get("distinct_user", 0) or 0),
+                uniqueUserRankLast30Days=int(row.get("distinct_user_rank"))
+                if row.get("distinct_user_rank")
+                else None,
+                uniqueUserPercentileLast30Days=int(
+                    row.get("distinct_user_rank_percentile", 0) or 0
                 ),
-                uniqueUserRankLast30Days=(
-                    int(row["distinct_user_rank"])
-                    if "distinct_user_rank" in row
-                    and row["distinct_user_rank"] is not None
-                    else None
-                ),
-                uniqueUserPercentileLast30Days=(
-                    int(row["distinct_user_rank_percentile"])
-                    if "distinct_user_rank_percentile" in row
-                    and row["distinct_user_rank_percentile"]
-                    else 0
-                ),
-                writeCountLast30Days=(
-                    int(row["write_count"])
-                    if "write_count" in row and row["write_count"]
-                    else 0
-                    if not self.config.disable_write_usage
-                    else None
-                ),
-                writeCountPercentileLast30Days=(
-                    int(row["write_rank_percentile"])
-                    if "write_count" in row and row["write_rank_percentile"]
-                    else 0
-                    if not self.config.disable_write_usage
-                    else None
-                ),
-                writeCountRankLast30Days=(
-                    int(row["write_rank"])
-                    if "write_rank" in row and row["write_rank"]
-                    else None
-                ),
-                viewCountTotal=(
-                    int(row["viewsTotal"])
-                    if "viewsTotal" in row and row["viewsTotal"]
-                    else 0
-                ),
-                viewCountLast30Days=(
-                    int(row["viewsCount30Days"])
-                    if "viewsCount30Days" in row and row["viewsCount30Days"]
-                    else 0
-                ),
-                viewCountPercentileLast30Days=(
-                    int(row["viewsCount30Days_rank_percentile"])
-                    if "viewsCount30Days_rank_percentile" in row
-                    else 0
+                writeCountLast30Days=int(row.get("write_rank_percentile", 0) or 0)
+                if not self.config.disable_write_usage
+                else None,
+                writeCountPercentileLast30Days=int(
+                    row.get("write_rank_percentile", 0) or 0
+                )
+                if not self.config.disable_write_usage
+                else None,
+                writeCountRankLast30Days=int(row.get("write_rank") or 0)
+                if not self.config.disable_write_usage
+                else None,
+                viewCountTotal=int(row.get("viewsTotal", 0) or 0),
+                viewCountLast30Days=int(row.get("viewsCount30Days", 0) or 0),
+                viewCountPercentileLast30Days=int(
+                    row.get("viewsCount30Days_rank_percentile", 0) or 0
                 ),
                 usageSearchScoreMultiplier=search_ranking_multipliers.usageSearchScoreMultiplier,
                 usageFreshnessScoreMultiplier=search_ranking_multipliers.usageFreshnessScoreMultiplier,
@@ -1095,11 +1068,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
             yield from self.generate_usage_feature_mcp(row["urn"], usage_feature)
 
-            if (
-                "siblings" in row
-                and row["siblings"]
-                and self.config.sibling_usage_enabled
-            ):
+            if row.get("siblings") and self.config.sibling_usage_enabled:
                 for sibling in row["siblings"]:
                     if dbt_platform_regexp.match(sibling):
                         yield from self.generate_usage_feature_mcp(
@@ -1114,26 +1083,15 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             num += 1
 
             query_usage_features = QueryUsageFeaturesClass(
-                queryCountLast30Days=(
-                    int(row["totalSqlQueries"])
-                    if "totalSqlQueries" in row and row["totalSqlQueries"]
-                    else 0
-                ),
+                queryCountLast30Days=int(row.get("totalSqlQueries", 0) or 0),
                 queryCountTotal=None,  # This is not implemented
-                runsPercentileLast30days=(
-                    int(row["queries_rank_percentile"])
-                    if "queries_rank_percentile" in row
-                    and row["queries_rank_percentile"]
-                    else 0
+                runsPercentileLast30days=int(
+                    row.get("queries_rank_percentile", 0) or 0
                 ),
-                lastExecutedAt=(
-                    int(row["last_modified_at"])
-                    if "last_modified_at" in row and row["last_modified_at"]
-                    else 0
-                ),
+                lastExecutedAt=int(row.get("last_modified_at", 0)),
                 topUsersLast30Days=(
-                    list(chain.from_iterable(row["top_users"]))
-                    if row["top_users"]
+                    list(chain.from_iterable(row.get("top_users", [])))
+                    if row.get("top_users")
                     else None
                 ),
                 queryCostLast30Days=None,  # Not implemented yet
@@ -1180,16 +1138,17 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_dashboard_chart_usage(
         self, entity_index: str, usage_index: str
     ) -> polars.LazyFrame:
-        soft_deleted_schema = {
+        entity_schema = {
             "entity_urn": polars.Categorical,
             "removed": polars.Boolean,
             "last_modified_at": polars.Int64,
             "siblings": polars.List(polars.String),
+            "combinedSearchRankingMultiplier": polars.Float64,
             "isView": polars.Boolean,
         }
 
-        soft_deleted_df = self.load_data_from_es_to_lf(
-            schema=soft_deleted_schema,
+        entities_df = self.load_data_from_es_to_lf(
+            schema=entity_schema,
             index=entity_index,
             query=QueryBuilder.get_dataset_entities_query(),
             process_function=self.soft_deleted_batch,
@@ -1220,7 +1179,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
 
         lf = (
-            lf.join(soft_deleted_df, left_on="urn", right_on="entity_urn", how="inner")
+            lf.join(entities_df, left_on="urn", right_on="entity_urn", how="inner")
             .filter(polars.col("removed") == False)  # noqa: E712
             .drop(["removed"])
         )
@@ -1268,8 +1227,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             )
             .drop(["first_viewsCount"])
         )
-        lf = views_sum_with_top_users.join(incremental_views_sum, on="urn", how="left")
-        lf = lf.with_columns(
+        views_with_inceremental_sum = views_sum_with_top_users.join(
+            incremental_views_sum, on="urn", how="left"
+        )
+        total_views = views_with_inceremental_sum.with_columns(
             polars.when(
                 polars.col("total_user_count")
                 .is_null()
@@ -1280,11 +1241,54 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             .alias("viewsCount30Days")
         )
 
-        lf = self.gen_rank_and_percentile(
-            lf, "viewsCount30Days", "urn", "platform", "viewsCount30Days_"
+        total_views_with_rank_and_percentiles = self.gen_rank_and_percentile(
+            total_views, "viewsCount30Days", "urn", "platform", "viewsCount30Days_"
+        ).drop(["siblings_right"])
+
+        total_views_with_rank_and_percentiles_with_zeroed_stale_usages = (
+            self.generate_empty_usage_for_stale_entities(
+                entities_df, total_views_with_rank_and_percentiles
+            )
         )
 
-        return lf
+        return total_views_with_rank_and_percentiles_with_zeroed_stale_usages
+
+    def generate_empty_usage_for_stale_entities(
+        self, entities_lf: polars.LazyFrame, usages_lf: polars.LazyFrame
+    ) -> polars.LazyFrame:
+        # We need to merge datasets with existing search scores to make sure we can downrank them if there were no usage in the last n days
+        # We drop last_modified_at to not use it in merge because we are getting last_modified_at from the usage index
+        df_with_search_scores = (
+            entities_lf.filter(
+                polars.col("combinedSearchRankingMultiplier")
+                .is_not_null()
+                # We only want to downrank datasets that have a search score multiplier greater than 1. 1 is the minimum score of a dataset
+                .and_(polars.col("combinedSearchRankingMultiplier").ne(1))
+            )  # noqa: E712
+            .filter(polars.col("removed") == False)  # noqa: E712
+            .drop(["removed"])
+            .drop(["last_modified_at"])
+            # We set this to 0 because we want to downrank datasets that have no usage
+            .with_columns(polars.lit(0).alias("combinedSearchRankingMultiplier"))
+            .rename({"entity_urn": "urn"})
+        )
+        common_fields = list(
+            set(usages_lf.columns).intersection(set(df_with_search_scores.columns))
+        )
+        usages_lf = df_with_search_scores.join(
+            usages_lf, on="urn", how="full", suffix="_right"
+        )
+        ## Merge all common fields automatically
+        for common_field in common_fields:
+            right_col = f"{common_field}_right"
+            usages_lf = usages_lf.with_columns(
+                [
+                    polars.col(common_field)
+                    .fill_null(polars.col(right_col))
+                    .alias(common_field)
+                ]
+            ).drop(right_col)
+        return usages_lf
 
     def generate_query_usage(self) -> polars.LazyFrame:
         usage_index = "query_queryusagestatisticsaspect_v1"
@@ -1365,14 +1369,19 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         # Polaris/pandas join merges the join column into one column and that's why we need to filter based on the removed column
         lf = (
-            lf.join(datasets_lf, left_on="urn", right_on="entity_urn", how="inner")
+            lf.join(datasets_lf, left_on="urn", right_on="entity_urn", how="left")
             .filter(polars.col("removed") == False)  # noqa: E712
             .drop(["removed"])
         )
+
         total_queries = lf.group_by("urn", "platform").agg(
             polars.col("totalSqlQueries").sum(),
             polars.col("last_modified_at").max().alias("last_modified_at"),
             polars.col("siblings").first().alias("siblings"),
+        )
+
+        total_queries = self.generate_empty_usage_for_stale_entities(
+            datasets_lf, total_queries
         )
 
         top_users = self.generate_top_users(lf)
@@ -1510,6 +1519,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             "removed": polars.Boolean,
             "last_modified_at": polars.Int64,
             "siblings": polars.List(polars.String),
+            "combinedSearchRankingMultiplier": polars.Float64,
             "isView": polars.Boolean,
         }
 

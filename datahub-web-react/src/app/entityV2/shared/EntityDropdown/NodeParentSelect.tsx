@@ -13,7 +13,7 @@ export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'GlossaryNode' &&
-        !entity.parentNodes?.nodes.some((node) => node.urn === entityUrn)
+        !entity.parentNodes?.nodes?.some((node) => node.urn === entityUrn)
     );
 }
 

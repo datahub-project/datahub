@@ -112,7 +112,6 @@ public class ListIngestionSourcesResolver
               result.setIngestionSources(
                   IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
               return result;
-
             } catch (Exception e) {
               throw new RuntimeException("Failed to list ingestion sources", e);
             }

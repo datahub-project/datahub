@@ -277,6 +277,12 @@ public class MappingsBuilder {
         .getNumValuesFieldName()
         .ifPresent(
             fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
+
+    if (ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).get();
+      mappings.put(modifiedAtFieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE));
+    }
+
     mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;

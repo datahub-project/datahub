@@ -105,6 +105,20 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         }
     };
 
+    const onConfirmDelete = (link) => {
+        Modal.confirm({
+            title: `Delete Link '${link?.description}'`,
+            content: `Are you sure you want to remove this Link?`,
+            onOk() {
+                handleDeleteLink(link);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     return entityData ? (
         <>
             <Modal
@@ -164,7 +178,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
                                         <DeleteOutlined />
                                     </Button>
                                 </>

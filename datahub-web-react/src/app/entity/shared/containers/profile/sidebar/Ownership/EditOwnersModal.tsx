@@ -355,6 +355,8 @@ export const EditOwnersModal = ({
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
             open
+            // Matching the z-index with the dropdown
+            zIndex={1050}
             onCancel={onModalClose}
             keyboard
             footer={

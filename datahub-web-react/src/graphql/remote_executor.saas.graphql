@@ -1,0 +1,99 @@
+mutation updateDefaultRemoteExecutorPool($urn: String!) {
+    updateDefaultRemoteExecutorPool(urn: $urn)
+}
+
+mutation createRemoteExecutorPool($input: CreateRemoteExecutorPoolInput!) {
+    createRemoteExecutorPool(input: $input)
+}
+
+mutation updateRemoteExecutorPool($input: UpdateRemoteExecutorPoolInput!) {
+    updateRemoteExecutorPool(input: $input)
+}
+
+query getDefaultRemoteExecutorPool {
+    defaultRemoteExecutorPool {
+        pool {
+            executorPoolId
+        }
+    }
+}
+
+query getRemoteExecutor($urn: String!) {
+    getRemoteExecutor(urn: $urn) {
+        urn
+        executorPoolId
+    }
+}
+
+query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
+    listRemoteExecutorPools(input: { start: $start, count: $count, query: $query }) {
+        start
+        count
+        total
+        remoteExecutorPools {
+            urn
+            executorPoolId
+            description
+            createdAt
+            isDefault
+            isEmbedded
+            # we query for 10k executors since customers usually only have 1 in a pool, rarely scale to even 10
+            remoteExecutors(start: 0, count: 10000) {
+                total
+                count
+                remoteExecutors {
+                    urn
+                    reportedAt
+                    executorUptime
+                    executorExpired
+                    executorStopped
+                    executorInternal
+                    executorEmbedded
+                    executorReleaseVersion
+                    executorAddress
+                    executorHostname
+                    logDeliveryEnabled
+                    # we query for 25 recent executions since we only want to show the active stuff
+                    recentExecutions(start: 0, count: 25) {
+                        start
+                        count
+                        total
+                        executionRequests {
+                            urn
+                            id
+                            input {
+                                requestedAt
+                                actorUrn
+                                executorId
+                                source {
+                                    type
+                                    ingestionSource
+                                }
+                            }
+                            result {
+                                status
+                                startTimeMs
+                                durationMs
+                                executorInstanceId
+                                structuredReport {
+                                    type
+                                    serializedValue
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            # we query for 10k ingestion sources since customers usually only have <100 in a pool
+            ingestionSources(input: { start: 0, count: 10000, hideSystemSources: true }) {
+                total
+                count
+                ingestionSources {
+                    urn
+                    type
+                    name
+                }
+            }
+        }
+    }
+}

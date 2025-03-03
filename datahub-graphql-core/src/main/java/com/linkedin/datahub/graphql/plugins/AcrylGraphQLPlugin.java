@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.plugins;
 
 import static com.linkedin.datahub.graphql.AcrylConstants.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
@@ -22,19 +24,27 @@ import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.FormForActor;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.IngestionSourceSourceType;
+import com.linkedin.datahub.graphql.generated.ListExecutionRequestsInput;
+import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
 import com.linkedin.datahub.graphql.generated.RemoteExecutor;
 import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
+import com.linkedin.datahub.graphql.generated.RemoteExecutorPoolIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
@@ -84,7 +94,9 @@ import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
@@ -100,6 +112,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolve
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.GetActionRequestAssigneeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
@@ -115,9 +128,11 @@ import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.CreateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetDefaultRemoteExecutorPoolResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetRemoteExecutorResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorPoolsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
@@ -178,12 +193,14 @@ import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.MetadataTestClient;
+import graphql.schema.DataFetchingEnvironmentImpl;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
@@ -310,7 +327,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
-        QUERY_SCHEMA_FILE,
         REMOTE_EXECUTOR_SCHEMA_FILE);
   }
 
@@ -510,7 +526,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new UpdateDefaultRemoteExecutorPoolResolver(this.entityClient))
                 .dataFetcher(
                     "createRemoteExecutorPool",
-                    new CreateRemoteExecutorPoolResolver(this.entityClient)));
+                    new CreateRemoteExecutorPoolResolver(this.entityClient))
+                .dataFetcher(
+                    "updateRemoteExecutorPool",
+                    new UpdateRemoteExecutorPoolResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -519,6 +538,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         typeWiring ->
             typeWiring
                 .dataFetcher("listActionRequests", new ListActionRequestsResolver(entityClient))
+                .dataFetcher(
+                    "getActionRequestAssignee",
+                    new GetActionRequestAssigneeResolver(actionRequestService))
                 .dataFetcher(
                     "listRejectedActionRequests",
                     new ListRejectedActionRequestsResolver(entityClient, entityService))
@@ -550,6 +572,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "listRemoteExecutorPools",
                     new ListRemoteExecutorPoolsResolver(this.entityClient))
+                .dataFetcher("getRemoteExecutor", new GetRemoteExecutorResolver(this.entityClient))
                 .dataFetcher(
                     "defaultRemoteExecutorPool",
                     new GetDefaultRemoteExecutorPoolResolver(this.entityClient)));
@@ -1078,8 +1101,81 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "RemoteExecutorPool",
             typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "remoteExecutors", new ListRemoteExecutorsResolver(this.entityClient))
+                    .dataFetcher(
+                        "ingestionSources",
+                        environment -> {
+                          final String poolId =
+                              ((RemoteExecutorPool) environment.getSource()).getExecutorPoolId();
+                          final RemoteExecutorPoolIngestionSourcesInput input =
+                              bindArgument(
+                                  environment.getArgument("input"),
+                                  RemoteExecutorPoolIngestionSourcesInput.class);
+
+                          final List<FacetFilterInput> filterInputs =
+                              new ArrayList<>(
+                                  List.of(
+                                      FacetFilterInput.builder()
+                                          .setField("sourceExecutorId")
+                                          .setCondition(FilterOperator.EQUAL)
+                                          .setValues(List.of(poolId))
+                                          .build()));
+                          if (input.getHideSystemSources()) {
+                            filterInputs.add(
+                                FacetFilterInput.builder()
+                                    .setField("sourceType")
+                                    .setCondition(FilterOperator.EQUAL)
+                                    .setValues(List.of(IngestionSourceSourceType.SYSTEM.name()))
+                                    .setNegated(true)
+                                    .build());
+                          }
+                          final ListIngestionSourcesInput newInput =
+                              new ListIngestionSourcesInput();
+                          newInput.setFilters(filterInputs);
+                          newInput.setStart(input.getStart());
+                          newInput.setCount(input.getCount());
+                          return new ListIngestionSourcesResolver(this.entityClient)
+                              .get(
+                                  DataFetchingEnvironmentImpl.newDataFetchingEnvironment(
+                                          environment)
+                                      .arguments(Map.of("input", newInput))
+                                      .build());
+                        }))
+        .type(
+            "RemoteExecutor",
+            typeWiring ->
                 typeWiring.dataFetcher(
-                    "remoteExecutors", new ListRemoteExecutorsResolver(this.entityClient)))
+                    "recentExecutions",
+                    environment -> {
+                      final String executorInstanceId =
+                          UrnUtils.getUrn(((RemoteExecutor) environment.getSource()).getUrn())
+                              .getId();
+                      final List<FacetFilterInput> filterInputs =
+                          List.of(
+                              FacetFilterInput.builder()
+                                  .setField("executorInstanceId")
+                                  .setCondition(FilterOperator.EQUAL)
+                                  .setValues(List.of(executorInstanceId))
+                                  .build());
+
+                      final SortCriterion sortCriterion = new SortCriterion();
+                      sortCriterion.setSortOrder(SortOrder.DESCENDING);
+                      sortCriterion.setField("requestTimeMs");
+
+                      final ListExecutionRequestsInput input = new ListExecutionRequestsInput();
+                      input.setFilters(filterInputs);
+                      input.setStart(environment.getArgument("start"));
+                      input.setCount(environment.getArgument("count"));
+                      input.setSort(sortCriterion);
+
+                      return new ListExecutionRequestsResolver(this.entityClient)
+                          .get(
+                              DataFetchingEnvironmentImpl.newDataFetchingEnvironment(environment)
+                                  .arguments(Map.of("input", input))
+                                  .build());
+                    }))
         .type(
             "ListRemoteExecutorsResult",
             typeWiring ->

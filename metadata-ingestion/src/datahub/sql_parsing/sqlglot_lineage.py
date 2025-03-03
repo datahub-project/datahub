@@ -473,7 +473,7 @@ def _create_table_ddl_cll(
     return column_lineage
 
 
-def _select_statement_cll(  # noqa: C901
+def _select_statement_cll(
     statement: _SupportedColumnLineageTypes,
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,

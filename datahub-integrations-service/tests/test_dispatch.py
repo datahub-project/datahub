@@ -110,7 +110,7 @@ async def test_venv_simple(tmp_path: pathlib.Path) -> None:
     tmp_path.mkdir(exist_ok=True)
     await setup_venv(
         VenvConfig(
-            version="https://docs-website-7kcylvxa6-acryldata.vercel.app/",
+            version="https://b983b409.acryl-wheels.pages.dev/",
             main_plugin="snowflake",
         ),
         runner,

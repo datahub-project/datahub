@@ -8,6 +8,7 @@ export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
     isDisabled?: boolean;
     isIntermediate?: boolean;
     isRequired?: boolean;
+    onCheckboxChange?: () => void;
 }
 
 export interface CheckboxGroupProps {

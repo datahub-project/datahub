@@ -70,4 +70,20 @@ export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    ${HTTP_PROXY:-} ${HTTPS_PROXY:-} ${NO_PROXY:-} \
    -Dpidfile.path=/dev/null"
 
+JAR_PATH="/datahub-frontend/lib/datahub-web-react-datahub-web-react-assets.jar"
+if [ "${METICULOUS_ENABLED:-false}" = "true" ]; then
+  echo "Meticulous: Swapping index.html with index.dev.html in JAR..."
+  if [ -f "$JAR_PATH" ]; then
+    mkdir -p /tmp
+    cd /tmp
+    unzip "$JAR_PATH" public/index.dev.html
+    cp public/index.dev.html public/index.html
+    zip -u "$JAR_PATH" public/index.html
+    cd ..
+    echo "Meticulous: File swap complete"
+  else
+    echo "Meticulous: JAR not found at $JAR_PATH"
+  fi
+fi
+
 exec ./datahub-frontend/bin/datahub-frontend

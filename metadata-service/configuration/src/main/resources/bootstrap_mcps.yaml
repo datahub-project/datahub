@@ -7,10 +7,17 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v2
+      version: v3
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
+
+    - name: root-user-editable-info
+      version: v1
+      blocking: true
+      optional: true
+      async: false
+      mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
 
     - name: data-platforms
       version: v2
@@ -44,6 +51,13 @@ bootstrap:
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
 
+    - name: ingestion-datahub-action-request-owner
+      version: v1
+      optional: false
+      mcps_location: "bootstrap_mcps/ingestion-datahub-action-request-owner.yaml"
+      values_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_REVISION"
+
     - name: ingestion-datahub-usage-reporting
       version: v3
       optional: true
@@ -63,3 +77,9 @@ bootstrap:
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-metadata-sharing.yaml"
       values_env: "DATAHUB_METADATA_SHARING_BOOTSTRAP_VALUES"
+
+    - name: embedded-executor-pool
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/embedded-executor-pool.yaml"

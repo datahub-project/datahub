@@ -1350,6 +1350,12 @@ public class FormService extends BaseService {
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
 
     if (formAssociation != null) {
+      if (formAssociation.getIncompletePrompts().stream()
+          .anyMatch(prompt -> prompt.getId().equals(formPromptId))) {
+        // prompt is already set as incomplete. no action required
+        return null;
+      }
+
       FormPromptAssociation newPromptAssociation =
           new FormPromptAssociation()
               .setId(formPromptId)

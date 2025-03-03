@@ -4,6 +4,17 @@ const number = Math.floor(Math.random() * 100000);
 const name = `Example Name ${number}`;
 const email = `example${number}@example.com`;
 
+const setRemoteExecutorsUIFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        // Modify the response body directly
+        res.body.data.appConfig.featureFlags.displayExecutorPools = isOn;
+      });
+    }
+  });
+};
+
 const tryToSignUp = () => {
   cy.enterTextInTestId("email", email);
   cy.enterTextInTestId("name", name);
@@ -147,7 +158,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
       cy.visit(inviteLink);
       const { name, email } = tryToSignUp();
       registeredEmail = email;
-      cy.waitTextVisible("Welcome");
+      cy.waitTextVisible("Welcome back");
       cy.hideOnboardingTour();
       cy.waitTextVisible(name);
     });
@@ -161,10 +172,11 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("Verify new user can see ingestion and access Manage Ingestion tab", () => {
+    setRemoteExecutorsUIFlag(false);
     cy.clearCookies();
     cy.clearLocalStorage();
     signIn();
-    cy.waitTextVisible("Welcome");
+    cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.clickOptionWithText("Ingestion");
@@ -173,8 +185,8 @@ describe("Manage Ingestion and Secret Privileges", () => {
     cy.waitTextVisible("Manage Data Sources");
     cy.waitTextVisible("Sources");
     cy.get(".ant-tabs-nav-list").contains("Source").should("be.visible");
-    // We check 2 because remote executors management is tied to ingestion management
-    cy.get(".ant-tabs-tab").should("have.length", 2);
+    // We check 1 because remote executors management is tied to ingestion management, but is feature flagged off
+    cy.get(".ant-tabs-tab").should("have.length", 1);
   });
 
   it("Verify new user can see ingestion and access Manage Secret tab", () => {
@@ -186,7 +198,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
     editPolicy(platform_policy_name, "Secret", "Manage Secrets");
     cy.logout();
     signIn();
-    cy.waitTextVisible("Welcome");
+    cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.clickOptionWithText("Ingestion");

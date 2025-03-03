@@ -74,8 +74,10 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -163,6 +165,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+
   private final Map<String, Boolean> applySyncMclForSources;
 
   @Getter
@@ -260,8 +263,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
         } else {
           // Do not increment version with the incoming change (match existing version)
-          changeMCP.setNextAspectVersion(Long.valueOf(latestSystemMetadata.getVersion()));
-          changeSystemMetadata.setVersion(latestSystemMetadata.getVersion());
+          long matchVersion =
+              Optional.ofNullable(latestSystemMetadata.getVersion())
+                  .map(Long::valueOf)
+                  .orElse(rowNextVersion);
+          changeMCP.setNextAspectVersion(matchVersion);
+          changeSystemMetadata.setVersion(String.valueOf(matchVersion));
+          latestSystemMetadata.setVersion(String.valueOf(matchVersion));
         }
 
         // update previous - based on database aspect, populates MCL
@@ -1048,7 +1056,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         MetricUtils.counter(
                                 EntityServiceImpl.class, "batch_request_validation_exception")
                             .inc();
-                        throw new ValidationException(collectMetrics(exceptions).toString());
+                        collectMetrics(exceptions);
+                        throw new ValidationException(exceptions);
                       }
 
                       MetricUtils.counter(
@@ -1622,13 +1631,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
     // for all other types of events should use system metadata rather than the boolean param.
-    if (updateIndicesService != null
-        && (preProcessHooks.isUiEnabled()
-                && metadataChangeLog.getSystemMetadata() != null
-                && metadataChangeLog.getSystemMetadata().getProperties() != null
-                && UI_SOURCE.equals(
-                    metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))
-            || forcePreProcessIndices)) {
+    boolean isUISource =
+        preProcessHooks.isUiEnabled()
+            && metadataChangeLog.getSystemMetadata() != null
+            && metadataChangeLog.getSystemMetadata().getProperties() != null
+            && UI_SOURCE.equals(
+                metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE));
+    boolean syncIndexUpdate =
+        metadataChangeLog.getHeaders() != null
+            && metadataChangeLog
+                .getHeaders()
+                .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
+                .equalsIgnoreCase(Boolean.toString(true));
+
+    if (updateIndicesService != null && (isUISource || syncIndexUpdate || forcePreProcessIndices)) {
       updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
       return true;
     }
@@ -2053,7 +2069,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Urn entityUrn,
       AuditStamp auditStamp,
       AspectSpec aspectSpec) {
-    boolean isNoOp = Objects.equals(oldAspect, newAspect);
+    boolean isNoOp =
+        SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldAspect, newAspect);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
@@ -2552,7 +2569,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 1. Fetch the latest existing version of the aspect.
                   final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, true);
+                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {

@@ -257,7 +257,7 @@ export default class EntityRegistry {
     getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): Map<string, LineageAsset> | undefined {
         // TODO: Fold into entity registry?
         if (data?.__typename === 'Domain') {
-            return data?.dataProducts?.searchResults.reduce((obj, r) => {
+            return data?.dataProducts?.searchResults?.reduce((obj, r) => {
                 if (r.entity.__typename === 'DataProduct') {
                     const name = this.getDisplayName(r.entity.type, r.entity);
                     obj.set(name, { name, type: LineageAssetType.DataProduct, size: r.entity.entities?.total });
@@ -288,6 +288,11 @@ export default class EntityRegistry {
     getDisplayName<T>(type: EntityType, data: T): string {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.displayName(data);
+    }
+
+    getCreatedTime<T>(type: EntityType, data: T): number | undefined | null {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.createdTime?.(data);
     }
 
     getSidebarTabs(type: EntityType): EntitySidebarTab[] {

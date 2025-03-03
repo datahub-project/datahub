@@ -434,6 +434,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        created
         lastModified {
             time
             actor
@@ -1099,6 +1100,9 @@ fragment nonRecursiveMLModel on MLModel {
             urn
             name
             description
+            properties {
+                name
+            }
         }
         customProperties {
             key

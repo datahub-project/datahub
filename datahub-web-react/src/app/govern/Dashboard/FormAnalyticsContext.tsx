@@ -30,6 +30,11 @@ const timeSeries = [
         label: 'Last 365 days',
         tooltip: 'Forms assigned in the last year',
     },
+    {
+        key: 10000,
+        label: 'All Time',
+        tooltip: 'Forms assigned at any time in the past',
+    },
 ];
 
 // Define the context type
@@ -136,7 +141,7 @@ interface Props {
 // Provider component
 export const FormAnalyticsProvider = ({ children }: Props) => {
     const [tab, setTab] = useState<string>('overall');
-    const [series, setSeries] = useState<number>(7);
+    const [series, setSeries] = useState<number>(10000);
     const [selectedForm, setSelectedForm] = useState<string | undefined>();
     const [selectedAssignee, setSelectedAssignee] = useState<string | undefined>();
     const [selectedDomain, setSelectedDomain] = useState<string | undefined>();

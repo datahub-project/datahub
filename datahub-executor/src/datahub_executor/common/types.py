@@ -1335,6 +1335,8 @@ class FetcherConfig(PermissiveBaseModel):
 class ExecutionRequestStatus(PermissiveBaseModel):
     execution_request_id: str
     execution_request_urn: str
+    executor_id: str
+
     ingestion_source_urn: str
     raw_input_aspect: Dict
     raw_signal_aspect: Dict

@@ -86,6 +86,10 @@ public class IngestionResolverUtils {
       if (executionRequestInput.getActorUrn() != null) {
         inputResult.setActorUrn(executionRequestInput.getActorUrn().toString());
       }
+      if (executionRequestInput.hasExecutorId()) {
+        inputResult.setExecutorId(executionRequestInput.getExecutorId());
+      }
+
       result.setInput(inputResult);
     }
 
@@ -106,6 +110,9 @@ public class IngestionResolverUtils {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestSource result =
         new com.linkedin.datahub.graphql.generated.ExecutionRequestSource();
     result.setType(execRequestSource.getType());
+    if (execRequestSource.hasIngestionSource()) {
+      result.setIngestionSource(execRequestSource.getIngestionSource().toString());
+    }
     return result;
   }
 
@@ -119,6 +126,9 @@ public class IngestionResolverUtils {
     result.setReport(execRequestResult.getReport());
     if (execRequestResult.hasStructuredReport()) {
       result.setStructuredReport(mapStructuredReport(execRequestResult.getStructuredReport()));
+    }
+    if (execRequestResult.hasExecutorInstanceId()) { // SaaS only
+      result.setExecutorInstanceId(execRequestResult.getExecutorInstanceId());
     }
     return result;
   }

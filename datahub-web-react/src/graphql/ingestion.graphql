@@ -34,11 +34,13 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                     input {
                         requestedAt
                         actorUrn
+                        executorId
                     }
                     result {
                         status
                         startTimeMs
                         durationMs
+                        executorInstanceId # SaaS only
                         structuredReport {
                             type
                             serializedValue
@@ -47,6 +49,13 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 }
             }
         }
+    }
+}
+
+query getIngestionSourceName($urn: String!) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
     }
 }
 
@@ -80,6 +89,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                 urn
                 id
                 input {
+                    executorId
                     requestedAt
                     actorUrn
                     source {
@@ -90,6 +100,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                     status
                     startTimeMs
                     durationMs
+                    executorInstanceId # SaaS only
                     structuredReport {
                         type
                         serializedValue
@@ -109,6 +120,7 @@ query getIngestionExecutionRequest($urn: String!) {
                 type
             }
             actorUrn
+            executorId
             arguments {
                 key
                 value
@@ -119,6 +131,7 @@ query getIngestionExecutionRequest($urn: String!) {
             startTimeMs
             durationMs
             report
+            executorInstanceId # SaaS only
             structuredReport {
                 type
                 serializedValue

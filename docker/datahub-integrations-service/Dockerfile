@@ -25,9 +25,6 @@ COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 # Create a symbolic link for CA certificates. This is a workaround
 # to make duckdb work with the CA certificates in the image.
 RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
-RUN wget https://github.com/duckdb/duckdb/releases/download/v0.10.0/duckdb_cli-linux-amd64.zip && \
-    unzip duckdb_cli-linux-amd64.zip && \
-    chown -R datahub /datahub-ingestion
 
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 
@@ -45,13 +42,13 @@ USER datahub
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
-   UV_LINK_MODE=copy uv pip sync requirements.txt
+   UV_LINK_MODE=copy ./scripts/sync.sh --no-dev
 
 # Production Image Built From Build Image
 FROM build AS prod-install
 
 # For the production build, we build a wheel file statically.
-# In development mode, we build the file on-the-fly.
+# In development mode, we build it on-the-fly.
 RUN python -m build --wheel . --outdir static/prebuilt-dist/ && \
     python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/
 
@@ -66,7 +63,6 @@ FROM build AS dev-install
 # COPY ./datahub-actions/datahub-actions/setup.py /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
-
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install AS final

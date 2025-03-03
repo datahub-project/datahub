@@ -21,11 +21,13 @@ from tests.utils import (
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"
-ACRYL_MAIN_TEST_DATA_FILENAME = "acryl-main-data.json"
-ACRYL_MAIN_INCIDENT_DATA_FILENAME = "incidents_test.json"
+INCIDENT_DATA_FILENAME = "incidents_test.json"
 TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
 TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
+
+ACRYL_MAIN_TEST_DATA_FILENAME = "acryl-main-data.json"
+ACRYL_MAIN_INCIDENT_DATA_FILENAME = "incidents_test.json"
 
 HOME_PAGE_ONBOARDING_IDS: List[str] = [
     "global-welcome-to-datahub",
@@ -143,6 +145,9 @@ def ingest_data(auth_session, graph_client):
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
     ingest_time_lineage(graph_client)
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
     # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
     ingest_file_via_rest(
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_TEST_DATA_FILENAME}"
@@ -171,6 +176,10 @@ def ingest_cleanup_data(auth_session, graph_client):
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
     delete_urns(graph_client, get_time_lineage_urns())
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
+
     # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
     delete_urns_from_file(
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_TEST_DATA_FILENAME}"

@@ -52,6 +52,7 @@ export const dateFormat = (series) => {
     if (series === 30) format = 'MMM D'; // last 30 days
     if (series === 90) format = 'MMM D, YYYY'; // last 90 days
     if (series === 365) format = 'MMM YYYY'; // last 365 days
+    if (series === 10000) format = 'MMM YYYY'; // all time
     return format;
 };
 

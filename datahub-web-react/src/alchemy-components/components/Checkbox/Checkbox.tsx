@@ -28,6 +28,7 @@ export const Checkbox = ({
     isIntermediate = checkboxDefaults.isIntermediate,
     isRequired = checkboxDefaults.isRequired,
     setIsChecked = checkboxDefaults.setIsChecked,
+    onCheckboxChange,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -51,13 +52,14 @@ export const Checkbox = ({
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
+                        onCheckboxChange?.();
                     }
                 }}
             >
                 <StyledCheckbox
                     type="checkbox"
                     id="checked-input"
-                    checked={checked}
+                    checked={checked || isIntermediate || false}
                     disabled={isDisabled || false}
                     error={error || ''}
                     onChange={() => null}

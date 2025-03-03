@@ -1,0 +1,215 @@
+extend type Query {
+  listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
+  defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
+  getRemoteExecutor(urn: String!): RemoteExecutor
+}
+
+extend type Mutation {
+  """
+  Creates a remote executor pool and returns its urn
+  """
+  createRemoteExecutorPool(input: CreateRemoteExecutorPoolInput!): String!
+
+  """
+  Updates a remote executor pool
+  """
+  updateRemoteExecutorPool(input: UpdateRemoteExecutorPoolInput!): Boolean!
+
+  """
+  Updates the global default remote executor pool
+  """
+  updateDefaultRemoteExecutorPool(urn: String!): Boolean!
+}
+
+input CreateRemoteExecutorPoolInput {
+  """
+  The unique identifier of the pool
+  """
+  executorPoolId: String!
+
+  """
+  A human-readable description of the pool
+  """
+  description: String
+
+  """
+  Whether this is the default pool
+  """
+  isDefault: Boolean!
+}
+
+
+input UpdateRemoteExecutorPoolInput {
+  """
+  The unique identifier of the pool to be updated
+  """
+  urn: String!
+
+  """
+  A human-readable description of the pool
+  """
+  description: String
+}
+
+input ListRemoteExecutorPoolsInput {
+    start: Int!
+    count: Int!
+    query: String
+}
+
+type DefaultRemoteExecutorPoolResult {
+  pool: RemoteExecutorPool
+  # TODO: Audit Stamp
+}
+
+type ListRemoteExecutorPoolsResult {
+    remoteExecutorPools: [RemoteExecutorPool!]
+    start: Int!
+    count: Int!
+    total: Int!
+}
+
+type RemoteExecutorPool implements Entity {
+  """
+  The primary key of the Remote Executor Pool
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The unique identifier of the pool, derived from the urn
+  """
+  executorPoolId:  String!
+
+  """
+  A human-readable description of the pool
+  """
+  description: String
+
+  """
+  UTC-based timestamp of the date this pool was created
+  """
+  createdAt: Long!
+
+  """
+  Whether this is the default pool
+  """
+  isDefault: Boolean!
+
+  """
+  Whether this pool is embedded into DataHub's coordinator pod
+  """
+  isEmbedded: Boolean
+
+  """
+  The remote executors within this pool
+  """
+  remoteExecutors(start: Int!, count: Int!): ListRemoteExecutorsResult
+
+  """
+  The ingestion sources that are associated with this pool
+  """
+  ingestionSources(input: RemoteExecutorPoolIngestionSourcesInput!): ListIngestionSourcesResult
+}
+
+input RemoteExecutorPoolIngestionSourcesInput {
+    start: Int!
+    count: Int!
+    hideSystemSources: Boolean!
+}
+
+
+type ListRemoteExecutorsResult {
+    remoteExecutors: [RemoteExecutor!]
+    start: Int!
+    count: Int!
+    total: Int!
+}
+
+type RemoteExecutor implements Entity {
+  """
+  The primary key of the Remote Executor
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The unique identifier of the Remote Executor's pool
+  """
+  executorPoolId:  String!
+
+  """
+  Release Version (Tag) embedded into remote executor image
+  """
+  executorReleaseVersion: String!
+
+  """
+  IP address of the host where remote executor is running
+  """
+  executorAddress: String!
+
+  """
+  Hostname of the host where remote executor is running
+  """
+  executorHostname: String!
+
+  """
+  Uptime of the remote executor master process
+  """
+  executorUptime: Float!
+
+  """
+  Flag indicating whether remote executor status record is stale
+  This means executor no longer sends heartbeats and considered dead
+  """
+  executorExpired: Boolean!
+
+  """
+  Flag indicating whether remote executor is stopped, and properly reported its termination
+  """
+  executorStopped: Boolean!
+
+  """
+  Flag indicating whether remote executor is embedded into the coordinator pod
+  """
+  executorEmbedded: Boolean!
+
+  """
+  Flag indicating whether remote executor is Acryl managed executor
+  """
+  executorInternal: Boolean!
+
+  """
+  Flag indicating whether log delivery is enabled by the customer in the given
+  remote executor instance
+  """
+  logDeliveryEnabled: Boolean!
+
+  """
+  UTC-based timestamp of the last reported status
+  """
+  reportedAt: Long!
+
+  """
+  Active execution tasks that are associated with this executor instance
+  """
+  recentExecutions(start: Int!, count: Int!): IngestionSourceExecutionRequests
+}

@@ -17,8 +17,8 @@ class ThreadPoolExecutorWithQueueSizeLimit:
         self.active_threads: int = 0
         self.active_weight: float = 0.0
 
-        METRIC("THREAD_POOL_MAX_WORKERS", thread_pool_name=name).set(max_workers)
-        METRIC("THREAD_POOL_MAX_WEIGHT", thread_pool_name=name).set(1.0)
+        METRIC("WORKER_THREAD_POOL_MAX_THREADS", thread_pool_name=name).set(max_workers)
+        METRIC("WORKER_THREAD_POOL_MAX_WEIGHT", thread_pool_name=name).set(1.0)
 
     def get_active_thread_count(self) -> int:
         return self.active_threads
@@ -56,10 +56,10 @@ class ThreadPoolExecutorWithQueueSizeLimit:
                 self.active_weight -= current_weight
                 self.cond.notify()
 
-            METRIC("THREAD_POOL_ACTIVE_WORKERS", thread_pool_name=self.name).set(
+            METRIC("WORKER_THREAD_POOL_ACTIVE_THREADS", thread_pool_name=self.name).set(
                 self.active_threads
             )
-            METRIC("THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
+            METRIC("WORKER_THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
                 self.active_weight
             )
 
@@ -71,10 +71,10 @@ class ThreadPoolExecutorWithQueueSizeLimit:
             self.active_threads += 1
             self.active_weight += current_weight
 
-        METRIC("THREAD_POOL_ACTIVE_WORKERS", thread_pool_name=self.name).set(
+        METRIC("WORKER_THREAD_POOL_ACTIVE_THREADS", thread_pool_name=self.name).set(
             self.active_threads
         )
-        METRIC("THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
+        METRIC("WORKER_THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
             self.active_weight
         )
 

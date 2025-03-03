@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../../types.generated';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
-import { ProposalGroupTab } from './ProposalGroupTab';
+import { ProposalList } from './ProposalList';
 
 const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-nav {
@@ -90,7 +90,7 @@ export const Proposals = () => {
     const filteredActionRequestGroups = actionRequestGroups.filter((group) => group.name === actionRequestGroupName);
     const activeActionRequestGroup = filteredActionRequestGroups.length > 0 && filteredActionRequestGroups[0];
     const activeActionRequestGroupTabView = activeActionRequestGroup && (
-        <ProposalGroupTab assignee={activeActionRequestGroup.assignee} />
+        <ProposalList assignee={activeActionRequestGroup.assignee} />
     );
 
     return (

@@ -2,6 +2,12 @@
 Utils for proposal tests.
 """
 
+ACTION_REQUEST_ASSIGNEES = """
+query getActionRequestAssignee($input: GetActionRequestAssigneeInput!) {
+  getActionRequestAssignee(input: $input)
+}
+"""
+
 
 def execute_gql(auth_session, query, variables=None):
     """
@@ -18,3 +24,23 @@ def execute_gql(auth_session, query, variables=None):
     response.raise_for_status()
 
     return response.json()
+
+
+def validate_assignee_is_correct(auth_session, dataset_urn, request_type: str):
+    """
+    Validate that the assignee is correct.
+    """
+    assignees_res = execute_gql(
+        auth_session=auth_session,
+        query=ACTION_REQUEST_ASSIGNEES,
+        variables={
+            "input": {
+                "resourceUrn": dataset_urn,
+                "actionRequestType": "TAG_ASSOCIATION",
+            }
+        },
+    )
+    assignees = assignees_res["data"]["getActionRequestAssignee"]
+    assert "urn:li:corpuser:admin" in assignees
+    assert "urn:li:dataHubRole:Admin" in assignees
+    assert "urn:li:dataHubRole:Editor" in assignees

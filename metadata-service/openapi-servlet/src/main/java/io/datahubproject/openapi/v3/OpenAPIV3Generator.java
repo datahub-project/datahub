@@ -113,8 +113,6 @@ public class OpenAPIV3Generator {
             .nullable(true));
 
     // --> Aspect components
-    components.addSchemas(
-        ASPECTS + ASPECT_RESPONSE_SUFFIX, buildAspectsRefResponseSchema(entityRegistry));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -360,6 +358,12 @@ public class OpenAPIV3Generator {
                 .$ref(
                     String.format(
                         "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -534,7 +538,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m")),
+                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -710,43 +714,6 @@ public class OpenAPIV3Generator {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Generate schema for cross-entity scroll/list response
-   *
-   * @param entityRegistry entity registry
-   * @return schema
-   */
-  private static Schema buildAspectsRefResponseSchema(final EntityRegistry entityRegistry) {
-    final Schema result =
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .description(ASPECT_DESCRIPTION)
-            .required(List.of(PROPERTY_VALUE));
-
-    entityRegistry
-        .getAspectSpecs()
-        .values()
-        .forEach(
-            aspect ->
-                result.addProperty(
-                    PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspect.getName())));
-    result.addProperty(
-        NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
-    result.addProperty(
-        NAME_AUDIT_STAMP,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
-            .description("Audit stamp for the aspect.")
-            .nullable(true));
-    return result;
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {

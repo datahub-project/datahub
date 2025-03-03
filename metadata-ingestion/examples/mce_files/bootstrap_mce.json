@@ -3,52 +3,6 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-        "urn": "urn:li:corpuser:datahub",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-              "active": true,
-              "displayName": {
-                "string": "Data Hub"
-              },
-              "email": "datahub@linkedin.com",
-              "title": {
-                "string": "CEO"
-              },
-              "managerUrn": null,
-              "departmentId": null,
-              "departmentName": null,
-              "firstName": null,
-              "lastName": null,
-              "fullName": {
-                "string": "Data Hub"
-              },
-              "countryCode": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-              "status": "ACTIVE",
-              "lastModified": {
-                "time": 1674291843000,
-                "actor": "urn:li:corpuser:__datahub_system"
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
         "urn": "urn:li:corpuser:jdoe",
         "aspects": [
           {

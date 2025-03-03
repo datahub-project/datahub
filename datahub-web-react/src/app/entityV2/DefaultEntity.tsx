@@ -27,6 +27,8 @@ class DefaultEntity implements Entity<null> {
 
     displayName = (_data: null) => '';
 
+    createdTime = (_data: null) => undefined;
+
     getGenericEntityProperties = (_data: null) => null;
 
     supportedCapabilities = () => new Set([]);

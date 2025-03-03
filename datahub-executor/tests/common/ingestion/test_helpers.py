@@ -6,6 +6,7 @@ from datahub.metadata.schema_classes import GenericAspectClass, MetadataChangeLo
 from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
     RUN_INGEST_TASK_NAME,
 )
 from datahub_executor.common.ingestion.helpers import extract_execution_request
@@ -14,7 +15,7 @@ from datahub_executor.common.ingestion.helpers import extract_execution_request
 class TestExtractExecutionRequest:
     def setup_method(self) -> None:
         self.aspect_dict = {
-            "executorId": "default",
+            "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
             "task": RUN_INGEST_TASK_NAME,
             "source": {"ingestionSource": "my-ingestion-urn"},
             "args": {"recipe": "recipe-string", "version": "v1", "debug_mode": False},
@@ -76,4 +77,4 @@ class TestExtractExecutionRequest:
     def test_successful_extract(self) -> None:
         execution_request = extract_execution_request(self.event)
         assert execution_request is not None
-        assert execution_request.executor_id == "default"
+        assert execution_request.executor_id == DATAHUB_EXECUTOR_EMBEDDED_POOL_ID

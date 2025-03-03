@@ -1,6 +1,66 @@
 [
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": {
+            "viewCountLast30Days": 0,
+            "viewCountTotal": 0,
+            "viewCountPercentileLast30Days": 0,
+            "usageCountLast30Days": 0,
+            "queryCountLast30Days": 0,
+            "uniqueUserCountLast30Days": 0,
+            "writeCountLast30Days": 0,
+            "queryCountPercentileLast30Days": 0,
+            "uniqueUserPercentileLast30Days": 0,
+            "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 2,
+            "usageSearchScoreMultiplier": 1.0,
+            "usageFreshnessScoreMultiplier": 1.0,
+            "customDatahubScoreMultiplier": 1.0,
+            "combinedSearchRankingMultiplier": 1.0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vja70w",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage_with_score_less_than_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": {
+            "viewCountLast30Days": 0,
+            "viewCountTotal": 0,
+            "viewCountPercentileLast30Days": 0,
+            "usageCountLast30Days": 0,
+            "queryCountLast30Days": 0,
+            "uniqueUserCountLast30Days": 0,
+            "writeCountLast30Days": 0,
+            "queryCountPercentileLast30Days": 0,
+            "uniqueUserPercentileLast30Days": 0,
+            "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 2,
+            "usageSearchScoreMultiplier": 1.0,
+            "usageFreshnessScoreMultiplier": 1.0,
+            "customDatahubScoreMultiplier": 1.0,
+            "combinedSearchRankingMultiplier": 1.0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-vja70w",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_0,PROD)",
     "changeType": "UPSERT",
     "aspectName": "usageFeatures",
@@ -34,7 +94,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-hp6bou",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-fq9j15",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -73,7 +133,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-hp6bou",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-fq9j15",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -112,7 +172,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-hp6bou",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-fq9j15",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -146,12 +206,12 @@
             "usageSearchScoreMultiplier": 0.7,
             "usageFreshnessScoreMultiplier": 1.3,
             "customDatahubScoreMultiplier": 1.0,
-            "combinedSearchRankingMultiplier": 0.9099999999999999
+            "combinedSearchRankingMultiplier": 1
         }
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-hp6bou",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-78jjo0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -185,12 +245,12 @@
             "usageSearchScoreMultiplier": 0.7,
             "usageFreshnessScoreMultiplier": 1.3,
             "customDatahubScoreMultiplier": 1.0,
-            "combinedSearchRankingMultiplier": 0.9099999999999999
+            "combinedSearchRankingMultiplier": 1
         }
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-hp6bou",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-78jjo0",
         "lastRunId": "no-run-id-provided"
     }
 }

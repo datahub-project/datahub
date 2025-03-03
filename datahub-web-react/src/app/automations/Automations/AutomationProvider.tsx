@@ -7,6 +7,7 @@ import {
 } from '@graphql/actionPipeline.generated';
 import { ActionPipelineState, EntityType } from '@src/types.generated';
 import { useApolloClient } from '@apollo/client';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import { mapRecipeToFormState } from './utils/mapRecipeToFormState';
 import { openSuccessNotification, openErrorNotification } from './Notifications';
 import { mapFormStateToRecipe } from './utils/mapFormStateToRecipe';
@@ -184,7 +185,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             config: {
                 recipe: JSON.stringify(cleanRecipe(recipe)),
                 version: null,
-                executorId: formState.executorId || 'default',
+                executorId: formState.executorId || EMBEDDED_EXECUTOR_POOL_NAME,
                 debugMode: false,
             },
         };
@@ -222,7 +223,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             config: {
                 recipe: JSON.stringify(cleanRecipe(recipe)),
                 version: null,
-                executorId: formState.executorId || 'default',
+                executorId: formState.executorId || EMBEDDED_EXECUTOR_POOL_NAME,
                 debugMode: false,
             },
         };

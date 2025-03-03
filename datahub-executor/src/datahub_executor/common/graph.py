@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub_executor.common.constants import (
+    CLI_EXECUTOR_ID,
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
@@ -18,10 +19,13 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
     DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME,
     DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME,
 )
-from datahub_executor.common.types import ExecutionRequestStatus
+from datahub_executor.common.types import (
+    ExecutionRequestStatus,
+)
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_GRAPH_ES_BATCH_SIZE,
     DATAHUB_GMS_TOKEN,
@@ -103,6 +107,9 @@ class DataHubExecutorGraph(DataHubGraph):
             {
                 "execution_request_urn": entity.get("urn"),
                 "execution_request_id": key.get("id"),
+                "executor_id": input.get(
+                    "executorId", DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+                ),
                 "ingestion_source_urn": input.get("source", {}).get("ingestionSource"),
                 "status": result.get("status", "PENDING"),
                 "last_observed": last_observed,
@@ -167,7 +174,9 @@ class DataHubExecutorGraph(DataHubGraph):
         ):
             try:
                 ers = self._entity_to_execution_request_status(entry)
-                retval.append(ers)
+                # Exclude tasks created by CLI
+                if ers.executor_id != CLI_EXECUTOR_ID:
+                    retval.append(ers)
             except Exception as e:
                 logger.exception(f"Failed to parse execution request entry: {e}")
 
@@ -236,5 +245,10 @@ class DataHubExecutorGraph(DataHubGraph):
                 .get(DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME, {})
                 .get("value", {})
             )
-            retval[urn] = RemoteExecutorStatusClass.from_obj(status_dict)
+            try:
+                retval[urn] = RemoteExecutorStatusClass.from_obj(status_dict)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load RemoteExecutorStatus record with urn {urn}: {e}"
+                )
         return retval

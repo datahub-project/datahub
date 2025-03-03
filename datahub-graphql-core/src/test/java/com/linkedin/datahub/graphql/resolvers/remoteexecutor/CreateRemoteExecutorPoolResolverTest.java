@@ -50,7 +50,7 @@ public class CreateRemoteExecutorPoolResolverTest {
 
     // Setup input
     CreateRemoteExecutorPoolInput input = new CreateRemoteExecutorPoolInput();
-    input.setPoolName(TEST_POOL_NAME);
+    input.setExecutorPoolId(TEST_POOL_NAME);
     input.setIsDefault(false);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
@@ -105,7 +105,7 @@ public class CreateRemoteExecutorPoolResolverTest {
 
     // Setup input with isDefault=true
     CreateRemoteExecutorPoolInput input = new CreateRemoteExecutorPoolInput();
-    input.setPoolName(TEST_POOL_NAME);
+    input.setExecutorPoolId(TEST_POOL_NAME);
     input.setIsDefault(true);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
@@ -118,6 +118,29 @@ public class CreateRemoteExecutorPoolResolverTest {
     // Verify pool creation proposal, and default pool update
     verify(_entityClient, times(2))
         .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
+  }
+
+  @Test
+  public void testCreatePoolReserveWord() throws Exception {
+    // Mock permissions check
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+        .thenReturn(
+            new AuthorizationResult(
+                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+
+    // Setup input with isDefault=true
+    CreateRemoteExecutorPoolInput input = new CreateRemoteExecutorPoolInput();
+    input.setExecutorPoolId(
+        AcrylConstants.RESERVED_REMOTE_EXECUTOR_POOL_IDS.stream().findAny().get());
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    // Verify exception is thrown
+    assertThrows(RuntimeException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+
+    // Verify no interactions with entity client
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
   }
 
   @Test

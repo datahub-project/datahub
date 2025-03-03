@@ -58,7 +58,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                     label=""
                     countLabel="term"
                     onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
-                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0].term.properties?.name : ''}
+                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0]?.term?.properties?.name : ''}
                 />
             )}
             {showTagsBadge && tags && (

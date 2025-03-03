@@ -890,7 +890,7 @@ jobs:
     name: Build and Push DataHub Ingestion (Base) Docker Image
     runs-on: depot-ubuntu-22.04
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
     needs: setup
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -923,7 +923,7 @@ jobs:
     name: Build and Push DataHub Ingestion (Base-Slim) Docker Image
     runs-on: depot-ubuntu-22.04
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
     needs: [setup, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -939,13 +939,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' && (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and push Base-Slim Image
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -1021,7 +1014,7 @@ jobs:
     name: Build and Push DataHub Ingestion Docker Images
     runs-on: depot-ubuntu-22.04-small
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_base_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -1259,12 +1252,12 @@ jobs:
           cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
           
           includes=''
-          if [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            includes=$cypress_matrix
-          elif [ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]; then
-            includes=$python_matrix
-          elif [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' ]]; then
+          if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
+          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
+            includes="$cypress_matrix"
+          elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
+            includes="$python_matrix"
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
@@ -1523,6 +1516,11 @@ jobs:
             **/junit.*.xml
             !**/binary/**
           retention-days: 5
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
   sync_deployments:
     name: Sync ArgoCD deployments
     runs-on: depot-ubuntu-22.04-small
@@ -1562,7 +1560,9 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.integrations_service_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_slim_build]
-    if: ${{ needs.setup.outputs.integrations_service_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ always() &&
+          (needs.datahub_ingestion_slim_build.result == 'success' || needs.datahub_ingestion_slim_build.result == 'skipped') &&
+          (needs.setup.outputs.integrations_service_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Free up disk space
         run: |
@@ -1583,6 +1583,12 @@ jobs:
       - uses: gradle/gradle-build-action@v2
       - name: Build codegen
         run: ./gradlew :datahub-integrations-service:codegenPython
+      - uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Download datahub-ingestion-slim image
         uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
@@ -1680,7 +1686,9 @@ jobs:
     name: Build and Push DataHub Executor Docker Images
     runs-on: depot-ubuntu-22.04
     needs: [setup, datahub_ingestion_slim_build]
-    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
+    if: ${{ always() &&
+            (needs.datahub_ingestion_slim_build.result == 'success' || needs.datahub_ingestion_slim_build.result == 'skipped') &&
+            (needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' )) }}
     steps:
       - name: Free up disk space
         run: |
@@ -1689,11 +1697,6 @@ jobs:
           sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
-      - name: Download datahub-ingestion-slim image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' }}
@@ -1701,6 +1704,11 @@ jobs:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+      - name: Download datahub-ingestion-slim image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"

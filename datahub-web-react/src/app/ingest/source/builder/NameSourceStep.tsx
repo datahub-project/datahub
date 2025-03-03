@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
-import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector';
+import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector.saas';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -183,15 +183,15 @@ export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: 
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the name of the executor pool that should execute this ingestion recipe. This
-                                name is used to route execution requests of the recipe to the executor pool of the same
-                                name. The built-in DataHub executor name is &apos;default&apos;. Do not change this
-                                unless you have configured a remote or custom executor.
+                                Provide the id of the executor pool that should execute this ingestion recipe. This id
+                                is used to route execution requests of the recipe to the executor pool of the same id.
+                                The built-in DataHub executor pool id is &apos;default&apos;. Do not change this unless
+                                you have configured a remote or custom executor.
                             </Typography.Paragraph>
                             <RemoteExecutorPoolSelector
                                 value={state.config?.executorId || (isEditing ? '' : undefined)}
-                                onChange={(newPoolName) => setExecutorId(newPoolName)}
-                                onBlur={(newPoolName) => setExecutorId(newPoolName)}
+                                onChange={(newPoolId) => setExecutorId(newPoolId)}
+                                onBlur={(newPoolId) => setExecutorId(newPoolId)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>

@@ -52,7 +52,14 @@ import { EntityRegistry } from '../../../entityRegistryContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FieldType, FilterField, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
+import {
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterOptionType,
+    FilterPredicate,
+    FilterValueOption,
+} from './types';
 import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
 import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from './field/fields';
@@ -306,7 +313,7 @@ export function getFilterOptions(
 ) {
     const aggregationFilterOptions = aggregations.map((agg) => ({ field: filterField, ...agg }));
 
-    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions.find((suggestion) =>
+    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.find((suggestion) =>
         FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
     );
     const searchFilterOptions = searchResults?.entities
@@ -671,4 +678,14 @@ export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
         return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
     }
     return false;
+}
+
+export function getFilterDisplayName(option: FilterValueOption, field: FilterField) {
+    if (option.displayName) {
+        return option.displayName;
+    }
+
+    return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
+        ? getStructuredPropFilterDisplayName(field.field, option.value)
+        : undefined;
 }

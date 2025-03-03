@@ -67,6 +67,8 @@ public class ListActionRequestsResolver
     final ActionRequestType type = input.getType() == null ? null : input.getType();
     final ActionRequestStatus status = input.getStatus() == null ? null : input.getStatus();
     final ActionRequestAssignee assignee = input.getAssignee() == null ? null : input.getAssignee();
+    final boolean getAllActionRequests =
+        input.getAllActionRequests() == null ? false : input.getAllActionRequests();
     final Urn resourceUrn =
         input.getResourceUrn() == null ? null : UrnUtils.getUrn(input.getResourceUrn());
     final Long startTimestampMillis =
@@ -85,11 +87,13 @@ public class ListActionRequestsResolver
             if (assignee == null) {
               // Case 1: If no assignee filter provided, fall back to filtering for current user and
               // their groups.
-              actorUrn = Urn.createFromString(context.getActorUrn());
-              AssignedUrns groupAndRoleUrns =
-                  getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
-              groupUrns = groupAndRoleUrns.getGroupUrns();
-              roleUrns = groupAndRoleUrns.getRoleUrns();
+              if (!getAllActionRequests) {
+                actorUrn = Urn.createFromString(context.getActorUrn());
+                AssignedUrns groupAndRoleUrns =
+                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
+                groupUrns = groupAndRoleUrns.getGroupUrns();
+                roleUrns = groupAndRoleUrns.getRoleUrns();
+              }
             } else {
               // Case 2: Caller provided a user or group assignee filter.
               final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());

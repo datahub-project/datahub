@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+
+/**
+ * Key for a DataHub Metric Cube, e.g. an internal metric.
+ */
+@Aspect = {
+  "name": "dataHubMetricCubeKey",
+}
+record DataHubMetricCubeKey {
+  /**
+  * Unique id for the cube type.
+  */
+  id: string
+}

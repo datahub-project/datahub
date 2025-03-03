@@ -37,8 +37,8 @@ import org.testng.annotations.Test;
 
 public class RestoreFormInfoIndicesStepTest {
 
-  private static final String VERSION_1 = "1";
-  private static final String VERSION_2 = "2";
+  private static final String CURRENT_VERSION = "2";
+  private static final String NEW_VERSION = "3";
   private static final String FORM_INFO_UPGRADE_URN =
       String.format(
           "urn:li:%s:%s", Constants.DATA_HUB_UPGRADE_ENTITY_NAME, "restore-form-info-indices");
@@ -51,7 +51,7 @@ public class RestoreFormInfoIndicesStepTest {
     final OperationContext mockContext = mock(OperationContext.class);
     when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
-    mockGetUpgradeStep(mockContext, false, VERSION_1, mockService);
+    mockGetUpgradeStep(mockContext, false, CURRENT_VERSION, mockService);
     mockGetFormInfo(mockContext, formUrn, mockService);
 
     final AspectSpec aspectSpec = mockAspectSpecs(mockRegistry);
@@ -90,7 +90,7 @@ public class RestoreFormInfoIndicesStepTest {
     final OperationContext mockContext = mock(OperationContext.class);
     when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
-    mockGetUpgradeStep(mockContext, true, VERSION_2, mockService);
+    mockGetUpgradeStep(mockContext, true, NEW_VERSION, mockService);
     mockGetFormInfo(mockContext, formUrn, mockService);
 
     final AspectSpec aspectSpec = mockAspectSpecs(mockRegistry);
@@ -129,7 +129,7 @@ public class RestoreFormInfoIndicesStepTest {
     final OperationContext mockContext = mock(OperationContext.class);
     when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
-    mockGetUpgradeStep(mockContext, true, VERSION_1, mockService);
+    mockGetUpgradeStep(mockContext, true, CURRENT_VERSION, mockService);
     mockGetFormInfo(mockContext, formUrn, mockService);
 
     final AspectSpec aspectSpec = mockAspectSpecs(mockRegistry);

@@ -14,6 +14,7 @@ import {
     CodeOutlined,
     ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import {
     Assertion,
     AssertionResultType,
@@ -464,11 +465,11 @@ export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityU
 
     // Only embedded executors can run tests right now
     // If executorId is null, we'll assume it is an embedded executor.
-    // If the executorId starts with 'default', we assume it's an embedded executor
+    // If the executorId starts with ${EMBEDDED_EXECUTOR_POOL_NAME}, we assume it's an embedded executor
     // See setup docs: https://www.notion.so/acryldata/How-to-configure-Remote-Executor-e9ed044b438d4789afcd530952d73944?pvs=4#14237a6d6dd04fcfb2abd45f16c6d63c
     // and design docs:  https://www.notion.so/acryldata/Remote-Executor-V2-Design-593d41280c4a4e34805def00b3f47a65?pvs=4#fe2a4481fbe74f379eb35cd10546b3b8
     const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
-    return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith('default');
+    return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
 };
 
 /**

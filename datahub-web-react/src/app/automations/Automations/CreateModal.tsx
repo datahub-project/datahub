@@ -1,3 +1,4 @@
+import { AutomationTemplate } from '@app/automations/types';
 import React, { useState } from 'react';
 
 import { Modal } from 'antd';
@@ -17,27 +18,16 @@ import {
     AutomationLogo,
 } from './components';
 
-import { automationType as aiTermClassificationActionType } from '../recipes/glossaryTerm/glossaryTermAI';
 import { useIsFormDisabled } from './hooks';
 
 const SelectAutomationType = ({ setAutomation }: any) => {
-    const {
-        config: { classificationConfig },
-    } = useAppConfig();
-    const isSnowflakeEnabled = classificationConfig?.automations?.snowflake;
-    const isAiTermsEnabled = classificationConfig?.automations?.aiTermClassification;
+    const { config } = useAppConfig();
 
     return (
         <PremadeAutomations>
-            {templates.map((automation: any) => {
+            {templates.map((automation: AutomationTemplate) => {
                 // Check if automation is disabled
-                if (automation.isDisabled) return null;
-
-                // Automation feature flags.
-                // TODO: Add bigquery feature flag here.
-                if (automation.platform === 'snowflake' && !isSnowflakeEnabled) return null;
-                if (automation.type === aiTermClassificationActionType && !isAiTermsEnabled) return null;
-
+                if (automation.isDisabled?.(config)) return null;
                 return (
                     <PremadeAutomationCard key={automation.key} onClick={() => setAutomation(automation.key)}>
                         {automation.logo && <AutomationLogo src={automation.logo} alt={automation.name} />}

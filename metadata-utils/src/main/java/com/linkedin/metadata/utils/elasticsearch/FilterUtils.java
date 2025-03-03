@@ -1,11 +1,14 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -105,5 +108,23 @@ public class FilterUtils {
         String.format(
             "Illegal filter provided! Neither 'or' nor 'criteria' fields were populated for filter %s",
             filter));
+  }
+
+  @Nonnull
+  public static Filter createValuesFilter(
+      @Nonnull final String fieldName, @Nonnull final List<String> values) {
+    Filter filter = new Filter();
+    CriterionArray criterionArray = new CriterionArray();
+
+    StringArray valuesArray = new StringArray();
+    valuesArray.addAll(values);
+    Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, valuesArray);
+
+    criterionArray.add(criterion);
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+
+    return filter;
   }
 }

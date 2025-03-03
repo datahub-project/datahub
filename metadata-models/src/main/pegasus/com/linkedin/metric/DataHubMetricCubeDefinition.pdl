@@ -1,0 +1,50 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Urn
+
+/**
+ * The structure of an individual metric cube in DataHub.
+ */
+@Aspect = { "name": "dataHubMetricCubeDefinition" }
+record DataHubMetricCubeDefinition {
+  /**
+  *  Display name of the metric cube
+  */
+  @Searchable = {}
+  name: string
+
+  /**
+  * A type or category for the metric cube. This is used to categorize the metric cube & for filtering.
+  *
+  * This may be used to group similar types of metrics for a given entity, e.g. 'row_count', 'error_count', etc.
+  * that originated in different places.
+  */
+  @Searchable = {}
+  type: string = "custom"
+
+  /**
+  *  Optional description for the metric
+  */
+  description: optional string
+
+  /**
+  *  An optional URN for the entity that this metric cube is associated with.
+  */
+  @Searchable = {}
+  entity: optional Urn
+
+  /**
+   * The origin of the metric cube.
+   */
+  origin: DataHubMetricCubeOrigin
+
+  /**
+  *  Optional - The measures of the cube for display purposes.
+  */
+  measures: optional DataHubMetricCubeMeasures
+
+  /**
+  * Optional - The dimensions of the cube for display purposes.
+  */
+  dimensions: optional DataHubMetricCubeDimensions
+}

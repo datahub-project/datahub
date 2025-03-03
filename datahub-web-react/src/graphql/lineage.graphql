@@ -298,6 +298,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
         properties {
             propertiesName: name
             createdTS: created {
@@ -714,6 +717,9 @@ fragment entityLineageV2 on Entity {
         queryPlatform: platform {
             ...platformFields
         }
+    }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
     }
     ... on Domain {
         id
