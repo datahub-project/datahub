@@ -16,7 +16,6 @@ from datahub.metadata.urns import (
     ContainerUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
     DomainInputType,
     HasContainer,
@@ -33,6 +32,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Auto, auto
 
 
