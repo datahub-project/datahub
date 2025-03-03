@@ -10,6 +10,7 @@
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
                 "number_of_partitions": "1"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
             "created": {

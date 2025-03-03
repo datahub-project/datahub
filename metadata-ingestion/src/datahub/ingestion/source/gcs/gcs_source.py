@@ -1,7 +1,8 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import unquote
 
+from pandas import DataFrame
 from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
@@ -20,9 +21,14 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import (
+    get_gcs_bucket_name,
+    get_gcs_bucket_relative_path,
+)
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
-from datahub.ingestion.source.s3.source import S3Source
+from datahub.ingestion.source.s3.source import S3Source, TableData
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -57,6 +63,19 @@ class GCSSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    profiling: Optional[DataLakeProfilerConfig] = Field(
+        default=DataLakeProfilerConfig(), description="Data profiling configuration"
+    )
+
+    spark_driver_memory: str = Field(
+        default="4g", description="Max amount of memory to grant Spark."
+    )
+
+    spark_config: Dict[str, Any] = Field(
+        description="Spark configuration properties",
+        default={},
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("path_specs", always=True)
@@ -72,6 +91,9 @@ class GCSSourceConfig(
 
         return path_specs
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling is not None and self.profiling.enabled
+
 
 class GCSSourceReport(DataLakeSourceReport):
     pass
@@ -82,7 +104,7 @@ class GCSSourceReport(DataLakeSourceReport):
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "Enabled via configuration")
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -110,6 +132,11 @@ class GCSSource(StatefulIngestionSourceBase):
             env=self.config.env,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            profiling=self.config.profiling,
+            spark_driver_memory=self.config.spark_driver_memory,
+            spark_config=self.config.spark_config,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
         )
         return s3_config
 
@@ -145,6 +172,28 @@ class GCSSource(StatefulIngestionSourceBase):
         source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
             f"s3://{bucket_name}/{key}"
         )
+
+        if self.config.is_profiling_enabled():
+            original_read_file_spark = source.read_file_spark
+
+            from types import MethodType
+
+            def read_file_spark_with_gcs(
+                self_source: S3Source, file: str, ext: str
+            ) -> Optional[DataFrame]:
+                # Convert s3:// path back to gs:// for Spark
+                if file.startswith("s3://"):
+                    file = f"gs://{file[5:]}"
+                return original_read_file_spark(file, ext)
+
+            source.read_file_spark = MethodType(read_file_spark_with_gcs, source)  # type: ignore
+
+        def get_external_url_override(table_data: TableData) -> Optional[str]:
+            bucket_name = get_gcs_bucket_name(table_data.table_path)
+            key_prefix = get_gcs_bucket_relative_path(table_data.table_path)
+            return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key_prefix}"
+
+        source.get_external_url = get_external_url_override  # type: ignore
         return source
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

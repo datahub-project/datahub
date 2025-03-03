@@ -28,6 +28,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/no_extension/small",
             "name": "small",
             "description": "",
             "tags": []
@@ -134,61 +135,6 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "instance": "test-platform-instance",
-                "env": "DEV",
-                "folder_abs_path": "my-test-bucket/folder_a"
-            },
-            "name": "folder_a",
-            "env": "DEV"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
     "changeType": "UPSERT",
@@ -202,24 +148,6 @@
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847850000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
         }
     },
     "systemMetadata": {
@@ -286,13 +214,14 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+            "typeNames": [
+                "S3 bucket"
+            ]
         }
     },
     "systemMetadata": {
@@ -324,13 +253,85 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "S3 bucket"
+                "Folder"
             ]
         }
     },
@@ -367,69 +368,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "instance": "test-platform-instance",
-                "env": "DEV",
-                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
-            },
-            "name": "folder_aaa",
-            "env": "DEV"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
+            "container": "urn:li:container:c8d940d2010edd365619411b385b11e4"
         }
     },
     "systemMetadata": {
@@ -496,23 +440,6 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
     "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -549,6 +476,96 @@
                     "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
                     "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
                 }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
             ]
         }
     },
@@ -593,12 +610,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
         }
     },
     "systemMetadata": {
@@ -634,10 +651,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -650,10 +667,11 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
         }
     },
     "systemMetadata": {
@@ -672,23 +690,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
         }
     },
     "systemMetadata": {
