@@ -371,17 +371,36 @@ class Dataset(StrictModel):
         urn_prefix = f"{StructuredPropertyUrn.URN_PREFIX}:{StructuredPropertyUrn.LI_DOMAIN}:{StructuredPropertyUrn.ENTITY_TYPE}"
         references = []
         if self.schema_metadata:
-            for field in self.schema_metadata.fields:
-                if field.structured_properties:
-                    references.extend(
-                        [
-                            f"{urn_prefix}:{prop_key}"
-                            if not prop_key.startswith(urn_prefix)
-                            else prop_key
-                            for prop_key in field.structured_properties.keys()
-                        ]
-                    )
-        return references
+            if self.schema_metadata.fields:
+                for field in self.schema_metadata.fields:
+                    if field.structured_properties:
+                        references.extend(
+                            [
+                                f"{urn_prefix}:{prop_key}"
+                                if not prop_key.startswith(urn_prefix)
+                                else prop_key
+                                for prop_key in field.structured_properties.keys()
+                            ]
+                        )
+                    if field.glossaryTerms:
+                        references.extend(
+                            [make_term_urn(term) for term in field.glossaryTerms]
+                        )
+                    # We don't check references for tags
+        if self.structured_properties:
+            references.extend(
+                [
+                    f"{urn_prefix}:{prop_key}"
+                    if not prop_key.startswith(urn_prefix)
+                    else prop_key
+                    for prop_key in self.structured_properties.keys()
+                ]
+            )
+        if self.glossary_terms:
+            references.extend([make_term_urn(term) for term in self.glossary_terms])
+
+        # We don't check references for tags
+        return list(set(references))
 
     def generate_mcp(
         self,
