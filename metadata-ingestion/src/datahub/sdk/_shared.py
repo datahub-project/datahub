@@ -36,8 +36,8 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity
 from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:

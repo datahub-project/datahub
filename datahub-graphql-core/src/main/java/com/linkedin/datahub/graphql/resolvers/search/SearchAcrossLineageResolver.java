@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
@@ -25,8 +26,12 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.VisibleForTesting;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -53,10 +58,13 @@ public class SearchAcrossLineageResolver
 
   private final EntityRegistry _entityRegistry;
 
+  private final ViewService _viewService;
+
   @VisibleForTesting final Set<String> _allEntities;
   private final List<String> _allowedEntities;
 
-  public SearchAcrossLineageResolver(EntityClient entityClient, EntityRegistry entityRegistry) {
+  public SearchAcrossLineageResolver(
+      EntityClient entityClient, EntityRegistry entityRegistry, final ViewService viewService) {
     this._entityClient = entityClient;
     this._entityRegistry = entityRegistry;
     this._allEntities =
@@ -68,6 +76,8 @@ public class SearchAcrossLineageResolver
         this._allEntities.stream()
             .filter(e -> !TRANSIENT_ENTITIES.contains(e))
             .collect(Collectors.toList());
+
+    this._viewService = viewService;
   }
 
   private List<String> getEntityNamesFromInput(List<EntityType> inputTypes) {
@@ -127,6 +137,13 @@ public class SearchAcrossLineageResolver
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          final DataHubViewInfo maybeResolvedView =
+              (input.getViewUrn() != null)
+                  ? resolveView(
+                      context.getOperationContext(),
+                      _viewService,
+                      UrnUtils.getUrn(input.getViewUrn()))
+                  : null;
           try {
             log.debug(
                 "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -138,8 +155,13 @@ public class SearchAcrossLineageResolver
                 start,
                 count);
 
-            final Filter filter =
+            final Filter baseFilter =
                 ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+            Filter filter =
+                maybeResolvedView != null
+                    ? FilterUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
@@ -150,6 +172,7 @@ public class SearchAcrossLineageResolver
             } else {
               searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
             }
+            List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
                     context
@@ -162,7 +185,7 @@ public class SearchAcrossLineageResolver
                     sanitizedQuery,
                     maxHops,
                     filter,
-                    null,
+                    sortCriteria,
                     start,
                     count);
 

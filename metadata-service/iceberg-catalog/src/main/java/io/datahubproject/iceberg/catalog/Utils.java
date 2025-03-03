@@ -75,6 +75,10 @@ public class Utils {
   }
 
   public static String namespaceNameFromContainerUrn(Urn urn) {
-    return urn.toString().substring(NAMESPACE_CONTAINER_PREFIX.length());
+    // Must do inverse of implementation of method containerUrn(String platformInstance, String[]
+    // levels) in this file
+    String namespaceWithPlatformInstance =
+        urn.toString().substring(NAMESPACE_CONTAINER_PREFIX.length());
+    return namespaceWithPlatformInstance.substring(namespaceWithPlatformInstance.indexOf('.') + 1);
   }
 }
