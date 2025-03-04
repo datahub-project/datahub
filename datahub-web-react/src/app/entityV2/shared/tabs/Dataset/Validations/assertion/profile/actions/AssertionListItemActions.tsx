@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, Menu } from 'antd';
-
+import { Dropdown, Menu } from 'antd';
+import { Button, colors } from '@src/alchemy-components';
+import { DotsThreeVertical } from 'phosphor-react';
 import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
 import { ContractAction } from './ContractAction';
 import { CopyLinkAction } from './CopyLinkAction';
@@ -12,7 +13,7 @@ import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: end;
     padding: ${(props) => (props.$shouldRightAlign ? '0px' : '0px 10px')};
     margin-left: ${(props) => (props.$shouldRightAlign ? 'auto' : undefined)};
 `;
