@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
 
 import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
 import { ContractAction } from './ContractAction';
@@ -68,7 +67,9 @@ export const AssertionListItemActions = ({
     return (
         <ActionList onClick={(e) => e.stopPropagation()} $shouldRightAlign={shouldRightAlign}>
             <Dropdown overlay={menu} trigger={['click']}>
-                <Button type="text" icon={<MoreOutlined />} />
+                <Button variant="text">
+                    <DotsThreeVertical size={20} color={colors.gray[500]} weight="bold" />
+                </Button>
             </Dropdown>
         </ActionList>
     );
