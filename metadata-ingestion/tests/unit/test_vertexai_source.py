@@ -193,6 +193,7 @@ def test_get_endpoint_mcps(
         elif isinstance(aspect, SubTypesClass):
             assert aspect.typeNames == ["Endpoint"]
 
+
 def test_get_training_jobs_mcps(
     source: VertexAISource,
 ) -> None:
