@@ -62,7 +62,6 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionPropertiesClass,
     VersionSetKeyClass,
-    VersionSetPropertiesClass,
     VersionTagClass,
     _Aspect,
 )
@@ -508,19 +507,15 @@ class MLflowSource(StatefulIngestionSourceBase):
                     model_version=model_version,
                     run=run,
                 )
-                # yield self._get_ml_model_version_properties_workunit(
-                #     model_version=model_version,
-                #     version_set_urn=version_set_urn,
-                # )
-                # yield self._get_version_latest(
-                #     model_version=model_version,
-                #     version_set_urn=version_set_urn,
-                # )
+                yield self._get_ml_model_version_properties_workunit(
+                    model_version=model_version,
+                    version_set_urn=version_set_urn,
+                )
                 yield self._get_global_tags_workunit(model_version=model_version)
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
         version_set_urn = VersionSetUrn(
-            id=f"{registered_model.name}",  # TODO: where's id?
+            id=f"{registered_model.name}",
             entity_type="mlModel",
         )
 
@@ -542,24 +537,6 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         return wu
 
-    def _get_version_latest(
-        self, model_version: ModelVersion, version_set_urn: VersionSetUrn
-    ) -> MetadataWorkUnit:
-        ml_model_urn = self._make_ml_model_urn(model_version)
-        version_set_properties = VersionSetPropertiesClass(
-            latest=str(
-                ml_model_urn
-            ),  # TODO: this returns cannot set latest to unversioned entity
-            versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",  # TODO: wait for change in the backend
-        )
-
-        wu = MetadataChangeProposalWrapper(
-            entityUrn=str(version_set_urn),
-            aspect=version_set_properties,
-        ).as_workunit()
-
-        return wu
-
     def _get_ml_model_version_properties_workunit(
         self,
         model_version: ModelVersion,
@@ -577,7 +554,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 ),
             ),
             versionSet=str(version_set_urn),
-            sortId="AAAAAAAA",  # TODO: wait for change in the backend
+            sortId="",
             aliases=[
                 VersionTagClass(versionTag=alias) for alias in model_version.aliases
             ],
