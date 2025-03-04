@@ -36,9 +36,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -71,7 +68,12 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -288,26 +290,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             current_page += 1
 
     @lru_cache(maxsize=None)
-    def get_platform_from_database_id(self, database_id):
-        database_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/database/{database_id}"
-        ).json()
-        sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
-        if sqlalchemy_uri is None:
-            platform_name = database_response.get("result", {}).get(
-                "backend", "external"
-            )
-        else:
-            platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
-        if platform_name == "awsathena":
-            return "athena"
-        if platform_name == "clickhousedb":
-            return "clickhouse"
-        if platform_name == "postgresql":
-            return "postgres"
-        return platform_name
-
-    @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
@@ -323,8 +305,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
-        platform = self.get_platform_from_database_id(database_id)
-
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
@@ -333,21 +313,24 @@ class SupersetSource(StatefulIngestionSourceBase):
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
         # redundant to systemically store them both in the URN.
-        if platform in platform_without_databases:
+        if platform_instance in platform_without_databases:
             database_name = None
 
-        if platform == "druid" and schema_name == "druid":
+        if platform_instance == "druid" and schema_name == "druid":
             # Follow DataHub's druid source convention.
             schema_name = None
 
-        if database_id and table_name:
+        # If the information about the datasource is already contained in the dataset response,
+        # can just return the urn directly
+        if table_name and database_id:
             return make_dataset_urn(
-                platform=platform,
+                platform=platform_instance,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
                 env=self.config.env,
             )
+
         raise ValueError("Could not construct dataset URN")
 
     def construct_dashboard_from_api_data(
@@ -469,10 +452,16 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        dataset_response = self.get_dataset_info(datasource_id)
-        datasource_urn = self.get_datasource_urn_from_id(
-            dataset_response, self.platform
-        )
+        if not datasource_id:
+            logger.debug(
+                f"chart {chart_data['id']} has no datasource_id, skipping fetching dataset info"
+            )
+            datasource_urn = None
+        else:
+            dataset_response = self.get_dataset_info(datasource_id)
+            datasource_urn = self.get_datasource_urn_from_id(
+                dataset_response, self.platform
+            )
 
         params = json.loads(chart_data.get("params", "{}"))
         metrics = [
@@ -588,25 +577,61 @@ class SupersetSource(StatefulIngestionSourceBase):
     ) -> DatasetSnapshot:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         dataset = SupersetDataset(**dataset_response["result"])
+
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
+        dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
-        dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
+        upstream_warehouse_platform = (
+            dataset_response.get("result", {}).get("database", {}).get("backend")
+        )
+
+        # Preset has a way of naming their platforms differently than
+        # how datahub names them, so map the platform name to the correct naming
+        warehouse_naming = {
+            "awsathena": "athena",
+            "clickhousedb": "clickhouse",
+            "postgresql": "postgres",
+        }
+
+        if upstream_warehouse_platform in warehouse_naming:
+            upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
+
+        # TODO: Categorize physical vs virtual upstream dataset
+        # mark all upstream dataset as physical for now, in the future we would ideally like
+        # to differentiate physical vs virtual upstream datasets
+        tag_urn = f"urn:li:tag:{self.platform}:physical"
+        upstream_dataset = self.get_datasource_urn_from_id(
+            dataset_response, upstream_warehouse_platform
+        )
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=upstream_dataset,
+                    properties={"externalUrl": dataset_url},
+                )
+            ]
+        )
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
-            lastModified=TimeStamp(time=dataset.modified_ts)
-            if dataset.modified_ts
-            else None,
+            lastModified=(
+                TimeStamp(time=dataset.modified_ts) if dataset.modified_ts else None
+            ),
             externalUrl=dataset_url,
         )
+        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+
         aspects_items: List[Any] = []
         aspects_items.extend(
             [
                 self.gen_schema_metadata(dataset_response),
                 dataset_info,
+                upstream_lineage,
+                global_tags,
             ]
         )
 
@@ -614,6 +639,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             urn=datasource_urn,
             aspects=aspects_items,
         )
+
+        logger.info(f"Constructed dataset {datasource_urn}")
+
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:

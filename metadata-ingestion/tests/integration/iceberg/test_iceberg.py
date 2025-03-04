@@ -22,6 +22,8 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 # these.
 PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
+    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['created'\]",
+    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['lastModified'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
 ]

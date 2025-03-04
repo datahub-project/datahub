@@ -116,6 +116,7 @@ class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "pulsar"
+        self.ctx = ctx
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
 
@@ -229,8 +230,8 @@ class PulsarSource(StatefulIngestionSourceBase):
                 self.report.report_warning("HTTPError", message)
         except requests.exceptions.RequestException as e:
             raise Exception(
-                f"An ambiguous exception occurred while handling the request: {e}"
-            )
+                "An ambiguous exception occurred while handling the request"
+            ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):

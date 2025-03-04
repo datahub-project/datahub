@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { AcrylListSearch } from '@src/app/entityV2/shared/components/ListSearch/AcrylListSearch';
+import { GroupBySelect } from '@src/app/entityV2/shared/GroupBySelect';
+import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
 import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
-import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS } from './constant';
+import { useSetFilterFromURLParams } from './hooks';
 
 interface FilterItem {
     name: string;
@@ -106,11 +107,14 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter, filterOptions]);
 
+    // set the filter if there is any url filter object presents
+    useSetFilterFromURLParams(filter, setFilters);
+
     return (
         <>
             <SearchFilterContainer>
                 {/* ************Render Search Component ************************* */}
-                <AcrylListSearch
+                <InlineListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.searchMatchesCount || 0}
@@ -129,10 +133,11 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     </StyledFilterContainer>
                     {/* ************Render Group By Component ************************* */}
                     <div>
-                        <AcryAssertionTypeSelect
+                        <GroupBySelect
                             options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                             selectedValue={selectedGroupBy}
                             onSelect={handleAssertionTypeChange}
+                            width={50}
                         />
                     </div>
                 </FiltersContainer>
