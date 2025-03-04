@@ -17,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import com.linkedin.platformresource.PlatformResourceInfo;
 import com.linkedin.secret.DataHubSecretValue;
 import com.linkedin.util.Pair;
@@ -48,24 +49,35 @@ public class DataHubIcebergWarehouse {
 
   @Getter private final String platformInstance;
 
+  private final CacheEvictionService cacheEvictionService;
+
+  // When evicting a iceberg entity urn, these are additional urns that need to be evicted since they are a way to
+  // ge to the newly modified iceberg entity
+  private final List<Urn> commonUrnsToEvict;
+
   @VisibleForTesting
   DataHubIcebergWarehouse(
       String platformInstance,
       IcebergWarehouseInfo icebergWarehouse,
       EntityService entityService,
       SecretService secretService,
+      CacheEvictionService cacheEvictionService,
       OperationContext operationContext) {
     this.platformInstance = platformInstance;
     this.icebergWarehouse = icebergWarehouse;
     this.entityService = entityService;
     this.secretService = secretService;
+    this.cacheEvictionService = cacheEvictionService;
     this.operationContext = operationContext;
+
+    commonUrnsToEvict = List.of(Utils.platformInstanceUrn(platformInstance), Utils.platformUrn());
   }
 
   public static DataHubIcebergWarehouse of(
       String platformInstance,
       EntityService entityService,
       SecretService secretService,
+      CacheEvictionService cacheEvictionService,
       OperationContext operationContext) {
     Urn platformInstanceUrn = Utils.platformInstanceUrn(platformInstance);
     RecordTemplate warehouseAspect =
@@ -80,7 +92,12 @@ public class DataHubIcebergWarehouse {
 
     IcebergWarehouseInfo icebergWarehouse = new IcebergWarehouseInfo(warehouseAspect.data());
     return new DataHubIcebergWarehouse(
-        platformInstance, icebergWarehouse, entityService, secretService, operationContext);
+        platformInstance,
+        icebergWarehouse,
+        entityService,
+        secretService,
+        cacheEvictionService,
+        operationContext);
   }
 
   public CredentialProvider.StorageProviderCredentials getStorageProviderCredentials() {
@@ -270,7 +287,7 @@ public class DataHubIcebergWarehouse {
 
     entityService.deleteUrn(operationContext, resourceUrn);
     entityService.deleteUrn(operationContext, datasetUrn.get());
-
+    invalidateCacheEntries(List.of(datasetUrn.get()));
     return result;
   }
 
@@ -281,7 +298,15 @@ public class DataHubIcebergWarehouse {
 
     createResource(datasetUrn, tableIdentifier, view, icebergBatch);
 
+    Urn namespaceUrn = containerUrn(getPlatformInstance(), tableIdentifier.namespace());
+    invalidateCacheEntries(List.of(datasetUrn, namespaceUrn));
     return datasetUrn;
+  }
+
+  void invalidateCacheEntries(List<Urn> urns) {
+    ArrayList<Urn> urnsToEvict = new ArrayList<>(urns);
+    urnsToEvict.addAll(commonUrnsToEvict);
+    cacheEvictionService.evict(urnsToEvict);
   }
 
   public void renameDataset(TableIdentifier fromTableId, TableIdentifier toTableId, boolean view) {
@@ -332,6 +357,15 @@ public class DataHubIcebergWarehouse {
     }
 
     entityService.deleteUrn(operationContext, resourceUrn(fromTableId));
+
+    Urn fromNamespaceUrn = containerUrn(getPlatformInstance(), fromTableId.namespace());
+
+    List<Urn> urnsToInvalidate = new ArrayList<>(List.of(datasetUrn, fromNamespaceUrn));
+    if (!fromTableId.namespace().equals(toTableId.namespace())) {
+      Urn toNamespaceUrn = containerUrn(getPlatformInstance(), fromTableId.namespace());
+      urnsToInvalidate.add(toNamespaceUrn);
+    }
+    invalidateCacheEntries(urnsToInvalidate);
   }
 
   private RuntimeException noSuchEntity(boolean view, TableIdentifier tableIdentifier) {

@@ -30,11 +30,11 @@ import org.springframework.cache.CacheManager;
 
 @RequiredArgsConstructor
 public class CachingEntitySearchService {
-  private static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
-  private static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME =
+  static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
+  static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME =
       "entitySearchServiceAutoComplete";
-  private static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
-  public static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
+  static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
+  static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
 
   private final CacheManager cacheManager;
   private final EntitySearchService
