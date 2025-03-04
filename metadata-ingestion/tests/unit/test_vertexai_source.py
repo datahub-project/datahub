@@ -5,11 +5,9 @@ from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.cloud import aiplatform
 from google.cloud.aiplatform import AutoMLTabularTrainingJob
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
-from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
@@ -125,6 +123,7 @@ def source() -> VertexAISource:
         ctx=PipelineContext(run_id="vertexai-source-test"),
         config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
     )
+
 
 @patch("google.cloud.aiplatform.Model.list")
 def test_get_ml_model_workunits(mock_list: List[Model], source: VertexAISource) -> None:
