@@ -9,7 +9,6 @@ from typing import (
     Literal,
     Optional,
     Tuple,
-    TypeAlias,
     Union,
     get_args,
 )
@@ -18,6 +17,7 @@ import avro
 import yaml
 from pydantic import BaseModel, Field, root_validator, validator
 from ruamel.yaml import YAML
+from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
@@ -90,7 +90,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, int, str]
+PropertyValue: TypeAlias = Union[float, str]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
