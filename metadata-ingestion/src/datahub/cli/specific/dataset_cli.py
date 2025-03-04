@@ -1,3 +1,4 @@
+import filecmp
 import json
 import logging
 import os
@@ -135,8 +136,6 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
                     dataset.to_yaml(temp_path)
 
                 # Compare the files
-                import filecmp
-
                 files_match = filecmp.cmp(file, temp_path)
 
                 if files_match:

@@ -46,8 +46,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import (
     DataPlatformUrn,
     GlossaryTermUrn,
+    SchemaFieldUrn,
     StructuredPropertyUrn,
     TagUrn,
+)
+from datahub.pydantic.compat import (
+    PYDANTIC_VERSION,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -57,9 +61,22 @@ logger = logging.getLogger(__name__)
 
 
 class StrictModel(BaseModel):
-    class Config:
-        validate_assignment = True
-        extra = "forbid"
+    """
+    Base model with strict validation.
+    Compatible with both Pydantic v1 and v2.
+    """
+
+    if PYDANTIC_VERSION >= 2:
+        # Pydantic v2 config
+        model_config = {
+            "validate_assignment": True,
+            "extra": "forbid",
+        }
+    else:
+        # Pydantic v1 config
+        class Config:
+            validate_assignment = True
+            extra = "forbid"
 
 
 class StructuredPropertiesHelper:
@@ -263,35 +280,66 @@ class SchemaFieldSpecification(StrictModel):
             return "record"
         raise ValueError(f"Type {input_type} is not a valid primitive type")
 
-    def dict(self, **kwargs):
-        """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
-        exclude = kwargs.pop("exclude", None) or set()
+    if PYDANTIC_VERSION < 2:
 
-        # If description and doc are identical, exclude doc from the output
-        if self.description == self.doc and self.description is not None:
-            exclude.add("doc")
+        def dict(self, **kwargs):
+            """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
+            exclude = kwargs.pop("exclude", None) or set()
 
-        # if nativeDataType and type are identical, exclude nativeDataType from the output
-        if self.nativeDataType == self.type and self.nativeDataType is not None:
-            exclude.add("nativeDataType")
+            # If description and doc are identical, exclude doc from the output
+            if self.description == self.doc and self.description is not None:
+                exclude.add("doc")
 
-        # if the id is the same as the urn's fieldPath, exclude id from the output
-        from datahub.metadata.urns import SchemaFieldUrn
+            # if nativeDataType and type are identical, exclude nativeDataType from the output
+            if self.nativeDataType == self.type and self.nativeDataType is not None:
+                exclude.add("nativeDataType")
 
-        if self.urn:
-            field_urn = SchemaFieldUrn.from_string(self.urn)
-            if Dataset._simplify_field_path(field_urn.field_path) == self.id:
-                exclude.add("urn")
+            # if the id is the same as the urn's fieldPath, exclude id from the output
 
-        kwargs.pop("exclude_defaults", None)
+            if self.urn:
+                field_urn = SchemaFieldUrn.from_string(self.urn)
+                if Dataset._simplify_field_path(field_urn.field_path) == self.id:
+                    exclude.add("urn")
 
-        self.structured_properties = (
-            StructuredPropertiesHelper.simplify_structured_properties_list(
-                self.structured_properties
+            kwargs.pop("exclude_defaults", None)
+
+            self.structured_properties = (
+                StructuredPropertiesHelper.simplify_structured_properties_list(
+                    self.structured_properties
+                )
             )
-        )
 
-        return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
+            return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
+
+    else:
+        # For v2, implement model_dump with similar logic as dict
+        def model_dump(self, **kwargs):
+            """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
+            exclude = kwargs.pop("exclude", None) or set()
+
+            # If description and doc are identical, exclude doc from the output
+            if self.description == self.doc and self.description is not None:
+                exclude.add("doc")
+
+            # if nativeDataType and type are identical, exclude nativeDataType from the output
+            if self.nativeDataType == self.type and self.nativeDataType is not None:
+                exclude.add("nativeDataType")
+
+            # if the id is the same as the urn's fieldPath, exclude id from the output
+            if self.urn:
+                field_urn = SchemaFieldUrn.from_string(self.urn)
+                if Dataset._simplify_field_path(field_urn.field_path) == self.id:
+                    exclude.add("urn")
+
+            self.structured_properties = (
+                StructuredPropertiesHelper.simplify_structured_properties_list(
+                    self.structured_properties
+                )
+            )
+            if hasattr(super(), "model_dump"):
+                return super().model_dump(  # type: ignore
+                    exclude=exclude, exclude_defaults=True, **kwargs
+                )
 
 
 class SchemaSpecification(BaseModel):
@@ -920,40 +968,80 @@ class Dataset(StrictModel):
             downstreams=downstreams if config.include_downstreams else None,
         )
 
-    def dict(self, **kwargs):
-        """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
-        exclude = kwargs.pop("exclude", set())
+    if PYDANTIC_VERSION < 2:
 
-        # If id and name are identical, exclude name from the output
-        if self.id == self.name and self.id is not None:
-            exclude.add("name")
+        def dict(self, **kwargs):
+            """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
+            exclude = kwargs.pop("exclude", set())
 
-        # if subtype and subtypes are identical or subtypes is a singleton list, exclude subtypes from the output
-        if self.subtypes and len(self.subtypes) == 1:
-            self.subtype = self.subtypes[0]
-            exclude.add("subtypes")
+            # If id and name are identical, exclude name from the output
+            if self.id == self.name and self.id is not None:
+                exclude.add("name")
 
-        result = super().dict(exclude=exclude, **kwargs)
+            # if subtype and subtypes are identical or subtypes is a singleton list, exclude subtypes from the output
+            if self.subtypes and len(self.subtypes) == 1:
+                self.subtype = self.subtypes[0]
+                exclude.add("subtypes")
 
-        # Custom handling for schema_metadata/schema
-        if self.schema_metadata and "schema" in result:
-            schema_data = result["schema"]
+            result = super().dict(exclude=exclude, **kwargs)
 
-            # Handle fields if they exist
-            if "fields" in schema_data and isinstance(schema_data["fields"], list):
-                # Process each field using its custom dict method
-                processed_fields = []
-                if self.schema_metadata and self.schema_metadata.fields:
-                    for field in self.schema_metadata.fields:
-                        if field:
-                            # Use dict method for Pydantic v1
-                            processed_field = field.dict(**kwargs)
-                            processed_fields.append(processed_field)
+            # Custom handling for schema_metadata/schema
+            if self.schema_metadata and "schema" in result:
+                schema_data = result["schema"]
 
-                # Replace the fields in the result with the processed ones
-                schema_data["fields"] = processed_fields
+                # Handle fields if they exist
+                if "fields" in schema_data and isinstance(schema_data["fields"], list):
+                    # Process each field using its custom dict method
+                    processed_fields = []
+                    if self.schema_metadata and self.schema_metadata.fields:
+                        for field in self.schema_metadata.fields:
+                            if field:
+                                # Use dict method for Pydantic v1
+                                processed_field = field.dict(**kwargs)
+                                processed_fields.append(processed_field)
 
-        return result
+                    # Replace the fields in the result with the processed ones
+                    schema_data["fields"] = processed_fields
+
+            return result
+    else:
+
+        def model_dump(self, **kwargs):
+            """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
+            exclude = kwargs.pop("exclude", set())
+
+            # If id and name are identical, exclude name from the output
+            if self.id == self.name and self.id is not None:
+                exclude.add("name")
+
+            # if subtype and subtypes are identical or subtypes is a singleton list, exclude subtypes from the output
+            if self.subtypes and len(self.subtypes) == 1:
+                self.subtype = self.subtypes[0]
+                exclude.add("subtypes")
+
+            if hasattr(super(), "model_dump"):
+                result = super().model_dump(exclude=exclude, **kwargs)  # type: ignore
+            else:
+                result = super().dict(exclude=exclude, **kwargs)
+
+            # Custom handling for schema_metadata/schema
+            if self.schema_metadata and "schema" in result:
+                schema_data = result["schema"]
+
+                # Handle fields if they exist
+                if "fields" in schema_data and isinstance(schema_data["fields"], list):
+                    # Process each field using its custom model_dump method
+                    processed_fields = []
+                    if self.schema_metadata and self.schema_metadata.fields:
+                        for field in self.schema_metadata.fields:
+                            if field:
+                                processed_field = field.model_dump(**kwargs)
+                                processed_fields.append(processed_field)
+
+                    # Replace the fields in the result with the processed ones
+                    schema_data["fields"] = processed_fields
+
+            return result
 
     def to_yaml(
         self,
@@ -965,8 +1053,13 @@ class Dataset(StrictModel):
         Returns True if file was written, False if no changes were detected.
         """
         # Create new model data
-        # Create new model data with dict() for Pydantic v1
-        new_data = self.dict(exclude_none=True, exclude_unset=True, by_alias=True)
+        # Create new model data - choose dict() or model_dump() based on Pydantic version
+        if PYDANTIC_VERSION >= 2:
+            new_data = self.model_dump(
+                exclude_none=True, exclude_unset=True, by_alias=True
+            )
+        else:
+            new_data = self.dict(exclude_none=True, exclude_unset=True, by_alias=True)
 
         # Set up ruamel.yaml for preserving comments
         yaml_handler = YAML(typ="rt")  # round-trip mode
