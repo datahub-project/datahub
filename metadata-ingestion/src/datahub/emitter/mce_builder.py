@@ -309,7 +309,7 @@ def make_data_flow_urn(
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
     data_flow_urn = DataFlowUrn.from_string(flow_urn)
     data_job_urn = DataJobUrn.create_from_ids(
-        data_flow_urn=data_flow_urn,
+        data_flow_urn=data_flow_urn.urn(),
         job_id=job_id,
     )
     return data_job_urn.urn()
