@@ -2,7 +2,17 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union, get_args
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypeAlias,
+    Union,
+    get_args,
+)
 
 import avro
 import yaml
@@ -79,13 +89,17 @@ class StrictModel(BaseModel):
             extra = "forbid"
 
 
+# Define type aliases for the complex types
+PropertyValue: TypeAlias = Union[float, int, str]
+PropertyValueList: TypeAlias = List[PropertyValue]
+StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
+
+
 class StructuredPropertiesHelper:
     @staticmethod
     def simplify_structured_properties_list(
-        structured_properties: Optional[
-            Dict[str, Union[float, int, str, List[Union[float, int, str]]]]
-        ],
-    ) -> Optional[Dict[str, Union[float, int, str, List[Union[float, int, str]]]]]:
+        structured_properties: Optional[StructuredProperties],
+    ) -> Optional[StructuredProperties]:
         def urn_strip(urn: str) -> str:
             if urn.startswith("urn:li:structuredProperty:"):
                 return urn[len("urn:li:structuredProperty:") :]
@@ -122,9 +136,7 @@ class StructuredPropertiesHelper:
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
     urn: Optional[str] = None
-    structured_properties: Optional[
-        Dict[str, Union[float, str, List[Union[float, str]]]]
-    ] = None
+    structured_properties: Optional[StructuredProperties] = None
     type: Optional[str] = None
     nativeDataType: Optional[str] = None
     jsonPath: Union[None, str] = None
@@ -156,10 +168,7 @@ class SchemaFieldSpecification(StrictModel):
         return self
 
     def with_structured_properties(
-        self,
-        structured_properties: Optional[
-            Dict[str, Union[float, int, str, List[Union[float, int, str]]]]
-        ],
+        self, structured_properties: Optional[StructuredProperties]
     ) -> "SchemaFieldSpecification":
         self.structured_properties = (
             StructuredPropertiesHelper.simplify_structured_properties_list(
@@ -365,7 +374,7 @@ class Ownership(ConfigModel):
 
 
 class StructuredPropertyValue(ConfigModel):
-    value: Union[str, float, List[str], List[float]]
+    value: Union[str, int, float, List[str], List[int], List[float]]
     created: Optional[str] = None
     lastModified: Optional[str] = None
 
@@ -389,9 +398,7 @@ class Dataset(StrictModel):
     tags: Optional[List[str]] = None
     glossary_terms: Optional[List[str]] = None
     owners: Optional[List[Union[str, Ownership]]] = None
-    structured_properties: Optional[
-        Dict[str, Union[str, float, List[Union[str, float]]]]
-    ] = None
+    structured_properties: Optional[StructuredProperties] = None
     external_url: Optional[str] = None
 
     @property
@@ -918,7 +925,7 @@ class Dataset(StrictModel):
             urn, StructuredPropertiesClass
         )
         if structured_properties:
-            structured_properties_map: Dict[str, List[Union[str, float]]] = {}
+            structured_properties_map: StructuredProperties = {}
             for sp in structured_properties.properties:
                 if sp.propertyUrn in structured_properties_map:
                     assert isinstance(structured_properties_map[sp.propertyUrn], list)

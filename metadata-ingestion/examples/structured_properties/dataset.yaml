@@ -10,7 +10,7 @@
       structured_properties:
         io.acryl.dataManagement.deprecationDate: '2023-01-01'
         io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
-        io.acryl.dataManagement.replicationSLA: 90.0
+        io.acryl.dataManagement.replicationSLA: 90
     - id: url
       structured_properties:
         io.acryl.dataManagement.deprecationDate: '2023-01-01'
