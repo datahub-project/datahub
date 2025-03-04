@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.remoteexecutor;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.metadata.AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME;
-import static com.linkedin.metadata.AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.AcrylConstants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -39,6 +38,9 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
     if (!input.getExecutorPoolId().matches("^[a-zA-Z0-9_.-]*$")) {
       throw new RuntimeException(
           "Pool name must only contain alphanumeric characters, _, ., or -.");
+    }
+    if (RESERVED_REMOTE_EXECUTOR_POOL_IDS.contains(input.getExecutorPoolId())) {
+      throw new RuntimeException("Pool id is reserved. Please choose a different id.");
     }
     final Urn poolUrn =
         Urn.createFromTuple(REMOTE_EXECUTOR_POOL_ENTITY_NAME, input.getExecutorPoolId());

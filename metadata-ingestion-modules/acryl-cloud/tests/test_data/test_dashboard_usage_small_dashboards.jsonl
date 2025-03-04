@@ -1,0 +1,7 @@
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.0)","name":"my_dashboard_0","removed:":false,"lastModifiedAt":1719399980309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.1)","name":"my_dashboard_1","removed:":false,"lastModifiedAt":1720436780309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.2)","name":"my_dashboard_2","removed:":false,"lastModifiedAt":1718017580309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.3)","name":"my_dashboard_3","removed:":false,"lastModifiedAt":1718967980309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.4)","name":"nulled_usage_with_new_usage", "combinedSearchRankingMultiplier": 0,"removed:":false,"lastModifiedAt":1719572780309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.5)","name":"unused_dashboard","combinedSearchRankingMultiplier": 2.4,"removed:":false,"lastModifiedAt":1719572780309}}
+{"_source":{"urn":"urn:li:dashboard:(looker,dashboard.6)","name":"already_nulled_usage_dashboard","combinedSearchRankingMultiplier": 0,"removed:":false,"lastModifiedAt":1719572780309}}

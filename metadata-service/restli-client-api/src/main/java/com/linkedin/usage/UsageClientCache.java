@@ -25,12 +25,14 @@ public class UsageClientCache {
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
       @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
       @Nullable String timeZone) {
     Key cacheKey =
         Key.builder()
             .contextId(opContext.getEntityContextId())
             .resource(resource)
             .range(range)
+            .startTimeMillis(startTimeMillis)
             .timeZone(timeZone)
             .build();
     if (config.isEnabled()) {
@@ -80,6 +82,7 @@ public class UsageClientCache {
     private final String contextId;
     private final String resource;
     private final UsageTimeRange range;
+    private final Long startTimeMillis;
     private final String timeZone;
   }
 }

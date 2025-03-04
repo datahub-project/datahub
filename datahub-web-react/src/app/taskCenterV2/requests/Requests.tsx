@@ -24,6 +24,8 @@ const StyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
+        flex: 1;
+        overflow: auto;
     }
 `;
 

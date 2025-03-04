@@ -139,12 +139,12 @@
             "usageSearchScoreMultiplier": 1.5,
             "usageFreshnessScoreMultiplier": 0.6,
             "customDatahubScoreMultiplier": 1.0,
-            "combinedSearchRankingMultiplier": 0.8999999999999999
+            "combinedSearchRankingMultiplier": 1
         }
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-xs6xzs",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-6dul6o",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -177,12 +177,12 @@
             "usageSearchScoreMultiplier": 0.7,
             "usageFreshnessScoreMultiplier": 1.3,
             "customDatahubScoreMultiplier": 1.0,
-            "combinedSearchRankingMultiplier": 0.9099999999999999
+            "combinedSearchRankingMultiplier": 1
         }
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-xs6xzs",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-6dul6o",
         "lastRunId": "no-run-id-provided"
     }
 }

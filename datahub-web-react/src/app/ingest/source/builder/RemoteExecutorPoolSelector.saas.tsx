@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Select } from 'antd';
+import { Input, Select } from 'antd';
 import {
     useGetDefaultRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
 } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { RemoteExecutorPool } from '@src/types.generated';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '../../executor_saas/utils';
 
 type Props = {
     value?: string | null;
@@ -14,6 +17,9 @@ type Props = {
 };
 
 export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, placeholder = 'Select a pool' }: Props) {
+    const { config } = useAppConfig();
+    const isExecutorPoolEnabled = config?.featureFlags.displayExecutorPools;
+
     const [searchText, setSearchText] = useState('');
 
     const { data, loading } = useListRemoteExecutorPoolsQuery({
@@ -26,7 +32,7 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
     });
     const { data: defaultPool } = useGetDefaultRemoteExecutorPoolQuery();
 
-    const pools = data?.listRemoteExecutorPools.remoteExecutorPools || [];
+    const pools = (data?.listRemoteExecutorPools.remoteExecutorPools || []) as RemoteExecutorPool[];
     const total = data?.listRemoteExecutorPools.total;
     const defaultPoolId = defaultPool?.defaultRemoteExecutorPool.pool?.executorPoolId || pools[0]?.executorPoolId;
 
@@ -46,6 +52,17 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
         setSearchText(text);
     };
 
+    if (!isExecutorPoolEnabled) {
+        return (
+            <Input
+                placeholder={placeholder}
+                value={value || ''}
+                onChange={(event) => handleChange(event.target.value)}
+                onBlur={handleBlur}
+            />
+        );
+    }
+
     return (
         <Select
             key={defaultPoolId}
@@ -62,8 +79,8 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
             {pools.map((pool) => (
                 <Select.Option key={pool.executorPoolId} value={pool.executorPoolId}>
                     <div>
-                        {pool.executorPoolId}
-                        {pool.remoteExecutors?.remoteExecutors?.find((exec) => exec.executorInternal) ? (
+                        {getDisplayablePoolId(pool, '')}
+                        {checkIsPoolInDataHubCloud(pool) ? (
                             <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
                         ) : null}
                         {pool.isDefault ? (

@@ -26,38 +26,6 @@ COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 # to make duckdb work with the CA certificates in the image.
 RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
 
-# Install required runtime dependencies 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    libc6 \
-    libstdc++6 \
-    zlib1g \
-    wget \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Download and install DuckDB with extensions
-RUN DUCKDB_VERSION=v1.2.0 && \
-    # Get system architecture
-    ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then \
-        DUCKDB_ARCH="aarch64"; \
-    else \
-        DUCKDB_ARCH="amd64"; \
-    fi && \
-    # Download and extract DuckDB
-    mkdir -p /tmp/duckdb && \
-    cd /tmp/duckdb && \
-    wget -q https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/duckdb_cli-linux-${DUCKDB_ARCH}.zip && \
-    unzip -q duckdb_cli-linux-${DUCKDB_ARCH}.zip && \
-    chmod +x duckdb && \
-    mv duckdb /usr/local/bin/ && \
-    # Clean up
-    cd / && \
-    rm -rf /tmp/duckdb && \
-    chown -R datahub /datahub-ingestion
-
-
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
@@ -70,19 +38,17 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 WORKDIR /datahub-integrations-service
 
 USER datahub
-# Initial extension installation (will be cached)
-RUN duckdb -c "INSTALL httpfs; INSTALL aws;"
 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
-   UV_LINK_MODE=copy uv pip sync requirements.txt
+   UV_LINK_MODE=copy ./scripts/sync.sh --no-dev
 
 # Production Image Built From Build Image
 FROM build AS prod-install
 
 # For the production build, we build a wheel file statically.
-# In development mode, we build the file on-the-fly.
+# In development mode, we build it on-the-fly.
 RUN python -m build --wheel . --outdir static/prebuilt-dist/ && \
     python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/
 

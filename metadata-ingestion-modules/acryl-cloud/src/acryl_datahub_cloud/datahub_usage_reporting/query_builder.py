@@ -13,6 +13,7 @@ class QueryBuilder:
                     "removed",
                     "siblings",
                     "typeNames",
+                    "combinedSearchRankingMultiplier",
                 ]
             },
         }

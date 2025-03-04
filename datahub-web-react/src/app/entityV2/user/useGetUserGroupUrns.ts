@@ -5,6 +5,7 @@ const NUM_GROUP_URNS_TO_FETCH = 100;
 export default function useGetUserGroupUrns(userUrn: string) {
     const { data, loading } = useGetUserGroupsUrnsQuery({
         variables: { urn: userUrn, start: 0, count: NUM_GROUP_URNS_TO_FETCH },
+        skip: !userUrn,
         fetchPolicy: 'cache-first',
     });
 

@@ -1,6 +1,66 @@
 [
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage_with_score_less_than_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": {
+            "viewCountLast30Days": 0,
+            "viewCountTotal": 0,
+            "viewCountPercentileLast30Days": 0,
+            "usageCountLast30Days": 0,
+            "queryCountLast30Days": 0,
+            "uniqueUserCountLast30Days": 0,
+            "writeCountLast30Days": 0,
+            "queryCountPercentileLast30Days": 0,
+            "uniqueUserPercentileLast30Days": 0,
+            "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 2,
+            "usageSearchScoreMultiplier": 1.0,
+            "usageFreshnessScoreMultiplier": 1.0,
+            "customDatahubScoreMultiplier": 1.0,
+            "combinedSearchRankingMultiplier": 1.0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-29o10f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_stale_usage,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": {
+            "viewCountLast30Days": 0,
+            "viewCountTotal": 0,
+            "viewCountPercentileLast30Days": 0,
+            "usageCountLast30Days": 0,
+            "queryCountLast30Days": 0,
+            "uniqueUserCountLast30Days": 0,
+            "writeCountLast30Days": 0,
+            "queryCountPercentileLast30Days": 0,
+            "uniqueUserPercentileLast30Days": 0,
+            "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 2,
+            "usageSearchScoreMultiplier": 1.0,
+            "usageFreshnessScoreMultiplier": 1.0,
+            "customDatahubScoreMultiplier": 1.0,
+            "combinedSearchRankingMultiplier": 1.0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-29o10f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "usageFeatures",

@@ -34,6 +34,7 @@ This is over and above updating-datahub.md file
 ### Environment Variables
 
 - [datahub-gms] `DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS`: CSV listing aspects that the system should reference to determine an ingestion source that can execute an assertion. Default: datasetProperties
+- [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
 
 ## v0.3.8
 

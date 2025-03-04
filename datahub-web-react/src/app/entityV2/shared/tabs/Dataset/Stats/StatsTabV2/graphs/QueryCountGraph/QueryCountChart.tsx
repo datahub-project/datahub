@@ -50,6 +50,7 @@ const QueryCountChart = () => {
                 data={chartData}
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
+                margin={{ left: 50 }}
                 popoverRenderer={(datum: ChartData) => (
                     <GraphPopover
                         header={getPopoverTimeFormat(groupInterval, datum.x)}

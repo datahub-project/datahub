@@ -369,7 +369,7 @@ public class Constants {
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
       "SCHEDULED_INGESTION_SOURCE";
-  public static final String DEFAULT_EXECUTOR_ID = "embedded";
+  public static final String DEFAULT_EXECUTOR_ID = "default";
 
   // We use an executorId that maps to no executor since some requests are to be handled by the
   // mae-consumer

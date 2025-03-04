@@ -95,6 +95,7 @@ def test_search_search_score_with_zero_usage_percentile() -> None:
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         streaming_mode=False,
+        experimental_full_streaming=False,
         use_server_side_aggregation=True,
         generate_patch=False,
         disable_write_usage=False,
@@ -139,7 +140,8 @@ def test_search_search_score_with_zero_usage_percentile() -> None:
     assert multipliers.usageSearchScoreMultiplier == 0.5
     assert multipliers.usageFreshnessScoreMultiplier == 0.4
     assert multipliers.customDatahubScoreMultiplier == 1.0
-    assert multipliers.combinedSearchRankingMultiplier == 0.2
+    # The search Ranking multiplier's minimum value is 1. It can't be less than 1.
+    assert multipliers.combinedSearchRankingMultiplier == 1
 
 
 @freeze_time(FROZEN_TIME)
@@ -157,6 +159,7 @@ def test_search_search_score_with_zero_freshness() -> None:
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         streaming_mode=False,
+        experimental_full_streaming=False,
         use_server_side_aggregation=True,
         disable_write_usage=False,
         generate_patch=False,
@@ -216,6 +219,11 @@ def load_data_from_es_mock(
         "datasetindex_v2": f"tests/test_data/test_{test_file_prefix}_datasets.jsonl",
         "dataset_datasetusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_datasetusages.jsonl",
         "graph_service_v1": f"tests/test_data/test_{test_file_prefix}_graph_service.jsonl",
+        "chartindex_v2": f"tests/test_data/test_{test_file_prefix}_charts.jsonl",
+        "dashboard_dashboardusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_dashboardusages.jsonl",
+        "dashboardindex_v2": f"tests/test_data/test_{test_file_prefix}_dashboards.jsonl",
+        "queryindex_v2": f"tests/test_data/test_{test_file_prefix}_queries.jsonl",
+        "query_queryusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_queryusages.jsonl",
     }
 
     if index in file_map:
@@ -231,6 +239,8 @@ def load_data_from_es_mock(
                 if batch:
                     yield from process_function(batch)
     elif index == "dataset_operationaspect_v1":
+        return
+    elif index == "chart_chartusagestatisticsaspect_v1":
         return
     else:
         raise AssertionError(f"Unhandled index {index}")
@@ -269,6 +279,7 @@ def test_dataset_usage(
         extract_delay=0.25,
         lookback_days=30,
         streaming_mode=False,
+        experimental_full_streaming=False,
         set_upstream_table_max_modification_time_for_views=True,
         use_exp_cdf=True,
         sibling_usage_enabled=False,
@@ -319,6 +330,7 @@ def test_dataset_usage_with_ranking_factors(
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         streaming_mode=False,
+        experimental_full_streaming=False,
         use_server_side_aggregation=True,
         disable_write_usage=False,
         set_upstream_table_max_modification_time_for_views=True,
@@ -331,6 +343,7 @@ def test_dataset_usage_with_ranking_factors(
                 FreshnessFactor(age_in_days=[90], value=0.4),
             ],
             usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 0], value=0.0),
                 UsagePercentileFactor(percentile=[0, 10], value=0.5),
                 UsagePercentileFactor(percentile=[10, 20], value=0.6),
                 UsagePercentileFactor(percentile=[20, 30], value=0.7),
@@ -409,6 +422,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         streaming_mode=False,
+        experimental_full_streaming=False,
         use_server_side_aggregation=True,
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
@@ -488,6 +502,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         streaming_mode=True,
+        experimental_full_streaming=True,
         use_server_side_aggregation=True,
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
@@ -544,6 +559,253 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
     pipeline.raise_from_status()
 
     check_golden_file(
+        output_path=pathlib.Path(mcp_output_file),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["dashboard_usage_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@freeze_time(FROZEN_TIME)
+def test_dashboard_usage_with_ranking_factors_patch_enabled(
+    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+) -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        dashboard_usage_enabled=True,
+        chart_usage_enabled=True,
+        dataset_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        streaming_mode=True,
+        experimental_full_streaming=True,
+        use_server_side_aggregation=True,
+        disable_write_usage=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        generate_patch=True,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 0], value=0.0),
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+    tmp_path = pathlib.Path(
+        tempfile.mkdtemp("usage_feature_reporter_ranking_test_patch_enabled")
+    )
+    mcp_output_file = f"{tmp_path}/{test_name}_ranking_mcps.json"
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "datahub-usage-reporting",
+            "config": dict(config),
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{mcp_output_file}",
+            },
+        },
+    }
+
+    pipeline = run_and_get_pipeline(pipeline_config_dict)
+    pipeline.raise_from_status()
+
+    check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=pathlib.Path(mcp_output_file),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["dashboard_usage_incremental_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@freeze_time(FROZEN_TIME)
+def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
+    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+) -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        dashboard_usage_enabled=True,
+        chart_usage_enabled=True,
+        dataset_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        streaming_mode=True,
+        experimental_full_streaming=True,
+        use_server_side_aggregation=True,
+        disable_write_usage=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        generate_patch=True,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 0], value=0.0),
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+    tmp_path = pathlib.Path(
+        tempfile.mkdtemp("usage_feature_reporter_ranking_test_patch_enabled")
+    )
+    mcp_output_file = f"{tmp_path}/{test_name}_ranking_mcps.json"
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "datahub-usage-reporting",
+            "config": dict(config),
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{mcp_output_file}",
+            },
+        },
+    }
+
+    pipeline = run_and_get_pipeline(pipeline_config_dict)
+    pipeline.raise_from_status()
+
+    check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=pathlib.Path(mcp_output_file),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["query_usage_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@freeze_time(FROZEN_TIME)
+def test_query_usage_with_ranking_factors_patch_enabled(
+    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+) -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        query_usage_enabled=True,
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        streaming_mode=True,
+        experimental_full_streaming=True,
+        use_server_side_aggregation=False,
+        disable_write_usage=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        generate_patch=True,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 0], value=0.0),
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+    tmp_path = pathlib.Path(
+        tempfile.mkdtemp("usage_feature_reporter_ranking_test_patch_enabled")
+    )
+    mcp_output_file = f"{tmp_path}/{test_name}_ranking_mcps.json"
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "datahub-usage-reporting",
+            "config": dict(config),
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{mcp_output_file}",
+            },
+        },
+    }
+
+    pipeline = run_and_get_pipeline(pipeline_config_dict)
+    pipeline.raise_from_status()
+
+    check_golden_file(
+        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],

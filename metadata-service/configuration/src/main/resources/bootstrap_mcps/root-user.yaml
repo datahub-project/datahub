@@ -4,6 +4,6 @@
   changeType: UPSERT
   aspect:
     active: true
-    displayName: Admin
+    displayName: Acryl Support
     title: DataHub Root User
     system: true

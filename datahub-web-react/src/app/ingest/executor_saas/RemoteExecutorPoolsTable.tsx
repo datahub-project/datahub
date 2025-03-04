@@ -10,6 +10,7 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
 import { PoolDescriptionColumn, PoolStatusColumn } from './Columns';
 import { checkIsExecutionRequestRunning } from '../source/utils';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from './utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 const ExecutorsTable = styled(StyledTable)`
@@ -64,8 +65,9 @@ type Props = {
 export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, viewSourcesForPool }: Props) => {
     const tableData = pools.map((pool) => ({
         urn: pool.urn,
-        isDataHubCloud: !!pool.remoteExecutors?.remoteExecutors?.find((executor) => executor.executorInternal),
-        id: pool.executorPoolId,
+        isEmbedded: pool.isEmbedded,
+        isDataHubCloud: checkIsPoolInDataHubCloud(pool),
+        executorPoolId: pool.executorPoolId,
         description: pool.description,
         reportedAt: Math.max(
             0,
@@ -78,11 +80,11 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
     const tableColumns = [
         {
             title: 'Identifier',
-            dataIndex: 'id',
-            key: 'id',
-            render: (id: string, record: (typeof tableData)[0]) => (
+            dataIndex: 'executorPoolId',
+            key: 'executorPoolId',
+            render: (_, record: (typeof tableData)[0]) => (
                 <Typography.Text>
-                    {id || 'unknown'}
+                    {getDisplayablePoolId(record)}
                     {record.isDataHubCloud ? (
                         <strong style={{ opacity: 0.5, marginLeft: 4 }}> Hosted on DataHub Cloud</strong>
                     ) : (
@@ -121,7 +123,7 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
             dataIndex: 'x',
             key: 'ingestionSources',
             render: (_, record: (typeof tableData)[0]) => (
-                <LinkButton onClick={() => viewSourcesForPool(record.id)}>
+                <LinkButton onClick={() => viewSourcesForPool(record.executorPoolId)}>
                     {record.ingestionSources?.total ?? 0} {pluralize(record.ingestionSources?.total ?? 0, 'source')}
                 </LinkButton>
             ),

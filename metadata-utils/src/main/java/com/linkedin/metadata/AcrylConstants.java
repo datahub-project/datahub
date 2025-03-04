@@ -1,5 +1,8 @@
 package com.linkedin.metadata;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+
 public class AcrylConstants {
 
   public static final String ACTION_REQUEST_TYPE_TERM_PROPOSAL = "TERM_ASSOCIATION";
@@ -71,6 +74,8 @@ public class AcrylConstants {
   public static final String PERSONA_INFO_ASPECT_NAME = "dataHubPersonaInfo";
 
   // Remote executors
+  public static final Set<String> RESERVED_REMOTE_EXECUTOR_POOL_IDS =
+      ImmutableSet.of("embedded", "default");
   public static final String REMOTE_EXECUTOR_GLOBAL_CONFIG_ENTITY_NAME =
       "dataHubRemoteExecutorGlobalConfig";
   public static final String REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG_ASPECT_NAME =

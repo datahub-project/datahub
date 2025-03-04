@@ -121,6 +121,7 @@ query appConfig {
             requestMinimalSlackPermissions
             showTaskCenterRedesign
             usePropagationsFramework
+            displayExecutorPools
         }
         chromeExtensionConfig {
             enabled

@@ -263,6 +263,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
             .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
             .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
+            .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

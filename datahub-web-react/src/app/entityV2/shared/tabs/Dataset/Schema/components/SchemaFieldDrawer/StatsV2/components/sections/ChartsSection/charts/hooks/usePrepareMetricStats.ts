@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 export const usePrepareMetricStats = (
     data: Datum[],
     windowType: LookbackWindowType | string | null,
-    aggregationFunction?: AggregationFunction,
+    aggregationFunction: AggregationFunction = MAX_VALUE_AGGREGATION,
 ): Datum[] => {
     return useMemo(() => {
         const windowSize = windowType ? GRAPH_LOOKBACK_WINDOWS[windowType]?.windowSize : undefined;
@@ -30,7 +30,7 @@ export const usePrepareMetricStats = (
             TimeInterval.DAY,
             (datum) => datum.x,
             (datum) => datum.y,
-            aggregationFunction ?? MAX_VALUE_AGGREGATION,
+            aggregationFunction,
         )
             .filter((datum) => datum.value !== undefined)
             .map((datum) => ({

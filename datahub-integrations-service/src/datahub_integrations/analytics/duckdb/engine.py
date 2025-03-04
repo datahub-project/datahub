@@ -31,16 +31,10 @@ class DuckDBEngineConfig(BaseModel):
 class DuckDBAnalyticsEngine(AnalyticsEngine):
     write_lock = threading.Lock()
 
-    def install_extensions(self, con: duckdb.DuckDBPyConnection) -> None:
-        """
-        Extend this method to install any required extensions.
-        This method will only be called once when the engine is created.
-        """
-        pass
-
     def load_extensions(self, con: duckdb.DuckDBPyConnection) -> None:
         """
         Extend this method to load any required extensions.
+        Extensions should be installed as part of the Dockerfile, and should not be installed at runtime.
         This method will be called every time a new connection is created.
         """
         pass
@@ -60,8 +54,6 @@ class DuckDBAnalyticsEngine(AnalyticsEngine):
         self.base_connection = duckdb.connect(
             str(self.fpath), read_only=False, config={}
         )
-        self.install_extensions(self.base_connection)
-        # install the httpfs and aws extensions
         self.load_extensions(self.base_connection)
 
     def close(self) -> None:

@@ -112,6 +112,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolve
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.GetActionRequestAssigneeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
@@ -537,6 +538,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         typeWiring ->
             typeWiring
                 .dataFetcher("listActionRequests", new ListActionRequestsResolver(entityClient))
+                .dataFetcher(
+                    "getActionRequestAssignee",
+                    new GetActionRequestAssigneeResolver(actionRequestService))
                 .dataFetcher(
                     "listRejectedActionRequests",
                     new ListRejectedActionRequestsResolver(entityClient, entityService))

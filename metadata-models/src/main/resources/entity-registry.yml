@@ -852,6 +852,14 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: dataHubMetricCube
+    category: internal
+    keyAspect: dataHubMetricCubeKey
+    aspects:
+      - dataHubMetricCubeDefinition
+      - dataHubMetricCubeEvent
+      # To be added later.
+      # - dataHubMetricCubeStorageConfig
 events:
   # SaaS Only Events
   - name: notificationRequest

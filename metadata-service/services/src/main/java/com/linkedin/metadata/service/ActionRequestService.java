@@ -185,6 +185,68 @@ public class ActionRequestService extends BaseService {
     this.ownerService = ownerService;
   }
 
+  /** General get assignee method */
+  @Nullable
+  public List<String> getAssignee(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String actionType,
+      @Nonnull final Urn resourceUrn,
+      @Nullable final String subResourceUrn,
+      @Nullable final SubResourceType subResourceType) {
+
+    List<String> result = null;
+    AuthorizedActors actors = null;
+    AssignedActors assignedActors = null;
+    switch (actionType) {
+      case DATA_CONTRACT_REQUEST_TYPE:
+        actors = getContractAssociationAssignee(opContext, resourceUrn);
+        break;
+      case OWNER_ASSOCIATION_PROPOSAL_TYPE:
+        actors = getOwnersAssociationAssignees(opContext, resourceUrn);
+        break;
+      case DOMAIN_ASSOCIATION_PROPOSAL_TYPE:
+        actors = getDomainAssociationAssignees(opContext, resourceUrn);
+        break;
+      case TAG_ASSOCIATION_PROPOSAL_TYPE:
+        actors = getTagAssociationAssignees(opContext, resourceUrn, subResourceType);
+        break;
+      case TERM_ASSOCIATION_PROPOSAL_TYPE:
+        actors = getTermAssociationAssignees(opContext, resourceUrn, subResourceType);
+        break;
+      case STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE:
+        actors = getStructuredPropertyAssociationAssignees(opContext, resourceUrn, subResourceType);
+        break;
+      default:
+        switch (resourceUrn.getEntityType()) {
+          case GLOSSARY_NODE_ENTITY_NAME:
+          case GLOSSARY_TERM_ENTITY_NAME:
+            assignedActors =
+                getAssignedUsersAndGroupsForGlossary(
+                    opContext,
+                    PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(),
+                    Optional.of(resourceUrn));
+          default:
+            log.error("Not implemented for actionType={}, entityType={}", actionType, resourceUrn);
+            break;
+        }
+    }
+
+    if (actors != null) {
+      List<Urn> tmp = actors.getUsers();
+      tmp.addAll(actors.getGroups());
+      tmp.addAll(actors.getRoles());
+      result = tmp.stream().map(Urn::toString).collect(Collectors.toList());
+    } else if (assignedActors != null) {
+      List<Urn> tmp = assignedActors.getUsers();
+      tmp.addAll(assignedActors.getGroups());
+      tmp.addAll(assignedActors.getRoles());
+      result = tmp.stream().map(Urn::toString).collect(Collectors.toList());
+    } else {
+      result = Collections.emptyList();
+    }
+    return result;
+  }
+
   /*--------------------------------------------------------------------------
    *                   TAG PROPOSAL METHODS
    *------------------------------------------------------------------------*/
@@ -789,6 +851,10 @@ public class ActionRequestService extends BaseService {
       assignedRoles = actors.getRoles();
     }
 
+    // TODO found a bug but not fixing right now
+    //  with the if condition of GLOSSARY_TERM_ENTITY_NAME and GLOSSARY_NODE_ENTITY_NAME this is
+    // wrong
+    // and needs to be fixed. Action type cannot be UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE
     ActionRequestSnapshot snapshot =
         createUpdateDescriptionProposalActionRequest(
             actorUrn,
@@ -897,15 +963,8 @@ public class ActionRequestService extends BaseService {
 
     List<Urn> assignedUsers;
     List<Urn> assignedGroups;
-    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
 
-    AuthorizedActors actors =
-        opContext
-            .getAuthorizationContext()
-            .getAuthorizer()
-            .authorizedActors(
-                PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
-                Optional.of(spec));
+    AuthorizedActors actors = getContractAssociationAssignee(opContext, entityUrn);
     assignedUsers = actors.getUsers();
     assignedGroups = actors.getGroups();
 
@@ -922,6 +981,17 @@ public class ActionRequestService extends BaseService {
     this.entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
+  }
+
+  private AuthorizedActors getContractAssociationAssignee(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    return opContext
+        .getAuthorizationContext()
+        .getAuthorizer()
+        .authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
+            Optional.of(spec));
   }
 
   /*--------------------------------------------------------------------------
@@ -2514,8 +2584,7 @@ public class ActionRequestService extends BaseService {
       throws RemoteInvocationException {
 
     // First, get the assignees (authorized actors) for the domain change proposal.
-    final AuthorizedActors assignees =
-        getDomainAssociationAssignees(opContext, entityUrn, subResourceType);
+    final AuthorizedActors assignees = getDomainAssociationAssignees(opContext, entityUrn);
 
     // Then, create the action request
     final List<MetadataChangeProposal> mcps =
@@ -2594,9 +2663,7 @@ public class ActionRequestService extends BaseService {
 
   @Nonnull
   private AuthorizedActors getDomainAssociationAssignees(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn entityUrn,
-      @Nullable final SubResourceType subResourceType) {
+      @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn) {
 
     EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
     return opContext

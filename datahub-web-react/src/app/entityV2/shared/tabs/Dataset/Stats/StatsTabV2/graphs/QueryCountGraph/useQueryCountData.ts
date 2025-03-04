@@ -5,8 +5,10 @@ import moment from 'moment';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import {
     addMonthOverMonthValue,
+    getCalendarStartTimeByTimeRange,
     groupTimeData,
     MAX_VALUE_AGGREGATION,
+    roundTimeByTimeRange,
     SUM_VALUES_AGGREGATION,
     TimeInterval,
 } from '../utils';
@@ -78,8 +80,15 @@ export default function useQueryCountData(urn: string | undefined, timeRange?: T
 
     useEffect(() => {
         if (timeRange && urn !== undefined && canViewDatasetUsage) {
+            const startTime = roundTimeByTimeRange(getCalendarStartTimeByTimeRange(Date.now(), timeRange), timeRange);
+
             getTimeRangeUsageAggregations({
-                variables: { urn, timeRange, timeZone: moment.tz.guess() },
+                variables: {
+                    urn,
+                    timeRange,
+                    startTime,
+                    timeZone: moment.tz.guess(),
+                },
             });
         }
     }, [timeRange, getTimeRangeUsageAggregations, urn, canViewDatasetUsage]);
