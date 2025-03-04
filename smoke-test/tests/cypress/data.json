@@ -2680,5 +2680,69 @@
         "container": "urn:li:container:airline_forecast_experiment"
       }
     }
+  },
+  {
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "data_science"
+        },
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "name": "SAMPLE ML MODEL GROUP",
+        "description": "A sample ML model group",
+        "created": {
+          "time": 1741096069000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1741000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,sample_ml_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "data_science"
+        },
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "name": "SAMPLE ML MODEL",
+        "description": "A sample ML model",
+        "created": {
+          "time": 1741096069000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1741000000000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "hyperParams": [
+          {
+            "name": "max_depth",
+            "value": "3"
+          }
+        ],
+        "trainingMetrics": [
+          {
+            "name": "val_loss",
+            "value": "0.1"
+          }
+        ],
+        "tags": [],
+        "groups": [
+          "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)"
+        ]
+      }
+    }
   }
 ]

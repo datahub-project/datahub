@@ -432,6 +432,33 @@
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(test-model,mlModel)",
+            "version": {
+                "versionTag": "1",
+                "metadataAttribution": {
+                    "time": 1615443388097,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [],
+            "sortId": "",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
