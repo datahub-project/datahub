@@ -671,6 +671,21 @@ class OktaSource(StatefulIngestionSourceBase):
         # TODO: Extract user's manager if provided.
         # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
         full_name = f"{profile.firstName} {profile.lastName}"
+        custom_properties = {
+            k: v
+            for k, v in profile.__dict__.items()
+            if v
+            and k
+            not in [
+                "displayName",
+                "firstName",
+                "lastName",
+                "email",
+                "title",
+                "countryCode",
+                "department",
+            ]
+        }
         return CorpUserInfoClass(
             active=True,
             displayName=(
@@ -683,6 +698,7 @@ class OktaSource(StatefulIngestionSourceBase):
             title=profile.title,
             countryCode=profile.countryCode,
             departmentName=profile.department,
+            customProperties=custom_properties,
         )
 
     def _make_corp_group_urn(self, name: str) -> str:
