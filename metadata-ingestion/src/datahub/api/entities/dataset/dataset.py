@@ -983,6 +983,9 @@ class Dataset(StrictModel):
                 # Determine if the file contains a list or a single document
                 if isinstance(existing_data, dict):
                     existing_data = [existing_data]
+                    is_original_list = False
+                else:
+                    is_original_list = True
                 if isinstance(existing_data, list):
                     # Handle list case
                     updated = False
@@ -1042,6 +1045,8 @@ class Dataset(StrictModel):
 
                     # Write the updated data back
                     with open(file, "w") as fp:
+                        if not is_original_list:
+                            existing_data = existing_data[0]
                         yaml_handler.dump(existing_data, fp)
 
                 return True

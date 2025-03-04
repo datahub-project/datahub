@@ -1,16 +1,17 @@
 import json
 import logging
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 from random import randint
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns, get_sleep_info
@@ -23,6 +24,7 @@ dataset_id = f"test_dataset_sync_{start_index}"
 dataset_urn = make_dataset_urn("snowflake", dataset_id)
 
 sleep_sec, sleep_times = get_sleep_info()
+runner = CliRunner(mix_stderr=False)
 
 
 @pytest.fixture(scope="module")
@@ -71,20 +73,30 @@ def create_dataset_yaml(file_path: Path, additional_properties=None):
         yaml.dump(dataset_yaml, f, indent=2)
 
 
-def run_cli_command(cmd):
-    """Run a DataHub CLI command"""
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+def run_cli_command(cmd, auth_session):
+    """Run a DataHub CLI command using CliRunner and auth_session"""
+    args = cmd.split()
+    result = runner.invoke(
+        datahub,
+        args,
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
 
-    if result.returncode != 0:
+    if result.exit_code != 0:
         logger.error(f"Command failed: {cmd}")
         logger.error(f"STDOUT: {result.stdout}")
         logger.error(f"STDERR: {result.stderr}")
-        raise Exception(f"Command failed with return code {result.returncode}")
+        raise Exception(f"Command failed with return code {result.exit_code}")
 
     return result
 
 
-def test_dataset_sync_to_datahub(setup_teardown_dataset, graph_client: DataHubGraph):
+def test_dataset_sync_to_datahub(
+    setup_teardown_dataset, graph_client: DataHubGraph, auth_session
+):
     """Test syncing dataset from YAML to DataHub"""
     with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp:
         temp_file_path = Path(tmp.name)
@@ -93,8 +105,8 @@ def test_dataset_sync_to_datahub(setup_teardown_dataset, graph_client: DataHubGr
             create_dataset_yaml(temp_file_path)
 
             # Run the CLI command to sync to DataHub
-            cmd = f"datahub dataset sync -f {temp_file_path} --to-datahub"
-            result = run_cli_command(cmd)
+            cmd = f"dataset sync -f {temp_file_path} --to-datahub"
+            result = run_cli_command(cmd, auth_session)
 
             # Verify success message in output
             assert f"Update succeeded for urn {dataset_urn}" in result.stdout
@@ -120,7 +132,9 @@ def test_dataset_sync_to_datahub(setup_teardown_dataset, graph_client: DataHubGr
                 os.unlink(temp_file_path)
 
 
-def test_dataset_sync_from_datahub(setup_teardown_dataset, graph_client: DataHubGraph):
+def test_dataset_sync_from_datahub(
+    setup_teardown_dataset, graph_client: DataHubGraph, auth_session
+):
     """Test syncing dataset from DataHub to YAML"""
     with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp:
         temp_file_path = Path(tmp.name)
@@ -147,9 +161,9 @@ def test_dataset_sync_from_datahub(setup_teardown_dataset, graph_client: DataHub
             )
 
             # Run the CLI command to sync from DataHub
-            cmd = f"datahub dataset sync -f {temp_file_path} --from-datahub"
-            result = run_cli_command(cmd)
-            assert result.returncode == 0
+            cmd = f"dataset sync -f {temp_file_path} --from-datahub"
+            result = run_cli_command(cmd, auth_session)
+            assert result.exit_code == 0
 
             # Wait to ensure file is updated
             wait_for_writes_to_sync()
@@ -169,7 +183,9 @@ def test_dataset_sync_from_datahub(setup_teardown_dataset, graph_client: DataHub
                 os.unlink(temp_file_path)
 
 
-def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHubGraph):
+def test_dataset_sync_bidirectional(
+    setup_teardown_dataset, graph_client: DataHubGraph, auth_session
+):
     """Test bidirectional sync with modifications on both sides"""
     with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp:
         temp_file_path = Path(tmp.name)
@@ -178,7 +194,9 @@ def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHu
             create_dataset_yaml(temp_file_path)
 
             # 2. Sync to DataHub
-            run_cli_command(f"datahub dataset sync -f {temp_file_path} --to-datahub")
+            run_cli_command(
+                f"dataset sync -f {temp_file_path} --to-datahub", auth_session
+            )
             wait_for_writes_to_sync()
 
             # 3. Modify directly in DataHub
@@ -189,14 +207,15 @@ def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHu
             wait_for_writes_to_sync()
 
             # 4. Sync from DataHub to update YAML
-            run_cli_command(f"datahub dataset sync -f {temp_file_path} --from-datahub")
+            run_cli_command(
+                f"dataset sync -f {temp_file_path} --from-datahub", auth_session
+            )
 
             # 5. Modify the YAML file directly
             with open(temp_file_path, "r") as f:
                 import yaml
 
                 data = yaml.safe_load(f)
-
             data["properties"]["modified_by"] = "cli_test"
             data["tags"].append("modified_yaml")
 
@@ -205,7 +224,9 @@ def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHu
                 json.dump(data, f, indent=2)
 
             # 6. Sync back to DataHub
-            run_cli_command(f"datahub dataset sync -f {temp_file_path} --to-datahub")
+            run_cli_command(
+                f"dataset sync -f {temp_file_path} --to-datahub", auth_session
+            )
             wait_for_writes_to_sync()
 
             # 7. Verify both modifications are present in DataHub
@@ -217,7 +238,9 @@ def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHu
             assert "modified_yaml" in final_dataset.tags
 
             # 8. Sync one more time from DataHub and verify YAML is intact
-            run_cli_command(f"datahub dataset sync -f {temp_file_path} --from-datahub")
+            run_cli_command(
+                f"dataset sync -f {temp_file_path} --from-datahub", auth_session
+            )
 
             with open(temp_file_path, "r") as f:
                 content = f.read()
@@ -229,7 +252,9 @@ def test_dataset_sync_bidirectional(setup_teardown_dataset, graph_client: DataHu
                 os.unlink(temp_file_path)
 
 
-def test_dataset_sync_validation(setup_teardown_dataset, graph_client: DataHubGraph):
+def test_dataset_sync_validation(
+    setup_teardown_dataset, graph_client: DataHubGraph, auth_session
+):
     """Test validation during sync to DataHub with invalid references"""
     with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp:
         temp_file_path = Path(tmp.name)
@@ -252,11 +277,19 @@ def test_dataset_sync_validation(setup_teardown_dataset, graph_client: DataHubGr
                     },
                 },
             )
+
             # Attempt to sync to DataHub - should fail due to validation
-            cmd = f"datahub dataset sync -f {temp_file_path} --to-datahub"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            # Assert that the command failed (non-zero return code)
-            assert result.returncode != 0
+            cmd = f"dataset sync -f {temp_file_path} --to-datahub"
+            try:
+                run_cli_command(cmd, auth_session)
+                # If we get here, the command didn't fail as expected
+                raise AssertionError("Command should have failed due to validation")
+            except Exception as e:
+                if not isinstance(e, AssertionError):
+                    # Command failed as expected
+                    pass
+                else:
+                    raise e
 
         finally:
             # Clean up temporary file
