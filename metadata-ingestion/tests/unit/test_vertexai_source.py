@@ -11,9 +11,10 @@ from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
 from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai import (
+    MLTypes,
+    TrainingJobMetadata,
     VertexAIConfig,
     VertexAISource,
 )
@@ -126,25 +127,25 @@ def source() -> VertexAISource:
 
 
 @patch("google.cloud.aiplatform.Model.list")
-def test_get_ml_model_workunits(mock_list: List[Model], source: VertexAISource) -> None:
+def test_get_ml_model_mcps(mock_list: List[Model], source: VertexAISource) -> None:
     mock_models = gen_mock_models()
     assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
     mock_list.return_value = mock_models
 
-    wcs = [wc for wc in source._get_ml_models_workunits()]
-    assert len(wcs) == 2
+    mcps = [mcp for mcp in source._get_ml_models_mcps()]
+    assert len(mcps) == 2
     # aspect is MLModelGroupPropertiesClass
 
-    assert hasattr(wcs[0].metadata, "aspect")
-    aspect = wcs[0].metadata.aspect
+    assert hasattr(mcps[0], "aspect")
+    aspect = mcps[0].aspect
     assert isinstance(aspect, MLModelGroupProperties)
     assert (
         aspect.name == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
     )
     assert aspect.description == mock_models[0].description
 
-    assert hasattr(wcs[1].metadata, "aspect")
-    aspect = wcs[1].metadata.aspect
+    assert hasattr(mcps[1], "aspect")
+    aspect = mcps[1].aspect
     assert isinstance(aspect, MLModelGroupProperties)
     assert (
         aspect.name == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
@@ -152,15 +153,15 @@ def test_get_ml_model_workunits(mock_list: List[Model], source: VertexAISource) 
     assert aspect.description == mock_models[1].description
 
 
-def test_get_ml_model_properties_workunit(
+def test_get_ml_model_properties_mcps(
     source: VertexAISource,
 ) -> None:
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
-    wu = [wu for wu in source._gen_ml_model_workunits(mock_model, model_version)]
-    assert len(wu) == 1
-    assert hasattr(wu[0].metadata, "aspect")
-    aspect = wu[0].metadata.aspect
+    mcp = [mcp for mcp in source._gen_ml_model_mcps(mock_model, model_version)]
+    assert len(mcp) == 1
+    assert hasattr(mcp[0], "aspect")
+    aspect = mcp[0].aspect
     assert isinstance(aspect, MLModelProperties)
     assert (
         aspect.name
@@ -171,15 +172,15 @@ def test_get_ml_model_properties_workunit(
     assert aspect.hyperParams is None
 
 
-def test_get_endpoint_workunit(
+def test_get_endpoint_mcps(
     source: VertexAISource,
 ) -> None:
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
     mock_endpoint = gen_mock_endpoint()
-    for wu in source._gen_endpoint_workunits(mock_endpoint, mock_model, model_version):
-        assert hasattr(wu.metadata, "aspect")
-        aspect = wu.metadata.aspect
+    for mcp in source._gen_endpoint_mcps(mock_endpoint, mock_model, model_version):
+        assert hasattr(mcp, "aspect")
+        aspect = mcp.aspect
         if isinstance(aspect, MLModelDeploymentPropertiesClass):
             assert aspect.description == mock_model.description
             assert aspect.customProperties == {
@@ -192,37 +193,23 @@ def test_get_endpoint_workunit(
         elif isinstance(aspect, SubTypesClass):
             assert aspect.typeNames == ["Endpoint"]
 
-
-def test_get_data_process_properties_workunit(source: VertexAISource) -> None:
+def test_get_training_jobs_mcps(
+    source: VertexAISource,
+) -> None:
     mock_training_job = gen_mock_training_job()
-    for wu in source._get_training_job_workunits(mock_training_job):
-        assert hasattr(wu.metadata, "aspect")
-        aspect = wu.metadata.aspect
-        if isinstance(aspect, DataProcessInstancePropertiesClass):
-            assert (
-                aspect.name
-                == f"{source._make_vertexai_job_name(mock_training_job.name)}"
-            )
-            assert aspect.externalUrl == source._make_job_external_url(
-                mock_training_job
-            )
-            assert (
-                aspect.customProperties["displayName"] == mock_training_job.display_name
-            )
-        elif isinstance(aspect, SubTypesClass):
-            assert "Training Job" in aspect.typeNames
-
-
-def test_get_data_process_input_workunit(source: VertexAISource) -> None:
-    mock_training_job = gen_mock_training_job()
+    mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
-            "google.cloud.aiplatform.datasets.TextDataset.list",
-            "google.cloud.aiplatform.datasets.TabularDataset.list",
-            "google.cloud.aiplatform.datasets.ImageDataset.list",
-            "google.cloud.aiplatform.datasets.TimeSeriesDataset.list",
-            "google.cloud.aiplatform.datasets.VideoDataset.list",
+            "google.cloud.aiplatform.CustomJob.list",
+            "google.cloud.aiplatform.CustomTrainingJob.list",
+            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
+            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
             if func_to_mock == "google.cloud.aiplatform.CustomJob.list":
@@ -230,11 +217,65 @@ def test_get_data_process_input_workunit(source: VertexAISource) -> None:
             else:
                 mock.return_value = []
 
-        for wu in source._gen_input_dataset_workunits(mock_training_job, "12345"):
-            assert hasattr(wu.metadata, "aspect")
-            aspect = wu.metadata.aspect
-            assert isinstance(aspect, DataProcessInstanceInputClass)
-            assert len(aspect.inputs) == 1
+        """
+        Test the retrieval of training jobs work units from Vertex AI.
+        This function mocks customJob and AutoMLTabularTrainingJob, 
+        and verifies the properties of the work units
+        """
+        for mcp in source._get_training_jobs_mcps():
+            assert hasattr(mcp, "aspect")
+            aspect = mcp.aspect
+            if isinstance(aspect, DataProcessInstancePropertiesClass):
+                assert (
+                    aspect.name
+                    == f"{source.config.project_id}.job.{mock_training_job.name}"
+                    or f"{source.config.project_id}.job.{mock_training_automl_job.name}"
+                )
+                assert (
+                    aspect.customProperties["displayName"]
+                    == mock_training_job.display_name
+                    or mock_training_automl_job.display_name
+                )
+            if isinstance(aspect, SubTypesClass):
+                assert aspect.typeNames == [MLTypes.TRAINING_JOB]
+
+            if isinstance(aspect, ContainerClass):
+                assert aspect.container == source._get_project_container().as_urn()
+
+
+def test_gen_training_job_mcps(source: VertexAISource) -> None:
+    mock_training_job = gen_mock_training_job()
+    mock_dataset = gen_mock_dataset()
+    mock_job = gen_mock_training_job()
+    job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
+
+    for mcp in source._gen_training_job_mcps(job_meta):
+        assert hasattr(mcp, "aspect")
+        aspect = mcp.aspect
+        if isinstance(aspect, DataProcessInstancePropertiesClass):
+            assert (
+                aspect.name
+                == f"{source.config.project_id}.job.{mock_training_job.name}"
+            )
+            assert (
+                aspect.customProperties["displayName"] == mock_training_job.display_name
+            )
+        if isinstance(aspect, SubTypesClass):
+            assert aspect.typeNames == [MLTypes.TRAINING_JOB]
+
+        if isinstance(aspect, ContainerClass):
+            assert aspect.container == source._get_project_container().as_urn()
+
+        if isinstance(aspect, DataProcessInstanceInputClass):
+            dataset_name = source._make_vertexai_dataset_name(
+                entity_id=mock_dataset.name
+            )
+            dataset_urn = builder.make_dataset_urn(
+                platform=source.platform,
+                name=dataset_name,
+                env=source.config.env,
+            )
+            assert aspect.inputs == [dataset_urn]
 
 
 def test_vertexai_config_init():
@@ -301,70 +342,14 @@ def test_vertexai_config_init():
         )
 
 
-def test_get_training_jobs_workunit(
-    source: VertexAISource,
-) -> None:
-    mock_training_job = gen_mock_training_job()
-    mock_training_automl_job = gen_mock_training_automl_job()
-    with contextlib.ExitStack() as exit_stack:
-        for func_to_mock in [
-            "google.cloud.aiplatform.init",
-            "google.cloud.aiplatform.CustomJob.list",
-            "google.cloud.aiplatform.CustomTrainingJob.list",
-            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
-            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
-        ]:
-            mock = exit_stack.enter_context(patch(func_to_mock))
-            if func_to_mock == "google.cloud.aiplatform.CustomJob.list":
-                mock.return_value = [mock_training_job]
-            else:
-                mock.return_value = []
-
-        container_key = ProjectIdKey(
-            project_id=source.config.project_id, platform=source.platform
-        )
-
-        """
-        Test the retrieval of training jobs work units from Vertex AI.
-        This function mocks customJob and AutoMLTabularTrainingJob, 
-        and verifies the properties of the work units
-        """
-        for wc in source._get_training_jobs_workunits():
-            assert hasattr(wc.metadata, "aspect")
-            aspect = wc.metadata.aspect
-            if isinstance(aspect, DataProcessInstancePropertiesClass):
-                assert (
-                    aspect.name
-                    == f"{source.config.project_id}.job.{mock_training_job.name}"
-                    or f"{source.config.project_id}.job.{mock_training_automl_job.name}"
-                )
-                assert (
-                    aspect.customProperties["displayName"]
-                    == mock_training_job.display_name
-                    or mock_training_automl_job.display_name
-                )
-            if isinstance(aspect, SubTypesClass):
-                assert aspect.typeNames == ["Training Job"]
-
-            if isinstance(aspect, ContainerClass):
-                assert aspect.container == container_key.as_urn()
-
-
-def test_get_dataset_workunit(source: VertexAISource) -> None:
+def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mock_dataset = gen_mock_dataset()
-    dataset_urn = builder.make_dataset_urn(
-        platform=source.platform,
-        name=mock_dataset.name,
-        env=source.config.env,
-    )
-    for wu in source._get_dataset_workunits(dataset_urn=dataset_urn, ds=mock_dataset):
-        assert hasattr(wu.metadata, "aspect")
-        aspect = wu.metadata.aspect
+    mock_job = gen_mock_training_job()
+    job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
+
+    for mcp in source._get_input_dataset_mcps(job_meta):
+        assert hasattr(mcp, "aspect")
+        aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
             assert aspect.name == f"{source._make_vertexai_job_name(mock_dataset.name)}"
             assert aspect.customProperties["displayName"] == mock_dataset.display_name
