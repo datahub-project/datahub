@@ -2,10 +2,12 @@ package com.linkedin.datahub.graphql.types.common.mappers.util;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Comparator;
+import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -15,51 +17,34 @@ public class SystemMetadataUtils {
 
   @Nullable
   public static Long getLastIngestedTime(@Nonnull EnvelopedAspectMap aspectMap) {
-    RunInfo lastIngestionRun = getLastIngestionRun(aspectMap);
-    return lastIngestionRun != null ? lastIngestionRun.getTime() : null;
+    return getLastIngestionRun(aspectMap).map(RunInfo::getTime).orElse(null);
   }
 
   @Nullable
   public static String getLastIngestedRunId(@Nonnull EnvelopedAspectMap aspectMap) {
-    RunInfo lastIngestionRun = getLastIngestionRun(aspectMap);
-    return lastIngestionRun != null ? lastIngestionRun.getId() : null;
+    return getLastIngestionRun(aspectMap).map(RunInfo::getId).orElse(null);
   }
 
   /**
-   * Returns a sorted list of all of the most recent ingestion runs based on the most recent aspects
-   * present for the entity.
+   * Returns the most recent ingestion run based on the most recent aspects present for the entity.
    */
   @Nonnull
-  public static List<RunInfo> getLastIngestionRuns(@Nonnull EnvelopedAspectMap aspectMap) {
-    final List<RunInfo> runs = new ArrayList<>();
-    for (String aspect : aspectMap.keySet()) {
-      if (aspectMap.get(aspect).hasSystemMetadata()) {
-        SystemMetadata systemMetadata = aspectMap.get(aspect).getSystemMetadata();
-        if (systemMetadata.hasLastRunId()
-            && !systemMetadata.getLastRunId().equals(DEFAULT_RUN_ID)
-            && systemMetadata.hasLastObserved()) {
-          Long lastObserved = systemMetadata.getLastObserved();
-          String runId = systemMetadata.getLastRunId();
-          RunInfo run = new RunInfo(runId, lastObserved);
-          runs.add(run);
-        } else if (systemMetadata.hasRunId()
-            && !systemMetadata.getRunId().equals(DEFAULT_RUN_ID)
-            && systemMetadata.hasLastObserved()) {
-          // Handle the legacy case: Check original run ids.
-          Long lastObserved = systemMetadata.getLastObserved();
-          String runId = systemMetadata.getRunId();
-          RunInfo run = new RunInfo(runId, lastObserved);
-          runs.add(run);
-        }
-      }
-    }
-    runs.sort((a, b) -> Long.compare(b.getTime(), a.getTime()));
-    return runs;
-  }
-
-  @Nullable
-  private static RunInfo getLastIngestionRun(@Nonnull EnvelopedAspectMap aspectMap) {
-    List<RunInfo> runs = getLastIngestionRuns(aspectMap);
-    return !runs.isEmpty() ? runs.get(0) : null; // Just take the first, to get the most recent run.
+  private static Optional<RunInfo> getLastIngestionRun(@Nonnull EnvelopedAspectMap aspectMap) {
+    return aspectMap.values().stream()
+        .filter(EnvelopedAspect::hasSystemMetadata)
+        .map(EnvelopedAspect::getSystemMetadata)
+        .filter(SystemMetadata::hasLastObserved)
+        .map(
+            systemMetadata ->
+                Optional.ofNullable(systemMetadata.getLastRunId())
+                    .filter(lastRunId -> !lastRunId.equals(DEFAULT_RUN_ID))
+                    .or(
+                        () ->
+                            Optional.ofNullable(systemMetadata.getRunId())
+                                .filter(runId -> !runId.equals(DEFAULT_RUN_ID)))
+                    .map(runId -> new RunInfo(runId, systemMetadata.getLastObserved()))
+                    .orElse(null))
+        .filter(Objects::nonNull)
+        .max(Comparator.comparingLong(RunInfo::getTime));
   }
 }
