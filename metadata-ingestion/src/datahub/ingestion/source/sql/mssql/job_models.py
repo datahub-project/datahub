@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    SubTypesClass,
 )
 
 
@@ -212,6 +213,14 @@ class MSSQLDataJob:
         )
 
     @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (JobStep, StoredProcedure))
+        type = "Job Step" if isinstance(self.entity, JobStep) else "Stored Procedure"
+        return SubTypesClass(
+            typeNames=[type],
+        )
+
+    @property
     def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
         if self.entity.flow.platform_instance:
             return DataPlatformInstanceClass(
@@ -274,6 +283,14 @@ class MSSQLDataFlow:
             name=self.entity.formatted_name,
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
+        )
+
+    @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (MSSQLJob, MSSQLProceduresContainer))
+        type = "Job" if isinstance(self.entity, MSSQLJob) else "Procedures Container"
+        return SubTypesClass(
+            typeNames=[type],
         )
 
     @property
