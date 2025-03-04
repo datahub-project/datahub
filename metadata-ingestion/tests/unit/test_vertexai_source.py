@@ -35,8 +35,7 @@ PROJECT_ID = "acryl-poc"
 REGION = "us-west2"
 
 
-@pytest.fixture
-def mock_model() -> Model:
+def gen_mock_model() -> Model:
     mock_model_1 = MagicMock(spec=Model)
     mock_model_1.name = "mock_prediction_model_1"
     mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -49,8 +48,7 @@ def mock_model() -> Model:
     return mock_model_1
 
 
-@pytest.fixture
-def mock_models() -> List[Model]:
+def gen_mock_models() -> List[Model]:
     mock_model_1 = MagicMock(spec=Model)
     mock_model_1.name = "mock_prediction_model_1"
     mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -71,8 +69,7 @@ def mock_models() -> List[Model]:
     return [mock_model_1, mock_model_2]
 
 
-@pytest.fixture
-def mock_training_job() -> VertexAiResourceNoun:
+def gen_mock_training_job() -> VertexAiResourceNoun:
     mock_training_job = MagicMock(spec=VertexAiResourceNoun)
     mock_training_job.name = "mock_training_job"
     mock_training_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -82,8 +79,7 @@ def mock_training_job() -> VertexAiResourceNoun:
     return mock_training_job
 
 
-@pytest.fixture
-def mock_dataset() -> VertexAiResourceNoun:
+def gen_mock_dataset() -> VertexAiResourceNoun:
     mock_dataset = MagicMock(spec=VertexAiResourceNoun)
     mock_dataset.name = "mock_dataset"
     mock_dataset.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -93,8 +89,7 @@ def mock_dataset() -> VertexAiResourceNoun:
     return mock_dataset
 
 
-@pytest.fixture
-def mock_training_automl_job() -> AutoMLTabularTrainingJob:
+def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
     mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
     mock_automl_job.name = "mock_auto_automl_tabular_job"
     mock_automl_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -104,13 +99,24 @@ def mock_training_automl_job() -> AutoMLTabularTrainingJob:
     return mock_automl_job
 
 
-@pytest.fixture
-def mock_endpoint() -> Endpoint:
+def gen_mock_endpoint() -> Endpoint:
     mock_endpoint = MagicMock(spec=Endpoint)
     mock_endpoint.description = "test endpoint"
     mock_endpoint.create_time = datetime.now()
     mock_endpoint.display_name = "test endpoint display name"
     return mock_endpoint
+
+
+def gen_mock_model_version(mock_model: Model) -> VersionInfo:
+    version = "1"
+    return VersionInfo(
+        version_id=version,
+        version_description="test",
+        version_create_time=timestamp_pb2.Timestamp().GetCurrentTime(),
+        version_update_time=timestamp_pb2.Timestamp().GetCurrentTime(),
+        model_display_name=mock_model.name,
+        model_resource_name=mock_model.resource_name,
+    )
 
 
 @pytest.fixture
@@ -121,8 +127,7 @@ def source() -> VertexAISource:
     )
 
 
-@pytest.fixture
-def real_model(source: VertexAISource) -> Model:
+def gen_real_model(source: VertexAISource) -> Model:
     """
     Fixture for the model that is actually registered in the Vertex AI Model Registry
     Use mock_model for local testing purpose, but this fixture is provided to use real model for debugging.
@@ -132,8 +137,7 @@ def real_model(source: VertexAISource) -> Model:
     return Model(model_name=model_name)
 
 
-@pytest.fixture
-def real_autoML_tabular_job(source: VertexAISource) -> _TrainingJob:
+def gen_real_autoML_tabular_job(source: VertexAISource) -> _TrainingJob:
     """
     Fixture for the training job that is actually registered in the Vertex AI Model Registry
     Use mock_training_job for local testing purpose, but this fixture is provided to use real training job for debugging.
@@ -151,26 +155,9 @@ def real_autoML_tabular_job(source: VertexAISource) -> _TrainingJob:
     return job
 
 
-@pytest.fixture
-def model_version(
-    source: VertexAISource,
-    mock_model: Model,
-) -> VersionInfo:
-    version = "1"
-    return VersionInfo(
-        version_id=version,
-        version_description="test",
-        version_create_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        version_update_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        model_display_name=mock_model.name,
-        model_resource_name=mock_model.resource_name,
-    )
-
-
 @patch("google.cloud.aiplatform.Model.list")
-def test_get_ml_model_workunits(
-    mock_list: List[Model], source: VertexAISource, mock_models: List[Model]
-) -> None:
+def test_get_ml_model_workunits(mock_list: List[Model], source: VertexAISource) -> None:
+    mock_models = gen_mock_models()
     assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
     mock_list.return_value = mock_models
 
@@ -196,8 +183,10 @@ def test_get_ml_model_workunits(
 
 
 def test_get_ml_model_properties_workunit(
-    source: VertexAISource, mock_model: Model, model_version: VersionInfo
+    source: VertexAISource,
 ) -> None:
+    mock_model = gen_mock_model()
+    model_version = gen_mock_model_version(mock_model)
     wu = [wu for wu in source._gen_ml_model_workunits(mock_model, model_version)]
     assert len(wu) == 1
     assert hasattr(wu[0].metadata, "aspect")
@@ -214,10 +203,10 @@ def test_get_ml_model_properties_workunit(
 
 def test_get_endpoint_workunit(
     source: VertexAISource,
-    mock_endpoint: Endpoint,
-    mock_model: Model,
-    model_version: VersionInfo,
 ) -> None:
+    mock_model = gen_mock_model()
+    model_version = gen_mock_model_version(mock_model)
+    mock_endpoint = gen_mock_endpoint()
     for wu in source._gen_endpoint_workunits(mock_endpoint, mock_model, model_version):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
@@ -234,10 +223,9 @@ def test_get_endpoint_workunit(
             assert aspect.typeNames == ["Endpoint"]
 
 
-def test_get_data_process_properties_workunit(
-    source: VertexAISource, mock_training_job: VertexAiResourceNoun
-) -> None:
-    for wu in source._gen_data_process_workunits(mock_training_job):
+def test_get_data_process_properties_workunit(source: VertexAISource) -> None:
+    mock_training_job = gen_mock_training_job()
+    for wu in source._get_training_job_workunits(mock_training_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
@@ -255,10 +243,8 @@ def test_get_data_process_properties_workunit(
             assert "Training Job" in aspect.typeNames
 
 
-def test_get_data_process_input_workunit(
-    source: VertexAISource,
-    mock_training_job: VertexAiResourceNoun,
-) -> None:
+def test_get_data_process_input_workunit(source: VertexAISource) -> None:
+    mock_training_job = gen_mock_training_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -347,9 +333,9 @@ def test_vertexai_config_init():
 
 def test_get_training_jobs_workunit(
     source: VertexAISource,
-    mock_training_job: VertexAiResourceNoun,
-    mock_training_automl_job: AutoMLTabularTrainingJob,
 ) -> None:
+    mock_training_job = gen_mock_training_job()
+    mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -399,9 +385,8 @@ def test_get_training_jobs_workunit(
                 assert aspect.container == container_key.as_urn()
 
 
-def test_get_dataset_workunit(
-    mock_dataset: VertexAiResourceNoun, source: VertexAISource
-) -> None:
+def test_get_dataset_workunit(source: VertexAISource) -> None:
+    mock_dataset = gen_mock_dataset()
     dataset_urn = builder.make_dataset_urn(
         platform=source.platform,
         name=mock_dataset.name,
@@ -419,7 +404,8 @@ def test_get_dataset_workunit(
             assert aspect.typeNames == ["Dataset"]
 
 
-def test_make_model_external_url(mock_model: Model, source: VertexAISource) -> None:
+def test_make_model_external_url(source: VertexAISource) -> None:
+    mock_model = gen_mock_model()
     assert (
         source._make_model_external_url(mock_model)
         == f"{source.config.vertexai_url}/models/locations/{source.config.region}/models/{mock_model.name}"
@@ -427,9 +413,8 @@ def test_make_model_external_url(mock_model: Model, source: VertexAISource) -> N
     )
 
 
-def test_make_job_urn(
-    mock_training_job: VertexAiResourceNoun, source: VertexAISource
-) -> None:
+def test_make_job_urn(source: VertexAISource) -> None:
+    mock_training_job = gen_mock_training_job()
     assert (
         source._make_job_urn(mock_training_job)
         == f"{builder.make_data_process_instance_urn(source._make_vertexai_job_name(mock_training_job.name))}"
@@ -437,13 +422,13 @@ def test_make_job_urn(
 
 
 @pytest.mark.skip(reason="Skipping, this is for debugging purpose")
-def test_real_model_workunit(
-    source: VertexAISource, real_model: Model, model_version: VersionInfo
-) -> None:
+def test_real_model_workunit(source: VertexAISource) -> None:
     """
     Disabled as default
     Use real model registered in the Vertex AI Model Registry
     """
+    real_model = gen_real_model(source)
+    model_version = gen_mock_model_version(real_model)
     for wu in source._gen_ml_model_workunits(
         model=real_model, model_version=model_version
     ):
@@ -458,10 +443,9 @@ def test_real_model_workunit(
 
 
 @pytest.mark.skip(reason="Skipping, this is for debugging purpose")
-def test_real_get_data_process_properties(
-    source: VertexAISource, real_autoML_tabular_job: _TrainingJob
-) -> None:
-    for wu in source._gen_data_process_workunits(real_autoML_tabular_job):
+def test_real_get_data_process_properties(source: VertexAISource) -> None:
+    real_autoML_tabular_job = gen_real_autoML_tabular_job(source)
+    for wu in source._get_training_job_workunits(real_autoML_tabular_job):
         assert hasattr(wu.metadata, "aspect")
         aspect = wu.metadata.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
