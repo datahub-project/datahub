@@ -92,12 +92,26 @@ def test_create_urns_with_reserved_chars() -> None:
         == "urn:li:dashboard:(platform%%28%29%2C%E2%90%9F,platform-instance%%28%29%2C%E2%90%9F.dashboard%%28%29%2C%E2%90%9F)"
     )
     assert (
+        builder.make_dashboard_urn(
+            platform=f"platform{_RESERVED_CHARS_STRING}",
+            name=f"dashboard{_RESERVED_CHARS_STRING}",
+        )
+        == "urn:li:dashboard:(platform%%28%29%2C%E2%90%9F,dashboard%%28%29%2C%E2%90%9F)"
+    )
+    assert (
         builder.make_chart_urn(
             platform=f"platform{_RESERVED_CHARS_STRING}",
             name=f"dashboard{_RESERVED_CHARS_STRING}",
             platform_instance=f"platform-instance{_RESERVED_CHARS_STRING}",
         )
         == "urn:li:chart:(platform%%28%29%2C%E2%90%9F,platform-instance%%28%29%2C%E2%90%9F.dashboard%%28%29%2C%E2%90%9F)"
+    )
+    assert (
+        builder.make_chart_urn(
+            platform=f"platform{_RESERVED_CHARS_STRING}",
+            name=f"dashboard{_RESERVED_CHARS_STRING}",
+        )
+        == "urn:li:chart:(platform%%28%29%2C%E2%90%9F,dashboard%%28%29%2C%E2%90%9F)"
     )
 
 
