@@ -9,12 +9,11 @@ import { DEFAULT_TESTS_PAGE_SIZE, METADATA_TESTS_DOC_URL } from './constants';
 import { useListTestsQuery } from '../../graphql/test.generated';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
+import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { filterTests } from './utils';
 import { NewTestButton } from './NewTestButton';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { PageTitle, SearchBar } from '@components';
-import { ButtonContainer, PageContainer, HeaderContainer, HeaderContent } from '../govern/structuredProperties/styledComponents';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -30,9 +29,38 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
 `;
 
+const Header = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    && {
+        padding-left: 40px;
+        padding-right: 40px;
+        padding-bottom: 16px;
+    }
+    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+`;
+
+const LeftColumn = styled.div``;
+
+const RightColumn = styled.div``;
+
+const Title = styled(Typography.Title)`
+    && {
+        margin-bottom: 12px;
+    }
+`;
+
+const SubTitle = styled(Typography.Paragraph)`
+    && {
+        font-size: 16px;
+    }
+`;
+
 const testSearchStyle = {
     maxWidth: 330,
     padding: 0,
+    marginLeft: 20,
 };
 
 const testSearchInputStyle = {
@@ -66,33 +94,37 @@ export const ManageTestsPage = () => {
     const filteredTests = filterTests(filterText, tests as any);
 
     return (
-        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             {!data && loading && <Message type="loading" content="Loading tests..." />}
             {error && message.error({ content: `Failed to load Tests! An unexpected error occurred.`, duration: 3 })}
-            <HeaderContainer>
-                <HeaderContent>
-                    <PageTitle
-                        title="Metadata Tests"
-                        subTitle="Discover & monitor data assets matching a set of logical conditions."
-                    />
-                </HeaderContent>
-                <ButtonContainer>
+            <Header>
+                <LeftColumn>
+                    <Title level={3}>Metadata Tests</Title>
+                    <SubTitle type="secondary">
+                        Discover & monitor data assets matching a set of logical conditions.{' '}
+                        <a href={METADATA_TESTS_DOC_URL} target="_blank" rel="noopener noreferrer">
+                            Learn more
+                        </a>
+                    </SubTitle>
+                </LeftColumn>
+                <RightColumn>
                     <NewTestButton />
-                </ButtonContainer>
-            </HeaderContainer>
-
-            <SearchBar
-                initialQuery=""
-                placeholderText="Search by name, description, category..."
-                suggestions={[]}
-                style={testSearchStyle}
-                inputStyle={testSearchInputStyle}
-                onSearch={() => null}
-                onQueryChange={(q) => setFilterText(q)}
-                entityRegistry={entityRegistry}
-                hideRecommendations
-            />
+                </RightColumn>
+            </Header>
+            <TabToolbar>
+                <SearchBar
+                    initialQuery=""
+                    placeholderText="Search by name, description, category..."
+                    suggestions={[]}
+                    style={testSearchStyle}
+                    inputStyle={testSearchInputStyle}
+                    onSearch={() => null}
+                    onQueryChange={(q) => setFilterText(q)}
+                    entityRegistry={entityRegistry}
+                    hideRecommendations
+                />
+            </TabToolbar>
             <Tests tests={filteredTests} />
-        </PageContainer>
+        </Container>
     );
 };
