@@ -1,10 +1,3 @@
-import time
-
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
-)
 from datahub.sdk import DataHubClient, DatasetUrn
 
 client = DataHubClient.from_env()
@@ -18,16 +11,11 @@ This is a really important Dataset that contains all the relevant information ab
 dataset.set_description(documentation)
 
 # Add link to institutional memory
-current_timestamp = AuditStampClass(
-    time=int(time.time() * 1000),  # milliseconds since epoch
-    actor="urn:li:corpuser:ingestion",
+dataset.add_link(
+    (
+        "https://wikipedia.com/real_estate",
+        "This is the definition of what real estate means",  # link description
+    )
 )
-
-memory_metadata = InstitutionalMemoryMetadataClass(
-    url="https://wikipedia.com/real_estate",
-    description="This is the definition of what real estate means",
-    createStamp=current_timestamp,
-)
-dataset._set_aspect(InstitutionalMemoryClass(elements=[memory_metadata]))
 
 client.entities.update(dataset)
