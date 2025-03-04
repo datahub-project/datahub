@@ -330,60 +330,6 @@ class VertexAISource(Source):
         )
         return urn
 
-    # def _gen_data_process_workunits(
-    #     self, job: VertexAiResourceNoun
-    # ) -> Iterable[MetadataWorkUnit]:
-    #     """
-    #     Generate a work unit for VertexAI Training Job
-    #     """
-    #
-    #     created_time = (
-    #         int(job.create_time.timestamp() * 1000)
-    #         if job.create_time
-    #         else int(time.time() * 1000)
-    #     )
-    #     created_actor = f"urn:li:platformResource:{self.platform}"
-    #
-    #     job_id = self._make_vertexai_job_name(entity_id=job.name)
-    #     job_urn = builder.make_data_process_instance_urn(job_id)
-    #
-    #     aspects: List[_Aspect] = list()
-    #     aspects.append(
-    #         DataProcessInstancePropertiesClass(
-    #             name=job_id,
-    #             created=AuditStampClass(
-    #                 time=created_time,
-    #                 actor=created_actor,
-    #             ),
-    #             externalUrl=self._make_job_external_url(job),
-    #             customProperties={
-    #                 "displayName": job.display_name,
-    #                 "jobType": job.__class__.__name__,
-    #             },
-    #         )
-    #     )
-    #
-    #     aspects.append(
-    #         MLTrainingRunProperties(
-    #             externalUrl=self._make_job_external_url(job), id=job.name
-    #         )
-    #     )
-    #     aspects.append(SubTypesClass(typeNames=[MLTypes.TRAINING_JOB]))
-    #
-    #     aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
-    #
-    #     # TODO add status of the job
-    #     # aspects.append(
-    #     #     DataProcessInstanceRunEventClass(
-    #     #             status=DataProcessRunStatusClass.COMPLETE,
-    #     #             timestampMillis=0
-    #     #     )
-    #     # }
-    #
-    #     yield from auto_workunit(
-    #         MetadataChangeProposalWrapper.construct_many(job_urn, aspects=aspects)
-    #     )
-
     def _get_project_container(self) -> ProjectIdKey:
         return ProjectIdKey(project_id=self.config.project_id, platform=self.platform)
 
@@ -403,36 +349,6 @@ class VertexAISource(Source):
             if version.version_id == version_id:
                 return version
         return None
-
-    # def _get_job_output_workunits(
-    #     self, job: VertexAiResourceNoun
-    # ) -> Iterable[MetadataWorkUnit]:
-    #     """
-    #     This method creates work units that link the training job to the model version
-    #     that it produces. It checks if the job configuration contains a model to upload,
-    #     and if so, it generates a work unit for the model version with the training job
-    #     as part of its properties.
-    #     """
-    #
-    #     job_conf = job.to_dict()
-    #     if (
-    #         "modelToUpload" in job_conf
-    #         and "name" in job_conf["modelToUpload"]
-    #         and job_conf["modelToUpload"]["name"]
-    #     ):
-    #         model_version_str = job_conf["modelToUpload"]["versionId"]
-    #         job_urn = self._make_job_urn(job)
-    #
-    #         model = Model(model_name=job_conf["modelToUpload"]["name"])
-    #         model_version = self._search_model_version(model, model_version_str)
-    #         if model and model_version:
-    #             logger.info(
-    #                 f"Found output model (name:{model.display_name} id:{model_version_str}) "
-    #                 f"for training job: {job.display_name}"
-    #             )
-    #             yield from self._gen_ml_model_endpoint_workunits(
-    #                 model, model_version, job_urn
-    #             )
 
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
         """
@@ -490,30 +406,6 @@ class VertexAISource(Source):
         yield from auto_workunit(
             MetadataChangeProposalWrapper.construct_many(dataset_urn, aspects=aspects)
         )
-
-    # def _get_job_input_workunits(
-    #     self, job: VertexAiResourceNoun
-    # ) -> Iterable[MetadataWorkUnit]:
-    #     """
-    #     Generate work units for the input data of a training job.
-    #     This method checks if the training job is an AutoML job and if it has an input dataset
-    #     configuration. If so, it creates a work unit for the input dataset.
-    #     """
-    #
-    #     if self._is_automl_job(job):
-    #         job_conf = job.to_dict()
-    #         if (
-    #             "inputDataConfig" in job_conf
-    #             and "datasetId" in job_conf["inputDataConfig"]
-    #         ):
-    #             # Create URN of Input Dataset for Training Job
-    #             dataset_id = job_conf["inputDataConfig"]["datasetId"]
-    #             logger.info(
-    #                 f"Found input dataset (id: {dataset_id}) for training job ({job.display_name})"
-    #             )
-    #
-    #             if dataset_id:
-    #                 yield from self._gen_input_dataset_workunits(job, dataset_id)
 
     def _get_training_job_metadata(
         self, job: VertexAiResourceNoun
