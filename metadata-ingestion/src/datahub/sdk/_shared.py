@@ -37,7 +37,7 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
-from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk._utils import DEFAULT_ACTOR_URN, add_list_unique, remove_list_unique
 from datahub.sdk.entity import Entity
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -49,8 +49,6 @@ DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
-
-_DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
 
 def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
@@ -441,7 +439,7 @@ class HasTerms(Entity):
     def _terms_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            actor=_DEFAULT_ACTOR_URN,
+            actor=DEFAULT_ACTOR_URN,
         )
 
     def set_terms(self, terms: TermsInputType) -> None:
@@ -529,7 +527,7 @@ class HasInstitutionalMemory(Entity):
     def _institutional_memory_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            actor=_DEFAULT_ACTOR_URN,
+            actor=DEFAULT_ACTOR_URN,
         )
 
     @classmethod
