@@ -106,6 +106,7 @@ const DomainsSelector = () => {
                 width="full"
                 isMultiSelect
                 showSearch
+                implicitlySelectChildren={false}
             />
         </SelectorWrapper>
     );
