@@ -1354,7 +1354,7 @@ def test_oracle_case_insensitive_cols() -> None:
     assert_sql_result(
         """\
 SELECT
-CASE WHEN (employee_type = 'Manager')
+CASE WHEN (employee_TYPE = 'Manager')
      THEN (CASE
              WHEN job_title in ('Engineer') THEN '12'
              ELSE '11'
