@@ -1004,7 +1004,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                     query_text,
                                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') AS create_command,
                                     ROW_NUMBER() OVER (
-                                    PARTITION BY session_id, query_text
+                                    PARTITION BY session_id, query_text, query_id
                                     ORDER BY start_time DESC
                                     ) rn
                             FROM
@@ -1014,6 +1014,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
+                                            qh.query_id as query_id,
                                             LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
@@ -1023,8 +1024,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             AND qh.start_time >= '{start_time_str}'
                                             AND qh.start_time < '{end_time_str}'
                                             AND qt.sequence < 16
-                                    GROUP BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id
-                                    ORDER BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id ASC
+                                    GROUP BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id, qh.query_id
+                                    ORDER BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id, qh.query_id ASC
                             )
                             WHERE
                                     (
