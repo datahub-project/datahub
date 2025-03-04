@@ -13,6 +13,7 @@ import com.deblock.jsondiff.matcher.StrictPrimitivePartialMatcher;
 import com.deblock.jsondiff.viewer.PatchDiffViewer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -31,12 +32,16 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,9 +68,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
 @Tag(
-    name = "ElasticSearchOperations",
+    name = "ElasticSearch Operations",
     description = "An API for managing your elasticsearch instance")
-public class OperationsController {
+public class ElasticsearchController {
   private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
@@ -74,7 +79,7 @@ public class OperationsController {
   private final EntityService<?> entityService;
   private final ObjectMapper objectMapper;
 
-  public OperationsController(
+  public ElasticsearchController(
       OperationContext systemOperationContext,
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
@@ -96,10 +101,10 @@ public class OperationsController {
     binder.registerCustomEditor(String[].class, new StringArrayPropertyEditor(null));
   }
 
-  @Tag(name = "ElasticSearchOperations")
   @GetMapping(path = "/getTaskStatus", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Task Status")
-  public ResponseEntity<String> getTaskStatus(HttpServletRequest request, String task) {
+  public ResponseEntity<String> getTaskStatus(
+      HttpServletRequest request, @RequestParam("task") String task) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
@@ -139,7 +144,6 @@ public class OperationsController {
     return ResponseEntity.ok(j.toString());
   }
 
-  @Tag(name = "ElasticSearchOperations")
   @GetMapping(path = "/getIndexSizes", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Index Sizes")
   public ResponseEntity<String> getIndexSizes(HttpServletRequest request) {
@@ -177,7 +181,53 @@ public class OperationsController {
     return ResponseEntity.ok(j.toString());
   }
 
-  @Tag(name = "ElasticSearchOperations")
+  @PostMapping(path = "/entity/raw", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(
+      description =
+          "Retrieves raw Elasticsearch documents for the provided URNs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+      responses = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully retrieved raw documents",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Caller not authorized to access raw documents"),
+        @ApiResponse(responseCode = "400", description = "Invalid URN format provided")
+      })
+  public ResponseEntity<Map<Urn, Map<String, Object>>> getEntityRaw(
+      HttpServletRequest request,
+      @RequestBody
+          @Nonnull
+          @Schema(
+              description = "Set of URN strings to fetch raw documents for",
+              example = "[\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)\"]")
+          Set<String> urnStrs) {
+
+    Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    OperationContext opContext =
+        systemOperationContext.asSession(
+            RequestContext.builder()
+                .buildOpenapi(
+                    actorUrnStr,
+                    request,
+                    "getRawEntity",
+                    urns.stream().map(Urn::getEntityType).distinct().toList()),
+            authorizerChain,
+            authentication);
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      log.error("{} is not authorized to get raw ES documents", actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
+    return ResponseEntity.ok(searchService.raw(opContext, urns));
+  }
+
   @GetMapping(path = "/explainSearchQuery", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Explain Search Query")
   public ResponseEntity<ExplainResponse> explainSearchQuery(
@@ -275,12 +325,11 @@ public class OperationsController {
             scrollId,
             keepAlive,
             size,
-            null);
+            List.of());
 
     return ResponseEntity.ok(response);
   }
 
-  @Tag(name = "ElasticSearchOperations")
   @GetMapping(path = "/explainSearchQueryDiff", produces = MediaType.TEXT_PLAIN_VALUE)
   @Operation(summary = "Explain the differences in scoring for 2 documents")
   public ResponseEntity<String> explainSearchQueryDiff(
@@ -385,8 +434,7 @@ public class OperationsController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     ExplainResponse responseB =
         searchService.explain(
@@ -398,8 +446,7 @@ public class OperationsController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     String a = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseA);
     String b = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseB);

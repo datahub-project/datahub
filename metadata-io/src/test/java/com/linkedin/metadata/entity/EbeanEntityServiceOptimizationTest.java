@@ -232,22 +232,25 @@ public class EbeanEntityServiceOptimizationTest {
 
     try {
       entityService.ingestProposal(opContext, batch, false);
-      List<String> txnLog =
+      // First collect all SQL statements that start with "txn[]"
+      List<String> allSqlStatements =
           LoggedSql.collect().stream()
               .filter(sql -> sql.startsWith("txn[]"))
-              .collect(
-                  ArrayList::new,
-                  (ArrayList<String> list, String sql) -> {
-                    // fold into previous line
-                    if (sql.startsWith("txn[]  -- ")) {
-                      String current = list.get(list.size() - 1);
-                      list.set(list.size() - 1, current + "\n" + sql);
-                    } else {
-                      list.add(sql);
-                    }
-                  },
-                  ArrayList::addAll);
+              .collect(Collectors.toList());
 
+      // Then process them to fold comments into previous lines
+      List<String> txnLog = new ArrayList<>();
+      for (String sql : allSqlStatements) {
+        if (sql.startsWith("txn[]  -- ") && !txnLog.isEmpty()) {
+          // Append this comment to the previous statement
+          int lastIndex = txnLog.size() - 1;
+          String current = txnLog.get(lastIndex);
+          txnLog.set(lastIndex, current + "\n" + sql);
+        } else {
+          // Add as a new statement
+          txnLog.add(sql);
+        }
+      }
       // Get the captured SQL statements
       Map<String, List<String>> statementMap =
           txnLog.stream()

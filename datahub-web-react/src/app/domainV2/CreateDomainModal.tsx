@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
+import { message, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
+import { Button } from '@src/alchemy-components';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
@@ -8,6 +9,7 @@ import analytics, { EventType } from '../analytics';
 import DomainParentSelect from '../entityV2/shared/EntityDropdown/DomainParentSelect';
 import { useIsNestedDomainsEnabled } from '../useAppConfig';
 import { useDomainsContext as useDomainsContextV2 } from './DomainsContext';
+import { ModalButtonContainer } from '../shared/button/styledComponents';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 8px;
@@ -118,20 +120,20 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button color="gray" onClick={onClose} variant="text">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
                         id="createDomainButton"
                         data-testid="create-domain-button"
                         onClick={onCreateDomain}
                         disabled={!createButtonEnabled}
+                        type="submit"
                     >
                         Create
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form

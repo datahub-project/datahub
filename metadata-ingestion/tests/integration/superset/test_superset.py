@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -17,7 +17,9 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "mock://mock-domain.superset.com/api/v1/security/login": {
             "method": "POST",
@@ -389,7 +391,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -644,7 +646,7 @@ def test_superset_stateful_ingest(
 
         urn1 = "urn:li:dashboard:(superset,2)"
         urn2 = "urn:li:chart:(superset,13)"
-        urn3 = "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema1.Test Table 1,PROD)"
+        urn3 = "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
 
         assert urn1 in dashboard_difference_urns
         assert urn2 in chart_difference_urns

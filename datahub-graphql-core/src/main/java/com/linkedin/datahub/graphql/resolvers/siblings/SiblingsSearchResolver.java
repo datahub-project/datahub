@@ -19,6 +19,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +62,8 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         input.getCount(),
         input.getScrollId(),
         input.getKeepAlive(),
+        List.of(),
+        List.of(),
         this.getClass().getSimpleName());
   }
 }
