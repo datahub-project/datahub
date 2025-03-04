@@ -4,8 +4,7 @@ from typing import Any, Dict, List, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.cloud.aiplatform import Model
-from google.cloud.aiplatform.base import VertexAiResourceNoun
+from google.cloud.aiplatform import AutoMLTabularTrainingJob, CustomJob, Model
 from google.protobuf import timestamp_pb2
 from pytest import Config
 
@@ -43,8 +42,7 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     }
 
 
-@pytest.fixture
-def mock_models() -> List[Model]:
+def gen_mock_models() -> List[Model]:
     mock_model_1 = MagicMock(spec=Model)
     mock_model_1.name = "mock_prediction_model_1"
     mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
@@ -65,23 +63,28 @@ def mock_models() -> List[Model]:
     return [mock_model_1, mock_model_2]
 
 
-@pytest.fixture
-def mock_training_jobs() -> List[VertexAiResourceNoun]:
-    mock_training_job = MagicMock(spec=VertexAiResourceNoun)
+def gen_mock_training_custom_job() -> CustomJob:
+    mock_training_job = MagicMock(spec=CustomJob)
     mock_training_job.name = "mock_training_job"
     mock_training_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
     mock_training_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
-    return [mock_training_job]
+
+    return mock_training_job
 
 
-def test_vertexai_source_ingestion(
-    pytestconfig: Config,
-    sink_file_path: str,
-    mock_models: List[Model],
-    mock_training_jobs: List[VertexAiResourceNoun],
-) -> None:
+def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
+    mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
+    mock_automl_job.name = "mock_auto_automl_tabular_job"
+    mock_automl_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_automl_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
+    mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
+    return mock_automl_job
+
+
+def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) -> None:
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -103,7 +106,16 @@ def test_vertexai_source_ingestion(
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
             if func_to_mock == "google.cloud.aiplatform.Model.list":
-                mock.return_value = mock_models
+                mock.return_value = gen_mock_models()
+            elif func_to_mock == "google.cloud.aiplatform.CustomJob.list":
+                mock.return_value = [
+                    gen_mock_training_custom_job(),
+                    gen_mock_training_automl_job(),
+                ]
+            elif (
+                func_to_mock == "google.cloud.aiplatform.AutoMLTabularTrainingJob.list"
+            ):
+                mock.return_value = [gen_mock_training_automl_job()]
             else:
                 mock.return_value = []
 

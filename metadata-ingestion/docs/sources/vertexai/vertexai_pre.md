@@ -1,14 +1,16 @@
+Ingesting metadata from VertexAI requires using the **Vertex AI** module.
 
+#### Prerequisites
+Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for basic information on Vertex AI.
 
-#### Credential to access to GCP
-1. Follow the section on credentials to access Vertex AI  [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+#### Credentials to access to GCP
+Please read the section to understand how to set up application default Credentials to GCP [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
 #### Create a service account and assign roles
 
-1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
-   and assign the previously created role to this service account.
-2. Download a service account JSON keyfile.
-   Example credential file:
+1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously created role to this service account.
+2. Download a service account JSON keyfile. 
+- Example credential file:
 
 ```json
 {
@@ -27,7 +29,7 @@
 
 3. To provide credentials to the source, you can either:
 
-   Set an environment variable:
+- Set an environment variable:
 
    ```sh
    $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
@@ -35,7 +37,7 @@
 
    _or_
 
-   Set credential config in your source based on the credential json file. For example:
+- Set credential config in your source based on the credential json file. For example:
 
    ```yml
    credential:
