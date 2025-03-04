@@ -225,7 +225,7 @@ global:
       password:
         value: "${POSTGRES_ADMIN_PASSWORD}"
 ```
-Run this command helm command to update datahub configuration
+Run this helm command to update datahub configuration
 
 ```
 helm upgrade --install datahub datahub/datahub --values values.yaml
