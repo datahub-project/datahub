@@ -313,7 +313,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, dashboard_details.get("id", "")
+            self.platform, str(dashboard_details.get("id", ""))
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -337,7 +337,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             card_id = card_info.get("card").get("id", "")
             if not card_id:
                 continue  # most likely a virtual card without an id (text or heading), not relevant.
-            chart_urn = builder.make_chart_urn(self.platform, card_id)
+            chart_urn = builder.make_chart_urn(self.platform, str(card_id))
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
@@ -459,7 +459,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return None
 
-        chart_urn = builder.make_chart_urn(self.platform, card_id)
+        chart_urn = builder.make_chart_urn(self.platform, str(card_id))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
