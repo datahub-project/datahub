@@ -569,7 +569,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dashboard_usage_with_ranking_factors_patch_enabled(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=True,
@@ -640,7 +640,6 @@ def test_dashboard_usage_with_ranking_factors_patch_enabled(
     pipeline.raise_from_status()
 
     check_golden_file(
-        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
@@ -651,7 +650,7 @@ def test_dashboard_usage_with_ranking_factors_patch_enabled(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=True,
@@ -722,7 +721,6 @@ def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
     pipeline.raise_from_status()
 
     check_golden_file(
-        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
@@ -733,7 +731,7 @@ def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_query_usage_with_ranking_factors_patch_enabled(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         query_usage_enabled=True,
@@ -805,7 +803,6 @@ def test_query_usage_with_ranking_factors_patch_enabled(
     pipeline.raise_from_status()
 
     check_golden_file(
-        pytestconfig=pytestconfig,
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],

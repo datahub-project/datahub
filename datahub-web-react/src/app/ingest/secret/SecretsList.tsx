@@ -174,7 +174,7 @@ export const SecretsList = () => {
                 );
                 setTimeout(() => {
                     refetch();
-                }, 2000);
+                }, 3000);
             })
             .catch((e) => {
                 message.destroy();
