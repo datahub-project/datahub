@@ -53,6 +53,8 @@ from datahub.metadata.schema_classes import (
     _Aspect as AspectAbstract,
 )
 from datahub.metadata.urns import (
+    ChartUrn,
+    DashboardUrn,
     DataFlowUrn,
     DataJobUrn,
     DataPlatformUrn,
@@ -335,10 +337,11 @@ def make_dashboard_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:dashboard:({UrnEncoder.encode_string(platform)},{UrnEncoder.encode_string(platform_instance)}.{UrnEncoder.encode_string(name)})"
-    else:
-        return f"urn:li:dashboard:({UrnEncoder.encode_string(platform)},{UrnEncoder.encode_string(name)})"
+    return DashboardUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
@@ -353,10 +356,11 @@ def make_chart_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:chart:({UrnEncoder.encode_string(platform)},{UrnEncoder.encode_string(platform_instance)}.{UrnEncoder.encode_string(name)})"
-    else:
-        return f"urn:li:chart:({UrnEncoder.encode_string(platform)},{UrnEncoder.encode_string(name)})"
+    return ChartUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
