@@ -1,9 +1,8 @@
 import React from 'react';
-import { PageTitle } from '@components';
+import { PageTitle, colors } from '@components';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetTotalDatasetsQuery } from '../../../graphql/dataset_health.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { AssertionsSummary } from './assertion/AssertionsSummary';
 import { IncidentsSummary } from './incident/IncidentsSummary';
 import { EntityType } from '../../../types.generated';
@@ -11,7 +10,7 @@ import { useUserContext } from '../../context/useUserContext';
 import { PageContainer, HeaderContainer } from '../../govern/structuredProperties/styledComponents';
 
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : colors.white)};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -25,7 +24,7 @@ const Section = styled.div`
     border-radius: 8px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     margin-bottom: 40px;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${colors.gray[100]};
 `;
 
 /**
