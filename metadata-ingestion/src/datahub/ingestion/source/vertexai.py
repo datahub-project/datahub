@@ -143,7 +143,7 @@ class VertexAISource(Source):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
-        Main Function to fetch and yields work units for various VertexAI resources.
+        Main Function to fetch and yields mcps for various VertexAI resources.
         - Models and Model Versions from the Model Registry
         - Training Jobs
         """
@@ -165,15 +165,15 @@ class VertexAISource(Source):
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Fetch List of Models in Model Registry and generate a corresponding work unit.
+        Fetch List of Models in Model Registry and generate a corresponding mcp.
         """
         registered_models = self.client.Model.list()
         for model in registered_models:
-            # create work unit for Model Group (= Model in VertexAI)
+            # create mcp for Model Group (= Model in VertexAI)
             yield from self._gen_ml_group_mcps(model)
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
-                # create work unit for Model (= Model Version in VertexAI)
+                # create mcp for Model (= Model Version in VertexAI)
                 logger.info(
                     f"Ingesting a model (name: {model.display_name} id:{model.name})"
                 )
@@ -183,11 +183,11 @@ class VertexAISource(Source):
 
     def _get_training_jobs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Fetches training jobs from Vertex AI and generates corresponding work units.
+        Fetches training jobs from Vertex AI and generates corresponding mcps.
         This method retrieves various types of training jobs from Vertex AI, including
         CustomJob, CustomTrainingJob, CustomContainerTrainingJob, CustomPythonPackageTrainingJob,
         AutoMLTabularTrainingJob, AutoMLTextTrainingJob, AutoMLImageTrainingJob, AutoMLVideoTrainingJob,
-        and AutoMLForecastingTrainingJob. For each job, it generates work units containing metadata
+        and AutoMLForecastingTrainingJob. For each job, it generates mcps containing metadata
         about the job, its inputs, and its outputs.
         """
         class_names = [
@@ -235,7 +235,7 @@ class VertexAISource(Source):
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Generate a work unit for VertexAI Training Job
+        Generate a mcp for VertexAI Training Job
         """
         job = job_meta.job
         job_id = self._make_vertexai_job_name(entity_id=job.name)
@@ -293,7 +293,7 @@ class VertexAISource(Source):
         model: Model,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Generate an MLModelGroup work unit for a VertexAI  Model.
+        Generate an MLModelGroup mcp for a VertexAI  Model.
         """
         ml_model_group_urn = self._make_ml_model_group_urn(model)
 
@@ -518,7 +518,7 @@ class VertexAISource(Source):
         training_job_urn: Optional[str] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Generate an MLModel and Endpoint work unit for an VertexAI Model Version.
+        Generate an MLModel and Endpoint mcp for an VertexAI Model Version.
         """
 
         endpoint: Optional[Endpoint] = self._search_endpoint(model)
@@ -539,11 +539,11 @@ class VertexAISource(Source):
         endpoint_urn: Optional[str] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
-        Generate an MLModel workunit for an VertexAI Model Version.
+        Generate an MLModel mcp for an VertexAI Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup
         corresponding to a registered Model in VertexAI Model Registry.
         """
-        logging.info(f"starting model work unit for model {model.name}")
+        logging.info(f"generating model mcp for {model.name}")
 
         model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_model_name(entity_id=model.name)
