@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { UserOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
+import { message, Modal, Select, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
 import styled from 'styled-components/macro';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
 import { DataHubRole } from '../../../types.generated';
 import { mapRoleIcon } from './UserUtils';
 import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import analytics, { EventType } from '../../analytics';
 
 const ModalSection = styled.div`
@@ -39,20 +39,6 @@ const CopyText = styled(Typography.Text)`
     display: flex;
     gap: 10px;
     align-items: center;
-`;
-
-const CopyButton = styled(Button)`
-    background-color: #1890ff;
-    color: white;
-
-    &:focus:not(:hover) {
-        background-color: #1890ff;
-        color: white;
-    }
-`;
-
-const RefreshButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
 `;
 
 const RoleSelect = styled(Select)`
@@ -192,23 +178,24 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         <pre>{inviteLink}</pre>
                     </CopyText>
                     <Tooltip title="Copy invite link.">
-                        <CopyButton
+                        <Button
                             onClick={() => {
                                 navigator.clipboard.writeText(inviteLink);
                                 message.success('Copied invite link to clipboard');
                             }}
                         >
-                            COPY
-                        </CopyButton>
+                            Copy
+                        </Button>
                     </Tooltip>
                     <Tooltip title="Generate a new link. Any old links will no longer be valid.">
-                        <RefreshButton
+                        <Button
+                            variant="outline"
                             onClick={() => {
                                 createInviteToken(selectedRole?.urn);
                             }}
                         >
-                            REFRESH
-                        </RefreshButton>
+                            Refresh
+                        </Button>
                     </Tooltip>
                 </InviteLinkDiv>
                 <ModalSectionFooter type="secondary">

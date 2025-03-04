@@ -79,6 +79,7 @@ const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSO
         md: { fontSize: getFontSize(size), lineHeight: '24px' },
         lg: { fontSize: getFontSize(size), lineHeight: '30px' },
         xl: { fontSize: getFontSize(size), lineHeight: '34px' },
+        inherit: { fontSize: 'inherit', lineHeight: 'inherit' },
     };
 
     const variantOverrides: Partial<Record<PillVariantOptions, CSSObject>> = {

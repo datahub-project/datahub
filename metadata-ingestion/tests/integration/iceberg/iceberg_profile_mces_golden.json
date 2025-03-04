@@ -11,16 +11,23 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "name": "taxis",
                         "customProperties": {
                             "owner": "root",
-                            "created-at": "2024-05-22T14:10:22.926080700Z",
+                            "created-at": "2025-02-28T22:30:17.629572885Z",
                             "write.format.default": "parquet",
                             "location": "s3a://warehouse/wh/nyc/taxis",
                             "format-version": "1",
                             "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                            "snapshot-id": "564034874306625146",
-                            "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-564034874306625146-1-562a1705-d774-4e0a-baf0-1988bcc7be72.avro"
+                            "snapshot-id": "7306419080492452372",
+                            "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-7306419080492452372-1-53f849ab-2791-4a72-888c-fd2b0173712c.avro"
+                        },
+                        "name": "taxis",
+                        "qualifiedName": "nyc.taxis",
+                        "created": {
+                            "time": 1740781817629
+                        },
+                        "lastModified": {
+                            "time": 1740781819146
                         },
                         "tags": []
                     }
@@ -163,8 +170,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 6,

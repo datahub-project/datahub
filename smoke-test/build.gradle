@@ -97,7 +97,7 @@ task pytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev'
 
     environment 'RUN_QUICKSTART', 'false'
     environment 'TEST_STRATEGY', 'pytests'
-    environment 'BATCH_COUNT', 5
+    environment 'BATCH_COUNT', 3
     environment 'BATCH_NUMBER', batchNumber
 
     workingDir = project.projectDir

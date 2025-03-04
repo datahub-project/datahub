@@ -93,7 +93,7 @@ class EntityVersioningAPI(DataHubGraphProtocol):
         try:
             return response["linkAssetVersion"]["urn"]
         except KeyError:
-            raise ValueError(f"Unexpected response: {response}")
+            raise ValueError(f"Unexpected response: {response}") from None
 
     def link_asset_to_versioned_asset(
         self,
@@ -165,7 +165,7 @@ class EntityVersioningAPI(DataHubGraphProtocol):
         try:
             return response["unlinkAssetVersion"]["urn"]
         except KeyError:
-            raise ValueError(f"Unexpected response: {response}")
+            raise ValueError(f"Unexpected response: {response}") from None
 
     def unlink_latest_asset_from_version_set(
         self, version_set_urn: str
@@ -198,4 +198,4 @@ class EntityVersioningAPI(DataHubGraphProtocol):
         try:
             return response["unlinkAssetVersion"]["urn"]
         except KeyError:
-            raise ValueError(f"Unexpected response: {response}")
+            raise ValueError(f"Unexpected response: {response}") from None

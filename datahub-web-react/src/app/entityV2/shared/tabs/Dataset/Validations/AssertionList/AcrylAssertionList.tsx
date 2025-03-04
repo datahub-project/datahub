@@ -1,3 +1,4 @@
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import React, { useEffect, useState } from 'react';
 import { Empty } from 'antd';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
@@ -8,12 +9,10 @@ import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode
 import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
 import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
 import { getFilteredTransformedAssertionData } from './utils';
-import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTable, AssertionListFilter } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
-import { useSetFilterFromURLParams } from './hooks';
 import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
 
 /**
@@ -28,7 +27,6 @@ export const AcrylAssertionList = () => {
     });
     // TODO we need to create setter function to set the filter as per the filter component
     const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
-    useSetFilterFromURLParams(filter, setFilters);
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<Assertion[]>([]);
 
@@ -68,7 +66,7 @@ export const AcrylAssertionList = () => {
 
     const renderListTable = () => {
         if (loading) {
-            return <AcrylAssertionsSummaryLoading />;
+            return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
             return (

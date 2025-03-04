@@ -1,11 +1,6 @@
 package com.linkedin.metadata.entity.versioning.validation;
 
-import static com.linkedin.metadata.Constants.VERSION_LABEL_FIELD_NAME;
-import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.VERSION_SET_FIELD_NAME;
-import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -25,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.key.VersionSetKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -33,6 +29,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.versionset.VersionSetProperties;
 import com.linkedin.versionset.VersioningScheme;
 import java.util.Collection;
@@ -98,21 +95,28 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
                   Collections.singleton(versionSetUrn),
                   ImmutableSet.of(VERSION_SET_KEY_ASPECT_NAME, VERSION_SET_PROPERTIES_ASPECT_NAME))
               .get(versionSetUrn);
-      if (aspects == null || aspects.isEmpty()) {
-        exceptions.addException(mcpItem, "Version Set specified does not exist: " + versionSetUrn);
-        continue;
-      }
-      Optional<Aspect> keyAspect = Optional.ofNullable(aspects.get(VERSION_SET_KEY_ASPECT_NAME));
-      if (keyAspect.isPresent()) {
-        VersionSetKey versionSetKey =
-            RecordUtils.toRecordTemplate(VersionSetKey.class, keyAspect.get().data());
-        if (!mcpItem.getEntitySpec().getName().equals(versionSetKey.getEntityType())) {
-          exceptions.addException(
-              mcpItem,
-              "Version Set specified entity type does not match, expected type: "
-                  + versionSetKey.getEntityType());
-        }
 
+      final AspectSpec keyAspectSpec =
+          retrieverContext
+              .getAspectRetriever()
+              .getEntityRegistry()
+              .getEntitySpec(VERSION_SET_ENTITY_NAME)
+              .getKeyAspectSpec();
+      VersionSetKey versionSetKey =
+          Optional.ofNullable(aspects)
+              .map(a -> aspects.get(VERSION_SET_KEY_ASPECT_NAME))
+              .map(a -> RecordUtils.toRecordTemplate(VersionSetKey.class, a.data()))
+              .orElse(
+                  (VersionSetKey)
+                      EntityKeyUtils.convertUrnToEntityKey(versionSetUrn, keyAspectSpec));
+      if (!mcpItem.getEntitySpec().getName().equals(versionSetKey.getEntityType())) {
+        exceptions.addException(
+            mcpItem,
+            "Version Set specified entity type does not match, expected type: "
+                + versionSetKey.getEntityType());
+      }
+
+      if (aspects != null && !aspects.isEmpty()) {
         // Validate sort ID scheme
         String sortId = versionProperties.getSortId();
         Optional<Aspect> versionSetPropertiesAspect =
@@ -123,7 +127,18 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
               RecordUtils.toRecordTemplate(
                   VersionSetProperties.class, versionSetPropertiesAspect.get().data());
           VersioningScheme versioningScheme = versionSetProperties.getVersioningScheme();
+          if (!versioningScheme.equals(versionProperties.getVersioningScheme())) {
+            exceptions.addException(
+                mcpItem,
+                "Versioning Scheme does not match Version Set properties. Expected Scheme: "
+                    + versioningScheme
+                    + " Provided Scheme: "
+                    + versionProperties.getVersioningScheme());
+          }
+
           switch (versioningScheme) {
+            case LEXICOGRAPHIC_STRING: // No validation
+              break;
             case ALPHANUMERIC_GENERATED_BY_DATAHUB:
               validateDataHubGeneratedScheme(sortId, exceptions, mcpItem);
               break;
@@ -131,8 +146,6 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
               exceptions.addException(mcpItem, "Unsupported scheme type: " + versioningScheme);
           }
         }
-      } else {
-        exceptions.addException(mcpItem, "Version Set specified does not exist: " + versionSetUrn);
       }
 
       // Best effort validate on uniqueness for sort ID and version label, search has potential

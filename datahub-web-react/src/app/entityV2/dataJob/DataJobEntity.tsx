@@ -28,6 +28,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { SidebarDataJobTransformationLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -161,15 +162,16 @@ export class DataJobEntity implements Entity<DataJob> {
         { component: SidebarAboutSection },
         { component: SidebarNotesSection },
         { component: SidebarLineageSection },
+        { component: SidebarDataJobTransformationLogicSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
         { component: DataProductSection },
         { component: SidebarGlossaryTermsSection },
         { component: SidebarTagsSection },
-        { component: StatusSection },
         {
             component: SidebarStructuredProperties,
         },
+        { component: StatusSection },
     ];
 
     getSidebarTabs = () => [
