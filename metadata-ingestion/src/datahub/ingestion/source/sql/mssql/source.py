@@ -9,6 +9,7 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 import datahub.metadata.schema_classes as models
@@ -322,46 +323,130 @@ class SQLServerSource(SQLAlchemySource):
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
-        jobs_data = conn.execute(
-            f"""
-            SELECT
-                job.job_id,
-                job.name,
-                job.description,
-                job.date_created,
-                job.date_modified,
-                steps.step_id,
-                steps.step_name,
-                steps.subsystem,
-                steps.command,
-                steps.database_name
-            FROM
-                msdb.dbo.sysjobs job
-            INNER JOIN
-                msdb.dbo.sysjobsteps steps
-            ON
-                job.job_id = steps.job_id
-            where database_name = '{db_name}'
-            """
-        )
-        jobs: Dict[str, Dict[str, Any]] = {}
-        for row in jobs_data:
-            step_data = dict(
-                job_id=row["job_id"],
-                job_name=row["name"],
-                description=row["description"],
-                date_created=row["date_created"],
-                date_modified=row["date_modified"],
-                step_id=row["step_id"],
-                step_name=row["step_name"],
-                subsystem=row["subsystem"],
-                command=row["command"],
+    def _is_azure_sql(self, uri: str) -> bool:
+        try:
+            url = make_url(uri)
+            hostname = url.host
+
+            if not hostname:
+                return False
+
+            return any(
+                domain in hostname.lower()
+                for domain in [
+                    "database.windows.net",
+                    "database.cloudapi.de",
+                    "database.chinacloudapi.cn",
+                    "database.usgovcloudapi.net",
+                ]
             )
-            if row["name"] in jobs:
-                jobs[row["name"]][row["step_id"]] = step_data
+        except Exception as e:
+            logger.warning(f"Failed to parse SQL Server URI: {e}")
+            return False
+
+    def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
+        jobs: Dict[str, Dict[str, Any]] = {}
+
+        try:
+            if self._is_azure_sql(str(conn.engine.url)):
+                logger.debug(
+                    f"Attempting to get Azure SQL Elastic Jobs for database {db_name}"
+                )
+                try:
+                    # Azure SQL Elastic Jobs query
+                    jobs_data = conn.execute(
+                        f"""
+                            SELECT
+                                j.job_id,
+                                j.job_name as name,
+                                j.description,
+                                j.created_time as date_created,
+                                j.last_modified_time as date_modified,
+                                js.step_id,
+                                js.step_name,
+                                js.command_type as subsystem,
+                                js.command,
+                                js.target_database_name as database_name
+                            FROM
+                                jobs.jobs j
+                            INNER JOIN
+                                jobs.jobsteps js
+                            ON
+                                j.job_id = js.job_id
+                            WHERE target_database_name = '{db_name}'
+                            """
+                    )
+                    logger.debug("Successfully queried Azure SQL Elastic Jobs")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to query Azure SQL Elastic Jobs: {e}. This may be normal if Elastic Jobs are not configured."
+                    )
+                    return jobs
+
             else:
-                jobs[row["name"]] = {row["step_id"]: step_data}
+                logger.debug(
+                    f"Attempting to get SQL Server Agent Jobs for database {db_name}"
+                )
+                try:
+                    # SQL Server Agent query
+                    jobs_data = conn.execute(
+                        f"""
+                            SELECT
+                                job.job_id,
+                                job.name,
+                                job.description,
+                                job.date_created,
+                                job.date_modified,
+                                steps.step_id,
+                                steps.step_name,
+                                steps.subsystem,
+                                steps.command,
+                                steps.database_name
+                            FROM
+                                msdb.dbo.sysjobs job
+                            INNER JOIN
+                                msdb.dbo.sysjobsteps steps
+                            ON
+                                job.job_id = steps.job_id
+                            where database_name = '{db_name}'
+                            """
+                    )
+                    logger.debug("Successfully queried SQL Server Agent Jobs")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to query SQL Server Agent Jobs: {e}. This may be normal if SQL Server Agent is not enabled."
+                    )
+                    return jobs
+
+            # Process results
+            try:
+                for row in jobs_data:
+                    step_data = dict(
+                        job_id=row["job_id"],
+                        job_name=row["name"],
+                        description=row["description"],
+                        date_created=row["date_created"],
+                        date_modified=row["date_modified"],
+                        step_id=row["step_id"],
+                        step_name=row["step_name"],
+                        subsystem=row["subsystem"],
+                        command=row["command"],
+                    )
+                    if row["name"] in jobs:
+                        jobs[row["name"]][row["step_id"]] = step_data
+                    else:
+                        jobs[row["name"]] = {row["step_id"]: step_data}
+
+                logger.info(f"Found {len(jobs)} jobs for database {db_name}")
+
+            except Exception as e:
+                logger.error(f"Error processing job data: {e}")
+                return {}
+
+        except Exception as e:
+            logger.error(f"Unexpected error getting jobs: {e}")
+            return {}
+
         return jobs
 
     def loop_jobs(
