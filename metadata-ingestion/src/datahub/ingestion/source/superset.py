@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional
@@ -80,6 +81,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,14 @@ chart_type_from_viz_type = {
 
 
 platform_without_databases = ["druid"]
+
+
+@dataclass
+class SupersetSourceReport(StaleEntityRemovalSourceReport):
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
+    def report_dropped(self, name: str) -> None:
+        self.filtered.append(name)
 
 
 class SupersetDataset(BaseModel):
@@ -141,6 +151,18 @@ class SupersetConfig(
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for dataset to filter in ingestion.",
+    )
+    chart_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="Patterns for selecting chart names that are to be included",
+    )
+    dashboard_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="Patterns for selecting dashboard names that are to be included",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -222,7 +244,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     """
 
     config: SupersetConfig
-    report: StaleEntityRemovalSourceReport
+    report: SupersetSourceReport
     platform = "superset"
 
     def __hash__(self):
@@ -231,7 +253,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(config, ctx)
         self.config = config
-        self.report = StaleEntityRemovalSourceReport()
+        self.report = SupersetSourceReport()
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[domain_id for domain_id in self.config.domain],
@@ -449,6 +471,15 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE):
             try:
+                dashboard_id = str(dashboard_data.get("id"))
+                dashboard_title = dashboard_data.get("dashboard_title", "")
+
+                if not self.config.dashboard_pattern.allowed(dashboard_title):
+                    self.report.report_dropped(
+                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
+                    )
+                    continue
+
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
@@ -461,7 +492,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
             yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
             yield from self._get_domain_wu(
-                title=dashboard_data.get("dashboard_title", ""),
+                title=dashboard_title,
                 entity_urn=dashboard_snapshot.urn,
             )
 
@@ -569,12 +600,37 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
             try:
+                chart_id = str(chart_data.get("id"))
+                chart_name = chart_data.get("slice_name", "")
+
+                if not self.config.chart_pattern.allowed(chart_name):
+                    self.report.report_dropped(
+                        f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
+                    )
+                    continue
+
+                # Emit a warning if charts use data from a dataset that will be filtered out
+                if self.config.dataset_pattern != AllowDenyPattern.allow_all():
+                    datasource_id = chart_data.get("datasource_id")
+                    if datasource_id:
+                        dataset_response = self.get_dataset_info(datasource_id)
+                        dataset_name = dataset_response.get("result", {}).get(
+                            "table_name", ""
+                        )
+
+                        if dataset_name and not self.config.dataset_pattern.allowed(
+                            dataset_name
+                        ):
+                            self.report.warning(
+                                f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
+                            )
+
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
             except Exception as e:
                 self.report.warning(
-                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
+                    f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
                 continue
             # Emit the chart
@@ -716,6 +772,15 @@ class SupersetSource(StatefulIngestionSourceBase):
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
         for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE):
             try:
+                dataset_name = dataset_data.get("table_name", "")
+
+                # Check if dataset should be filtered by dataset name
+                if not self.config.dataset_pattern.allowed(dataset_name):
+                    self.report.report_dropped(
+                        f"Dataset '{dataset_name}' filtered by dataset_pattern"
+                    )
+                    continue
+
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )

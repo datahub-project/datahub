@@ -1,3 +1,4 @@
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
 
@@ -11,6 +12,9 @@ def test_default_values():
     assert config.env == "PROD"
     assert config.username is None
     assert config.password is None
+    assert config.dataset_pattern == AllowDenyPattern.allow_all()
+    assert config.chart_pattern == AllowDenyPattern.allow_all()
+    assert config.dashboard_pattern == AllowDenyPattern.allow_all()
 
 
 def test_set_display_uri():
