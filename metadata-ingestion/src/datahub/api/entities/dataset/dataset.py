@@ -115,20 +115,13 @@ class StructuredPropertiesHelper:
                 # convert lists to single values if possible
                 for k, v in simplified_structured_properties.items():
                     if isinstance(v, list):
-                        v = [
-                            int(x) if isinstance(x, float) and x.is_integer() else x
-                            for x in v
-                        ]
                         if len(v) == 1:
                             simplified_structured_properties[k] = v[0]
                         else:
                             simplified_structured_properties[k] = v
                     else:
-                        simplified_structured_properties[k] = (
-                            int(v)
-                            if v and isinstance(v, float) and v.is_integer()
-                            else v
-                        )
+                        simplified_structured_properties[k] = v
+
             return simplified_structured_properties
         return None
 
