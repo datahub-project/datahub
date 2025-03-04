@@ -968,8 +968,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // lock)
 
                     // Initial database state from database
-                    Map<String, Map<String, SystemAspect>> batchAspects =
+                    final Map<String, Map<String, SystemAspect>> batchAspects =
                         aspectDao.getLatestAspects(opContext, urnAspects, true);
+                    final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
 
                     // read #2 (potentially)
                     final Map<String, Map<String, Long>> nextVersions =
@@ -989,7 +990,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // These items are new items from side effects
                       Map<String, Set<String>> sideEffects = updatedItems.getFirst();
 
-                      final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
                       final Map<String, Map<String, Long>> updatedNextVersions;
 
                       Map<String, Map<String, SystemAspect>> newLatestAspects =
@@ -1024,6 +1024,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               .collect(Collectors.toList());
                     } else {
                       changeMCPs = updatedItems.getSecond();
+                      updatedLatestAspects = batchAspects;
                     }
 
                     // No changes, return
@@ -1080,7 +1081,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                     Latest aspect after possible in-memory mutation
                                   */
                                   final SystemAspect latestAspect =
-                                      batchAspects
+                                      updatedLatestAspects
                                           .getOrDefault(writeItem.getUrn().toString(), Map.of())
                                           .get(writeItem.getAspectName());
 
@@ -1145,8 +1146,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                       // Only consider retention when there was a previous version
                                       .filter(
                                           result ->
-                                              batchAspects.containsKey(result.getUrn().toString())
-                                                  && batchAspects
+                                              updatedLatestAspects.containsKey(
+                                                      result.getUrn().toString())
+                                                  && updatedLatestAspects
                                                       .get(result.getUrn().toString())
                                                       .containsKey(
                                                           result.getRequest().getAspectName()))
