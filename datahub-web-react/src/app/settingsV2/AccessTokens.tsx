@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { PageTitle } from '@components';
 import styled from 'styled-components';
 import { Alert, Button, Dropdown, Empty, message, Modal, Pagination, Select } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
