@@ -57,6 +57,6 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
   }
 
   private boolean isAuthorized(final QueryContext context, final String actor) {
-    return actor.equals(context.getActorUrn());
+    return PolicyAuthUtils.canManagePolicies(context) || actor.equals(context.getActorUrn());
   }
 }

@@ -8,7 +8,7 @@ interface Props {
 
 export function getFieldDescriptionDetails({ schemaFieldEntity, editableFieldInfo, defaultDescription }: Props) {
     // get most recent documentation
-    const sortedDocumentations = schemaFieldEntity?.documentation?.documentations.sort(
+    const sortedDocumentations = schemaFieldEntity?.documentation?.documentations?.sort(
         (doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0),
     );
     const documentation = sortedDocumentations?.[0];

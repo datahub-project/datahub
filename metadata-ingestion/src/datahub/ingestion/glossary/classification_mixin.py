@@ -281,7 +281,7 @@ class ClassificationHandler:
                     ),
                     values=(
                         sample_data[schema_field.fieldPath]
-                        if schema_field.fieldPath in sample_data.keys()
+                        if schema_field.fieldPath in sample_data
                         else []
                     ),
                 )

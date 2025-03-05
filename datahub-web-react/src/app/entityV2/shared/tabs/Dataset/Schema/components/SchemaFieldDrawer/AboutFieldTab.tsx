@@ -10,7 +10,7 @@ import {
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
 import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
-import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
+import { pathMatchesExact } from '../../../../../../dataset/profile/schema/utils/utils';
 import NotesSection from '../../../../../notes/NotesSection';
 import FieldDescription from './FieldDescription';
 import { FieldDetails } from './FieldDetails';
@@ -53,9 +53,9 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1
             ? properties.schemaFields[expandedFieldIndex]
             : undefined;
-    const editableFieldInfo = properties.editableSchemaMetadata?.editableSchemaFieldInfo.find(
+    const editableFieldInfo = properties.editableSchemaMetadata?.editableSchemaFieldInfo?.find(
         (candidateEditableFieldInfo) =>
-            pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
+            pathMatchesExact(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
     const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dropdown, MenuProps, Popconfirm, Typography, message, notification } from 'antd';
-import { DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { OwnershipTypeEntity } from '../../../../types.generated';
 import { useDeleteOwnershipTypeMutation } from '../../../../graphql/ownership.generated';
@@ -46,6 +46,10 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
     const editOnClick = () => {
         setIsOpen(true);
         setOwnershipType(ownershipType);
+    };
+
+    const onCopy = () => {
+        navigator.clipboard.writeText(ownershipType.urn);
     };
 
     const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
@@ -106,12 +110,23 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 </Popconfirm>
             ),
         },
+        {
+            key: 'copy',
+            icon: (
+                <MenuButtonContainer>
+                    <CopyOutlined />
+                    <MenuButtonText>Copy Urn</MenuButtonText>
+                </MenuButtonContainer>
+            ),
+        },
     ];
 
     const onClick: MenuProps['onClick'] = (e) => {
         const key = e.key as string;
         if (key === 'edit') {
             editOnClick();
+        } else if (key === 'copy') {
+            onCopy();
         }
     };
 
@@ -122,7 +137,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
 
     return (
         <StyledDropdown menu={menuProps}>
-            <StyledMoreOutlined date-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
+            <StyledMoreOutlined data-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
         </StyledDropdown>
     );
 };

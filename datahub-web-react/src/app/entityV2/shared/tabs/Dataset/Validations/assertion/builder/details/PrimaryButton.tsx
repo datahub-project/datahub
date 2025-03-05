@@ -1,30 +1,7 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-
-import { ANTD_GRAY } from '../../../../../../constants';
-
-const Button = styled.div<{ disabled: boolean }>`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 16px;
-    padding: 4px 12px;
-    background-color: ${(props) => (props.disabled ? ANTD_GRAY[4] : props.theme.styles['primary-color'])};
-    border: 1px solid ${(props) => (props.disabled ? ANTD_GRAY[4] : props.theme.styles['primary-color'])};
-    color: ${(props) => (props.disabled ? ANTD_GRAY[9] : '#fff')};
-    ${(props) =>
-        (!props.disabled &&
-            `:hover {
-            color: #fff;
-            opacity: 0.8;
-            border-color: ${props.theme.styles['primary-color']};
-            cursor: pointer;
-        }
-    `) ||
-        null}
-`;
+import { Button, Tooltip } from '@components';
 
 const Icon = styled.div`
     margin-right: 8px;
@@ -35,11 +12,10 @@ type Props = {
     title: string;
     disabled?: boolean;
     tooltip?: React.ReactNode;
-    style?: any;
     onClick: () => void;
 };
 
-export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, onClick }: Props) => {
+export const PrimaryButton = ({ icon, title, tooltip, disabled = false, onClick }: Props) => {
     return (
         <Tooltip title={tooltip} placement="left" showArrow={false}>
             <Button
@@ -48,7 +24,6 @@ export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, o
                     e.stopPropagation();
                     onClick();
                 }}
-                style={style}
             >
                 {(icon && <Icon>{icon}</Icon>) || null}
                 {title}

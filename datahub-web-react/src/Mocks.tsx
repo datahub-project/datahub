@@ -1175,7 +1175,7 @@ const glossaryTerm2 = {
     __typename: 'GlossaryTerm',
 };
 
-const glossaryTerm3 = {
+export const glossaryTerm3 = {
     urn: 'urn:li:glossaryTerm:example.glossaryterm2',
     type: 'GLOSSARY_TERM',
     name: 'glossaryterm2',

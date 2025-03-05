@@ -1,4 +1,4 @@
-# Unknown entity types become generic urns
+# Unknown entity types become generic urns (does not apply to Java)
 urn:li:abc:foo
 urn:li:abc:(foo,bar)
 urn:li:abc:(urn:li:dataPlatform:abc,def,prod)
@@ -6,8 +6,8 @@ urn:li:abc:(urn:li:dataPlatform:abc,def,prod)
 # A bunch of pretty normal urns
 urn:li:corpuser:foo
 urn:li:corpGroup:bar
-urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,prod)
-urn:li:dataFlow:(airflow,def,prod)
+urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,PROD)
+urn:li:dataFlow:(airflow,def,PROD)
 urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)
 urn:li:tag:abc
 urn:li:chart:(looker,chart_name)
@@ -22,3 +22,14 @@ urn:li:tag::
 urn:li:dashboard:(looker,dashboards.thelook::customer_lookup)
 urn:li:dataPlatform:abc:def
 urn:li:corpuser:foo:bar@example.com
+
+# From java test cases
+urn:li:corpuser:foo:bar
+urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)
+urn:li:dataPlatform:abc:def
+urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29,PROD)
+urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.dataset.table,PROD)
+urn:li:assertion:123=-%28__% weekly__%29
+urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts%prog_maintenance%2CPROD%29,PROD)
+urn:li:dataJob:(urn:li:dataFlow:(mssql,123.%28TEST%29,PROD),%28TEST%29)
+urn:li:dashboard:(looker,dashboards.thelook::cohort_data_tool)

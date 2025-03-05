@@ -1,0 +1,11 @@
+[
+  {
+    "entityUrn": "urn:li:domain:marketing",
+    "aspectName": "domainProperties",
+    "domainProperties": {
+      "name": "Marketing",
+      "description": "Marketing domain",
+      "parentDomain": "urn:li:domain:gtm"
+    }
+  }
+]

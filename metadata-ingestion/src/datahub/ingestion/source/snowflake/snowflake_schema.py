@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from datahub.ingestion.api.report import SupportsAsObj
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -95,10 +96,10 @@ class SnowflakeTable(BaseTable):
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     is_dynamic: bool = False
     is_iceberg: bool = False
+    is_hybrid: bool = False
 
-    @property
-    def is_hybrid(self) -> bool:
-        return self.type is not None and self.type == "HYBRID TABLE"
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.TABLE
 
 
 @dataclass
@@ -108,6 +109,9 @@ class SnowflakeView(BaseView):
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     is_secure: bool = False
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.VIEW
 
 
 @dataclass
@@ -153,6 +157,9 @@ class SnowflakeStream:
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     last_altered: Optional[datetime] = None
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.SNOWFLAKE_STREAM
 
 
 class _SnowflakeTagCache:
@@ -359,6 +366,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     clustering_key=table["CLUSTERING_KEY"],
                     is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -385,6 +393,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     clustering_key=table["CLUSTERING_KEY"],
                     is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
         return tables

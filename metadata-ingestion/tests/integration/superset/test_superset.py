@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -17,7 +17,9 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "mock://mock-domain.superset.com/api/v1/security/login": {
             "method": "POST",
@@ -35,7 +37,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "1",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
@@ -45,10 +49,14 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "published": True,
                         "owners": [
                             {
-                                "username": "test_username_1",
+                                "first_name": "Test",
+                                "id": 1,
+                                "last_name": "Owner1",
                             },
                             {
-                                "username": "test_username_2",
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
                             },
                         ],
                         "certified_by": "Certification team",
@@ -57,7 +65,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "2",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_2",
@@ -67,8 +77,10 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "published": False,
                         "owners": [
                             {
-                                "first_name": "name",
-                            },
+                                "first_name": "Test",
+                                "id": 4,
+                                "last_name": "Owner4",
+                            }
                         ],
                         "certified_by": "",
                         "certification_details": "",
@@ -85,7 +97,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "10",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_1",
@@ -97,7 +111,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "11",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_2",
@@ -109,7 +125,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "12",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_3",
@@ -121,7 +139,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     {
                         "id": "13",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_4",
@@ -146,7 +166,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "first_name": "Test",
                             "id": 1,
                             "last_name": "User1",
-                            "username": "test_username_1",
                         },
                         "changed_by_name": "test_username_1",
                         "changed_on_delta_humanized": "10 months ago",
@@ -164,7 +183,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                 "first_name": "Test",
                                 "id": 1,
                                 "last_name": "Owner1",
-                                "username": "test_username_1",
                             }
                         ],
                         "schema": "test_schema1",
@@ -176,7 +194,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "first_name": "Test",
                             "id": 2,
                             "last_name": "User2",
-                            "username": "test_username_2",
                         },
                         "changed_by_name": "test_username_2",
                         "changed_on_delta_humanized": "9 months ago",
@@ -194,7 +211,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                 "first_name": "Test",
                                 "id": 2,
                                 "last_name": "Owner2",
-                                "username": "test_username_2",
                             }
                         ],
                         "schema": "test_schema2",
@@ -212,7 +228,11 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "result": {
                     "always_filter_main_dttm": False,
                     "cache_timeout": None,
-                    "changed_by": {"first_name": "Test", "last_name": "User1"},
+                    "changed_by": {
+                        "first_name": "Test",
+                        "id": 1,
+                        "last_name": "Owners1",
+                    },
                     "changed_on": "2024-01-05T21:10:15.650819+0000",
                     "changed_on_humanized": "10 months ago",
                     "created_by": {"first_name": "Test", "last_name": "User1"},
@@ -260,7 +280,13 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     "name": "Test Table 1",
                     "normalize_columns": True,
                     "offset": 0,
-                    "owners": [{"first_name": "Test", "id": 1, "last_name": "Owner1"}],
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
+                        }
+                    ],
                     "rendered_sql": "SELECT * FROM test_table1",
                     "schema": "test_schema1",
                     "select_star": "SELECT * FROM test_schema1.test_table1 LIMIT 100",
@@ -286,7 +312,11 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "result": {
                     "always_filter_main_dttm": False,
                     "cache_timeout": None,
-                    "changed_by": {"first_name": "Test", "last_name": "User2"},
+                    "changed_by": {
+                        "first_name": "Test",
+                        "id": 2,
+                        "last_name": "Owners2",
+                    },
                     "changed_on": "2024-02-10T15:30:20.123456+0000",
                     "changed_on_humanized": "9 months ago",
                     "created_by": {"first_name": "Test", "last_name": "User2"},
@@ -331,7 +361,13 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     "name": "Test Table 2",
                     "normalize_columns": True,
                     "offset": 0,
-                    "owners": [{"first_name": "Test", "id": 2, "last_name": "Owner2"}],
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
+                        }
+                    ],
                     "rendered_sql": "SELECT * FROM test_table2",
                     "schema": "test_schema2",
                     "select_star": "SELECT * FROM test_schema2.test_table2 LIMIT 100",
@@ -385,11 +421,68 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 },
             },
         },
+        "mock://mock-domain.superset.com/api/v1/dashboard/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner1@example.com"},
+                        "text": "test_owner1",
+                        "value": 1,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner2@example.com"},
+                        "text": "test_owner2",
+                        "value": 2,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dataset/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner3@example.com"},
+                        "text": "test_owner3",
+                        "value": 3,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner4@example.com"},
+                        "text": "test_owner4",
+                        "value": 4,
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/chart/related/owners": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "extra": {"active": True, "email": "test_owner5@example.com"},
+                        "text": "test_owner5",
+                        "value": 5,
+                    },
+                    {
+                        "extra": {"active": True, "email": "test_owner6@example.com"},
+                        "text": "test_owner6",
+                        "value": 6,
+                    },
+                ],
+            },
+        },
     }
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -485,7 +578,9 @@ def test_superset_stateful_ingest(
                     {
                         "id": "1",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
@@ -495,10 +590,14 @@ def test_superset_stateful_ingest(
                         "published": True,
                         "owners": [
                             {
-                                "username": "test_username_1",
+                                "first_name": "Test",
+                                "id": 1,
+                                "last_name": "Owner1",
                             },
                             {
-                                "username": "test_username_2",
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
                             },
                         ],
                         "certified_by": "Certification team",
@@ -516,7 +615,9 @@ def test_superset_stateful_ingest(
                     {
                         "id": "10",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_1",
@@ -528,7 +629,9 @@ def test_superset_stateful_ingest(
                     {
                         "id": "11",
                         "changed_by": {
-                            "username": "test_username_1",
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_2",
@@ -540,7 +643,9 @@ def test_superset_stateful_ingest(
                     {
                         "id": "12",
                         "changed_by": {
-                            "username": "test_username_2",
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_3",
@@ -565,7 +670,6 @@ def test_superset_stateful_ingest(
                             "first_name": "Test",
                             "id": 2,
                             "last_name": "User2",
-                            "username": "test_username_2",
                         },
                         "changed_by_name": "test_username_2",
                         "changed_on_delta_humanized": "9 months ago",
@@ -583,7 +687,6 @@ def test_superset_stateful_ingest(
                                 "first_name": "Test",
                                 "id": 2,
                                 "last_name": "Owner2",
-                                "username": "test_username_2",
                             }
                         ],
                         "schema": "test_schema2",
@@ -644,7 +747,7 @@ def test_superset_stateful_ingest(
 
         urn1 = "urn:li:dashboard:(superset,2)"
         urn2 = "urn:li:chart:(superset,13)"
-        urn3 = "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema1.Test Table 1,PROD)"
+        urn3 = "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
 
         assert urn1 in dashboard_difference_urns
         assert urn2 in chart_difference_urns

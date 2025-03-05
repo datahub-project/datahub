@@ -98,6 +98,11 @@ export const IngestionSourceList = () => {
     const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
+    // When source filter changes, reset page to 1
+    useEffect(() => {
+        setPage(1);
+    }, [sourceFilter]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -186,7 +191,7 @@ export const IngestionSourceList = () => {
     };
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
+        setTimeout(() => refetch(), 3000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
     };

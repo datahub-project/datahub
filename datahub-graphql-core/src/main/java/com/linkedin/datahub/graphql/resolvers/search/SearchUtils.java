@@ -378,6 +378,8 @@ public class SearchUtils {
       Integer inputCount,
       String scrollId,
       String inputKeepAlive,
+      List<SortCriterion> sortCriteria,
+      List<String> facets,
       String className) {
 
     final List<EntityType> entityTypes =
@@ -431,7 +433,15 @@ public class SearchUtils {
           try {
             final ScrollResult scrollResult =
                 _entityClient.scrollAcrossEntities(
-                    context, finalEntityNames, query, finalFilters, scrollId, keepAlive, count);
+                    context,
+                    finalEntityNames,
+                    query,
+                    finalFilters,
+                    scrollId,
+                    keepAlive,
+                    sortCriteria,
+                    count,
+                    facets);
             return UrnScrollResultsMapper.map(inputContext, scrollResult);
           } catch (Exception e) {
             log.warn(
@@ -518,14 +528,7 @@ public class SearchUtils {
           try {
             final SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context,
-                    finalEntityNames,
-                    query,
-                    finalFilters,
-                    start,
-                    count,
-                    sortCriteria,
-                    null);
+                    context, finalEntityNames, query, finalFilters, start, count, sortCriteria);
             return UrnSearchResultsMapper.map(inputContext, searchResult);
           } catch (Exception e) {
             log.warn(

@@ -1,6 +1,7 @@
+import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity as GraphQLEntity } from '@types';
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
@@ -14,7 +15,6 @@ import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
 import { DataProcessInstance, EntityType, SearchResult } from '../../../types.generated';
 import Preview from './preview/Preview';
-import DataProcessInstanceSummary from './profile/DataProcessInstanceSummary';
 
 const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
@@ -115,6 +115,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 (processInstance as GetDataProcessInstanceQuery['dataProcessInstance'])?.optionalPlatform ||
                 parent?.platform,
             parent,
+            // Not currently rendered in V2
+            lastRunEvent: processInstance?.state?.[0],
         };
     };
 

@@ -78,7 +78,7 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightField;
 import org.opensearch.search.suggest.term.TermSuggestion;
 
 @Slf4j
-public class SearchRequestHandler {
+public class SearchRequestHandler extends BaseRequestHandler {
 
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
@@ -94,13 +94,13 @@ public class SearchRequestHandler {
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   private SearchRequestHandler(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext opContext,
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this(
-        entityRegistry,
+        opContext,
         ImmutableList.of(entitySpec),
         configs,
         customSearchConfiguration,
@@ -108,7 +108,7 @@ public class SearchRequestHandler {
   }
 
   private SearchRequestHandler(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
@@ -121,16 +121,17 @@ public class SearchRequestHandler {
             .flatMap(List::stream)
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
-    highlights = getHighlights();
+    highlights = getDefaultHighlights(opContext);
     searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     aggregationQueryBuilder = new AggregationQueryBuilder(configs, entitySearchAnnotations);
     this.configs = configs;
-    this.searchableFieldTypes = buildSearchableFieldTypes(entityRegistry, entitySpecs);
+    this.searchableFieldTypes =
+        buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
     this.queryFilterRewriteChain = queryFilterRewriteChain;
   }
 
   public static SearchRequestHandler getBuilder(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
@@ -139,7 +140,7 @@ public class SearchRequestHandler {
         ImmutableList.of(entitySpec),
         k ->
             new SearchRequestHandler(
-                entityRegistry,
+                systemOperationContext,
                 entitySpec,
                 configs,
                 customSearchConfiguration,
@@ -147,7 +148,7 @@ public class SearchRequestHandler {
   }
 
   public static SearchRequestHandler getBuilder(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
@@ -156,7 +157,7 @@ public class SearchRequestHandler {
         ImmutableList.copyOf(entitySpecs),
         k ->
             new SearchRequestHandler(
-                entityRegistry,
+                systemOperationContext,
                 entitySpecs,
                 configs,
                 customSearchConfiguration,
@@ -183,6 +184,11 @@ public class SearchRequestHandler {
                 .map(SearchableAnnotation::getFieldName),
             Stream.of("urn"))
         .collect(Collectors.toSet());
+  }
+
+  @Override
+  protected Collection<String> getValidQueryFieldNames() {
+    return searchableFieldTypes.keySet();
   }
 
   public BoolQueryBuilder getFilterQuery(
@@ -223,7 +229,7 @@ public class SearchRequestHandler {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
@@ -246,7 +252,7 @@ public class SearchRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
         searchSourceBuilder.highlighter(
-            getValidatedHighlighter(searchFlags.getCustomHighlightingFields()));
+            getHighlights(opContext, searchFlags.getCustomHighlightingFields()));
       } else {
         searchSourceBuilder.highlighter(highlights);
       }
@@ -287,7 +293,7 @@ public class SearchRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
 
@@ -383,22 +389,10 @@ public class SearchRequestHandler {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
   }
 
-  @VisibleForTesting
-  public HighlightBuilder getHighlights() {
-    HighlightBuilder highlightBuilder =
-        new HighlightBuilder()
-            // Don't set tags to get the original field value
-            .preTags("")
-            .postTags("")
-            .numOfFragments(1);
-
-    // Check for each field name and any subfields
-    defaultQueryFieldNames.stream()
-        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*"))
-        .distinct()
-        .forEach(highlightBuilder::field);
-
-    return highlightBuilder;
+  @Override
+  protected Stream<String> highlightFieldExpansion(
+      @Nonnull OperationContext opContext, @Nonnull String fieldName) {
+    return Stream.of(fieldName, fieldName + ".*");
   }
 
   @WithSpan
@@ -595,18 +589,6 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
-  }
-
-  private HighlightBuilder getValidatedHighlighter(Collection<String> fieldsToHighlight) {
-    HighlightBuilder highlightBuilder = new HighlightBuilder();
-    highlightBuilder.preTags("");
-    highlightBuilder.postTags("");
-    fieldsToHighlight.stream()
-        .filter(defaultQueryFieldNames::contains)
-        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*"))
-        .distinct()
-        .forEach(highlightBuilder::field);
-    return highlightBuilder;
   }
 
   /**

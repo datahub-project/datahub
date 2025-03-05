@@ -5,7 +5,9 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+)
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -152,10 +154,8 @@ class DataLakeSourceConfig(
         return path_specs
 
     @pydantic.validator("platform", always=True)
-    def platform_valid(cls, platform: str, values: dict) -> str:
-        inferred_platform = values.get(
-            "platform", None
-        )  # we may have inferred it above
+    def platform_valid(cls, platform: Any, values: dict) -> str:
+        inferred_platform = values.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")

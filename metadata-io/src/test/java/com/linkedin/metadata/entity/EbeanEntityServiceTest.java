@@ -3,11 +3,24 @@ package com.linkedin.metadata.entity;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +32,7 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -41,19 +55,22 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
+import jakarta.persistence.EntityNotFoundException;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
-import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -70,14 +87,21 @@ public class EbeanEntityServiceTest
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
+  @BeforeClass
+  public void beforeClass() {
+    _mockProducer = mock(EventProducer.class);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+  }
+
   @BeforeMethod
   public void setupTest() {
+    reset(_mockProducer);
+    reset(_mockUpdateIndicesService);
+
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
 
-    _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
 
-    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
@@ -112,14 +136,84 @@ public class EbeanEntityServiceTest
             null);
   }
 
-  /**
-   * Ideally, all tests would be in the base class, so they're reused between all implementations.
-   * When that's the case - test runner will ignore this class (and its base!) so we keep this dummy
-   * test to make sure this class will always be discovered.
-   */
   @Test
-  public void obligatoryTest() throws AssertionError {
-    Assert.assertTrue(true);
+  public void testNoRowsUpdatedErrorHandling() throws Exception {
+    // Setup test data
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testUser");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect.schema());
+
+    // Create database and spy on aspectDao
+    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    EbeanAspectDao aspectDao = spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault));
+
+    // Prevent actual saves
+    EntityAspect mockEntityAspect = mock(EntityAspect.class);
+    when(mockEntityAspect.getMetadata()).thenReturn("");
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
+
+    // Create spied transaction context that throws on commitAndContinue
+    AtomicReference<TransactionContext> capturedTxContext = new AtomicReference<>();
+    AtomicReference<TransactionResult<?>> capturedResult = new AtomicReference<>();
+
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
+              Integer maxTransactionRetry = invocation.getArgument(2);
+
+              TransactionContext txContext = spy(TransactionContext.empty(maxTransactionRetry));
+              capturedTxContext.set(txContext);
+
+              doThrow(new EntityNotFoundException("No rows updated"))
+                  .when(txContext)
+                  .commitAndContinue();
+
+              TransactionResult<?> result = block.apply(txContext);
+              capturedResult.set(result);
+              return result.getResults();
+            })
+        .when(aspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    // Create the service with our spied dao
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(false);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(aspectDao, _mockProducer, false, preProcessHooks, true);
+
+    // Create the test batch
+    List<ChangeItemImpl> items =
+        List.of(
+            ChangeItemImpl.builder()
+                .urn(entityUrn)
+                .aspectName(aspectName)
+                .recordTemplate(writeAspect)
+                .systemMetadata(systemMetadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(items)
+            .build();
+
+    // Execute the test
+    List<UpdateAspectResult> results = entityService.ingestAspects(opContext, batch, false, true);
+
+    // Verify results
+    assertEquals(results.size(), 0, "Expected no results for rolled back transaction");
+
+    // Verify transaction behavior
+    verify(aspectDao).runInTransactionWithRetry(any(), eq(batch), anyInt());
+    verify(capturedTxContext.get()).commitAndContinue();
+
+    // Verify the transaction result was a rollback
+    TransactionResult<?> result = capturedResult.get();
+    assertNotNull(result, "Expected a transaction result");
+    assertFalse(result.isCommitOrRollback(), "Expected a rollback result");
   }
 
   @Override
@@ -342,17 +436,20 @@ public class EbeanEntityServiceTest
             .getServer()
             .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
-      _entityServiceImpl.aspectDao.saveAspect(
+      _entityServiceImpl.aspectDao.insertAspect(
           transactionContext,
-          entityUrn.toString(),
-          STATUS_ASPECT_NAME,
-          new Status().setRemoved(false).toString(),
-          entityUrn.toString(),
-          null,
-          Timestamp.from(Instant.now()),
-          systemMetadata.toString(),
-          1,
-          true);
+          EntityAspect.EntitySystemAspect.builder()
+              .forInsert(
+                  EntityAspect.builder()
+                      .urn(entityUrn.toString())
+                      .aspect(STATUS_ASPECT_NAME)
+                      .metadata(RecordUtils.toJsonString(new Status().setRemoved(false)))
+                      .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                      .createdOn(new Timestamp(0L))
+                      .systemMetadata(RecordUtils.toJsonString(systemMetadata))
+                      .build(),
+                  opContext.getEntityRegistry()),
+          1);
       transaction.commit();
     }
 

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
+import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.datahub.util.exception.ESQueryException;
@@ -9,10 +10,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -37,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -58,6 +62,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchModule;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -150,7 +155,7 @@ public class ESSearchDAO {
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
                 SearchRequestHandler.getBuilder(
-                        opContext.getEntityRegistry(),
+                        opContext,
                         entitySpec,
                         searchConfiguration,
                         customSearchConfiguration,
@@ -257,7 +262,7 @@ public class ESSearchDAO {
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
                 SearchRequestHandler.getBuilder(
-                        opContext.getEntityRegistry(),
+                        opContext,
                         entitySpecs,
                         searchConfiguration,
                         customSearchConfiguration,
@@ -296,7 +301,7 @@ public class ESSearchDAO {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
     List<EntitySpec> entitySpecs =
         entityNames.stream()
@@ -311,7 +316,7 @@ public class ESSearchDAO {
             "searchRequest",
             () ->
                 SearchRequestHandler.getBuilder(
-                        opContext.getEntityRegistry(),
+                        opContext,
                         entitySpecs,
                         searchConfiguration,
                         customSearchConfiguration,
@@ -357,7 +362,7 @@ public class ESSearchDAO {
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
-                opContext.getEntityRegistry(),
+                opContext,
                 entitySpec,
                 searchConfiguration,
                 customSearchConfiguration,
@@ -395,7 +400,11 @@ public class ESSearchDAO {
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
       AutocompleteRequestHandler builder =
           AutocompleteRequestHandler.getBuilder(
-              entitySpec, customSearchConfiguration, queryFilterRewriteChain, searchConfiguration);
+              opContext,
+              entitySpec,
+              customSearchConfiguration,
+              queryFilterRewriteChain,
+              searchConfiguration);
       SearchRequest req =
           builder.getSearchRequest(
               opContext,
@@ -441,7 +450,7 @@ public class ESSearchDAO {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
-                opContext.getEntityRegistry(),
+                opContext,
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,
@@ -529,7 +538,7 @@ public class ESSearchDAO {
                       entitySpecs,
                       finalInput,
                       sortCriteria,
-                      null);
+                      List.of());
 
               // PIT specifies indices in creation so it doesn't support specifying indices on the
               // request, so
@@ -560,7 +569,7 @@ public class ESSearchDAO {
       List<EntitySpec> entitySpecs,
       String finalInput,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {
@@ -578,7 +587,7 @@ public class ESSearchDAO {
     }
 
     return SearchRequestHandler.getBuilder(
-            opContext.getEntityRegistry(),
+            opContext,
             entitySpecs,
             searchConfiguration,
             customSearchConfiguration,
@@ -611,6 +620,43 @@ public class ESSearchDAO {
             });
   }
 
+  public Map<Urn, SearchResponse> rawEntity(@Nonnull OperationContext opContext, Set<Urn> urns) {
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    Map<Urn, EntitySpec> specs =
+        urns.stream()
+            .flatMap(
+                urn ->
+                    Optional.ofNullable(entityRegistry.getEntitySpec(urn.getEntityType()))
+                        .map(spec -> Map.entry(urn, spec))
+                        .stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    return specs.entrySet().stream()
+        .map(
+            entry -> {
+              try {
+                String indexName =
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getIndexName(entry.getValue());
+
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+                searchSourceBuilder.query(
+                    QueryBuilders.termQuery(URN_FIELD, entry.getKey().toString()));
+
+                SearchRequest searchRequest = new SearchRequest(indexName);
+                searchRequest.source(searchSourceBuilder);
+
+                return Map.entry(
+                    entry.getKey(), client.search(searchRequest, RequestOptions.DEFAULT));
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   private boolean supportsPointInTime() {
     return pointInTimeCreationEnabled
         && ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImplementation);
@@ -641,7 +687,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
