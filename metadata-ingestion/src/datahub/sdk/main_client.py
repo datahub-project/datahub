@@ -6,6 +6,7 @@ from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
+from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
@@ -76,4 +77,6 @@ class DataHubClient:
     def search(self) -> SearchClient:
         return SearchClient(self)
 
-    # TODO: lineage client
+    @property
+    def lineage(self) -> LineageClient:
+        return LineageClient(self)
