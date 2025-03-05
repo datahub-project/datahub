@@ -1,7 +1,7 @@
 import dataclasses
 import logging
-import time
 from collections import defaultdict
+from datetime import datetime
 from typing import Any, Iterable, List, Optional, TypeVar
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -54,6 +54,7 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
 )
 from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.time import datetime_to_ts_millis
 
 T = TypeVar("T")
 
@@ -272,9 +273,9 @@ class VertexAISource(Source):
         job_urn = builder.make_data_process_instance_urn(job_id)
 
         created_time = (
-            int(job.create_time.timestamp() * 1000)
+            datetime_to_ts_millis(job.create_time)
             if job.create_time
-            else int(time.time() * 1000)
+            else datetime_to_ts_millis(datetime.now())
         )
         created_actor = f"urn:li:platformResource:{self.platform}"
 
@@ -332,11 +333,11 @@ class VertexAISource(Source):
             MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
-                created=TimeStampClass(time=int(model.create_time.timestamp() * 1000))
+                created=TimeStampClass(time=datetime_to_ts_millis(model.create_time))
                 if model.create_time
                 else None,
                 lastModified=TimeStampClass(
-                    time=int(model.update_time.timestamp() * 1000)
+                    time=datetime_to_ts_millis(model.update_time)
                 )
                 if model.update_time
                 else None,
@@ -427,7 +428,7 @@ class VertexAISource(Source):
             aspects.append(
                 DatasetPropertiesClass(
                     name=self._make_vertexai_dataset_name(ds.name),
-                    created=TimeStampClass(time=int(ds.create_time.timestamp() * 1000))
+                    created=TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
                     if ds.create_time
                     else None,
                     description=f"Dataset: {ds.display_name}",
@@ -528,7 +529,7 @@ class VertexAISource(Source):
                 aspects.append(
                     MLModelDeploymentPropertiesClass(
                         description=model.description,
-                        createdAt=int(endpoint.create_time.timestamp() * 1000),
+                        createdAt=datetime_to_ts_millis(endpoint.create_time),
                         version=VersionTagClass(
                             versionTag=str(model_version.version_id)
                         ),
@@ -595,12 +596,12 @@ class VertexAISource(Source):
                     "resourceName": model.resource_name,
                 },
                 created=TimeStampClass(
-                    int(model_version.version_create_time.timestamp() * 1000)
+                    datetime_to_ts_millis(model_version.version_create_time)
                 )
                 if model_version.version_create_time
                 else None,
                 lastModified=TimeStampClass(
-                    int(model_version.version_update_time.timestamp() * 1000)
+                    datetime_to_ts_millis(model_version.version_update_time)
                 )
                 if model_version.version_update_time
                 else None,
