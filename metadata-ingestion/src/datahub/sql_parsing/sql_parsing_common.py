@@ -24,12 +24,19 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # For SQL server, the default collation rules mean that all identifiers (schema, table, column names)
     # are case preserving but case insensitive.
     "mssql",
+    # Oracle automatically converts unquoted identifiers to uppercase.
+    # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Database-Object-Names-and-Qualifiers.html#GUID-3C59E44A-5140-4BCA-B9E1-3039C8050C49
+    # In our Oracle connector, we then normalize column names to lowercase. This behavior
+    # actually comes from the underlying Oracle sqlalchemy dialect.
+    # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
+    "oracle",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
     # because they are automatically converted to uppercase. Most other systems
     # automatically lowercase unquoted identifiers.
     "snowflake",
+    "oracle",
 }
 assert DIALECTS_WITH_DEFAULT_UPPERCASE_COLS.issubset(
     DIALECTS_WITH_CASE_INSENSITIVE_COLS
