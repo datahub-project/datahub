@@ -14,7 +14,7 @@
                         "customProperties": {
                             "Status": "published",
                             "IsPublished": "true",
-                            "Owners": "test_username_1, test_username_2",
+                            "Owners": "test_owner1@example.com, test_owner2@example.com",
                             "IsCertified": "true",
                             "CertifiedBy": "Certification team",
                             "CertificationDetails": "Approved"
@@ -34,10 +34,29 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner1@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
                     }
                 }
             ]
@@ -45,7 +64,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -76,7 +95,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
@@ -87,13 +106,23 @@
                         ],
                         "type": "BAR"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -124,7 +153,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "actor": "urn:li:corpuser:test_owner1@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
@@ -135,13 +164,23 @@
                         ],
                         "type": "PIE"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -172,7 +211,7 @@
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "actor": "urn:li:corpuser:test_owner2@example.com"
                             }
                         },
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
@@ -183,13 +222,23 @@
                         ],
                         "type": "AREA"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -227,6 +276,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -255,13 +307,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -299,6 +366,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -327,13 +397,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -371,6 +456,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -399,13 +487,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -443,6 +546,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -471,13 +577,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -515,6 +636,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -543,13 +667,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -587,6 +726,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -615,13 +757,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -659,6 +816,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -687,13 +847,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -731,6 +906,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -759,13 +937,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -803,6 +996,9 @@
                         "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
                         "tags": []
                     }
                 },
@@ -831,13 +1027,28 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -854,7 +1065,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -871,7 +1082,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -888,24 +1099,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(superset,2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -922,7 +1116,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-daaqpe",
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-ptptj3",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

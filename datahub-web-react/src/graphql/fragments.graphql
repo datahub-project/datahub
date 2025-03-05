@@ -1151,6 +1151,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
             trainingJobs
             downstreamJobs
         }
+        customProperties {
+            key
+            value
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields

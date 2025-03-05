@@ -20,6 +20,7 @@ from datahub.metadata.urns import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import Filter, FilterDsl
 
 # We want to print out the warning if people do `from datahub.sdk import X`.
 # But we don't want to print out warnings if they're doing a more direct

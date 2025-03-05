@@ -18,17 +18,18 @@ from datahub.errors import (
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity, ExtraAspectsType
 from datahub.sdk._shared import (
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
+    HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
     HasSubtype,
     HasTags,
     HasTerms,
+    LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagInputType,
@@ -39,6 +40,7 @@ from datahub.sdk._shared import (
     parse_time_stamp,
 )
 from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
@@ -422,6 +424,7 @@ class Dataset(
     HasSubtype,
     HasContainer,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
@@ -453,6 +456,7 @@ class Dataset(
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         # TODO structured_properties
@@ -499,6 +503,8 @@ class Dataset(
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
         if tags is not None:
             self.set_tags(tags)
         if terms is not None:
