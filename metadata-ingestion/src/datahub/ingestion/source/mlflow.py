@@ -61,7 +61,6 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TimeStampClass,
     VersionPropertiesClass,
-    VersionSetKeyClass,
     VersionTagClass,
     _Aspect,
 )
@@ -498,7 +497,6 @@ class MLflowSource(StatefulIngestionSourceBase):
         for registered_model in registered_models:
             version_set_urn = self._get_version_set_urn(registered_model)
             yield self._get_ml_group_workunit(registered_model)
-            yield self._get_version_set(version_set_urn)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
@@ -521,22 +519,6 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         return version_set_urn
 
-    def _get_version_set(
-        self,
-        version_set_urn: VersionSetUrn,
-    ) -> MetadataWorkUnit:
-        version_set_key = VersionSetKeyClass(
-            id=version_set_urn.id,
-            entityType="mlModel",
-        )
-
-        wu = MetadataChangeProposalWrapper(
-            entityUrn=str(version_set_urn),
-            aspect=version_set_key,
-        ).as_workunit()
-
-        return wu
-
     def _get_ml_model_version_properties_workunit(
         self,
         model_version: ModelVersion,
@@ -554,7 +536,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 ),
             ),
             versionSet=str(version_set_urn),
-            sortId="",
+            sortId=str(model_version.version).zfill(10),
             aliases=[
                 VersionTagClass(versionTag=alias) for alias in model_version.aliases
             ],
