@@ -377,7 +377,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
