@@ -8,6 +8,6 @@ import datahub._version as datahub_version
 )
 def test_datahub_version():
     # Simply importing pkg_resources checks for unsatisfied dependencies.
-    import pkg_resources
+    import pkg_resources  # type: ignore[import-untyped]
 
     assert pkg_resources.get_distribution(datahub_version.__package_name__).version
