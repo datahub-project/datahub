@@ -584,6 +584,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             if model_version.user_id
             else None
         )
+        model_version_tags = [f"{k}:{v}" for k, v in model_version.tags.items()]
 
         ml_model_properties = MLModelPropertiesClass(
             customProperties=model_version.tags,
@@ -599,8 +600,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             ),
             hyperParams=hyperparams,
             trainingMetrics=training_metrics,
-            # mlflow tags are dicts, but datahub tags are lists. currently use only keys from mlflow tags
-            tags=list(model_version.tags.keys()),
+            tags=model_version_tags,
             groups=[ml_model_group_urn],
             trainingJobs=training_jobs,
         )

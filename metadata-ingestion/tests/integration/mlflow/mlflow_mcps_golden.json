@@ -362,7 +362,7 @@
                 }
             ],
             "tags": [
-                "model_version_id"
+                "model_version_id:1"
             ],
             "groups": [
                 "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)"
