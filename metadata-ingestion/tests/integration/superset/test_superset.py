@@ -368,10 +368,16 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             "last_name": "Owner2",
                         }
                     ],
-                    "rendered_sql": "SELECT * FROM test_table2",
+                    "rendered_sql": """
+                    SELECT tt2.id, tt2.name, tt2.description, db.database_name 
+                    FROM test_table2 tt2
+                    JOIN databases db ON tt2.database_id = db.id
+                    WHERE tt2.kind = 'virtual'
+                    ORDER BY tt2.id DESC;
+                    """,
                     "schema": "test_schema2",
                     "select_star": "SELECT * FROM test_schema2.test_table2 LIMIT 100",
-                    "sql": "SELECT * FROM test_table2",
+                    "sql": "SELECT * FROM test_table2;",
                     "table_name": "Test Table 2",
                     "uid": "2__table",
                     "url": "/tablemodelview/edit/2",
@@ -690,7 +696,7 @@ def test_superset_stateful_ingest(
                             }
                         ],
                         "schema": "test_schema2",
-                        "sql": "SELECT * FROM test_table2",
+                        "sql": "SELECT * FROM test_table2;",
                         "table_name": "Test Table 2",
                     },
                 ],
