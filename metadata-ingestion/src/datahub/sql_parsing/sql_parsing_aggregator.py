@@ -152,10 +152,10 @@ class QueryMetadata:
             actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
 
-    def get_query_subjects(
+    def get_query_subject_urns(
         self,
-        downstream_urn: Optional[str] = None,
-        include_fields: bool = True,
+        downstream_urn: Optional[str],
+        include_fields: bool,
     ) -> List[UrnStr]:
         query_subject_urns = OrderedSet[UrnStr]()
         for upstream in self.upstreams:
@@ -175,6 +175,32 @@ class QueryMetadata:
                         )
                     )
         return list(query_subject_urns)
+
+    def make_query_subjects(
+        self,
+        downstream_urn: Optional[str],
+        include_fields: bool = True,
+    ) -> models.QuerySubjectsClass:
+        return models.QuerySubjectsClass(
+            subjects=[
+                models.QuerySubjectClass(entity=urn)
+                for urn in self.get_query_subject_urns(
+                    downstream_urn=downstream_urn,
+                    include_fields=include_fields,
+                )
+            ]
+        )
+
+    def make_query_properties(self) -> models.QueryPropertiesClass:
+        return models.QueryPropertiesClass(
+            statement=models.QueryStatementClass(
+                value=self.formatted_query_string,
+                language=models.QueryLanguageClass.SQL,
+            ),
+            source=models.QuerySourceClass.SYSTEM,
+            created=self.make_created_audit_stamp(),
+            lastModified=self.make_last_modified_audit_stamp(),
+        )
 
 
 @dataclasses.dataclass
@@ -1459,28 +1485,13 @@ class SqlParsingAggregator(Closeable):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
-        query_subject_urns = query.get_query_subjects(
-            downstream_urn=downstream_urn,
-            include_fields=self.generate_query_subject_fields,
-        )
-
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
             aspects=[
-                models.QueryPropertiesClass(
-                    statement=models.QueryStatementClass(
-                        value=query.formatted_query_string,
-                        language=models.QueryLanguageClass.SQL,
-                    ),
-                    source=models.QuerySourceClass.SYSTEM,
-                    created=query.make_created_audit_stamp(),
-                    lastModified=query.make_last_modified_audit_stamp(),
-                ),
-                models.QuerySubjectsClass(
-                    subjects=[
-                        models.QuerySubjectClass(entity=urn)
-                        for urn in query_subject_urns
-                    ]
+                query.make_query_properties(),
+                query.make_query_subjects(
+                    downstream_urn=downstream_urn,
+                    include_fields=self.generate_query_subject_fields,
                 ),
                 models.DataPlatformInstanceClass(
                     platform=self.platform.urn(),
