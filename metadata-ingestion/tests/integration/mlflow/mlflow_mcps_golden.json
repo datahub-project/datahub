@@ -396,23 +396,6 @@
     }
 },
 {
-    "entityType": "versionSet",
-    "entityUrn": "urn:li:versionSet:(test-model,mlModel)",
-    "changeType": "UPSERT",
-    "aspectName": "versionSetKey",
-    "aspect": {
-        "json": {
-            "id": "test-model",
-            "entityType": "mlModel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
@@ -445,7 +428,7 @@
                 }
             },
             "aliases": [],
-            "sortId": "",
+            "sortId": "0000000001",
             "versioningScheme": "LEXICOGRAPHIC_STRING"
         }
     },
