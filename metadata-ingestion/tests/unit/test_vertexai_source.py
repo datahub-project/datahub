@@ -14,6 +14,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai import (
     MLTypes,
+    ModelMetadata,
     TrainingJobMetadata,
     VertexAIConfig,
     VertexAISource,
@@ -158,7 +159,8 @@ def test_get_ml_model_properties_mcps(
 ) -> None:
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
-    mcp = [mcp for mcp in source._gen_ml_model_mcps(mock_model, model_version)]
+    model_meta = ModelMetadata(mock_model, model_version)
+    mcp = [mcp for mcp in source._gen_ml_model_mcps(model_meta)]
     assert len(mcp) == 1
     assert hasattr(mcp[0], "aspect")
     aspect = mcp[0].aspect
@@ -178,7 +180,11 @@ def test_get_endpoint_mcps(
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
     mock_endpoint = gen_mock_endpoint()
-    for mcp in source._gen_endpoint_mcps(mock_endpoint, mock_model, model_version):
+    model_meta = ModelMetadata(
+        model=mock_model, model_version=model_version, endpoints=[mock_endpoint]
+    )
+
+    for mcp in source._gen_endpoint_mcps(model_meta):
         assert hasattr(mcp, "aspect")
         aspect = mcp.aspect
         if isinstance(aspect, MLModelDeploymentPropertiesClass):
