@@ -137,16 +137,12 @@ class RedshiftDatasharesHelper:
     def find_upstream_share(
         self, share: Union[InboundDatashare | PartialInboundDatashare]
     ) -> Optional[OutboundSharePlatformResource]:
-        # TODO: handle case of partial inbound share
-        upstream_share: Optional[OutboundSharePlatformResource] = None
-
         if not self.graph:
             self.report.warning(
                 title="Upstream lineage of inbound datashare will be missing",
                 message="Missing datahub graph. Either use the datahub-rest sink or "
                 "set the top-level datahub_api config in the recipe",
             )
-
         else:
             resources = self.get_platform_resources(self.graph, share)
 
@@ -172,15 +168,13 @@ class RedshiftDatasharesHelper:
                 # and type is "OUTBOUND_DATASHARE"
                 for resource in resources:
                     try:
-                        # TODO: should this be part of platform resource helper ?
                         assert (
                             resource.resource_info is not None
                             and resource.resource_info.value is not None
                         )
-                        upstream_share = OutboundSharePlatformResource.parse_raw(
-                            resource.resource_info.value.blob
+                        return resource.resource_info.value.as_pydantic_object(
+                            OutboundSharePlatformResource, True
                         )
-                        break
                     except Exception as e:
                         self.report.warning(
                             title="Upstream lineage of inbound datashare will be missing",
@@ -189,13 +183,17 @@ class RedshiftDatasharesHelper:
                             exc=e,
                         )
 
-        return upstream_share
+        return None
 
     def get_platform_resources(
         self,
         graph: DataHubGraph,
         share: Union[InboundDatashare, PartialInboundDatashare],
     ) -> List[PlatformResource]:
+        # NOTE: ideally we receive InboundDatashare and not PartialInboundDatashare.
+        # however due to varchar(128) type of database table that captures datashare options
+        # we may receive only partial information about inbound share
+        # Alternate option to get InboundDatashare using svv_datashares requires superuser
         if isinstance(share, PartialInboundDatashare):
             return list(
                 PlatformResource.search_by_filters(

@@ -49,6 +49,7 @@ class RedshiftCommonQuery:
             cast(null as varchar(256)) as external_database
         FROM svv_redshift_schemas
         WHERE database_name = '{database}'
+          AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
     UNION ALL
         SELECT 
             schemaname as schema_name,

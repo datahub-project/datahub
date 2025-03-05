@@ -16,6 +16,7 @@ from datahub.ingestion.source.redshift.datashares import (
     RedshiftTable,
     RedshiftView,
 )
+from datahub.ingestion.source.redshift.redshift_schema import PartialInboundDatashare
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata.schema_classes import (
     PlatformResourceInfoClass,
@@ -91,6 +92,72 @@ class TestDatasharesHelper:
 
         with patch.object(PlatformResource, "search_by_key") as mocked_method:
             mocked_method.side_effect = mock_search_by_key
+            result = list(helper.generate_lineage(share, tables))
+        # Assert
+        assert len(result) == 3
+        expected_mappings = [
+            KnownLineageMapping(
+                upstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,producer_instance.producer_db.schema1.table1,PROD)",
+                downstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,consumer_instance.consumer_db.schema1.table1,PROD)",
+            ),
+            KnownLineageMapping(
+                upstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,producer_instance.producer_db.schema1.table2,PROD)",
+                downstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,consumer_instance.consumer_db.schema1.table2,PROD)",
+            ),
+            KnownLineageMapping(
+                upstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,producer_instance.producer_db.schema2.table3,PROD)",
+                downstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,consumer_instance.consumer_db.schema2.table3,PROD)",
+            ),
+        ]
+        assert result == expected_mappings
+
+    def test_generate_lineage_success_partial_inbound_share(self):
+        """
+        Test generate_lineage method when share and graph exist, resources are found,
+        and upstream namespace and database are successfully identified.
+        """
+        # Setup
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        # Mock input data
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="producer_na",
+            share_name="test_share",
+            consumer_database="consumer_db",
+        )
+        tables: dict[str, list[RedshiftTable | RedshiftView]] = {
+            "schema1": [
+                RedshiftTable(name="table1", comment=None, created=None),
+                RedshiftTable(name="table2", comment=None, created=None),
+            ],
+            "schema2": [RedshiftTable(name="table3", comment=None, created=None)],
+        }
+
+        # Mock PlatformResource.search_by_key
+        def mock_search_by_filters(*args, **kwargs):
+            resource = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance="producer_instance",
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="producer_namespace.some_share",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="producer_namespace",
+                    platform_instance="producer_instance",
+                    env="PROD",
+                    source_database="producer_db",
+                    share_name="test_share",
+                ),
+            )
+
+            return [resource]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked_method:
+            mocked_method.side_effect = mock_search_by_filters
             result = list(helper.generate_lineage(share, tables))
         # Assert
         assert len(result) == 3
