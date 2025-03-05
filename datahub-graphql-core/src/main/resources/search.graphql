@@ -347,6 +347,11 @@ input ScrollAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 
@@ -412,6 +417,16 @@ input SearchAcrossLineageInput {
   Flags controlling the lineage query
   """
   lineageFlags: LineageFlags
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """

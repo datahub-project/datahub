@@ -37,7 +37,7 @@ Cypress.Commands.add("login", () => {
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
-  cy.visit("/");
+  cy.visit("/login");
   if ((username, password)) {
     cy.get("input[data-testid=username]").type(username);
     cy.get("input[data-testid=password]").type(password);

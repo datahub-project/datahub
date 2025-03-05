@@ -1,8 +1,8 @@
 from typing import Dict, List, Type
 
-from datahub.sdk._entity import Entity
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 
 # TODO: Is there a better way to declare this?
 ENTITY_CLASSES_LIST: List[Type[Entity]] = [

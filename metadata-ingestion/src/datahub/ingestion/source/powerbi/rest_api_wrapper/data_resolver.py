@@ -380,8 +380,9 @@ class DataResolverBase(ABC):
     def itr_pages(
         self,
         endpoint: str,
-        parameter_override: Dict = {},
+        parameter_override: Optional[Dict] = None,
     ) -> Iterator[List[Dict]]:
+        parameter_override = parameter_override or {}
         params: dict = {
             "$skip": 0,
             "$top": self.TOP,

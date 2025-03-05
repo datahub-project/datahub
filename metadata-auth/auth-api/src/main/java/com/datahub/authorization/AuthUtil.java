@@ -15,7 +15,6 @@ import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.REST_API_AUTHORIZATION_ENABLED_ENV;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -53,7 +52,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.PostConstruct;
 import org.apache.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * Notes: This class is an attempt to unify privilege checks across APIs.
@@ -67,7 +69,24 @@ import org.apache.http.HttpStatus;
  * <p>isAPI...() functions are intended for OpenAPI and Rest.li since they are governed by an enable
  * flag. GraphQL is always enabled and should use is...() functions.
  */
+@Component
 public class AuthUtil {
+
+  // Since all methods of this class are static, need to postConstruct to initialize the static var
+  // from the instance var that spring can initialize
+  // TODO: Some unit tests seem to rely on this being false, so setting the default to false.
+  // When running as the spring boot application, the default property value is true.
+  private static boolean isRestApiAuthorizationEnabled = false;
+
+  // Eliminating the dependency on the env var REST_API_AUTHORIZATION_ENABLED and instead using the
+  // application property to keep it consistent with all other usage of that property.
+  @Value("${authorization.restApiAuthorization:true}")
+  protected Boolean restApiAuthorizationEnabled;
+
+  @PostConstruct
+  protected void init() {
+    AuthUtil.isRestApiAuthorizationEnabled = this.restApiAuthorizationEnabled;
+  }
 
   /**
    * This should generally follow the policy creation UI with a few exceptions for users, groups,
@@ -340,7 +359,7 @@ public class AuthUtil {
       @Nonnull final AuthorizationSession session,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
       @Nonnull final Collection<EntitySpec> resources) {
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))) {
+    if (AuthUtil.isRestApiAuthorizationEnabled) {
       return isAuthorized(session, buildDisjunctivePrivilegeGroup(privileges), resources);
     } else {
       return true;
@@ -583,5 +602,5 @@ public class AuthUtil {
     return AuthorizationResult.Type.DENY.equals(result.getType());
   }
 
-  private AuthUtil() {}
+  protected AuthUtil() {}
 }

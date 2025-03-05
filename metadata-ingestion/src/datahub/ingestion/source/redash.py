@@ -421,8 +421,9 @@ class RedashSource(StatefulIngestionSourceBase):
         return database_name
 
     def _get_datasource_urns(
-        self, data_source: Dict, sql_query_data: Dict = {}
+        self, data_source: Dict, sql_query_data: Optional[Dict] = None
     ) -> Optional[List[str]]:
+        sql_query_data = sql_query_data or {}
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
         data_source_syntax = data_source.get("syntax")

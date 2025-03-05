@@ -6,6 +6,7 @@ import static org.pac4j.play.store.PlayCookieSessionStore.*;
 
 import auth.AuthUtils;
 import auth.CookieConfigs;
+import auth.GuestAuthenticationConfigs;
 import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
@@ -58,6 +59,8 @@ public class AuthenticationController extends Controller {
   private final CookieConfigs cookieConfigs;
   private final JAASConfigs jaasConfigs;
   private final NativeAuthenticationConfigs nativeAuthenticationConfigs;
+  private final GuestAuthenticationConfigs guestAuthenticationConfigs;
+
   private final boolean verbose;
 
   @Inject private org.pac4j.core.config.Config ssoConfig;
@@ -73,6 +76,7 @@ public class AuthenticationController extends Controller {
     cookieConfigs = new CookieConfigs(configs);
     jaasConfigs = new JAASConfigs(configs);
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
+    guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
   }
 
@@ -108,6 +112,23 @@ public class AuthenticationController extends Controller {
 
     if (AuthUtils.hasValidSessionCookie(request)) {
       return Results.redirect(redirectPath);
+    }
+
+    if (guestAuthenticationConfigs.isGuestEnabled()
+        && guestAuthenticationConfigs.getGuestPath().equals(redirectPath)) {
+      final String accessToken =
+          authClient.generateSessionTokenForUser(guestAuthenticationConfigs.getGuestUser());
+      redirectPath =
+          "/"; // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
+      return Results.redirect(redirectPath)
+          .withSession(createSessionMap(guestUserUrn.toString(), accessToken))
+          .withCookies(
+              createActorCookie(
+                  guestUserUrn.toString(),
+                  cookieConfigs.getTtlInHours(),
+                  cookieConfigs.getAuthCookieSameSite(),
+                  cookieConfigs.getAuthCookieSecure()));
     }
 
     // 1. If SSO is enabled, redirect to IdP if not authenticated.
