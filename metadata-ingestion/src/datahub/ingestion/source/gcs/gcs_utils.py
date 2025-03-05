@@ -22,10 +22,18 @@ def strip_gcs_prefix(gcs_uri: str) -> str:
     return gcs_uri[len(GCS_PREFIX) :]
 
 
-def get_gcs_bucket_name(path):
-    if not is_gcs_uri(path):
-        raise ValueError(f"Not a GCS URI. Must start with prefixe: {GCS_PREFIX}")
-    return strip_gcs_prefix(path).split("/")[0]
+def get_gcs_bucket_name(path: str) -> str:
+    """Get the bucket name from either a GCS (gs://) or S3-style (s3://) URI."""
+    # Handle both gs:// and s3:// prefixes since we use S3-style URIs internally
+    if is_gcs_uri(path):
+        return strip_gcs_prefix(path).split("/")[0]
+    elif path.startswith("s3://"):
+        # For internal S3-style paths used by the source
+        return path[5:].split("/")[0]
+    else:
+        raise ValueError(
+            f"Not a valid GCS or S3 URI. Must start with prefixes: {GCS_PREFIX} or s3://"
+        )
 
 
 def get_gcs_bucket_relative_path(gcs_uri: str) -> str:
