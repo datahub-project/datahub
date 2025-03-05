@@ -25,6 +25,7 @@ import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -35,7 +36,6 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -227,13 +227,12 @@ public class AspectsBatchImplTest {
     List<ProposedItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -241,18 +240,17 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(auditStamp)
-                .build(),
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry),
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -260,10 +258,10 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(auditStamp)
-                .build());
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry));
 
     AspectsBatchImpl testBatch =
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
@@ -305,6 +303,27 @@ public class AspectsBatchImplTest {
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void toUpsertBatchItemsProposedItemInvalidAspectTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+    ProposedItem.builder()
+        .build(
+            new MetadataChangeProposal()
+                .setEntityUrn(
+                    UrnUtils.getUrn(
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
+                .setAspectName("my-custom-aspect")
+                .setEntityType(DATASET_ENTITY_NAME)
+                .setChangeType(ChangeType.UPSERT)
+                .setAspect(
+                    new GenericAspect()
+                        .setContentType("application/json")
+                        .setValue(
+                            ByteString.copyString("{\"foo\":\"bar\"}", StandardCharsets.UTF_8))),
+            auditStamp,
+            testRegistry);
   }
 
   @Test

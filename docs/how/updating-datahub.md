@@ -28,6 +28,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12716: Fix the `platform_instance` being added twice to the URN. If you want to have the previous behavior back, you need to add your platform_instance twice (i.e. `plat.plat`).
 
+- #: Previously OpenAPI and Rest.li endpoints when used in ASYNC mode would not validate URNs, entity & aspect names. Starting with this release, even in ASYNC mode, these requests will be returned with http code 400.
+
 
 ### Known Issues
 
