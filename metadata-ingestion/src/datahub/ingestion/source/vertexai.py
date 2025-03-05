@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import time
+from collections import defaultdict
 from typing import Any, Iterable, List, Optional, TypeVar
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -106,6 +107,14 @@ class TrainingJobMetadata:
     output_model_version: Optional[VersionInfo] = None
 
 
+@dataclasses.dataclass
+class ModelMetadata:
+    model: Model
+    model_version: VersionInfo
+    training_job_urn: Optional[str] = None
+    endpoints: Optional[List[Endpoint]] = None
+
+
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.TESTING)
@@ -134,9 +143,8 @@ class VertexAISource(Source):
             project=config.project_id, location=config.region, credentials=credentials
         )
         self.client = aiplatform
-        self.endpoints: Optional[List[Endpoint]] = None
+        self.endpoints: Optional[dict] = None
         self.datasets: Optional[dict] = None
-        self.model_name_separator = "_"
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -177,9 +185,27 @@ class VertexAISource(Source):
                 logger.info(
                     f"Ingesting a model (name: {model.display_name} id:{model.name})"
                 )
-                yield from self._gen_ml_model_endpoint_mcps(
+                yield from self._get_ml_model_mcps(
                     model=model, model_version=model_version
                 )
+
+    def _get_ml_model_mcps(
+        self, model: Model, model_version: VersionInfo
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        model_meta: ModelMetadata = self._get_ml_model_metadata(model, model_version)
+        # Create ML Model Entity
+        yield from self._gen_ml_model_mcps(model_meta)
+        # Create Endpoint Entity
+        yield from self._gen_endpoint_mcps(model_meta)
+
+    def _get_ml_model_metadata(
+        self, model: Model, model_version: VersionInfo
+    ) -> ModelMetadata:
+        model_meta = ModelMetadata(model=model, model_version=model_version)
+        # Search for endpoints associated with the model
+        endpoints = self._search_endpoint(model)
+        model_meta.endpoints = endpoints
+        return model_meta
 
     def _get_training_jobs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """
@@ -227,8 +253,12 @@ class VertexAISource(Source):
                 self._make_vertexai_job_name(entity_id=job.name)
             )
 
-            yield from self._gen_ml_model_endpoint_mcps(
-                job_meta.output_model, job_meta.output_model_version, job_urn
+            yield from self._gen_ml_model_mcps(
+                ModelMetadata(
+                    model=job_meta.output_model,
+                    model_version=job_meta.output_model_version,
+                    training_job_urn=job_urn,
+                )
             )
 
     def _gen_training_job_mcps(
@@ -479,79 +509,81 @@ class VertexAISource(Source):
         return job_meta
 
     def _gen_endpoint_mcps(
-        self, endpoint: Endpoint, model: Model, model_version: VersionInfo
+        self, model_meta: ModelMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        endpoint_urn = builder.make_ml_model_deployment_urn(
-            platform=self.platform,
-            deployment_name=self._make_vertexai_endpoint_name(
-                entity_id=endpoint.display_name
-            ),
-            env=self.config.env,
-        )
+        model: Model = model_meta.model
+        model_version: VersionInfo = model_meta.model_version
 
-        aspects: List[_Aspect] = list()
-        aspects.append(
-            MLModelDeploymentPropertiesClass(
-                description=model.description,
-                createdAt=int(endpoint.create_time.timestamp() * 1000),
-                version=VersionTagClass(versionTag=str(model_version.version_id)),
-                customProperties={"displayName": endpoint.display_name},
-            )
-        )
+        if model_meta.endpoints:
+            for endpoint in model_meta.endpoints:
+                endpoint_urn = builder.make_ml_model_deployment_urn(
+                    platform=self.platform,
+                    deployment_name=self._make_vertexai_endpoint_name(
+                        entity_id=endpoint.display_name
+                    ),
+                    env=self.config.env,
+                )
 
-        aspects.append(
-            ContainerClass(
-                container=self._get_project_container().as_urn(),
-            )
-        )
+                aspects: List[_Aspect] = list()
+                aspects.append(
+                    MLModelDeploymentPropertiesClass(
+                        description=model.description,
+                        createdAt=int(endpoint.create_time.timestamp() * 1000),
+                        version=VersionTagClass(
+                            versionTag=str(model_version.version_id)
+                        ),
+                        customProperties={"displayName": endpoint.display_name},
+                    )
+                )
 
-        aspects.append(SubTypesClass(typeNames=[MLTypes.ENDPOINT]))
+                # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
+                # aspects.append(
+                #     ContainerClass(container=self._get_project_container().as_urn())
+                # )
+                # aspects.append(SubTypesClass(typeNames=[MLTypes.ENDPOINT]))
 
-        yield from MetadataChangeProposalWrapper.construct_many(
-            endpoint_urn, aspects=aspects
-        )
+                yield from MetadataChangeProposalWrapper.construct_many(
+                    endpoint_urn, aspects=aspects
+                )
 
-    def _gen_ml_model_endpoint_mcps(
-        self,
-        model: Model,
-        model_version: VersionInfo,
-        training_job_urn: Optional[str] = None,
+    def _gen_ml_model_mcps(
+        self, ModelMetadata: ModelMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Generate an MLModel and Endpoint mcp for an VertexAI Model Version.
         """
 
-        endpoint: Optional[Endpoint] = self._search_endpoint(model)
-        endpoint_urn = None
+        model: Model = ModelMetadata.model
+        model_version: VersionInfo = ModelMetadata.model_version
+        training_job_urn: Optional[str] = ModelMetadata.training_job_urn
+        endpoints: Optional[List[Endpoint]] = ModelMetadata.endpoints
+        endpoint_urns: List[str] = list()
 
-        if endpoint:
-            yield from self._gen_endpoint_mcps(endpoint, model, model_version)
-
-        yield from self._gen_ml_model_mcps(
-            model, model_version, training_job_urn, endpoint_urn
-        )
-
-    def _gen_ml_model_mcps(
-        self,
-        model: Model,
-        model_version: VersionInfo,
-        training_job_urn: Optional[str] = None,
-        endpoint_urn: Optional[str] = None,
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generate an MLModel mcp for an VertexAI Model Version.
-        Every Model Version is a DataHub MLModel entity associated with an MLModelGroup
-        corresponding to a registered Model in VertexAI Model Registry.
-        """
         logging.info(f"generating model mcp for {model.name}")
 
+        # Generate list of endpoint URL
+        if endpoints:
+            for endpoint in endpoints:
+                logger.info(
+                    f"found endpoint ({endpoint.display_name}) for model ({model.resource_name})"
+                )
+                endpoint_urns.append(
+                    builder.make_ml_model_deployment_urn(
+                        platform=self.platform,
+                        deployment_name=self._make_vertexai_endpoint_name(
+                            entity_id=endpoint.display_name
+                        ),
+                        env=self.config.env,
+                    )
+                )
+
+        # Create URN for Model and Model Version
         model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_model_name(entity_id=model.name)
-        model_version_name = (
-            f"{model_name}{self.model_name_separator}{model_version.version_id}"
-        )
+        model_version_name = f"{model_name}_{model_version.version_id}"
         model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
+        # Create aspects for ML Model
         aspects: List[_Aspect] = list()
 
         aspects.append(
@@ -559,9 +591,7 @@ class VertexAISource(Source):
                 name=model_version_name,
                 description=model_version.version_description,
                 customProperties={
-                    "displayName": model_version.model_display_name
-                    + self.model_name_separator
-                    + model_version.version_id,
+                    "displayName": f"{model_version.model_display_name}_{model_version.version_id}",
                     "resourceName": model.resource_name,
                 },
                 created=TimeStampClass(
@@ -579,15 +609,13 @@ class VertexAISource(Source):
                 trainingJobs=[training_job_urn]
                 if training_job_urn
                 else None,  # link to training job
-                deployments=[endpoint_urn]
-                if endpoint_urn
-                else [],  # link to model registry and endpoint
+                deployments=endpoint_urns,
                 externalUrl=self._make_model_version_external_url(model),
                 type="ML Model",
             )
         )
 
-        # TO BE ADDED: Create a container for Project as parent of the dataset
+        # TODO Add a container for Project as parent of the dataset
         # aspects.append(
         #     ContainerClass(
         #             container=self._get_project_container().as_urn(),
@@ -598,24 +626,24 @@ class VertexAISource(Source):
             entityUrn=model_urn, aspects=aspects
         )
 
-    def _search_endpoint(self, model: Model) -> Optional[Endpoint]:
+    def _search_endpoint(self, model: Model) -> List[Endpoint]:
         """
         Search for an endpoint associated with the model.
         """
-
         if self.endpoints is None:
-            self.endpoints = self.client.Endpoint.list()
-        for endpoint in self.endpoints:
-            deployed_models = endpoint.list_models()
-            if model.resource_name in deployed_models:
-                return endpoint
+            endpoint_dict = defaultdict(list)
+            for endpoint in self.client.Endpoint.list():
+                for resource in endpoint.list_models():
+                    endpoint_dict[resource.model].append(endpoint)
+            self.endpoints = endpoint_dict
 
-        return None
+        endpoints = self.endpoints[model.resource_name]
+        return endpoints
 
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
         urn = builder.make_ml_model_urn(
             platform=self.platform,
-            model_name=f"{model_name}{self.model_name_separator}{model_version.version_id}",
+            model_name=f"{model_name}_{model_version.version_id}",
             env=self.config.env,
         )
         return urn
