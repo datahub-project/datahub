@@ -1,277 +1,284 @@
+fragment actionRequestFields on ActionRequest {
+    urn
+    type
+    status
+    result
+    entity {
+        urn
+        type
+        ... on Dataset {
+            name
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            ...datasetSchema
+        }
+        ... on Dashboard {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Chart {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Container {
+            properties {
+                name
+                qualifiedName
+            }
+        }
+        ... on DataJob {
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on DataFlow {
+            orchestrator
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLFeature {
+            name
+        }
+        ... on MLFeatureTable {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModel {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModelGroup {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLPrimaryKey {
+            name
+        }
+        ... on GlossaryNode {
+            properties {
+                name
+                description
+            }
+        }
+        ... on GlossaryTerm {
+            properties {
+                name
+                description
+            }
+        }
+    }
+    subResourceType
+    subResource
+    params {
+        glossaryTermProposal {
+            glossaryTerm {
+                urn
+                type
+                name
+                properties {
+                    name
+                }
+            }
+        }
+        tagProposal {
+            tag {
+                urn
+                type
+                name
+                properties {
+                    name
+                    colorHex
+                }
+            }
+        }
+        createGlossaryTermProposal {
+            glossaryTerm {
+                name
+                description
+                parentNode {
+                    urn
+                    properties {
+                        name
+                    }
+                }
+            }
+        }
+        createGlossaryNodeProposal {
+            glossaryNode {
+                name
+                description
+                parentNode {
+                    urn
+                    properties {
+                        name
+                    }
+                }
+            }
+        }
+        updateDescriptionProposal {
+            description
+        }
+        dataContractProposal {
+            operationType
+            freshness {
+                assertion {
+                    ...assertionDetailsWithMonitors
+                }
+            }
+            schema {
+                assertion {
+                    ...assertionDetailsWithMonitors
+                }
+            }
+            dataQuality {
+                assertion {
+                    ...assertionDetailsWithMonitors
+                }
+            }
+        }
+        structuredPropertyProposal {
+            structuredProperties {
+                ...structuredPropertiesFields
+            }
+        }
+        domainProposal {
+            domain {
+                ... on Domain {
+                    urn
+                    properties {
+                        name
+                        description
+                    }
+                }
+            }
+        }
+        ownerProposal {
+            owners {
+                ...owner
+                ownershipType {
+                    urn
+                    info {
+                        name
+                    }
+                }
+            }
+        }
+    }
+    created {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableInfo {
+                pictureLink
+            }
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableInfo {
+                pictureLink
+            }
+        }
+    }
+    origin
+    inferenceMetadata {
+        confidenceLevel
+        lastInferredAt
+    }
+}
+
 query listActionRequests($input: ListActionRequestsInput!) {
     listActionRequests(input: $input) {
         start
         count
         total
         actionRequests {
-            urn
-            type
-            status
-            result
-            entity {
-                urn
-                type
-                ... on Dataset {
-                    name
-                    properties {
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                    platform {
-                        name
-                        info {
-                            logoUrl
-                        }
-                    }
-                    ...datasetSchema
-                }
-                ... on Dashboard {
-                    tool
-                    properties {
-                        description
-                        name
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on Chart {
-                    tool
-                    properties {
-                        description
-                        name
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on Container {
-                    properties {
-                        name
-                        qualifiedName
-                    }
-                }
-                ... on DataJob {
-                    properties {
-                        name
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on DataFlow {
-                    orchestrator
-                    properties {
-                        name
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on MLFeature {
-                    name
-                }
-                ... on MLFeatureTable {
-                    name
-                    platform {
-                        name
-                        info {
-                            logoUrl
-                        }
-                    }
-                    properties {
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on MLModel {
-                    name
-                    platform {
-                        name
-                        info {
-                            logoUrl
-                        }
-                    }
-                    properties {
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on MLModelGroup {
-                    name
-                    platform {
-                        name
-                        info {
-                            logoUrl
-                        }
-                    }
-                    properties {
-                        description
-                    }
-                    editableProperties {
-                        description
-                    }
-                }
-                ... on MLPrimaryKey {
-                    name
-                }
-                ... on GlossaryNode {
-                    properties {
-                        name
-                        description
-                    }
-                }
-                ... on GlossaryTerm {
-                    properties {
-                        name
-                        description
-                    }
-                }
-            }
-            subResourceType
-            subResource
-            params {
-                glossaryTermProposal {
-                    glossaryTerm {
-                        urn
-                        type
-                        name
-                        properties {
-                            name
-                        }
-                    }
-                }
-                tagProposal {
-                    tag {
-                        urn
-                        type
-                        name
-                        properties {
-                            name
-                            colorHex
-                        }
-                    }
-                }
-                createGlossaryTermProposal {
-                    glossaryTerm {
-                        name
-                        description
-                        parentNode {
-                            urn
-                            properties {
-                                name
-                            }
-                        }
-                    }
-                }
-                createGlossaryNodeProposal {
-                    glossaryNode {
-                        name
-                        description
-                        parentNode {
-                            urn
-                            properties {
-                                name
-                            }
-                        }
-                    }
-                }
-                updateDescriptionProposal {
-                    description
-                }
-                dataContractProposal {
-                    operationType
-                    freshness {
-                        assertion {
-                            ...assertionDetailsWithMonitors
-                        }
-                    }
-                    schema {
-                        assertion {
-                            ...assertionDetailsWithMonitors
-                        }
-                    }
-                    dataQuality {
-                        assertion {
-                            ...assertionDetailsWithMonitors
-                        }
-                    }
-                }
-                structuredPropertyProposal {
-                    structuredProperties {
-                        ...structuredPropertiesFields
-                    }
-                }
-                domainProposal {
-                    domain {
-                        ... on Domain {
-                            urn
-                            properties {
-                                name
-                                description
-                            }
-                        }
-                    }
-                }
-                ownerProposal {
-                    owners {
-                        ...owner
-                        ownershipType {
-                            urn
-                            info {
-                                name
-                            }
-                        }
-                    }
-                }
-            }
-            created {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-            origin
-            inferenceMetadata {
-                confidenceLevel
-                lastInferredAt
-            }
+            ...actionRequestFields
+        }
+        facets {
+            ...facetFields
         }
     }
 }

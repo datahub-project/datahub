@@ -305,11 +305,18 @@ input ListActionRequestsInput {
     An optional ending time to filter on
     """
     endTimestampMillis: Long
-
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
     """
     If this is sent then default filtering for current assignee is not done
     """
     allActionRequests: Boolean
+    """
+    List of facets we want aggregations for
+    """
+    facets: [String!]
 }
 
 input ActionRequestAssignee {
@@ -340,6 +347,10 @@ type ListActionRequestsResult {
     A list of groupings of action requests for a user
     """
     actionRequests: [ActionRequest!]!
+    """
+    Facet aggregations used for filtering
+    """
+    facets: [FacetMetadata!]
 }
 
 input ListRejectedActionRequestsInput {
