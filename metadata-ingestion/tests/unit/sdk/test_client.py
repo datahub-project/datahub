@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 from datahub.ingestion.graph.client import (
     DatahubClientConfig,
     DataHubGraph,
-    _graphql_entity_type,
+    entity_type_to_graphql,
 )
 from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 
@@ -26,20 +26,22 @@ def test_get_aspect(mock_test_connection):
         assert editable is not None
 
 
-def test_graphql_entity_types():
+def test_graphql_entity_types() -> None:
     # FIXME: This is a subset of all the types, but it's enough to get us ok coverage.
 
-    assert _graphql_entity_type("domain") == "DOMAIN"
-    assert _graphql_entity_type("dataset") == "DATASET"
-    assert _graphql_entity_type("dashboard") == "DASHBOARD"
-    assert _graphql_entity_type("chart") == "CHART"
+    known_mappings = {
+        "domain": "DOMAIN",
+        "dataset": "DATASET",
+        "dashboard": "DASHBOARD",
+        "chart": "CHART",
+        "corpuser": "CORP_USER",
+        "corpGroup": "CORP_GROUP",
+        "dataFlow": "DATA_FLOW",
+        "dataJob": "DATA_JOB",
+        "glossaryNode": "GLOSSARY_NODE",
+        "glossaryTerm": "GLOSSARY_TERM",
+        "dataHubExecutionRequest": "EXECUTION_REQUEST",
+    }
 
-    assert _graphql_entity_type("corpuser") == "CORP_USER"
-    assert _graphql_entity_type("corpGroup") == "CORP_GROUP"
-
-    assert _graphql_entity_type("dataFlow") == "DATA_FLOW"
-    assert _graphql_entity_type("dataJob") == "DATA_JOB"
-    assert _graphql_entity_type("glossaryNode") == "GLOSSARY_NODE"
-    assert _graphql_entity_type("glossaryTerm") == "GLOSSARY_TERM"
-
-    assert _graphql_entity_type("dataHubExecutionRequest") == "EXECUTION_REQUEST"
+    for entity_type, graphql_type in known_mappings.items():
+        assert entity_type_to_graphql(entity_type) == graphql_type

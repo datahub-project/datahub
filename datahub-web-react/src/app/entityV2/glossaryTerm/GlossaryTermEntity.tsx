@@ -171,10 +171,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             },
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 

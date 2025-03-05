@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import {
     AndFilterInput,
     EntityType,
@@ -90,7 +91,11 @@ export const EmbeddedListSearchModal = ({
             title={title}
             visible
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={
+                <Button variant="text" onClick={onClose}>
+                    Close
+                </Button>
+            }
         >
             <SearchContainer height={height}>
                 <EmbeddedListSearch

@@ -24,6 +24,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 const InfoItemContent = styled.div`
     padding-top: 8px;
     width: 100px;
+    overflow-wrap: break-word;
 `;
 
 const propertyTableColumns = [

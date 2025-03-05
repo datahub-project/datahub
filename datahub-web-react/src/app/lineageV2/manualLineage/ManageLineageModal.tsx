@@ -1,7 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import React, { useContext, useEffect, useState } from 'react';
-import { Button, message, Modal } from 'antd';
+import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
+import { Button } from '@src/alchemy-components';
 import { toTitleCase } from '../../../graphql-mock/helper';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
@@ -85,9 +86,8 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     });
                 }
             })
-            .catch((e) => {
-                message.error('Error updating lineage');
-                console.warn(e);
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 
@@ -101,11 +101,11 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             open
             footer={
                 <ModalFooter>
-                    <Button onClick={closeModal} type="text">
+                    <Button onClick={closeModal} variant="text" color="gray">
                         Cancel
                     </Button>
                     <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save Changes
+                        Save
                     </Button>
                 </ModalFooter>
             }

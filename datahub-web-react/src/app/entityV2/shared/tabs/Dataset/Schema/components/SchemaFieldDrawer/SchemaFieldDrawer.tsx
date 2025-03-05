@@ -2,6 +2,7 @@ import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/i
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { TabRenderType } from '@src/app/entityV2/shared/types';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -238,6 +239,7 @@ export default function SchemaFieldDrawer({
         <>
             {!openTimelineDrawer && (
                 <StyledDrawer
+                    push={false}
                     open={!!expandedDrawerFieldPath}
                     onClose={() => setExpandedDrawerFieldPath(null)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
@@ -258,7 +260,10 @@ export default function SchemaFieldDrawer({
                             <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (
                                     <Content>
-                                        <selectedTab.component properties={selectedTab.properties} />
+                                        <selectedTab.component
+                                            properties={selectedTab.properties}
+                                            renderType={TabRenderType.COMPACT}
+                                        />
                                     </Content>
                                 )}
 

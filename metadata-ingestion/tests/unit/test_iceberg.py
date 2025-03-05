@@ -566,7 +566,7 @@ class MockCatalogExceptionListingTables(MockCatalog):
 
 class MockCatalogExceptionListingNamespaces(MockCatalog):
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        raise Exception()
+        raise Exception("Test exception")
 
 
 def test_exception_while_listing_namespaces() -> None:
@@ -574,7 +574,7 @@ def test_exception_while_listing_namespaces() -> None:
     mock_catalog = MockCatalogExceptionListingNamespaces({})
     with patch(
         "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
-    ) as get_catalog, pytest.raises(Exception):
+    ) as get_catalog, pytest.raises(Exception, match="Test exception"):
         get_catalog.return_value = mock_catalog
         [*source.get_workunits_internal()]
 
@@ -968,6 +968,9 @@ def test_handle_expected_exceptions() -> None:
     def _raise_server_error():
         raise ServerError()
 
+    def _raise_fileio_error():
+        raise ValueError("Could not initialize FileIO: abc.dummy.fileio")
+
     mock_catalog = MockCatalog(
         {
             "namespaceA": {
@@ -1024,6 +1027,7 @@ def test_handle_expected_exceptions() -> None:
                 "table7": _raise_file_not_found_error,
                 "table8": _raise_no_such_iceberg_table_exception,
                 "table9": _raise_server_error,
+                "table10": _raise_fileio_error,
             }
         }
     )
@@ -1047,7 +1051,7 @@ def test_handle_expected_exceptions() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
             ],
         )
-        assert source.report.warnings.total_elements == 5
+        assert source.report.warnings.total_elements == 6
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
 
@@ -1057,6 +1061,9 @@ def test_handle_unexpected_exceptions() -> None:
 
     def _raise_exception():
         raise Exception()
+
+    def _raise_other_value_error_exception():
+        raise ValueError("Other value exception")
 
     mock_catalog = MockCatalog(
         {
@@ -1110,6 +1117,7 @@ def test_handle_unexpected_exceptions() -> None:
                     catalog=None,
                 ),
                 "table5": _raise_exception,
+                "table6": _raise_other_value_error_exception,
             }
         }
     )
@@ -1136,3 +1144,12 @@ def test_handle_unexpected_exceptions() -> None:
         assert source.report.warnings.total_elements == 0
         assert source.report.failures.total_elements == 1
         assert source.report.tables_scanned == 4
+        # Needed to make sure all failures are recognized properly
+        failures = [f for f in source.report.failures]
+        TestCase().assertCountEqual(
+            failures[0].context,
+            [
+                "Failed to create workunit for dataset ('namespaceA', 'table6'): Other value exception",
+                "Failed to create workunit for dataset ('namespaceA', 'table5'): ",
+            ],
+        )
