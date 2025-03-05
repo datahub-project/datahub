@@ -239,6 +239,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -300,6 +301,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
