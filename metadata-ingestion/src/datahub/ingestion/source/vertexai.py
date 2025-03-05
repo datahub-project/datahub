@@ -463,15 +463,14 @@ class VertexAISource(Source):
 
         # Check if the job is an AutoML job
         if self._is_automl_job(job):
-            job_conf = job.to_dict()
-
             # Check if input dataset is present in the job configuration
             if (
-                "inputDataConfig" in job_conf
-                and "datasetId" in job_conf["inputDataConfig"]
+                hasattr(job, "_gca_resource")
+                and hasattr(job._gca_resource, "input_data_config")
+                and hasattr(job._gca_resource.input_data_config, "dataset_id")
             ):
                 # Create URN of Input Dataset for Training Job
-                dataset_id = job_conf["inputDataConfig"]["datasetId"]
+                dataset_id = job._gca_resource.input_data_config.dataset_id
                 logger.info(
                     f"Found input dataset (id: {dataset_id}) for training job ({job.display_name})"
                 )
@@ -485,15 +484,13 @@ class VertexAISource(Source):
                     job_meta.input_dataset = input_ds
 
             # Check if output model is present in the job configuration
-            if (
-                "modelToUpload" in job_conf
-                and "name" in job_conf["modelToUpload"]
-                and job_conf["modelToUpload"]["name"]
-                and job_conf["modelToUpload"]["versionId"]
+            if hasattr(job, "_gca_resource") and hasattr(
+                job._gca_resource, "model_to_upload"
             ):
-                model_version_str = job_conf["modelToUpload"]["versionId"]
+                model_version_str = job._gca_resource.model_to_upload.version_id
+                model_name = job._gca_resource.model_to_upload.name
                 try:
-                    model = Model(model_name=job_conf["modelToUpload"]["name"])
+                    model = Model(model_name=model_name)
                     model_version = self._search_model_version(model, model_version_str)
                     if model and model_version:
                         logger.info(
@@ -506,7 +503,6 @@ class VertexAISource(Source):
                     logger.error(
                         f"Error while fetching model version {model_version_str}"
                     )
-
         return job_meta
 
     def _gen_endpoint_mcps(
@@ -592,7 +588,8 @@ class VertexAISource(Source):
                 name=model_version_name,
                 description=model_version.version_description,
                 customProperties={
-                    "displayName": f"{model_version.model_display_name}_{model_version.version_id}",
+                    "displayName": f"{model_version.model_display_name}",
+                    "versionId": f"{model_version.version_id}",
                     "resourceName": model.resource_name,
                 },
                 created=TimeStampClass(

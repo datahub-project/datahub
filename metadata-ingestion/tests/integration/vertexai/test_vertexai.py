@@ -5,10 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from google.cloud.aiplatform import AutoMLTabularTrainingJob, CustomJob, Model
+from google.cloud.aiplatform.base import VertexAiResourceNoun
+from google.cloud.aiplatform.models import VersionInfo
 from google.protobuf import timestamp_pb2
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.vertexai import TrainingJobMetadata
 from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
@@ -50,6 +53,7 @@ def gen_mock_models() -> List[Model]:
     mock_model_1.version_id = "1"
     mock_model_1.display_name = "mock_prediction_model_1_display_name"
     mock_model_1.description = "mock_prediction_model_1_description"
+    mock_model_1.resource_name = "projects/123/locations/us-central1/models/456"
 
     mock_model_2 = MagicMock(spec=Model)
     mock_model_2.name = "mock_prediction_model_2"
@@ -59,6 +63,7 @@ def gen_mock_models() -> List[Model]:
     mock_model_2.version_id = "1"
     mock_model_2.display_name = "mock_prediction_model_2_display_name"
     mock_model_2.description = "mock_prediction_model_1_description"
+    mock_model_2.resource_name = "projects/123/locations/us-central1/models/789"
 
     return [mock_model_1, mock_model_2]
 
@@ -84,7 +89,35 @@ def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
     return mock_automl_job
 
 
+def gen_mock_model_version(mock_model: Model) -> VersionInfo:
+    version = "1"
+    return VersionInfo(
+        version_id=version,
+        version_description="test",
+        version_create_time=timestamp_pb2.Timestamp().GetCurrentTime(),
+        version_update_time=timestamp_pb2.Timestamp().GetCurrentTime(),
+        model_display_name=mock_model.name,
+        model_resource_name=mock_model.resource_name,
+    )
+
+
+def gen_mock_dataset() -> VertexAiResourceNoun:
+    mock_dataset = MagicMock(spec=VertexAiResourceNoun)
+    mock_dataset.name = "mock_dataset"
+    mock_dataset.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_dataset.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_dataset.display_name = "mock_dataset_display_name"
+    mock_dataset.description = "mock_dataset_description"
+    mock_dataset.resource_name = "projects/123/locations/us-central1/datasets/456"
+    return mock_dataset
+
+
 def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) -> None:
+    mock_automl_job = gen_mock_training_automl_job()
+    mock_models = gen_mock_models()
+    mock_model_version = gen_mock_model_version(mock_models[0])
+    mock_dataset = gen_mock_dataset()
+
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -103,8 +136,10 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
             "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
             "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
             "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
+            "datahub.ingestion.source.vertexai.VertexAISource._get_training_job_metadata",
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
+
             if func_to_mock == "google.cloud.aiplatform.Model.list":
                 mock.return_value = gen_mock_models()
             elif func_to_mock == "google.cloud.aiplatform.CustomJob.list":
@@ -115,7 +150,18 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
             elif (
                 func_to_mock == "google.cloud.aiplatform.AutoMLTabularTrainingJob.list"
             ):
-                mock.return_value = [gen_mock_training_automl_job()]
+                mock.return_value = [mock_automl_job]
+            elif (
+                func_to_mock
+                == "datahub.ingestion.source.vertexai.VertexAISource._get_training_job_metadata"
+            ):
+                mock.return_value = TrainingJobMetadata(
+                    job=mock_automl_job,
+                    input_dataset=mock_dataset,
+                    output_model=mock_models[0],
+                    output_model_version=mock_model_version,
+                )
+
             else:
                 mock.return_value = []
 
