@@ -1,5 +1,6 @@
-import { Card, Divider, message, Switch, Typography } from 'antd';
 import React from 'react';
+import { Card, message, Typography } from 'antd';
+import { colors, PageTitle, Switch } from '@components';
 import styled from 'styled-components';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
@@ -14,30 +15,17 @@ import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 const Page = styled.div`
     width: 100%;
     display: flex;
-    justify-content: center;
 `;
 
 const SourceContainer = styled.div`
-    width: 80%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    padding-top: 16px;
+    padding-right: 20px;
+    padding-left: 20px;
+    width: 100%;
 `;
 
 const TokensContainer = styled.div`
     padding-top: 0px;
-`;
-
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
 `;
 
 const UserSettingRow = styled.div`
@@ -46,12 +34,13 @@ const UserSettingRow = styled.div`
 `;
 
 const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 11px;
+    color: ${colors.gray[1700]};
+    font-size: 12px;
 `;
 
 const SettingText = styled(Typography.Text)`
-    font-size: 14px;
+    font-size: 16px;
+    color: ${colors.gray[600]};
 `;
 
 export const Preferences = () => {
@@ -75,12 +64,8 @@ export const Preferences = () => {
         <Page>
             <SourceContainer>
                 <TokensContainer>
-                    <TokensHeaderContainer>
-                        <TokensTitle level={2}>Appearance</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
-                    </TokensHeaderContainer>
+                    <PageTitle title="Appearance" subTitle="Manage your appearance settings." />
                 </TokensContainer>
-                <Divider />
                 {showSimplifiedHomepageSetting && (
                     <Card>
                         <UserSettingRow>
@@ -94,6 +79,7 @@ export const Preferences = () => {
                                 </div>
                             </span>
                             <Switch
+                                label=""
                                 checked={showSimplifiedHomepage}
                                 onChange={async () => {
                                     await updateUserSettingMutation({
@@ -131,6 +117,7 @@ export const Preferences = () => {
                                     </div>
                                 </span>
                                 <Switch
+                                    label=""
                                     checked={isThemeV2EnabledForUser}
                                     onChange={async () => {
                                         await updateUserSettingMutation({
