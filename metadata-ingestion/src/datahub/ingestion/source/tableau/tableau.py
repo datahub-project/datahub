@@ -1606,10 +1606,10 @@ class TableauSiteSource:
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
-            project_names: List[str] = [
-                project.name for project in self.tableau_project_registry.values()
+            project_luids: List[str] = [
+                luid for luid in self.tableau_project_registry.keys()
             ]
-            projects = {c.PROJECT_NAME_WITH_IN: project_names}
+            projects = {c.PROJECT_LUID_WITH_IN: project_luids}
 
             for workbook in self.get_connection_objects(
                 query=workbook_graphql_query,
