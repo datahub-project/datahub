@@ -33,7 +33,7 @@ Giving a user unrestricted access to system tables gives the user visibility to 
 
 ### Ingestion of multiple redshift databases, namespaces
 
-- If multiple databases are present in redshift namespace (or provisioned cluster), 
+- If multiple databases are present in the Redshift namespace (or provisioned cluster), 
 you would need to set up separate ingestion per database.
 
 - Ingestion recipes of all databases in a particular redshift namespace should use same platform instance.
