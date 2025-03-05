@@ -46,6 +46,8 @@ Before starting, ensure you have:
    DH_ICEBERG_DATA_ROOT="s3://your-bucket/path"
 
    ```
+   The `DH_ICEBERG_CLIENT_ID` is the `AWS_ACCESS_KEY_ID` and `DH_ICEBERG_CLIENT_SECRET` is the `AWS_SECRET_ACCESS_KEY`
+
 4. If using pyiceberg, configure pyiceberg to use your local datahub using one of its supported ways. For example, create `~/.pyiceberg.yaml` with
 ```commandline
 catalog:
@@ -124,8 +126,10 @@ You can create Iceberg tables using PyIceberg with a defined schema. Here's an e
 <Tabs>
 <TabItem value="spark" label="spark-sql" default>
 
-Connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog:
-When datahub is running locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`. 
+Connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog.  
+When datahub is running locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`.  
+When using Acryl Cloud, the Iceberg Catalog URL is `https://<your-instance>.acryl.io/gms/iceberg/`
+
 For this example, set `WAREHOUSE` to `arctic_warehouse`
 
 ```cli
