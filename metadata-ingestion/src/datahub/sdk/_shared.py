@@ -7,6 +7,7 @@ from typing import (
     Callable,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
 )
@@ -48,6 +49,8 @@ DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+
+_DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
 
 def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
@@ -438,8 +441,7 @@ class HasTerms(Entity):
     def _terms_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            # TODO figure out what to put here
-            actor=CorpUserUrn("__ingestion").urn(),
+            actor=_DEFAULT_ACTOR_URN,
         )
 
     def set_terms(self, terms: TermsInputType) -> None:
@@ -493,3 +495,86 @@ class HasDomain(Entity):
     def set_domain(self, domain: DomainInputType) -> None:
         domain_urn = DomainUrn.from_string(domain)  # basically a type assertion
         self._set_aspect(models.DomainsClass(domains=[str(domain_urn)]))
+
+
+LinkInputType: TypeAlias = Union[
+    str,
+    Tuple[str, str],  # url, description
+    models.InstitutionalMemoryMetadataClass,
+]
+LinksInputType: TypeAlias = Sequence[LinkInputType]
+
+
+class HasInstitutionalMemory(Entity):
+    __slots__ = ()
+
+    # Internally the aspect is called institutionalMemory, and so much of the code
+    # uses that name. However, the public-facing API is called "links", since
+    # that's what we call these in the UI.
+
+    def _ensure_institutional_memory(
+        self,
+    ) -> List[models.InstitutionalMemoryMetadataClass]:
+        return self._setdefault_aspect(
+            models.InstitutionalMemoryClass(elements=[])
+        ).elements
+
+    @property
+    def links(self) -> Optional[List[models.InstitutionalMemoryMetadataClass]]:
+        if institutional_memory := self._get_aspect(models.InstitutionalMemoryClass):
+            return institutional_memory.elements
+        return None
+
+    @classmethod
+    def _institutional_memory_audit_stamp(self) -> models.AuditStampClass:
+        return models.AuditStampClass(
+            time=0,
+            actor=_DEFAULT_ACTOR_URN,
+        )
+
+    @classmethod
+    def _parse_link_association_class(
+        cls, link: LinkInputType
+    ) -> models.InstitutionalMemoryMetadataClass:
+        if isinstance(link, models.InstitutionalMemoryMetadataClass):
+            return link
+        elif isinstance(link, str):
+            return models.InstitutionalMemoryMetadataClass(
+                url=link,
+                description=link,
+                createStamp=cls._institutional_memory_audit_stamp(),
+            )
+        elif isinstance(link, tuple) and len(link) == 2:
+            url, description = link
+            return models.InstitutionalMemoryMetadataClass(
+                url=url,
+                description=description,
+                createStamp=cls._institutional_memory_audit_stamp(),
+            )
+        else:
+            assert_never(link)
+
+    def set_links(self, links: LinksInputType) -> None:
+        self._set_aspect(
+            models.InstitutionalMemoryClass(
+                elements=[self._parse_link_association_class(link) for link in links]
+            )
+        )
+
+    @classmethod
+    def _link_key(self, link: models.InstitutionalMemoryMetadataClass) -> str:
+        return link.url
+
+    def add_link(self, link: LinkInputType) -> None:
+        add_list_unique(
+            self._ensure_institutional_memory(),
+            self._link_key,
+            self._parse_link_association_class(link),
+        )
+
+    def remove_link(self, link: LinkInputType) -> None:
+        remove_list_unique(
+            self._ensure_institutional_memory(),
+            self._link_key,
+            self._parse_link_association_class(link),
+        )
