@@ -173,6 +173,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       @ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
       @ActionParam(PARAM_RANGE) UsageTimeRange range,
+      @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
       @ActionParam(PARAM_TIME_ZONE) @com.linkedin.restli.server.annotations.Optional String timeZone) {
 
     Urn resourceUrn = UrnUtils.getUrn(resource);

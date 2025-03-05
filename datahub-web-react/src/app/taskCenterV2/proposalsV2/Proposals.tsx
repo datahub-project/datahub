@@ -1,46 +1,27 @@
+import { colors, Button as TabButton } from '@components';
+import { Button } from 'antd';
 import React, { useState } from 'react';
-
-import { Tabs } from 'antd';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../../types.generated';
+import { AssigneeType, CorpGroup } from '../../../types.generated';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ProposalList } from './ProposalList';
+import { ActionRequestGroup, MY_PROPOSALS_GROUP_NAME, PERSONAL_ACTION_REQUESTS_GROUP_NAME } from './utils';
 
-const StyledTabs = styled(Tabs)`
-    &&& .ant-tabs-nav {
-        margin-bottom: 0;
-        padding-left: 28px;
-    }
-    &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-
-    &&& .ant-tabs-tab-active .ant-tabs-tab-btn,
-    &&& .ant-tabs-tab .ant-tabs-tab-btn {
-        padding: 0 20px;
-    }
-
-    &&& .ant-tabs-tab + .ant-tabs-tab {
-        margin: 0px;
-    }
+const StyledButtonGroup = styled(Button.Group)`
+    margin: 8px 16px;
 `;
 
-const Tab = styled(Tabs.TabPane)`
-    font-size: 12px;
-    line-height: 22px;
+const StyledTabButton = styled(TabButton)<{ $isSelected: boolean }>`
+    color: ${(props) => (props.$isSelected ? colors.violet : colors.gray[600])};
+    background-color: ${(props) => (props.$isSelected ? colors.gray[1000] : 'transparent')};
+    font-weight: ${(props) => (props.$isSelected ? '600' : '400')};
+    padding: 10px;
+
+    &:focus {
+        background-color: ${(props) => (props.$isSelected ? colors.gray[1000] : 'transparent')};
+        box-shadow: none;
+    }
 `;
-
-const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Personal';
-
-type ActionRequestGroup = {
-    name: string;
-    displayName: string;
-    assignee: ActionRequestAssignee;
-};
 
 export const Proposals = () => {
     /**
@@ -71,6 +52,14 @@ export const Proposals = () => {
                     urn: authenticatedUser?.corpUser?.urn,
                 },
             },
+            {
+                name: MY_PROPOSALS_GROUP_NAME,
+                displayName: MY_PROPOSALS_GROUP_NAME,
+                assignee: {
+                    type: AssigneeType.User,
+                    urn: authenticatedUser?.corpUser?.urn,
+                },
+            },
             ...(authenticatedUser?.corpUser.groups?.relationships?.map((rel) => {
                 const group = rel.entity as CorpGroup;
                 return {
@@ -85,21 +74,31 @@ export const Proposals = () => {
         ]) ||
         [];
 
-    const onClickTab = (newRequestGroup: string) => setActionRequestGroupName(newRequestGroup);
-
     const filteredActionRequestGroups = actionRequestGroups.filter((group) => group.name === actionRequestGroupName);
     const activeActionRequestGroup = filteredActionRequestGroups.length > 0 && filteredActionRequestGroups[0];
     const activeActionRequestGroupTabView = activeActionRequestGroup && (
-        <ProposalList assignee={activeActionRequestGroup.assignee} />
+        <ProposalList
+            assignee={activeActionRequestGroup.assignee}
+            groupName={activeActionRequestGroup.name}
+            userUrn={authenticatedUser?.corpUser.urn}
+        />
     );
 
     return (
         <>
-            <StyledTabs activeKey={actionRequestGroupName} onTabClick={(tab: string) => onClickTab(tab)}>
+            <StyledButtonGroup>
                 {actionRequestGroups.map((group) => (
-                    <Tab key={group.name} tab={group.displayName} />
+                    <StyledTabButton
+                        variant="text"
+                        onClick={() => setActionRequestGroupName(group.name)}
+                        $isSelected={
+                            (activeActionRequestGroup && activeActionRequestGroup.name === group.name) ?? false
+                        }
+                    >
+                        {group.displayName}
+                    </StyledTabButton>
                 ))}
-            </StyledTabs>
+            </StyledButtonGroup>
             {activeActionRequestGroupTabView}
         </>
     );

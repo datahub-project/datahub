@@ -74,6 +74,7 @@ export default function StorageSizeGraph() {
                     data={data}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
+                    margin={{ left: 50 }}
                     popoverRenderer={(datum: StorageSizeData) => (
                         <GraphPopover
                             header={dayjs(datum.x).format('dddd. MMM. D ’YY')}

@@ -3,11 +3,7 @@ import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { decimalToPercentStr } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import { pluralize } from '@src/app/shared/textUtil';
-import {
-    groupTimeData,
-    LATEST_VALUE_AGGREGATION,
-    TimeInterval,
-} from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { groupTimeData, TimeInterval } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import useStatsTabContext from '../../../../../hooks/useStatsTabContext';
 import MetricLineChart, { MetricLineChartProps } from './MetricLineChart';
 import { useExtractMetricStats } from '../hooks/useExtractMetricStats';
@@ -26,11 +22,6 @@ export default function MetricWithProportionLineChart({
     const metricProportionData = useExtractMetricStats(profiles, fieldPath, proportionMetric);
     const { dataAggregationFunction } = props;
 
-    const finalDataAggregationFunction = useMemo(
-        () => dataAggregationFunction ?? LATEST_VALUE_AGGREGATION,
-        [dataAggregationFunction],
-    );
-
     const groupedMetrricProportionData = useMemo(
         () =>
             groupTimeData(
@@ -38,12 +29,12 @@ export default function MetricWithProportionLineChart({
                 TimeInterval.DAY,
                 (datum) => datum.x,
                 (datum) => datum.y,
-                finalDataAggregationFunction,
+                dataAggregationFunction,
             ).map((datum) => ({
                 x: datum.time,
                 y: datum.value,
             })),
-        [metricProportionData, finalDataAggregationFunction],
+        [metricProportionData, dataAggregationFunction],
     );
 
     const renderPopoverDatumMetric = (datum: Datum) => {
@@ -59,11 +50,5 @@ export default function MetricWithProportionLineChart({
         );
     };
 
-    return (
-        <MetricLineChart
-            {...props}
-            dataAggregationFunction={finalDataAggregationFunction}
-            renderPopoverDatumMetric={renderPopoverDatumMetric}
-        />
-    );
+    return <MetricLineChart {...props} renderPopoverDatumMetric={renderPopoverDatumMetric} />;
 }

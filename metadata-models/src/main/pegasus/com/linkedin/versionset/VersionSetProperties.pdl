@@ -18,7 +18,5 @@ record VersionSetProperties includes CustomProperties {
   /**
    * What versioning scheme is being utilized for the versioned entities sort criterion. Static once set
    */
-  versioningScheme: enum VersioningScheme {
-    ALPHANUMERIC_GENERATED_BY_DATAHUB
-  }
+  versioningScheme: VersioningScheme
 }

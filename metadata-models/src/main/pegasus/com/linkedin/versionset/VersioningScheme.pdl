@@ -1,0 +1,13 @@
+namespace com.linkedin.versionset
+
+enum VersioningScheme {
+  /**
+   * String sorted lexicographically.
+   */
+  LEXICOGRAPHIC_STRING,
+
+  /**
+   * String managed by DataHub. Currently, an 8 character alphabetical string.
+   */
+  ALPHANUMERIC_GENERATED_BY_DATAHUB
+}

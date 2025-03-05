@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { FlagOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { SearchSection } from '../shared/SearchSection';
 import { EntityType, IncidentType } from '../../../../types.generated';
 import { MultiDropdownSelect } from '../shared/MultiDropdownSelect';
@@ -15,12 +12,6 @@ import {
 import { buildIncidentTypeFilters } from './util';
 import { Stat, List, Header, Title, TitleText, DescriptionText, Percent, Total } from '../shared/shared';
 import { useUserContext } from '../../../context/useUserContext';
-
-const StyledFlagOutlined = styled(FlagOutlined)`
-    margin-right: 8px;
-    font-size: 20px;
-    color: ${ANTD_GRAY[7]};
-`;
 
 type Props = {
     total: number;
@@ -73,7 +64,6 @@ export const IncidentsSummary = ({ total }: Props) => {
         <>
             <Header>
                 <Title>
-                    <StyledFlagOutlined />
                     <TitleText level={3}>Incidents</TitleText>
                 </Title>
                 <Stat>

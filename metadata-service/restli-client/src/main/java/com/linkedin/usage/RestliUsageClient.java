@@ -42,6 +42,7 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
                         operationContextMap.getIfPresent(cacheKey.getContextId()),
                         cacheKey.getResource(),
                         cacheKey.getRange(),
+                        cacheKey.getStartTimeMillis(),
                         cacheKey.getTimeZone());
                   } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(e);
@@ -59,9 +60,10 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
       @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
       @Nullable String timeZone) {
     operationContextMap.put(opContext.getEntityContextId(), opContext);
-    return usageClientCache.getUsageStats(opContext, resource, range, timeZone);
+    return usageClientCache.getUsageStats(opContext, resource, range, startTimeMillis, timeZone);
   }
 
   /** Gets a specific version of downstream {@link EntityRelationships} for the given dataset. */
@@ -71,6 +73,7 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
       @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
       @Nullable String timeZone)
       throws RemoteInvocationException, URISyntaxException {
 
