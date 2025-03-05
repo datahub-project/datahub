@@ -19,7 +19,6 @@ from datahub.ingestion.source.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-from datahub.metadata._schema_classes import MLTrainingRunPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     MLModelDeploymentPropertiesClass,
+    MLTrainingRunPropertiesClass,
     SubTypesClass,
 )
 
