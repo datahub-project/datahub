@@ -779,8 +779,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        print(f"\n\n\nparsed query object: {parsed_query_object}\n\n\n")
-
         if sql:
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             upstream_lineage = self.generate_virtual_dataset_lineage(
