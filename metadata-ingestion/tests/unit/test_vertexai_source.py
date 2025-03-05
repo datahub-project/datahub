@@ -19,6 +19,7 @@ from datahub.ingestion.source.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
+from datahub.metadata._schema_classes import MLTrainingRunPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -133,25 +134,37 @@ def test_get_ml_model_mcps(mock_list: List[Model], source: VertexAISource) -> No
     assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
     mock_list.return_value = mock_models
 
-    mcps = [mcp for mcp in source._get_ml_models_mcps()]
-    assert len(mcps) == 2
-    # aspect is MLModelGroupPropertiesClass
+    # Running _get_ml_models_mcps
+    actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
 
-    assert hasattr(mcps[0], "aspect")
-    aspect = mcps[0].aspect
-    assert isinstance(aspect, MLModelGroupProperties)
-    assert (
-        aspect.name == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
-    )
-    assert aspect.description == mock_models[0].description
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    expected_urns = []
+    for mock_model in mock_models:
+        expected_urns.append(
+            builder.make_ml_model_group_urn(
+                platform=source.platform,
+                group_name=source._make_vertexai_model_group_name(mock_model.name),
+                env=source.config.env,
+            )
+        )
 
-    assert hasattr(mcps[1], "aspect")
-    aspect = mcps[1].aspect
-    assert isinstance(aspect, MLModelGroupProperties)
-    assert (
-        aspect.name == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
-    )
-    assert aspect.description == mock_models[1].description
+    # expect 2 model groups
+    assert actual_urns == expected_urns
+
+    for mcp in actual_mcps:
+        assert hasattr(mcp, "aspect")
+        aspect = mcp.aspect
+        if isinstance(aspect, MLModelGroupProperties):
+            assert (
+                aspect.name
+                == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
+                or aspect.name
+                == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
+            )
+            assert (
+                aspect.description == mock_models[0].description
+                or aspect.description == mock_models[1].description
+            )
 
 
 def test_get_ml_model_properties_mcps(
@@ -160,6 +173,8 @@ def test_get_ml_model_properties_mcps(
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
     model_meta = ModelMetadata(mock_model, model_version)
+
+    # Run _gen_ml_model_mcps
     mcp = [mcp for mcp in source._gen_ml_model_mcps(model_meta)]
     assert len(mcp) == 1
     assert hasattr(mcp[0], "aspect")
@@ -184,6 +199,21 @@ def test_get_endpoint_mcps(
         model=mock_model, model_version=model_version, endpoints=[mock_endpoint]
     )
 
+    # Run _gen_endpoint_mcps
+    actual_mcps = [mcp for mcp in source._gen_endpoint_mcps(model_meta)]
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    endpoint_urn = builder.make_ml_model_deployment_urn(
+        platform=source.platform,
+        deployment_name=source._make_vertexai_endpoint_name(
+            entity_id=mock_endpoint.name
+        ),
+        env=source.config.env,
+    )
+
+    expected_urns = [endpoint_urn] * 1
+    # expect 1 endpoint urn
+    assert actual_urns == expected_urns
+
     for mcp in source._gen_endpoint_mcps(model_meta):
         assert hasattr(mcp, "aspect")
         aspect = mcp.aspect
@@ -193,11 +223,11 @@ def test_get_endpoint_mcps(
                 "displayName": mock_endpoint.display_name
             }
             assert aspect.createdAt == int(mock_endpoint.create_time.timestamp() * 1000)
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
-
-        elif isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == ["Endpoint"]
+        # TODO: Add following when container/subtype supported
+        # elif isinstance(aspect, ContainerClass):
+        #     assert aspect.container == source._get_project_container().as_urn()
+        # elif isinstance(aspect, SubTypesClass):
+        #     assert aspect.typeNames == ["Endpoint"]
 
 
 def test_get_training_jobs_mcps(
@@ -229,7 +259,19 @@ def test_get_training_jobs_mcps(
         This function mocks customJob and AutoMLTabularTrainingJob, 
         and verifies the properties of the work units
         """
-        for mcp in source._get_training_jobs_mcps():
+
+        # Run _get_training_jobs_mcps
+        actual_mcps = [mcp for mcp in source._get_training_jobs_mcps()]
+        actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+        expected_urns = [
+            builder.make_data_process_instance_urn(
+                source._make_vertexai_job_name(mock_training_job.name)
+            )
+        ] * 4  # expect 4 aspects
+
+        assert actual_urns == expected_urns
+
+        for mcp in actual_mcps:
             assert hasattr(mcp, "aspect")
             aspect = mcp.aspect
             if isinstance(aspect, DataProcessInstancePropertiesClass):
@@ -242,6 +284,11 @@ def test_get_training_jobs_mcps(
                     aspect.customProperties["displayName"]
                     == mock_training_job.display_name
                     or mock_training_automl_job.display_name
+                )
+            if isinstance(aspect, MLTrainingRunPropertiesClass):
+                assert aspect.id == mock_training_job.name
+                assert aspect.externalUrl == source._make_job_external_url(
+                    mock_training_job
                 )
             if isinstance(aspect, SubTypesClass):
                 assert aspect.typeNames == [MLTypes.TRAINING_JOB]
@@ -256,7 +303,24 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
     mock_job = gen_mock_training_job()
     job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
 
-    for mcp in source._gen_training_job_mcps(job_meta):
+    actual_mcps = [mcp for mcp in source._gen_training_job_mcps(job_meta)]
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    expected_urns = [
+        builder.make_data_process_instance_urn(
+            source._make_vertexai_job_name(mock_training_job.name)
+        )
+    ] * 5  # expect 5 aspects under the same urn for the job
+
+    assert actual_urns == expected_urns
+
+    dataset_name = source._make_vertexai_dataset_name(entity_id=mock_dataset.name)
+    dataset_urn = builder.make_dataset_urn(
+        platform=source.platform,
+        name=dataset_name,
+        env=source.config.env,
+    )
+
+    for mcp in actual_mcps:
         assert hasattr(mcp, "aspect")
         aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
@@ -267,6 +331,12 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             assert (
                 aspect.customProperties["displayName"] == mock_training_job.display_name
             )
+        if isinstance(aspect, MLTrainingRunPropertiesClass):
+            assert aspect.id == mock_training_job.name
+            assert aspect.externalUrl == source._make_job_external_url(
+                mock_training_job
+            )
+
         if isinstance(aspect, SubTypesClass):
             assert aspect.typeNames == [MLTypes.TRAINING_JOB]
 
@@ -274,14 +344,6 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             assert aspect.container == source._get_project_container().as_urn()
 
         if isinstance(aspect, DataProcessInstanceInputClass):
-            dataset_name = source._make_vertexai_dataset_name(
-                entity_id=mock_dataset.name
-            )
-            dataset_urn = builder.make_dataset_urn(
-                platform=source.platform,
-                name=dataset_name,
-                env=source.config.env,
-            )
             assert aspect.inputs == [dataset_urn]
 
 
@@ -354,6 +416,7 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mock_job = gen_mock_training_job()
     job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
 
+    # Run _get_input_dataset_mcps
     for mcp in source._get_input_dataset_mcps(job_meta):
         assert hasattr(mcp, "aspect")
         aspect = mcp.aspect

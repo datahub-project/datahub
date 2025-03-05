@@ -356,7 +356,7 @@ class VertexAISource(Source):
     def _make_ml_model_group_urn(self, model: Model) -> str:
         urn = builder.make_ml_model_group_urn(
             platform=self.platform,
-            group_name=self._make_vertexai_model_name(model.name),
+            group_name=self._make_vertexai_model_group_name(model.name),
             env=self.config.env,
         )
         return urn
@@ -520,7 +520,7 @@ class VertexAISource(Source):
                 endpoint_urn = builder.make_ml_model_deployment_urn(
                     platform=self.platform,
                     deployment_name=self._make_vertexai_endpoint_name(
-                        entity_id=endpoint.display_name
+                        entity_id=endpoint.name
                     ),
                     env=self.config.env,
                 )
