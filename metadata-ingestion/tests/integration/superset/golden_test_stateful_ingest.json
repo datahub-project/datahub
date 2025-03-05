@@ -64,7 +64,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -122,7 +122,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -180,7 +180,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -238,7 +238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -291,7 +291,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -326,7 +329,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -379,7 +382,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -414,7 +420,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -467,7 +473,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -502,7 +511,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -555,7 +564,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -590,7 +602,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -643,7 +655,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -678,7 +693,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -731,7 +746,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -766,7 +784,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -819,7 +837,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -854,7 +875,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -907,7 +928,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -942,7 +966,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -995,7 +1019,10 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
                             }
                         ],
                         "fineGrainedLineages": []
@@ -1030,7 +1057,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1047,7 +1074,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1064,7 +1091,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1081,7 +1108,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1098,7 +1125,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1115,7 +1142,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-5o8x65",
+        "runId": "superset-2020_04_14-07_00_00-q6t6lf",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

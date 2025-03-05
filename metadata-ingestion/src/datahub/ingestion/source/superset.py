@@ -691,7 +691,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def generate_virtual_dataset_lineage(
-        self, parsed_query_object: SqlParsingResult, datasource_urn: str
+        self,
+        parsed_query_object: SqlParsingResult,
+        datasource_urn: str,
+        dataset_url: str,
     ) -> UpstreamLineageClass:
         cll = (
             parsed_query_object.column_lineage
@@ -725,6 +728,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=input_table_urn,
+                    properties={"externalUrl": dataset_url},
                 )
                 for input_table_urn in parsed_query_object.in_tables
             ],
@@ -782,7 +786,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         if sql:
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             upstream_lineage = self.generate_virtual_dataset_lineage(
-                parsed_query_object, datasource_urn
+                parsed_query_object, datasource_urn, dataset_url
             )
         else:
             tag_urn = f"urn:li:tag:{self.platform}:physical"
