@@ -496,7 +496,7 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
                 {paramsPoolFilter && (
                     <PoolsFilterButton type="text" onClick={clearPoolFilter}>
                         Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
-                        <CloseButton color={colors.red[500]} size={12} />
+                        <CloseButton color={colors.gray[500]} size={12} />
                     </PoolsFilterButton>
                 )}
                 <IngestionSourceTable

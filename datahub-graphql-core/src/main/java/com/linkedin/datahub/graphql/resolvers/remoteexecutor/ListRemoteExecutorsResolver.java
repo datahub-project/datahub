@@ -24,6 +24,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -107,10 +108,14 @@ public class ListRemoteExecutorsResolver
 
   private Filter buildFilter(final String poolId) {
     if (poolId == null) {
-      return QueryUtils.filterOrDefaultEmptyFilter(null);
+      return QueryUtils.newFilter("executorExpired", "false");
     }
     return QueryUtils.newFilter(
-        String.format("%s.keyword", REMOTE_EXECUTOR_POOL_ID_FIELD_NAME), poolId);
+        Map.of(
+            String.format("%s.keyword", REMOTE_EXECUTOR_POOL_ID_FIELD_NAME),
+            poolId,
+            "executorExpired",
+            "false"));
   }
 
   private List<SortCriterion> buildSort() {

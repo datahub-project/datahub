@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import { SorterResult } from 'antd/lib/table/interface';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
@@ -70,6 +71,8 @@ function IngestionSourceTable({
     onChangeSort,
     saasProps,
 }: Props) {
+    const appConfig = useAppConfig();
+    const isPoolsDisplayEnabled = appConfig.config.featureFlags.displayExecutorPools;
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const tableData = sources.map((source) => ({
@@ -117,18 +120,24 @@ function IngestionSourceTable({
             key: 'schedule',
             render: ScheduleColumn,
         },
-        {
-            // SaaS only
-            title: 'Executor Pool',
-            dataIndex: 'x',
-            key: 'x',
-            render: (_, record: (typeof tableData)[0]) =>
-                record.poolName && !record.cliIngestion ? (
-                    <LinkButton onClick={() => saasProps.onViewPool(record.poolName)}>{record.poolName}</LinkButton>
-                ) : (
-                    <span>{record.cliIngestion ? 'N/A' : 'Unknown'}</span>
-                ),
-        },
+        ...(isPoolsDisplayEnabled
+            ? [
+                  {
+                      // SaaS only
+                      title: 'Executor Pool',
+                      dataIndex: 'x',
+                      key: 'x',
+                      render: (_, record: (typeof tableData)[0]) =>
+                          record.poolName && !record.cliIngestion ? (
+                              <LinkButton onClick={() => saasProps.onViewPool(record.poolName)}>
+                                  {record.poolName}
+                              </LinkButton>
+                          ) : (
+                              <span>{record.cliIngestion ? 'N/A' : 'Unknown'}</span>
+                          ),
+                  },
+              ]
+            : []),
         {
             title: 'Status',
             dataIndex: 'lastExecStatus',
