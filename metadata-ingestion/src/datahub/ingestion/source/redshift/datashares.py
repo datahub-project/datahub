@@ -135,7 +135,7 @@ class RedshiftDatasharesHelper:
                 )
 
     def find_upstream_share(
-        self, share: Union[InboundDatashare | PartialInboundDatashare]
+        self, share: Union[InboundDatashare, PartialInboundDatashare]
     ) -> Optional[OutboundSharePlatformResource]:
         if not self.graph:
             self.report.warning(

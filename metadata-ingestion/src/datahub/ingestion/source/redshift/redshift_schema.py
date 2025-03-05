@@ -127,7 +127,7 @@ class RedshiftDatabase:
     # we may receive only partial information about inbound share
     def get_inbound_share(
         self,
-    ) -> Optional[Union[InboundDatashare | PartialInboundDatashare]]:
+    ) -> Optional[Union[InboundDatashare, PartialInboundDatashare]]:
         if not self.is_shared_database or not self.options:
             return None
 
