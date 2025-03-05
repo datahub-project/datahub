@@ -2,17 +2,15 @@ package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils.*;
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.ActionRequestAssignee;
-import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
-import com.linkedin.datahub.graphql.generated.ActionRequestType;
-import com.linkedin.datahub.graphql.generated.AssigneeType;
-import com.linkedin.datahub.graphql.generated.ListActionRequestsInput;
-import com.linkedin.datahub.graphql.generated.ListActionRequestsResult;
+import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -25,6 +23,7 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -67,12 +66,15 @@ public class ListActionRequestsResolver
     final ActionRequestType type = input.getType() == null ? null : input.getType();
     final ActionRequestStatus status = input.getStatus() == null ? null : input.getStatus();
     final ActionRequestAssignee assignee = input.getAssignee() == null ? null : input.getAssignee();
+    final boolean getAllActionRequests =
+        input.getAllActionRequests() == null ? false : input.getAllActionRequests();
     final Urn resourceUrn =
         input.getResourceUrn() == null ? null : UrnUtils.getUrn(input.getResourceUrn());
     final Long startTimestampMillis =
         input.getStartTimestampMillis() == null ? null : input.getStartTimestampMillis();
     final Long endTimestampMillis =
         input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
+    final List<String> facets = input.getFacets() == null ? null : input.getFacets();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -85,11 +87,13 @@ public class ListActionRequestsResolver
             if (assignee == null) {
               // Case 1: If no assignee filter provided, fall back to filtering for current user and
               // their groups.
-              actorUrn = Urn.createFromString(context.getActorUrn());
-              AssignedUrns groupAndRoleUrns =
-                  getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
-              groupUrns = groupAndRoleUrns.getGroupUrns();
-              roleUrns = groupAndRoleUrns.getRoleUrns();
+              if (!getAllActionRequests) {
+                actorUrn = Urn.createFromString(context.getActorUrn());
+                AssignedUrns groupAndRoleUrns =
+                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
+                groupUrns = groupAndRoleUrns.getGroupUrns();
+                roleUrns = groupAndRoleUrns.getRoleUrns();
+              }
             } else {
               // Case 2: Caller provided a user or group assignee filter.
               final Urn assigneeUrn = Urn.createFromString(assignee.getUrn());
@@ -106,7 +110,7 @@ public class ListActionRequestsResolver
               }
             }
 
-            final Filter filter =
+            final Filter baseFilter =
                 createFilter(
                     actorUrn,
                     groupUrns,
@@ -117,6 +121,15 @@ public class ListActionRequestsResolver
                     startTimestampMillis,
                     endTimestampMillis);
 
+            final Filter filter;
+            if (input.getOrFilters() != null && !input.getOrFilters().isEmpty()) {
+              filter =
+                  FilterUtils.combineFilters(
+                      baseFilter, ResolverUtils.buildFilter(null, input.getOrFilters()));
+            } else {
+              filter = baseFilter;
+            }
+
             final List<SortCriterion> sortCriteria =
                 Collections.singletonList(
                     new SortCriterion()
@@ -124,18 +137,19 @@ public class ListActionRequestsResolver
                         .setOrder(SortOrder.DESCENDING));
 
             final SearchResult searchResult =
-                _entityClient.filter(
+                _entityClient.searchAcrossEntities(
                     context.getOperationContext(),
-                    ACTION_REQUEST_ENTITY_NAME,
+                    getEntityNames(ImmutableList.of(EntityType.ACTION_REQUEST)),
+                    "*",
                     filter,
-                    sortCriteria,
                     start,
-                    count);
+                    count,
+                    sortCriteria,
+                    facets,
+                    null);
 
             final List<Urn> entityUrns =
-                searchResult.getEntities().stream()
-                    .map(SearchEntity::getEntity)
-                    .collect(Collectors.toList());
+                searchResult.getEntities().stream().map(SearchEntity::getEntity).toList();
 
             final Map<Urn, Entity> entityMap =
                 _entityClient.batchGet(context.getOperationContext(), new HashSet<>(entityUrns));
@@ -148,6 +162,11 @@ public class ListActionRequestsResolver
             result.setCount(searchResult.getPageSize());
             result.setTotal(searchResult.getNumEntities());
             result.setActionRequests(ActionRequestUtils.mapActionRequests(context, entities));
+            result.setFacets(
+                searchResult.getMetadata().getAggregations().stream()
+                    .map(f -> MapperUtils.mapFacet(context, f))
+                    .collect(Collectors.toList()));
+
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list action requests", e);

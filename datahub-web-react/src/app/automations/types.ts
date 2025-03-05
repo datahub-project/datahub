@@ -1,6 +1,6 @@
+import { AppConfig, Test } from '@src/types.generated';
 import { ComponentType } from 'react';
-import { Test } from '@src/types.generated';
-import { AutomationTypes } from './constants';
+import { AutomationCategory, AutomationTypes } from './constants';
 
 /**
  * Component Base Type (props)
@@ -71,6 +71,18 @@ export interface Field<T = any> {
     }>;
 }
 
+export interface AutomationRecipe {
+    name: string;
+    description: string;
+    category: `${AutomationCategory}`;
+    action: {
+        type: string;
+        config: Record<string, any>;
+    };
+    executorId?: string;
+    filter?: { event_type: string }; // TODO: Figure out if this is unused
+}
+
 export type AutomationTemplate = {
     key: string;
     platform: string;
@@ -79,8 +91,9 @@ export type AutomationTemplate = {
     description: string;
     logo: string;
     fields: Field[];
-    isDisabled: boolean;
-    defaultRecipe: any; // Important! Used for initializing the form on creates.
+    isBeta: boolean;
+    isDisabled?: (appConfig: AppConfig) => boolean;
+    defaultRecipe: AutomationRecipe;
 };
 
 /**

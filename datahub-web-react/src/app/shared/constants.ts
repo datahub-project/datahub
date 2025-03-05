@@ -4,7 +4,7 @@ export const PLATFORM_CONNECTION_URN = 'urn:li:dataPlatform:acryl';
 export const DATE_TYPE_URN = 'urn:li:dataType:datahub.date';
 export const TYPE_ICON_CLASS_NAME = 'typeIcon';
 
-export const EMBEDDED_EXECUTOR_POOL_NAME = 'embedded';
+export const EMBEDDED_EXECUTOR_POOL_NAME = 'default';
 
 export enum ErrorCodes {
     BadRequest = 400,

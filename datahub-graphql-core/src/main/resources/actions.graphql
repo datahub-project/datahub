@@ -171,6 +171,12 @@ extend type Query {
     Fetch all rejected action requests
     """
     listRejectedActionRequests(input: ListRejectedActionRequestsInput!): ListRejectedActionRequestsResult
+    
+    """
+    Get the correct assignees of proposals. Returns the list of URN of correct assignees of proposals.
+    """
+    getActionRequestAssignee(input: GetActionRequestAssigneeInput!): [String!]
+
 }
 
 type ActionRequestsConfig {
@@ -238,6 +244,31 @@ enum ActionRequestResult {
     """
     REJECTED
 }
+
+input GetActionRequestAssigneeInput {
+
+    """
+    Action request type
+    """
+    actionRequestType: String!
+
+    """
+    Resource Urn for which to get assignees
+    """
+    resourceUrn: String!
+
+    """
+    An optional subresource filter
+    """
+    subResource: String
+
+    """
+    An optional type filter
+    """
+    subResourceType: String
+}
+
+
 input ListActionRequestsInput {
     """
     Start offset of the result set
@@ -263,6 +294,7 @@ input ListActionRequestsInput {
     """
     An optional action request assignee to filter by. If not provided, all
     action requests that the authenticated user is assigned to will be returned.
+    No filtering done if allActionRequests is passed
     """
     assignee: ActionRequestAssignee
     """
@@ -273,6 +305,18 @@ input ListActionRequestsInput {
     An optional ending time to filter on
     """
     endTimestampMillis: Long
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
+    """
+    If this is sent then default filtering for current assignee is not done
+    """
+    allActionRequests: Boolean
+    """
+    List of facets we want aggregations for
+    """
+    facets: [String!]
 }
 
 input ActionRequestAssignee {
@@ -303,6 +347,10 @@ type ListActionRequestsResult {
     A list of groupings of action requests for a user
     """
     actionRequests: [ActionRequest!]!
+    """
+    Facet aggregations used for filtering
+    """
+    facets: [FacetMetadata!]
 }
 
 input ListRejectedActionRequestsInput {

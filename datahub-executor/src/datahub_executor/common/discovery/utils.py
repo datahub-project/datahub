@@ -23,4 +23,12 @@ def send_remote_executor_status(
 
 
 def get_utc_timestamp() -> int:
-    return int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    return int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
+
+
+def get_backend_revision(graph: DataHubGraph) -> int:
+    server_config = graph.get_config()
+    if isinstance(server_config, dict):
+        backend_config = server_config.get("remoteExecutorBackend", {})
+        revision = backend_config.get("revision", 0)
+        return revision

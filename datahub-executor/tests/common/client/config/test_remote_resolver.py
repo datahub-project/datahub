@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
+from datahub_executor.common.constants import DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
 
 
 class TestRemoteResolver:
@@ -19,7 +20,7 @@ class TestRemoteResolver:
                 "executorConfigs": [
                     {
                         "region": "us-west-2",
-                        "executorId": "default",
+                        "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
                         "queueUrl": "https://queue.amazon.com/something/123456",
                         "accessKeyId": "some-access-key",
                         "secretKeyId": "some-secret-key",
@@ -35,7 +36,7 @@ class TestRemoteResolver:
     def test_get_executor_configs(self) -> None:
         executor_configs = self.resolver.get_executor_configs()
         assert len(executor_configs) == 1
-        assert executor_configs[0].executor_id == "default"
+        assert executor_configs[0].executor_id == DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
 
     def test_fetch_executor_configs_empty_list(self) -> None:
         self.resolver.graph.execute_graphql.return_value = {  # type: ignore
@@ -54,7 +55,7 @@ class TestRemoteResolver:
                 "executorConfigs": [
                     {
                         "region": "us-west-2",
-                        "executorId": "default",
+                        "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
                         "queueUrl": "https://queue.amazon.com/something/123456",
                         "accessKeyId": "some-access-key",
                         "secretKeyId": "some-secret-key",

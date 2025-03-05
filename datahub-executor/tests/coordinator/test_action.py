@@ -10,6 +10,9 @@ from datahub.metadata.schema_classes import GenericAspectClass, MetadataChangeLo
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
+)
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.types import ExecutorConfig
 
@@ -29,7 +32,7 @@ class TestIngestionAction:
         self.discovery = Mock(spec=DatahubExecutorDiscovery)
         self.graph = Mock(spec=DataHubGraph)
         self.action = IngestionAction(
-            self.graph, self.discovery, False, True, "default"
+            self.graph, self.discovery, False, True, DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
         )
         self.change_event = MetadataChangeLogClass(
             entityType=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
@@ -39,7 +42,7 @@ class TestIngestionAction:
                 contentType=JSON_CONTENT_TYPE,
                 value=json.dumps(
                     {
-                        "executorId": "default",
+                        "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
                     }
                 ).encode(),
             ),
@@ -53,7 +56,7 @@ class TestIngestionAction:
         self.credentials = ExecutorConfig.parse_obj(
             {
                 "region": "us-west-2",
-                "executorId": "default",
+                "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
                 "queueUrl": "",
                 "accessKeyId": "",
                 "secretKeyId": "",
@@ -90,7 +93,9 @@ class TestIngestionAction:
     ) -> None:
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
+        self.action = IngestionAction(
+            self.graph, self.discovery, True, True, DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+        )
         self.action.act(self.event)
 
         assert thread_mock.call_count == 1
@@ -103,12 +108,16 @@ class TestIngestionAction:
         self.change_event.aspectName = DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME
         self.change_event.aspect = GenericAspectClass(
             contentType=JSON_CONTENT_TYPE,
-            value=json.dumps({"executorId": "default", "signal": "KILL"}).encode(),
+            value=json.dumps(
+                {"executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID, "signal": "KILL"}
+            ).encode(),
         )
 
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
+        self.action = IngestionAction(
+            self.graph, self.discovery, True, True, DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+        )
         self.action.act(self.event)
 
         assert thread_mock.call_count == 1
@@ -125,7 +134,9 @@ class TestIngestionAction:
 
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
+        self.action = IngestionAction(
+            self.graph, self.discovery, True, True, DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+        )
         self.action.act(self.event)
 
         assert thread_mock.call_count == 1

@@ -110,8 +110,12 @@ const LinkButton = styled(Button)`
     box-shadow: none;
     color: ${colors.blue[500]};
     display: inline-block;
+    &:disabled {
+        color: rgba(0, 0, 0, 0.25);
+        background: none !important;
+    }
     &:hover {
-        background: none;
+        background: none !important;
     }
 `;
 

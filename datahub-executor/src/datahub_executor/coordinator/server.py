@@ -78,14 +78,10 @@ monitoring_start()
 # Create graph instance
 graph = create_datahub_graph()
 
-# Start discovery process
+discovery = DatahubExecutorDiscovery(graph)
 if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
-    discovery = DatahubExecutorDiscovery(graph)
-    if discovery.is_backend_discovery_capable():
-        sighandler.append(discovery.stop)
-        discovery.start()
-    else:
-        logger.error("Discovery disabled: backend is not discovery-capable.")
+    sighandler.append(discovery.stop)
+    discovery.start()
 
 # Start the scheduler
 start_scheduler(graph, sighandler)

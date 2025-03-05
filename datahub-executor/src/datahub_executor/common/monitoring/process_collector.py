@@ -41,20 +41,22 @@ class DatahubProcessCollector(Collector):
                 if len(val) > CGROUP_MAX_READ_SIZE:
                     logger.error("value too long when reading a cgroup file")
                     return ""
-                return val
+                return val.strip()
         except FileNotFoundError:
             return ""
         except Exception:
-            logger.exception("Exception when reading a cgroup file")
+            logger.exception("Exception when reading a cgroup file {path}")
             return ""
 
     def _read_cgroup_int(self, path: str) -> int:
         try:
             raw = self._read_cgroup_str(path)
-            if raw != "":
+            if raw == "max":
+                return -1
+            elif raw != "":
                 return int(raw)
         except Exception:
-            logger.exception("Exception when reading a cgroup file")
+            logger.exception("Exception when reading a cgroup file {path}")
         return -1
 
     def _collect_mem_usage_processgroup(self) -> Iterable[Metric]:

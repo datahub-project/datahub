@@ -60,8 +60,8 @@ const AutomationPage = React.memo(() => {
         tabs.push({
             key: category,
             label: category,
-            data: automations.filter((automation: any) => automation.details?.category === category),
-            count: automations.filter((automation: any) => automation.details?.category === category).length,
+            data: automations.filter((automation) => automation.details?.category === category),
+            count: automations.filter((automation) => automation.details?.category === category).length,
         });
     });
 

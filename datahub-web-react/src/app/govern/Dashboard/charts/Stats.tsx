@@ -15,16 +15,16 @@ import { ChartNoData, ChartNotEnoughData, ChartState } from './AuxViews';
 
 const getTabType = (selectedTab) => {
     let dataType = '';
-    if (selectedTab === 'byForm') dataType = 'assigned by this form';
+    if (selectedTab === 'byForm') dataType = 'assigned to this form';
     if (selectedTab === 'byAssignee') dataType = 'assigned to this user or group';
     if (selectedTab === 'byDomain') dataType = 'in this domain assigned';
     return dataType;
 };
 
 const getDescription = (assetCount, totalAssetCount, selectedTab, series) =>
-    `${assetCount} of ${totalAssetCount.toLocaleString()} assets ${getTabType(
-        selectedTab,
-    )} in the ${series.label.toLowerCase()}`;
+    `${assetCount} of ${totalAssetCount.toLocaleString()} assets ${getTabType(selectedTab)} ${
+        series.key !== 10000 ? `in the ${series.label.toLowerCase()}` : ''
+    }`;
 
 // March/2024 launch decision: hide trendline but keep code
 const hideTrendLine = true;
@@ -249,9 +249,21 @@ const NotStartedTrend = () => {
 export const Stats = () => (
     <ChartGroup>
         <Row>
-            <ChartCard title="Assets Without Completed Documentation" chart={<NotStartedTrend />} />
-            <ChartCard title="Assets With Documention In Progress" chart={<InProgressTrend />} />
-            <ChartCard title="Assets With Completed Documentation" chart={<CompletedTrend />} />
+            <ChartCard
+                title="Assets Without Completed Documentation"
+                titleInfo='Assets are "Not Started" if they have no forms in progress or complete'
+                chart={<NotStartedTrend />}
+            />
+            <ChartCard
+                title="Assets With Documention In Progress"
+                titleInfo='Assets are "In Progress" if they&apos;ve started on any forms and have not completed all of them'
+                chart={<InProgressTrend />}
+            />
+            <ChartCard
+                title="Assets With Completed Documentation"
+                titleInfo='Assets are "Completed" if all of their forms are completed'
+                chart={<CompletedTrend />}
+            />
         </Row>
     </ChartGroup>
 );

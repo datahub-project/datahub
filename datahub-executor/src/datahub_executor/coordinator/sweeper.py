@@ -18,7 +18,10 @@ from datahub_executor.common.graph import DataHubExecutorGraph
 from datahub_executor.common.identity.utils import get_remote_executor_id_from_urn
 from datahub_executor.common.ingestion.helpers import emit_execution_request_input
 from datahub_executor.common.monitoring.base import METRIC
-from datahub_executor.common.types import ExecutionRequestStatus, SweeperAction
+from datahub_executor.common.types import (
+    ExecutionRequestStatus,
+    SweeperAction,
+)
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD,
     DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER,
@@ -122,7 +125,10 @@ class SweeperJob:
         return list(actions.values())
 
     def _build_executor_action(
-        self, urn: str, status: RemoteExecutorStatusClass, action: str
+        self,
+        urn: str,
+        status: RemoteExecutorStatusClass,
+        action: str,
     ) -> SweeperAction:
         return SweeperAction.parse_obj(
             {
@@ -349,7 +355,8 @@ class SweeperJob:
         )  # type: ignore
 
     def _get_remote_executor_actions(
-        self, executors: Dict[str, RemoteExecutorStatusClass]
+        self,
+        executors: Dict[str, RemoteExecutorStatusClass],
     ) -> List[SweeperAction]:
         actions: Dict[str, SweeperAction] = {}
         keep: Dict[str, List] = {}

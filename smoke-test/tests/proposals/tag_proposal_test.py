@@ -1,6 +1,7 @@
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.proposals.test_utils import execute_gql, validate_assignee_is_correct
 from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-tags,PROD)"
@@ -15,23 +16,6 @@ def ingest_cleanup_data(auth_session, graph_client, request):
     yield
     print("removing tags test data")
     delete_urns_from_file(graph_client, "tests/proposals/tag_proposal_data.json")
-
-
-def execute_gql(auth_session, query, variables=None):
-    """
-    Helper for sending GraphQL requests via the auth_session's post method.
-    Raises an HTTP error on bad status, returns the parsed JSON response on success.
-    """
-    payload = {"query": query}
-    if variables is not None:
-        payload["variables"] = variables
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=payload
-    )
-    response.raise_for_status()
-
-    return response.json()
 
 
 @pytest.mark.dependency()
@@ -63,6 +47,12 @@ def test_complete_entity_tag_proposal_accept(auth_session, ingest_cleanup_data):
     assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeTags"]
     assert proposal_urn, "Expected a proposal URN"
+
+    validate_assignee_is_correct(
+        auth_session=auth_session,
+        dataset_urn=dataset_urn,
+        request_type="TAS_ASSOCIATION",
+    )
 
     # 2) Accept the proposal
     accept_proposals_mutation = """

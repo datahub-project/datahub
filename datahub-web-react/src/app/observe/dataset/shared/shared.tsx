@@ -1,6 +1,6 @@
 import styled from 'styled-components';
+import { colors } from '@src/alchemy-components';
 import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 export const Header = styled.div`
     && {
@@ -9,7 +9,7 @@ export const Header = styled.div`
         padding-bottom: 20px;
         padding-top: 20px;
     }
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${colors.gray[100]};
 `;
 
 export const Title = styled.div`
@@ -23,12 +23,13 @@ export const TitleText = styled(Typography.Title)`
     && {
         margin: 0px;
         padding: 0px;
+        color: ${colors.gray[600]};
     }
 `;
 
 export const DescriptionText = styled.span`
     font-size: 16px;
-    color: ${ANTD_GRAY[8]};
+    color: ${colors.gray[1700]};
 `;
 
 export const Stat = styled.div`
@@ -42,15 +43,16 @@ export const Total = styled.span`
     font-size: 52px;
     line-height: 48px;
     margin-right: 4px;
+    color: ${colors.gray[600]};
 `;
 
 export const Percent = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY[7]};
+    color: ${colors.gray[1700]};
     padding-bottom: 2px;
 `;
 
 export const List = styled.div`
-    border-color: ${ANTD_GRAY[3]};
+    border-color: ${colors.gray[100]};
     border-width: 1px;
 `;

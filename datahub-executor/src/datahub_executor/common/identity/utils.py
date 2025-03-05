@@ -12,7 +12,7 @@ from datahub_executor.common.constants import (
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INTERNAL_WORKER,
     DATAHUB_EXECUTOR_NAMESPACE,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_GMS_URL,
 )
 
@@ -74,7 +74,7 @@ def create_instance_id(addr: str) -> str:
     instance_id = "{}-{}.{}.{}".format(
         get_string_hash(addr),
         get_random_string(8),
-        DATAHUB_EXECUTOR_POOL_NAME,
+        DATAHUB_EXECUTOR_POOL_ID,
         hostname,
     )
 

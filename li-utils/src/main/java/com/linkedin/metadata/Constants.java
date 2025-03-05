@@ -369,7 +369,7 @@ public class Constants {
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
       "SCHEDULED_INGESTION_SOURCE";
-  public static final String DEFAULT_EXECUTOR_ID = "embedded";
+  public static final String DEFAULT_EXECUTOR_ID = "default";
 
   // We use an executorId that maps to no executor since some requests are to be handled by the
   // mae-consumer
@@ -549,6 +549,9 @@ public class Constants {
       "dataHubStepStateProperties";
 
   // Authorization
+  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
+  // the  spring property "authorization.restApiAuthorization" from application.yaml for
+  // consistency. The spring property can be initialized by this env var (among other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names

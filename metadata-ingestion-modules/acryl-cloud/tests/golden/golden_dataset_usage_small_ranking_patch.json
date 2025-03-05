@@ -58,11 +58,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user2",
@@ -96,7 +91,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-maj7hg",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-2odf7l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -159,11 +154,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user2",
@@ -197,7 +187,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-maj7hg",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-2odf7l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -260,11 +250,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user0"
@@ -294,7 +279,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-maj7hg",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-2odf7l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -357,11 +342,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user1",
@@ -386,13 +366,13 @@
             {
                 "op": "add",
                 "path": "/combinedSearchRankingMultiplier",
-                "value": 0.8999999999999999
+                "value": 1
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-maj7hg",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-2odf7l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -455,11 +435,6 @@
             },
             {
                 "op": "add",
-                "path": "/writeCountRankLast30Days",
-                "value": 5
-            },
-            {
-                "op": "add",
                 "path": "/topUsersLast30Days",
                 "value": [
                     "urn:li:corpuser:user3",
@@ -486,13 +461,13 @@
             {
                 "op": "add",
                 "path": "/combinedSearchRankingMultiplier",
-                "value": 0.9099999999999999
+                "value": 1
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1720681200000,
-        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-maj7hg",
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-2odf7l",
         "lastRunId": "no-run-id-provided"
     }
 }

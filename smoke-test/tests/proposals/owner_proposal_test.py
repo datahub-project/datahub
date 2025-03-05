@@ -1,7 +1,7 @@
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.proposals.test_utils import execute_gql
+from tests.proposals.test_utils import execute_gql, validate_assignee_is_correct
 from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-owners,PROD)"
@@ -54,6 +54,12 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
     assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeOwners"]
     assert proposal_urn, "Expected a proposal URN"
+
+    validate_assignee_is_correct(
+        auth_session=auth_session,
+        dataset_urn=dataset_urn,
+        request_type="OWNER_ASSOCIATION",
+    )
 
     # 2) Accept the proposal
     accept_proposals_mutation = """

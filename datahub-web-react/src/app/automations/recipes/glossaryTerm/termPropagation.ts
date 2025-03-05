@@ -5,6 +5,7 @@
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/term/term_propagation_action.py
 */
 
+import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
 import AcrylLogo from '@images/acryl-logo.svg';
 import { EntityType } from '@src/types.generated';
 import { commonFieldsMapping } from '@app/automations/constants';
@@ -18,7 +19,7 @@ const automationName = 'Glossary Term Propagation';
 const automationDescription = 'Propagate Glossary Terms to downstream assets and columns automatically (datasets only)';
 
 // Important: This is the form state which is taken by default, when creating a new automation of this type.
-const defaultRecipe = {
+const defaultRecipe: AutomationRecipe = {
     name: automationName,
     description: automationDescription,
     category: 'Data Discovery',
@@ -63,7 +64,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template = {
+export const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'acryl',
@@ -71,7 +72,6 @@ export const template = {
     name: automationName,
     description: automationDescription,
     defaultRecipe,
-    isDisabled: false,
     isBeta: true,
     fields,
 };

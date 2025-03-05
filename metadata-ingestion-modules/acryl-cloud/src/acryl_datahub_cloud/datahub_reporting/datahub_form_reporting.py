@@ -13,8 +13,10 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
+    FormAssociationClass,
     FormInfoClass,
     FormsClass,
+    FormStateClass,
     FormTypeClass,
 )
 
@@ -40,7 +42,7 @@ class FormType(str, Enum):
 class FormReportingRow(BaseModelRow):
     form_urn: str
     form_type: FormType
-    form_assigned_date: date
+    form_assigned_date: Optional[date]
     form_completed_date: Optional[date]
     form_status: FormStatus
     question_id: str
@@ -177,24 +179,64 @@ class DataHubFormReportingData(FormData):
                 },
             ]
 
+    def is_published(self, form_urn: str) -> bool:
+        form_info = self.form_registry.get_form(form_urn)
+        return (
+            form_info.status.state == FormStateClass.PUBLISHED if form_info else False
+        )
+
+    def form_published_time(self, form_urn: str) -> float:
+        form_info = self.form_registry.get_form(form_urn)
+        is_published = (
+            form_info.status.state == FormStateClass.PUBLISHED if form_info else False
+        )
+        return (
+            form_info.status.lastModified.time / 1000
+            if form_info and form_info.status.lastModified and is_published
+            else 0
+        )
+
+    def assigned_to_asset_time(self, form_association: FormAssociationClass) -> float:
+        return form_association.created.time / 1000 if form_association.created else 0
+
+    def assignment_time(self, form_association: FormAssociationClass) -> float:
+        published_time = self.form_published_time(form_association.urn)
+        assigned_to_asset_time = self.assigned_to_asset_time(form_association)
+        return max(published_time, assigned_to_asset_time)
+
+    # For a given asset, the assigned date is the more recent of the published date and the time this was actually assigned.
+    # Assets can be assigned before publishing, but we don't want to show that date because it's not open to the public yet.
+    # Assets can also be assigned after publishing, so we should show that date for those assets.
     def form_assigned_date(
         self, search_row: DataHubDatasetSearchRow
-    ) -> Dict[str, date]:
-        form_assigned_dates: Dict[str, date] = {}
+    ) -> Dict[str, Optional[date]]:
+        form_assigned_dates: Dict[str, Optional[date]] = {}
         forms = self.graph.get_aspect(search_row.urn, FormsClass)
         if not forms:
             return form_assigned_dates
         assert forms, f"Forms aspect not found for {search_row.urn}"
         for incomplete_form in forms.incompleteForms:
-            form_assigned_dates[incomplete_form.urn] = datetime.fromtimestamp(
-                incomplete_form.created.time / 1000 if incomplete_form.created else 0,
-                tz=timezone.utc,
-            ).date()
+            is_published = self.is_published(incomplete_form.urn)
+            assignment_time = self.assignment_time(incomplete_form)
+            form_assigned_dates[incomplete_form.urn] = (
+                datetime.fromtimestamp(
+                    assignment_time,
+                    tz=timezone.utc,
+                ).date()
+                if is_published and assignment_time != 0
+                else None
+            )
         for completed_form in forms.completedForms:
-            form_assigned_dates[completed_form.urn] = datetime.fromtimestamp(
-                completed_form.created.time / 1000 if completed_form.created else 0,
-                tz=timezone.utc,
-            ).date()
+            is_published = self.is_published(completed_form.urn)
+            assignment_time = self.assignment_time(completed_form)
+            form_assigned_dates[completed_form.urn] = (
+                datetime.fromtimestamp(
+                    assignment_time,
+                    tz=timezone.utc,
+                ).date()
+                if is_published and assignment_time != 0
+                else None
+            )
         return form_assigned_dates
 
     def form_completed_date(
@@ -206,7 +248,9 @@ class DataHubFormReportingData(FormData):
         form_completion_dates = {}
         for form in search_row.completedForms:
             form_info = self.form_registry.get_form(form)
-            assert form_info, f"Form {form} not found"
+            if not form_info:
+                logger.warning(f"Found form attached that does not exist: {form}")
+                continue
             form_prompts = [x.id for x in form_info.prompts]
             completed_prompts_map = {
                 prompt_id: response_time
@@ -291,7 +335,11 @@ class DataHubFormReportingData(FormData):
                         on_form_scanned(form_id)
                     forms_scanned.add(form_id)
                 form_info = self.form_registry.get_form(form_id)
-                assert form_info, f"Form {form_id} not found"
+                if not form_info:
+                    logger.warning(
+                        f"Found form attached that does not exist: {form_id}"
+                    )
+                    continue
                 form_prompts = [x.id for x in form_info.prompts]
                 form_incomplete_prompts = [
                     p
@@ -315,11 +363,6 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
-                        if form_id not in form_assigned_dates:
-                            logger.warning(
-                                f"Form {form_id} not found in form_assigned_dates"
-                            )
-                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
@@ -349,11 +392,6 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
-                        if form_id not in form_assigned_dates:
-                            logger.warning(
-                                f"Form {form_id} not found in form_assigned_dates"
-                            )
-                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
@@ -393,7 +431,11 @@ class DataHubFormReportingData(FormData):
                         on_form_scanned(form_id)
                     forms_scanned.add(form_id)
                 form_info = self.form_registry.get_form(form_id)
-                assert form_info, f"Form {form_id} not found"
+                if not form_info:
+                    logger.warning(
+                        f"Found form attached that does not exist: {form_id}"
+                    )
+                    continue
                 form_type = (
                     FormType.DOCUMENTATION
                     if form_info.type == FormTypeClass.COMPLETION
@@ -411,11 +453,8 @@ class DataHubFormReportingData(FormData):
                 for prompt_id in [
                     p
                     for p in search_row.completedFormsIncompletePromptIds
-                    for p in form_prompts
+                    if p in form_prompts
                 ]:
-                    logger.warning(
-                        f"Unexpected incomplete prompt {prompt_id} in completed form {form_id}"
-                    )
                     for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
@@ -450,11 +489,6 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
-                        if form_id not in form_assigned_dates:
-                            logger.warning(
-                                f"Form {form_id} not found in form_assigned_dates"
-                            )
-                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],

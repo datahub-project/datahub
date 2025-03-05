@@ -277,9 +277,9 @@ query getLastMonthUsageAggregations($urn: String!) {
     }
 }
 
-query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $timeZone: String) {
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $startTime: Long, $timeZone: String) {
     dataset(urn: $urn) {
-        usageStats(range: $timeRange, timeZone: $timeZone) {
+        usageStats(range: $timeRange, startTimeMillis: $startTime, timeZone: $timeZone) {
             aggregations {
                 uniqueUserCount
                 totalSqlQueries

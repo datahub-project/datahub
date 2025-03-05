@@ -9,7 +9,7 @@ from datahub_executor.common.client.config.resolver import ExecutorConfigResolve
 from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutorConfig
 from datahub_executor.config import (
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
 )
 
@@ -68,7 +68,7 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
 
     if is_startup:
         METRIC(
-            "CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+            "WORKER_CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
         ).inc()
 
         executor_configs = executor_config_resolver.get_executor_configs()
@@ -92,7 +92,8 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
 
         if did_refresh:
             METRIC(
-                "CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+                "WORKER_CREDENTIALS_REFRESH_REQUESTS",
+                pool_name=DATAHUB_EXECUTOR_POOL_ID,
             ).inc()
 
             config = update_celery_config(CeleryConfig(), executor_configs)
@@ -114,9 +115,9 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
 
         if queue_name not in updated_queues:
             METRIC(
-                "CREDENTIALS_REFRESH_ERRORS",
+                "WORKER_CREDENTIALS_REFRESH_ERRORS",
                 exception="NoQueue",
-                pool_name=DATAHUB_EXECUTOR_POOL_NAME,
+                pool_name=DATAHUB_EXECUTOR_POOL_ID,
             ).inc()
             logger.error(f"SQS qeueue {queue_name} does not exist or misconfigured.")
             return False

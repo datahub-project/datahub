@@ -18,14 +18,9 @@ export const templates = [
 ];
 
 // For each automation, the default action recipe configs. This allows some defaults to be set without any associated field in the form.
-export const defaultRecipes = {
-    [DocumentationColumnPropagation.automationType]: Object.seal(DocumentationColumnPropagation.template.defaultRecipe),
-    [GlossaryTermPropagation.automationType]: Object.seal(GlossaryTermPropagation.template.defaultRecipe),
-    [TagPropagation.automationType]: Object.seal(TagPropagation.template.defaultRecipe),
-    [SnowflakeTagPropagation.automationType]: Object.seal(SnowflakeTagPropagation.template.defaultRecipe),
-    [AIGlossaryTermPropagation.automationType]: Object.seal(AIGlossaryTermPropagation.template.defaultRecipe),
-    [BigQueryTagSync.automationType]: Object.seal(BigQueryTagSync.template.defaultRecipe),
-};
+export const defaultRecipes = Object.fromEntries(
+    templates.map((template) => [template.type, Object.seal(template.defaultRecipe)]),
+);
 
 // Map of all config maps available in the application (this needs to be in sync with the recipes/templates)
 // This is used to map the config fields to the form state

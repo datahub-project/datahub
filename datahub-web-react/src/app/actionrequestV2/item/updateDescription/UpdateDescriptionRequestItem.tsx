@@ -51,15 +51,15 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
     return (
         <ContentWrapper>
             <CreatedByView actionRequest={actionRequest} />
-            <Text color="gray" type="span" weight="medium">
+            <Text color="gray" weight="medium">
                 {' '}
                 requests to update the description on {entityName}{' '}
-                <RequestTargetEntityView actionRequest={actionRequest} />.
-                <ViewDocumentationButton type="text" onClick={handleClick}>
-                    <DiffOutlined />
-                    {isRequestPending ? 'View difference' : 'View description'}
-                </ViewDocumentationButton>
             </Text>
+            <RequestTargetEntityView actionRequest={actionRequest} />
+            <ViewDocumentationButton type="text" onClick={handleClick}>
+                <DiffOutlined />
+                {isRequestPending ? 'View difference' : 'View description'}
+            </ViewDocumentationButton>
             {isDiffModalVisible && (
                 <DescriptionDifferenceModal
                     oldDescription={oldDescription}

@@ -21,7 +21,7 @@ record ExecutionRequestInput {
   args: map[string, string]
 
   /**
-  * Advanced: specify a specific executor pool to route the request to. If none is provided, a "embedded" executor is used.
+  * Advanced: specify a specific executor pool to route the request to. If none is provided, a "default" embedded executor is used.
   */
   @Searchable = {
     "fieldName": "executorId",

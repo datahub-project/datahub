@@ -27,6 +27,10 @@ authentication:
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+    - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
+      configs:
+        guestUser: ${GUEST_AUTHENTICATION_USER:guest}
+        enabled: ${GUEST_AUTHENTICATION_ENABLED:false}
 
   # Normally failures are only warnings, enable this to throw them.
   logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
@@ -647,11 +651,12 @@ featureFlags:
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
-  showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
+  showFormAnalytics: ${SHOW_FORM_ANALYTICS:true} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
   showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
   usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false} # If turned on, use the general Propagations Framework over specialized propagations actions
+  displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false} # If turned on, display executor pools across the UI
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -735,15 +740,42 @@ cache:
           structuredPropertyKey: 86400 # 1 day
         chart:
           usageFeatures: 21600 # 6hrs
+          domains: 20
         dataset:
           usageFeatures: 21600 # 6hrs
           storageFeatures: 21600 # 6hrs
+          domains: 20
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+          domains: 20
         globalSettings:
           globalSettingsInfo: 60
         dataHubSecret:
           dataHubSecretValue: 600 # 10 min
+        domain:
+          domainProperties: 20
+        dataJob:
+          domains: 20
+        dataFlow:
+          domains: 20
+        notebook:
+          domains: 20
+        container:
+          domains: 20
+        glossaryTerm:
+          domains: 20
+        mlModel:
+          domains: 20
+        mlModelGroup:
+          domains: 20
+        mlFeatureTable:
+          domains: 20
+        mlFeature:
+          domains: 20
+        mlPrimaryKey:
+          domains: 20
+        dataProduct:
+          domains: 20
 
 graphQL:
   concurrency:
@@ -797,7 +829,7 @@ subscriptions:
     consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 executors:
-  backendRevision: 1
+  backendRevision: 2
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
 

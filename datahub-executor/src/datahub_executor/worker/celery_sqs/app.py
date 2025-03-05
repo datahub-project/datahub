@@ -5,6 +5,7 @@ from pathlib import Path
 from threading import Thread
 
 from acryl.executor.request.execution_request import ExecutionRequest
+from acryl.executor.result.execution_result import Type
 from celery.signals import celeryd_init, heartbeat_sent, worker_shutting_down
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from kombu.transport.SQS import Channel
@@ -33,7 +34,7 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE,
     DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
     DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL,
@@ -87,8 +88,19 @@ def is_visibility_timeout_exceeded(submitted_at: float) -> bool:
 def safe_execute_ingestion(er: ExecutionRequest, submitted_at: float) -> None:
     global ingestion_executor
 
-    if ingestion_executor and not is_visibility_timeout_exceeded(submitted_at):
-        ingestion_executor.execute(er)
+    if not ingestion_executor:
+        return
+    if is_visibility_timeout_exceeded(submitted_at):
+        METRIC(
+            "WORKER_INGESTION_VISIBILITY_TIMEOUT", pool_name=DATAHUB_EXECUTOR_POOL_ID
+        ).inc()
+        return
+    try:
+        result = ingestion_executor.execute(er)
+        if result.type in [Type.FAILURE, Type.TIMEOUT]:
+            METRIC("WORKER_INGESTION_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
+    except Exception:
+        METRIC("WORKER_INGESTION_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
 
 
 def monitor_thread() -> None:
@@ -150,21 +162,22 @@ def monitor_thread() -> None:
 @celeryd_init.connect
 def worker_startup(*args, **kwargs):
     global graph, monitor, discovery
+    global assertion_executor, ingestion_executor
 
     monitoring_start()
-
     graph = create_datahub_graph()
 
     discovery = DatahubExecutorDiscovery(graph)
     discovery.start()
 
-    global ingestion_executor
-    ingestion_executor = setup_ingestion_executor(
-        executor_instance_id=DATAHUB_EXECUTOR_IDENTITY,
-        executor_version=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
-    )
+    if discovery.is_backend_discovery_capable():
+        ingestion_executor = setup_ingestion_executor(
+            executor_instance_id=DATAHUB_EXECUTOR_IDENTITY,
+            executor_version=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
+        )
+    else:
+        ingestion_executor = setup_ingestion_executor()
 
-    global assertion_executor
     assertion_executor = AssertionExecutor()
 
     # Start monitoring thread
@@ -185,14 +198,14 @@ def worker_startup(*args, **kwargs):
 @app.task
 def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
-        METRIC("WORKER_ASSERTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME).inc()
+        METRIC("WORKER_ASSERTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
 
         global assertion_executor
         assertion_executor.execute(execution_request)
     else:
         METRIC(
             "WORKER_ASSERTION_ERRORS",
-            pool_name=DATAHUB_EXECUTOR_POOL_NAME,
+            pool_name=DATAHUB_EXECUTOR_POOL_ID,
             exception="UnsupportedRequest",
         ).inc()
         logger.error(
@@ -227,7 +240,7 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
                     f"ExecutionRequest {execution_request.exec_id} dropped due to exceeded SQS visibility timeout."
                 )
             METRIC(
-                "WORKER_INGESTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+                "WORKER_INGESTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
             ).inc()
 
 

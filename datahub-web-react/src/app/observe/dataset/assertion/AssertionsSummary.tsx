@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { CheckCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { SearchSection } from '../shared/SearchSection';
 import { MultiDropdownSelect } from '../shared/MultiDropdownSelect';
 import { useAggregateAcrossEntitiesQuery } from '../../../../graphql/search.generated';
@@ -15,12 +12,6 @@ import { buildAssertionTypeFilters } from './util';
 import { EntityType, IncidentType } from '../../../../types.generated';
 import { Stat, List, Header, Title, TitleText, DescriptionText, Percent, Total } from '../shared/shared';
 import { useUserContext } from '../../../context/useUserContext';
-
-const StyledCheckCircleOutlined = styled(CheckCircleOutlined)`
-    margin-right: 8px;
-    font-size: 20px;
-    color: ${ANTD_GRAY[7]};
-`;
 
 type Props = {
     total: number;
@@ -73,7 +64,6 @@ export const AssertionsSummary = ({ total }: Props) => {
         <>
             <Header>
                 <Title>
-                    <StyledCheckCircleOutlined />
                     <TitleText level={3}>Assertions</TitleText>
                 </Title>
                 <Stat>

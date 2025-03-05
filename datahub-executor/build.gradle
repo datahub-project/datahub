@@ -118,6 +118,7 @@ docker {
         include '.dockerignore'
         include "docker/${docker_repo}/*"
         include "datahub-executor/src/**"
+        include "datahub-executor/scripts/sync.sh"
         include "datahub-executor/pyproject.toml"
         include "datahub-executor/requirements*"
         include "metadata-ingestion/**"

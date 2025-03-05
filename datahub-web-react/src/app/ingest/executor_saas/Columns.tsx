@@ -10,9 +10,10 @@ import { useGetIngestionSourceNameLazyQuery } from '@src/graphql/ingestion.gener
 import { useUpdateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
 import { checkIsExecutionRequestRunning, getExecutionRequestStatusDisplayText } from '../source/utils';
 import { ExecutionDetailsModal } from '../source/executions/ExecutionRequestDetailsModal';
+import { checkIsExecutorStale, EXECUTOR_STALE_THRESHOLD_MS } from './utils';
 
-export function TimeColumn(time: string) {
-    const date = time && new Date(time);
+export function TimeColumn(reportedAt: number) {
+    const date = reportedAt && new Date(reportedAt);
     const localTime = date && `${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
     return <Typography.Text>{localTime || 'None'}</Typography.Text>;
 }
@@ -49,7 +50,7 @@ const getStaleLabel = (numStale?: number) => (
             <Typography.Text>
                 <strong>
                     {numStale === undefined ? 'This executor has' : 'Executors that have'} not reported a heartbeat in
-                    over an hour.
+                    over {EXECUTOR_STALE_THRESHOLD_MS / 60000} minutes.
                 </strong>
                 <br />
                 You may want to reach out to your customer success representative for assistance.
@@ -79,16 +80,18 @@ const getStoppedLabel = (numStopped?: number) => (
 );
 
 export function StatusColumn({
-    executorExpired,
+    reportedAt,
     executorStopped,
+    executorExpired,
     executorUptime,
 }: {
-    executorExpired: boolean;
+    reportedAt: number;
     executorStopped: boolean;
+    executorExpired: boolean;
     executorUptime: number;
 }) {
     let status: any;
-    if (executorExpired) {
+    if (checkIsExecutorStale({ reportedAt, executorStopped, executorExpired })) {
         status = getStaleLabel();
     } else if (executorStopped) {
         status = getStoppedLabel();
@@ -199,10 +202,14 @@ export function PoolStatusColumn({ executors }: { executors: RemoteExecutor[] })
     }
 
     const numActive = executors.filter(
-        (executor) => !executor.executorExpired && !executor.executorStopped && executor.executorUptime,
+        (executor) =>
+            !executor.executorExpired &&
+            !executor.executorStopped &&
+            executor.executorUptime &&
+            !checkIsExecutorStale(executor),
     ).length;
-    const numStale = executors.filter((executor) => executor.executorExpired).length;
-    const numStopped = executors.filter((executor) => executor.executorStopped).length;
+    const numStale = executors.filter(checkIsExecutorStale).length;
+    const numStopped = executors.filter((executor) => executor.executorStopped && !executor.executorExpired).length;
     const status = [
         numActive && getActiveLabel(numActive),
         numStale && getStaleLabel(numStale),

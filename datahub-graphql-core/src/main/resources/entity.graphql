@@ -1193,6 +1193,11 @@ enum EntityType {
     ACTIONS_PIPELINE
 
     """
+    A datahub action request.
+    """
+    ACTION_REQUEST
+
+    """
     An asset monitor
     """
     MONITOR
@@ -1701,7 +1706,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     The first parameter, `resource`, is deprecated and no longer needs to be provided
     timeZone accepts standard IANA time zone identifier ie. America/New_York
     """
-    usageStats(resource: String, range: TimeRange, timeZone: String): UsageQueryResult
+    usageStats(resource: String, range: TimeRange, startTimeMillis: Long, timeZone: String): UsageQueryResult
 
     """
     Experimental - Summary operational & usage statistics about a Dataset

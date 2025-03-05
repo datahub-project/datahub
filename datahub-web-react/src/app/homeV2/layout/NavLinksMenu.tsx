@@ -65,7 +65,7 @@ const SubMenu = styled.div`
     position: absolute;
     top: 3px;
     left: 50px;
-    width: 220px;
+    width: 225px;
     padding-left: 10px;
 `;
 

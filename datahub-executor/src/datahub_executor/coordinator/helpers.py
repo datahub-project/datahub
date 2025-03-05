@@ -25,7 +25,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_INGESTION_ENABLED,
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_CONFIG_PATH,
-    DATAHUB_EXECUTOR_POOL_NAME,
+    DATAHUB_EXECUTOR_POOL_ID,
 )
 from datahub_executor.coordinator.config import get_ingestion_config, get_monitor_config
 from datahub_executor.coordinator.ingestion import IngestionAction
@@ -69,7 +69,7 @@ def start_ingestion_pipeline(
         discovery,
         DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
         DATAHUB_EXECUTOR_INGESTION_ENABLED,
-        DATAHUB_EXECUTOR_POOL_NAME,
+        DATAHUB_EXECUTOR_POOL_ID,
     )
 
     pipeline = Pipeline(

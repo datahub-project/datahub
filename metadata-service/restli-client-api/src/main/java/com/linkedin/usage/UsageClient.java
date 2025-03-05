@@ -17,6 +17,7 @@ public interface UsageClient {
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
       @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
       @Nullable String timeZone);
 
   @Nonnull
@@ -24,6 +25,7 @@ public interface UsageClient {
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
       @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
       @Nullable String timeZone)
       throws RemoteInvocationException, URISyntaxException;
 }

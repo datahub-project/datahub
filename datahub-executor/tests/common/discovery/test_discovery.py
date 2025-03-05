@@ -21,7 +21,7 @@ class TestDatahubExecutorDiscovery:
         graph.get_config.return_value = {
             "baseUrl": "http://localhost.localdomain",
             "remoteExecutorBackend": {
-                "revision": 1,
+                "revision": 2,
             },
         }
         discovery = DatahubExecutorDiscovery(graph)

@@ -1,19 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Checkbox, message, Modal, Typography } from 'antd';
+import { message, Typography } from 'antd';
 import styled from 'styled-components';
-import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Pagination } from '@src/alchemy-components';
-import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
+import { navigateWithFilters } from '@src/app/sharedV2/filters/navigateWithFilters';
+import { useHistory, useLocation } from 'react-router';
+import { SearchBar, Pagination } from '@src/alchemy-components';
+import FilterSection from '@src/app/sharedV2/filters/FilterSection';
+import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
 import { Message } from '../../shared/Message';
-import {
-    useAcceptProposalsMutation,
-    useListActionRequestsQuery,
-    useRejectProposalsMutation,
-} from '../../../graphql/actionRequest.generated';
 import ProposalsTable from './proposalsTable/ProposalsTable';
+import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput } from '../../../types.generated';
+import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
+import ActionsBar from './ActionsBar';
+import { ACTION_REQUEST_DEFAULT_FACETS, PROPOSALS_FILTER_LABELS } from '../utils/constants';
+import { MY_PROPOSALS_GROUP_NAME } from './utils';
 
 const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: hidden;
@@ -21,10 +21,15 @@ const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 200px);'}
+    margin: 20px;
 `;
 
 const Container = styled.div`
     display: contents;
+`;
+
+const FooterContainer = styled.div`
+    margin-top: 15px;
 `;
 
 const ActionRequestsTitle = styled(Typography.Title)`
@@ -33,34 +38,27 @@ const ActionRequestsTitle = styled(Typography.Title)`
     }
 `;
 
-const CheckboxContainer = styled.div`
-    margin-left: 10px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-`;
-
-const BulkActions = styled.div``;
-
 const DEFAULT_PAGE_SIZE = 25;
 
-function containsAll(set, subset) {
-    return Array.from(subset).every((elem) => set.has(elem));
-}
+const ProposalsTableHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
 
 type Props = {
     title?: string;
-    status: ActionRequestStatus;
     assignee?: ActionRequestAssignee;
+    groupName?: string;
+    userUrn?: string;
 };
 
-export const ProposalList = ({ title, status, assignee }: Props) => {
-    const [page, setPage] = useState(1);
-    const [selectedUrns, setSelectedUrns] = useState(new Set<string>());
+export const ProposalList = ({ title, assignee, groupName, userUrn }: Props) => {
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-    const [acceptProposalsMutation] = useAcceptProposalsMutation();
-    const [rejectProposalsMutation] = useRejectProposalsMutation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { page, orFilters, filters } = useGetActionRequestsQueryInputs();
+    const history = useHistory();
+    const location = useLocation();
+    const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
 
     // Policy list paging.
     const start = (page - 1) * pageSize;
@@ -70,102 +68,50 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
             input: {
                 start,
                 count: pageSize,
-                status,
+                orFilters,
                 assignee,
+                // This can be converted to prop if needed.
+                facets: ACTION_REQUEST_DEFAULT_FACETS,
             },
         },
         fetchPolicy: 'no-cache',
     });
 
-    let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
-
-    // Workaround for lack of read-write lookup consistency.
-    if (status === ActionRequestStatus.Pending) {
-        // Filter out completed.
-        actionRequests = actionRequests.filter((request) => request.status !== ActionRequestStatus.Completed);
-    }
-
-    const totalActionRequests = data?.listActionRequests?.total || 0;
+    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        navigateWithFilters({
+            filters: newFilters,
+            page,
+            history,
+            location,
+        });
+    };
 
     const onChangePage = (newPage: number) => {
-        setPage(newPage);
+        navigateWithFilters({
+            filters,
+            page: newPage,
+            history,
+            location,
+        });
     };
+
+    // TODO: Remove this filtering if we are passing facets to the API
+    const facets =
+        data?.listActionRequests?.facets?.filter((facet) =>
+            ACTION_REQUEST_DEFAULT_FACETS.includes(facet?.field || ''),
+        ) || [];
+
+    let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
+
+    // TODO: Should we do fetch by resource Urn instead? We have to reset the filters anyway
+    if (groupName === MY_PROPOSALS_GROUP_NAME) {
+        actionRequests = actionRequests.filter((request) => request.created.actor?.urn === userUrn);
+    }
+    const totalActionRequests = data?.listActionRequests?.total || 0;
 
     const onActionRequestUpdate = () => {
         refetch();
     };
-
-    const onSelectPage = (selected: boolean) => {
-        // If the urn is already present in selected, unselect, and vice versa.
-        const newSelectedUrns = new Set(selectedUrns);
-        if (selected) {
-            actionRequests?.forEach((request) => newSelectedUrns.add(request.urn));
-        } else {
-            actionRequests?.forEach((request) => newSelectedUrns.delete(request.urn));
-        }
-        setSelectedUrns(newSelectedUrns);
-    };
-
-    const acceptSelectedProposals = () => {
-        Modal.confirm({
-            title: 'Accept Proposals',
-            content: `Are you sure you want to accept these (${selectedUrns.size}) proposals?`,
-            okText: 'Yes',
-            onOk() {
-                acceptProposalsMutation({ variables: { urns: Array.from(selectedUrns) } })
-                    .then(() => {
-                        analytics.event({
-                            type: EventType.BatchEntityActionEvent,
-                            actionType: EntityActionType.ProposalsAccepted,
-                            entityUrns: Array.from(selectedUrns),
-                        });
-                        message.success('Accepted proposals!');
-                        refetch();
-                        setSelectedUrns(new Set());
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to accept proposals. An unexpected error occurred.');
-                    });
-            },
-        });
-    };
-
-    const rejectSelectedProposals = () => {
-        Modal.confirm({
-            title: 'Reject Proposals',
-            content: `Are you sure you want to reject these (${selectedUrns.size}) proposals?`,
-            okText: 'Yes',
-            onOk() {
-                rejectProposalsMutation({ variables: { urns: Array.from(selectedUrns) } })
-                    .then(() => {
-                        analytics.event({
-                            type: EventType.BatchEntityActionEvent,
-                            actionType: EntityActionType.ProposalsRejected,
-                            entityUrns: Array.from(selectedUrns),
-                        });
-                        message.success('Proposals declined.');
-                        refetch();
-                        setSelectedUrns(new Set());
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to reject proposals. An unexpected error occurred.');
-                    });
-            },
-        });
-    };
-
-    const isSelectPage =
-        (actionRequests.length &&
-            containsAll(
-                selectedUrns,
-                actionRequests?.map((request) => request.urn),
-            )) ||
-        false;
-
-    // Somehow need a way to refresh on action request update.
-    const selectedCount = selectedUrns.size;
 
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
 
@@ -173,48 +119,49 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
         <FinalContainer>
             {loading && <Message type="loading" content="Loading your requests…" />}
             {error && message.error('Failed to load proposals. An unknown error occurred!')}
-            <TabToolbar>
-                <CheckboxContainer>
-                    <Checkbox
-                        checked={isSelectPage}
-                        onChange={(e) => {
-                            onSelectPage(e.target.checked as boolean);
-                        }}
-                    />
-                    <Typography.Text strong type="secondary">
-                        {selectedCount > 0 ? <>{selectedCount} requests selected</> : null}
-                    </Typography.Text>
-                </CheckboxContainer>
-                <BulkActions>
-                    <Button disabled={!selectedUrns.size} onClick={acceptSelectedProposals} type="primary">
-                        <CheckOutlined />
-                        Approve All
-                    </Button>
-                    <Button disabled={!selectedUrns.size} onClick={rejectSelectedProposals} type="text">
-                        <CloseCircleOutlined />
-                        Decline All
-                    </Button>
-                </BulkActions>
-            </TabToolbar>
+
             <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
+                <ProposalsTableHeader>
+                    {/* TODO: Repleace SearchBar with Entity Search option here */}
+                    <SearchBar />
+                    <FilterSection
+                        name="proposals"
+                        loading={loading}
+                        availableFilters={facets || []}
+                        activeFilters={filters}
+                        onChangeFilters={onChangeFilters}
+                        customFilterLabels={PROPOSALS_FILTER_LABELS}
+                        aggregationsEntityTypes={[EntityType.ActionRequest]}
+                    />
+                </ProposalsTableHeader>
                 <ProposalsTable
                     actionRequests={actionRequests as ActionRequest[]}
                     isLoading={loading}
                     onActionRequestUpdate={onActionRequestUpdate}
+                    selectedKeys={selectedUrns}
+                    setSelectedKeys={setSelectedUrns}
                 />
-
-                <Pagination
-                    currentPage={page}
-                    itemsPerPage={pageSize}
-                    totalPages={totalActionRequests}
-                    onPageChange={onChangePage}
-                    showSizeChanger
-                    onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
-                    loading={loading}
-                    hideOnSinglePage
-                    showLessItems
-                />
+                <FooterContainer>
+                    {selectedUrns.length > 0 && (
+                        <ActionsBar
+                            selectedUrns={selectedUrns}
+                            setSelectedUrns={setSelectedUrns}
+                            onActionRequestUpdate={onActionRequestUpdate}
+                        />
+                    )}
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        totalPages={totalActionRequests}
+                        onPageChange={onChangePage}
+                        showSizeChanger
+                        onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
+                        loading={loading}
+                        hideOnSinglePage
+                        showLessItems
+                    />
+                </FooterContainer>
             </ActionRequestsContainer>
         </FinalContainer>
     );

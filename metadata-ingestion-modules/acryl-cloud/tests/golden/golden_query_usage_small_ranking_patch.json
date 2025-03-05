@@ -1,0 +1,52 @@
+[
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:0",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageFeatures",
+    "aspect": {
+        "json": {
+            "queryCountLast30Days": 1595,
+            "topUsersLast30Days": [
+                "urn:li:corpuser:user2",
+                "urn:li:corpuser:user1",
+                "urn:li:corpuser:user0",
+                "urn:li:corpuser:user3",
+                "urn:li:corpuser:user4"
+            ],
+            "runsPercentileLast30days": 100,
+            "lastExecutedAt": 1719399980309
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-toydac",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:4",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageFeatures",
+    "aspect": {
+        "json": {
+            "queryCountLast30Days": 397,
+            "topUsersLast30Days": [
+                "urn:li:corpuser:user2",
+                "urn:li:corpuser:user3",
+                "urn:li:corpuser:user0",
+                "urn:li:corpuser:user4",
+                "urn:li:corpuser:user1"
+            ],
+            "runsPercentileLast30days": 0,
+            "lastExecutedAt": 1719572780309
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-toydac",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
