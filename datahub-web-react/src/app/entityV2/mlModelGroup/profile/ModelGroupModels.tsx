@@ -10,7 +10,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { colors } from '@src/alchemy-components/theme';
 import { Pill } from '@src/alchemy-components/components/Pills';
-import moment from 'moment';
+import { TimestampPopover } from '../../../sharedV2/TimestampPopover';
 
 const InfoItemContainer = styled.div<{ justifyContent }>`
     display: flex;
@@ -104,11 +104,7 @@ export default function MLGroupModels() {
             key: 'createdAt',
             width: 150,
             render: (_: any, record: any) => (
-                <Typography.Text>
-                    {record.properties?.createdTS?.time
-                        ? moment(record.properties.createdTS.time).format('YYYY-MM-DD HH:mm:ss')
-                        : '-'}
-                </Typography.Text>
+                <TimestampPopover timestamp={record.properties?.createdTS?.time} title="Created At" showPopover />
             ),
         },
         {
@@ -162,18 +158,10 @@ export default function MLGroupModels() {
             <Typography.Title level={3}>Model Group Details</Typography.Title>
             <InfoItemContainer justifyContent="left">
                 <InfoItem title="Created At">
-                    <InfoItemContent>
-                        {modelGroup?.properties?.created?.time
-                            ? moment(modelGroup.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                            : '-'}
-                    </InfoItemContent>
+                    <TimestampPopover timestamp={modelGroup?.properties?.created?.time} title="Created At" />
                 </InfoItem>
                 <InfoItem title="Last Modified At">
-                    <InfoItemContent>
-                        {modelGroup?.properties?.lastModified?.time
-                            ? moment(modelGroup.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
-                            : '-'}
-                    </InfoItemContent>
+                    <TimestampPopover timestamp={modelGroup?.properties?.lastModified?.time} title="Last Modified At" />
                 </InfoItem>
                 {modelGroup?.properties?.created?.actor && (
                     <InfoItem title="Created By">
