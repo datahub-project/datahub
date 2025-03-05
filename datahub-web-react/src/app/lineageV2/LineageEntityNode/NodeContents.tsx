@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
 import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
@@ -222,6 +223,12 @@ const PropertyBadgeWrapper = styled.div`
     top: -16px;
 `;
 
+const StyledVersioningBadge = styled(VersioningBadge)`
+    padding: 0 4px;
+    line-height: 1;
+    max-width: 100px;
+`;
+
 interface Props {
     urn: string;
     type: EntityType;
@@ -441,6 +448,15 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                     title={entity?.name}
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
+                                    extra={
+                                        entity?.versionProperties && (
+                                            <StyledVersioningBadge
+                                                showPopover={false}
+                                                versionProperties={entity.versionProperties}
+                                                size="inherit"
+                                            />
+                                        )
+                                    }
                                 />
                                 {entity?.deprecation?.deprecated && (
                                     <DeprecationIcon

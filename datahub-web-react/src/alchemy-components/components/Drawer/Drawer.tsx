@@ -1,21 +1,17 @@
 import React from 'react';
 import { Button } from '../Button';
 import { Text } from '../Text';
-import { StyledDrawer, TitleContainer } from './components';
+import { StyledDrawer, TitleContainer, TitleLeftContainer } from './components';
 import { maskTransparentStyle } from './constants';
 import { DrawerProps } from './types';
-
-export const drawerDefault: Omit<DrawerProps, 'title'> = {
-    width: 600,
-    closable: true,
-    maskTransparent: false,
-};
+import { drawerDefault } from './defaults';
 
 export const Drawer = ({
     title,
     children,
     open,
     onClose,
+    onBack,
     width = drawerDefault.width,
     closable = drawerDefault.closable,
     maskTransparent = drawerDefault.maskTransparent,
@@ -26,9 +22,22 @@ export const Drawer = ({
             destroyOnClose
             title={
                 <TitleContainer>
-                    <Text weight="bold" size="xl">
-                        {title}
-                    </Text>
+                    <TitleLeftContainer>
+                        {onBack && (
+                            <Button
+                                color="gray"
+                                icon="ArrowBack"
+                                iconPosition="left"
+                                isCircle
+                                onClick={() => onBack?.()}
+                                size="xl"
+                                variant="text"
+                            />
+                        )}
+                        <Text weight="bold" size="xl">
+                            {title}
+                        </Text>
+                    </TitleLeftContainer>
                     {closable && (
                         <Button
                             color="gray"

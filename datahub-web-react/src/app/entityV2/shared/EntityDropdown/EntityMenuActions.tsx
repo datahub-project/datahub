@@ -1,6 +1,7 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import ShareMenuAction from '../../../shared/share/v2/ShareMenuAction';
 import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
@@ -63,6 +64,8 @@ function EntityMenuActions(props: Props) {
 
     const refetch = useRefetch();
 
+    const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
+
     const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
     return (
         <>
@@ -75,8 +78,8 @@ function EntityMenuActions(props: Props) {
                     {menuItems.has(EntityMenuItems.DELETE) && (
                         <DeleteEntityMenuItem onDelete={onDelete} options={options} />
                     )}
-                    {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}{' '}
-                    {hasVersioningActions && (
+                    {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
+                    {entityVersioningEnabled && hasVersioningActions && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction
                                 menuItems={

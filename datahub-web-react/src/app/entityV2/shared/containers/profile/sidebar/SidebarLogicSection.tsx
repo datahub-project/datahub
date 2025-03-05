@@ -1,10 +1,12 @@
 import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
+import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
+import { Button } from '@src/alchemy-components';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { EntityType, QueryEntity } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
@@ -43,6 +45,16 @@ export function SidebarDatasetViewDefinitionSection() {
     if (!statement) return null;
 
     return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
+}
+
+export function SidebarDataJobTransformationLogicSection() {
+    const baseEntity = useBaseEntity<GetDataJobQuery>();
+    const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
+    if (!statement) return null;
+
+    return <SidebarLogicSection title="Logic" statement={statement} externalUrl={externalUrl} />;
 }
 
 export function SidebarQueryLogicSection() {
@@ -107,8 +119,8 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         closeIcon={null}
                         width="1000px"
                         footer={
-                            <Button key="back" onClick={() => setShowFullContentModal(false)}>
-                                Dismiss
+                            <Button variant="text" key="back" onClick={() => setShowFullContentModal(false)}>
+                                Close
                             </Button>
                         }
                         open={showFullContentModal}
@@ -147,7 +159,8 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         {showFormatted ? formattedLogic : statement}
                     </PreviewSyntax>
                     <Button
-                        type="text"
+                        style={{ paddingTop: 0 }}
+                        variant="text"
                         onClick={() => {
                             if (isEmbeddedProfile) {
                                 window.open(`${externalUrl}/View Definition`, '_blank');

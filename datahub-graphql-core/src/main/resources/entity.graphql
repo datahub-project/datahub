@@ -7412,6 +7412,34 @@ type DatasetProfile implements TimeSeriesAspect {
 }
 
 """
+A quantile along with its corresponding value
+"""
+type Quantile {
+  """
+  Quantile. E.g. "0.25" for the 25th percentile
+  """
+  quantile: String!
+  """
+  The value of the quantile
+  """
+  value: String!
+}
+
+"""
+A frequency distribution of a specific value within a dataset
+"""
+type ValueFrequency {
+    """
+    Specific value. For numeric colums, the value will contain a strigified value
+    """
+    value: String!
+    """
+    Volume of the value
+    """
+    frequency: Long!
+}
+
+"""
 An individual Dataset Field Profile
 """
 type DatasetFieldProfile {
@@ -7469,6 +7497,17 @@ type DatasetFieldProfile {
   A set of sample values for the field
   """
 	sampleValues: [String!]
+
+  """
+  Sorted list of quantile cutoffs for the field, in ascending order
+  Only for numerical columns
+  """
+    quantiles: [Quantile!]
+
+  """
+  Volume of each column value for a low-cardinality / categorical field
+  """
+    distinctValueFrequencies: [ValueFrequency!]
 }
 
 """
