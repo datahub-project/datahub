@@ -85,7 +85,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
@@ -694,7 +693,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def generate_virtual_dataset_lineage(
         self, parsed_query_object: SqlParsingResult, datasource_urn: str
     ) -> UpstreamLineageClass:
-        cll: List[ColumnLineageInfo] = (
+        cll = (
             parsed_query_object.column_lineage
             if parsed_query_object.column_lineage is not None
             else []
@@ -761,14 +760,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             "rendered_sql"
         ) or dataset_response.get("result", {}).get("sql")
 
-        parsed_query_object = create_lineage_sql_parsed_result(
-            query=sql,
-            default_db=upstream_warehouse_db_name,
-            platform=upstream_warehouse_platform,
-            platform_instance=None,
-            env=self.config.env,
-        )
-
         # Preset has a way of naming their platforms differently than
         # how datahub names them, so map the platform name to the correct naming
         warehouse_naming = {
@@ -779,6 +770,16 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if upstream_warehouse_platform in warehouse_naming:
             upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
+
+        parsed_query_object = create_lineage_sql_parsed_result(
+            query=sql,
+            default_db=upstream_warehouse_db_name,
+            platform=upstream_warehouse_platform,
+            platform_instance=None,
+            env=self.config.env,
+        )
+
+        print(f"\n\n\nparsed query object: {parsed_query_object}\n\n\n")
 
         if sql:
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
