@@ -139,6 +139,7 @@ def test_column_level_lineage(requests_mock):
         datasource_urn="urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)",
         dataset_url="mock://mock-domain.superset.com/tablemodelview/edit/2",
     )
+    print(f"\n\nvirtual lineage: {virtual_lineage}\n\n")
 
     assert any(
         "urn:li:dataset:(urn:li:dataPlatform:postgres,test-db.databases,TEST)"
