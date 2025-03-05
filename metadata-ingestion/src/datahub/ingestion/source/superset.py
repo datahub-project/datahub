@@ -760,6 +760,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
 
+        # if we have rendered sql, we always use that and defualt back to regular sql
         sql = dataset_response.get("result", {}).get(
             "rendered_sql"
         ) or dataset_response.get("result", {}).get("sql")
@@ -783,6 +784,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+        # if we sql, we label the datasets as virtual
         if sql:
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             upstream_lineage = self.generate_virtual_dataset_lineage(
