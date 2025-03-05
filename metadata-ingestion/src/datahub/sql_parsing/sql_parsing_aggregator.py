@@ -152,7 +152,7 @@ class QueryMetadata:
             actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
 
-    def get_query_subject_urns(
+    def get_subjects(
         self,
         downstream_urn: Optional[str],
         include_fields: bool,
@@ -176,21 +176,6 @@ class QueryMetadata:
                     )
         return list(query_subject_urns)
 
-    def make_query_subjects(
-        self,
-        downstream_urn: Optional[str],
-        include_fields: bool = True,
-    ) -> models.QuerySubjectsClass:
-        return models.QuerySubjectsClass(
-            subjects=[
-                models.QuerySubjectClass(entity=urn)
-                for urn in self.get_query_subject_urns(
-                    downstream_urn=downstream_urn,
-                    include_fields=include_fields,
-                )
-            ]
-        )
-
     def make_query_properties(self) -> models.QueryPropertiesClass:
         return models.QueryPropertiesClass(
             statement=models.QueryStatementClass(
@@ -201,6 +186,12 @@ class QueryMetadata:
             created=self.make_created_audit_stamp(),
             lastModified=self.make_last_modified_audit_stamp(),
         )
+
+
+def make_query_subjects(urns: List[UrnStr]) -> models.QuerySubjectsClass:
+    return models.QuerySubjectsClass(
+        subjects=[models.QuerySubjectClass(entity=urn) for urn in urns]
+    )
 
 
 @dataclasses.dataclass
@@ -1489,9 +1480,11 @@ class SqlParsingAggregator(Closeable):
             entityUrn=self._query_urn(query_id),
             aspects=[
                 query.make_query_properties(),
-                query.make_query_subjects(
-                    downstream_urn=downstream_urn,
-                    include_fields=self.generate_query_subject_fields,
+                make_query_subjects(
+                    query.get_subjects(
+                        downstream_urn=downstream_urn,
+                        include_fields=self.generate_query_subject_fields,
+                    )
                 ),
                 models.DataPlatformInstanceClass(
                     platform=self.platform.urn(),
