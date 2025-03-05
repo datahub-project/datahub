@@ -5,6 +5,7 @@ import { Badge as BadgeAntd } from 'antd';
 import styled from 'styled-components';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useUrlQueryParam } from '../shared/useUrlQueryParam';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
