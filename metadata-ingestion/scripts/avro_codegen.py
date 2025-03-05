@@ -526,6 +526,36 @@ def get_notebook_id(self) -> str:
 """
     ],
     "tag": [_create_from_id.format(class_name="TagUrn")],
+    "chart": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "ChartUrn":
+    return ChartUrn(
+        dashboard_tool=platform,
+        chart_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
+    "dashboard": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "DashboardUrn":
+    return DashboardUrn(
+        dashboard_tool=platform,
+        dashboard_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
 }
 
 
