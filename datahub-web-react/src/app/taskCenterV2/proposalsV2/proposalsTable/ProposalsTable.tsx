@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { useGetColumns } from './useGetColumns';
 
 const TableContainer = styled.div`
-    margin: 20px 20px 0 20px;
     display: flex;
     overflow: auto;
     flex: 1;
