@@ -397,7 +397,12 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
 
 def _jsonify(data: Any) -> Any:
     if dataclasses.is_dataclass(data):
-        return dataclasses.asdict(data)
+        # dataclasses.asdict() is recursive, which is not what we want.
+        # We're doing the recursion manually here, so we don't want
+        # dataclasses to do it too.
+        return {
+            f.name: _jsonify(getattr(data, f.name)) for f in dataclasses.fields(data)
+        }
     elif isinstance(data, list):
         return [_jsonify(item) for item in data]
     elif isinstance(data, dict):
@@ -417,9 +422,7 @@ def extract_sql_agg_log(db_file: str) -> None:
         raise click.UsageError("DB file must be a sqlite db")
 
     output_dir = pathlib.Path(db_file).with_suffix("")
-    if output_dir.exists():
-        raise click.UsageError(f"Output directory {output_dir} already exists")
-    output_dir.mkdir()
+    output_dir.mkdir(exist_ok=True)
 
     shared_connection = ConnectionWrapper(pathlib.Path(db_file))
 
@@ -441,9 +444,15 @@ WHERE
     logger.info(f"Extracting {len(tables)} tables from {db_file}: {tables}")
 
     for table in tables:
+        table_output_path = output_dir / f"{table}.json"
+        if table_output_path.exists():
+            logger.info(f"Skipping {table_output_path} because it already exists")
+            continue
+
         # Some of the tables might actually be FileBackedList. Because
         # the list is built on top of the FileBackedDict, we don't
         # need to distinguish between the two cases.
+
         table_data: FileBackedDict[Any] = FileBackedDict(
             shared_connection=shared_connection, tablename=table
         )
@@ -455,7 +464,6 @@ WHERE
             for k, v in items:
                 data[k] = _jsonify(v)
 
-        table_output_path = output_dir / f"{table}.json"
         with open(table_output_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
         logger.info(f"Extracted {len(data)} entries to {table_output_path}")
