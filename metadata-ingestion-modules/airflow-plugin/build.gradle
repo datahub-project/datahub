@@ -9,6 +9,8 @@ ext {
   venv_name = 'venv'
 }
 
+ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "
+
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
@@ -37,7 +39,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
 }
@@ -51,7 +53,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   // For some reason, the Airflow constraints files pin things like black and pytest.
   // This allows us to not respect those constraints ourselves.
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pip_install_command} -e .[dev${extra_pip_extras}] && " +
     "touch ${sentinel_file}"
 }
@@ -60,7 +62,7 @@ task installTest(type: Exec, dependsOn: [installDev]) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -72,14 +74,14 @@ task lint(type: Exec, dependsOn: installDev) {
    */
   commandLine 'bash', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "ruff check src/ tests/ && " +
     "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "ruff check --fix src/ tests/ && " +
     "ruff format src/ tests/ "
 }
@@ -95,7 +97,7 @@ task testQuick(type: Exec, dependsOn: installTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
@@ -106,7 +108,7 @@ task cleanPythonCache(type: Exec) {
 }
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 

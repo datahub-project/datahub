@@ -231,7 +231,7 @@ def _docker_compose_v2() -> List[str]:
             # docker-compose v1 is not installed either.
             raise DockerComposeVersionError(
                 "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
-            )
+            ) from None
 
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
@@ -430,7 +430,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()  # noqa: C901
+@docker.command()
 @click.option(
     "--version",
     type=str,
@@ -592,7 +592,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(  # noqa: C901
+def quickstart(
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,

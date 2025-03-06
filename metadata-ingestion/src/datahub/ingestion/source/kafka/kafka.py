@@ -73,6 +73,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -190,7 +191,7 @@ def get_kafka_admin_client(
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
@@ -271,7 +272,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

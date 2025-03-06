@@ -481,7 +481,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_ICEBERG": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/",
             "name": "TABLE_1",
@@ -749,7 +750,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_DYNAMIC": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/",
             "name": "TABLE_2",
@@ -1017,7 +1019,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "CLUSTERING_KEY": "LINEAR(COL_1)"
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_HYBRID": "true"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/",
             "name": "TABLE_3",
@@ -3731,6 +3734,22 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -3882,6 +3901,279 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_db.test_schema.stream_1",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "col_1",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER(38,0)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_2",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_3",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_4",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_5",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_6",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_7",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_8",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_9",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col_10",
+                    "nullable": false,
+                    "description": "Comment for column",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(255)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "metadata$action",
+                    "nullable": false,
+                    "description": "Type of DML operation (INSERT/DELETE)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(10)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "metadata$isupdate",
+                    "nullable": false,
+                    "description": "Whether row is from UPDATE operation",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "BOOLEAN",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "metadata$row_id",
+                    "nullable": false,
+                    "description": "Unique row identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER(38,0)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Snowflake Stream"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "SOURCE_TYPE": "Table",
+                "TYPE": "DELTA",
+                "STALE": "false",
+                "MODE": "DEFAULT",
+                "OWNER_ROLE_TYPE": "ROLE",
+                "TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
+                "BASE_TABLES": "TEST_DB.TEST_SCHEMA.TABLE_1",
+                "STALE_AFTER": "2021-06-22T00:00:00+00:00"
+            },
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/STREAM_1/",
+            "name": "STREAM_1",
+            "qualifiedName": "TEST_DB.TEST_SCHEMA.STREAM_1",
+            "description": "Comment for Stream 1",
+            "created": {
+                "time": 1623110400000
+            },
+            "lastModified": {
+                "time": 1623110400000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_17-13_30_28-vz7bmd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Ctest_db.test_schema.view_1%2CPROD%29",
     "changeType": "UPSERT",
@@ -4005,6 +4297,31 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_07-13_38_56-3fo398",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.stream_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
+                    "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
+                },
+                {
+                    "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
+                    "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
         "lastRunId": "no-run-id-provided"
     }
 },

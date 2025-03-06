@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_gx_plugin/__init__.py") as fp:
+with open("./src/datahub_gx_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -59,7 +59,7 @@ base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.9.1",
+    "ruff==0.9.7",
     "mypy>=1.4.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.

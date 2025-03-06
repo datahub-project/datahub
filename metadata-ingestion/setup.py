@@ -3,7 +3,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub/__init__.py") as fp:
+with open("./src/datahub/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 _version: str = package_metadata["__version__"]
@@ -38,7 +38,8 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.11.3,<1.12",
+    # avro has historically made breaking changes, so we have a cautious upper bound.
+    "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
@@ -76,7 +77,10 @@ kafka_common = {
     # now provide prebuilt wheels for most platforms, including M1 Macs and
     # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
     # from source remains a pain.
-    "confluent_kafka[schemaregistry]>=1.9.0",
+    # With the release of 2.8.1, confluent-kafka only released a source distribution,
+    # and no prebuilt wheels.
+    # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
+    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -99,9 +103,9 @@ usage_common = {
 
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
-    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "sqlglot[rs]==25.32.1",
+    # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    # but not longer do.
+    "sqlglot[rs]==26.6.0",
     "patchy==2.8.0",
 }
 
@@ -251,6 +255,7 @@ iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
     "pyiceberg>=0.4.0",
+    *cachetools_lib,
 }
 
 mssql_common = {
@@ -300,6 +305,8 @@ abs_base = {
 data_lake_profiling = {
     "pydeequ>=1.1.0",
     "pyspark~=3.5.0",
+    # cachetools is used by the profiling config
+    *cachetools_lib,
 }
 
 delta_lake = {
@@ -312,7 +319,10 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {"slack-sdk==3.18.1"}
+slack = {
+    "slack-sdk==3.18.1",
+    "tenacity>=8.0.1",
+}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -404,13 +414,14 @@ plugins: Dict[str, Set[str]] = {
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4"},
+    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
+        *cachetools_lib,
     },
     "feast": {
         "feast>=0.34.0,<1",
@@ -422,7 +433,7 @@ plugins: Dict[str, Set[str]] = {
         "numpy<2",
     },
     "grafana": {"requests"},
-    "glue": aws_common,
+    "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -443,6 +454,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
+    "iceberg-catalog": aws_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -483,7 +495,7 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
-    "salesforce": {"simple-salesforce"},
+    "salesforce": {"simple-salesforce", *cachetools_lib},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
@@ -505,12 +517,10 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": (
-        (
-            microsoft_common
-            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
-            | sqlglot_lib
-            | threading_timeout_common
-        )
+        microsoft_common
+        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | sqlglot_lib
+        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
@@ -545,7 +555,6 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     # We need to avoid 2.31.0.5 and 2.31.0.4 due to
@@ -592,7 +601,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.2",
+    "ruff==0.9.7",
     "mypy==1.10.1",
 }
 
@@ -628,6 +637,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast",
             "iceberg",
+            "iceberg-catalog",
             "mlflow",
             "json-schema",
             "ldap",
@@ -690,6 +700,7 @@ full_test_dev_requirements = {
             "hana",
             "hive",
             "iceberg",
+            "iceberg-catalog",
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -742,6 +753,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
+        "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",

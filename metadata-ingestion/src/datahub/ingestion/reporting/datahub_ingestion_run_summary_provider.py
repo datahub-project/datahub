@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from datahub import nice_version_name
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -163,12 +163,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                 key: DatahubIngestionRunSummaryProvider._convert_sets_to_lists(value)
                 for key, value in obj.items()
             }
-        elif isinstance(obj, list):
-            return [
-                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
-                for element in obj
-            ]
-        elif isinstance(obj, set):
+        elif isinstance(obj, list) or isinstance(obj, set):
             return [
                 DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
                 for element in obj

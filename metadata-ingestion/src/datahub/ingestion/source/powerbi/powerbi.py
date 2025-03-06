@@ -582,8 +582,11 @@ class Mapper:
             if tile.dataset is not None and tile.dataset.webUrl is not None:
                 custom_properties[Constant.DATASET_WEB_URL] = tile.dataset.webUrl
 
-            if tile.report is not None and tile.report.id is not None:
-                custom_properties[Constant.REPORT_ID] = tile.report.id
+            if tile.report_id is not None:
+                custom_properties[Constant.REPORT_ID] = tile.report_id
+
+            if tile.report is not None and tile.report.webUrl is not None:
+                custom_properties[Constant.REPORT_WEB_URL] = tile.report.webUrl
 
             return custom_properties
 
@@ -887,9 +890,7 @@ class Mapper:
                         set(user_rights) & set(self.__config.ownership.owner_criteria)
                     )
                     > 0
-                ):
-                    user_mcps.extend(self.to_datahub_user(user))
-                elif self.__config.ownership.owner_criteria is None:
+                ) or self.__config.ownership.owner_criteria is None:
                     user_mcps.extend(self.to_datahub_user(user))
                 else:
                     continue
@@ -1053,6 +1054,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dashboard_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi report to Datahub dashboard
@@ -1074,6 +1076,7 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
+            dashboards=dashboard_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -1167,8 +1170,28 @@ class Mapper:
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
+        # find all dashboards with a Tile referencing this report
+        downstream_dashboards_edges = []
+        for d in workspace.dashboards.values():
+            if any(t.report_id == report.id for t in d.tiles):
+                dashboard_urn = builder.make_dashboard_urn(
+                    platform=self.__config.platform_name,
+                    platform_instance=self.__config.platform_instance,
+                    name=d.get_urn_part(),
+                )
+                edge = EdgeClass(
+                    destinationUrn=dashboard_urn,
+                    sourceUrn=None,
+                    created=None,
+                    lastModified=None,
+                    properties=None,
+                )
+                downstream_dashboards_edges.append(edge)
+
         # Let's convert report to datahub dashboard
-        report_mcps = self.report_to_dashboard(workspace, report, chart_mcps, user_mcps)
+        report_mcps = self.report_to_dashboard(
+            workspace, report, chart_mcps, user_mcps, downstream_dashboards_edges
+        )
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -1322,14 +1345,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     context=",".join(
                         [
                             dataset.name
-                            for dataset in workspace.independent_datasets
+                            for dataset in workspace.independent_datasets.values()
                             if dataset.name
                         ]
                     ),
                 )
             return
 
-        for dataset in workspace.independent_datasets:
+        for dataset in workspace.independent_datasets.values():
             yield from auto_workunit(
                 stream=self.mapper.to_datahub_dataset(
                     dataset=dataset,
@@ -1440,7 +1463,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from auto_workunit(self.emit_app(workspace=workspace))
 
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             try:
                 # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -1459,7 +1482,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 if wu is not None:
                     yield wu
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace
             ):

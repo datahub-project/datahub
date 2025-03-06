@@ -388,6 +388,12 @@ public class PoliciesConfig {
           "View Dataset Profile",
           "The ability to access dataset profile (snapshot statistics)");
 
+  public static final Privilege VIEW_DATASET_OPERATIONS_PRIVILEGE =
+      Privilege.of(
+          "VIEW_DATASET_OPERATIONS",
+          "View Dataset Operations",
+          "The ability to access dataset operations (changes to dataset)");
+
   public static final Privilege EDIT_QUERIES_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_QUERIES",
@@ -399,6 +405,34 @@ public class PoliciesConfig {
           "EDIT_ENTITY_DATA_CONTRACT",
           "Edit Data Contract",
           "The ability to edit the Data Contract for an entity.");
+
+  public static final Privilege DATA_READ_ONLY_PRIVILEGE =
+      Privilege.of(
+          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
+
+  public static final Privilege DATA_READ_WRITE_PRIVILEGE =
+      Privilege.of(
+          "DATA_READ_WRITE",
+          "Read-write data-access",
+          "The ability to read & write the data in a dataset.");
+
+  public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
+      Privilege.of("DATA_MANAGE_TABLES", "Manage tables", "The ability to create and drop tables.");
+
+  public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
+      Privilege.of("DATA_MANAGE_VIEWS", "Manage views", "The ability to create and drop views.");
+
+  public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
+      Privilege.of(
+          "DATA_MANAGE_NAMESPACES",
+          "Manage namespaces",
+          "The ability to create and drop namespaces.");
+
+  public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
+      Privilege.of(
+          "DATA_LIST_ENTITIES",
+          "List tables, views & namespaces",
+          "The ability to list tables, views and namespaces.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
@@ -516,6 +550,12 @@ public class PoliciesConfig {
           "Produce Platform Event API",
           "The ability to produce Platform Events using the API.");
 
+  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
+          "Edit Dataset Column Business Attribute",
+          "The ability to edit the column (field) Business Attribute associated with a dataset schema.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES =
       ResourcePrivileges.of(
           "dataset",
@@ -526,6 +566,7 @@ public class PoliciesConfig {
                   ImmutableList.of(
                       VIEW_DATASET_USAGE_PRIVILEGE,
                       VIEW_DATASET_PROFILE_PRIVILEGE,
+                      VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
@@ -533,7 +574,10 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE))
+                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      DATA_READ_ONLY_PRIVILEGE,
+                      DATA_READ_WRITE_PRIVILEGE,
+                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -757,6 +801,17 @@ public class PoliciesConfig {
           "A logical collection of versioned entities.",
           COMMON_ENTITY_PRIVILEGES);
 
+  public static final ResourcePrivileges PLATFORM_INSTANCE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataPlatformInstance",
+          "Data Platform Instance",
+          "Data Platform Instances on Datahub",
+          ImmutableList.of(
+              DATA_MANAGE_VIEWS_PRIVILEGE,
+              DATA_MANAGE_TABLES_PRIVILEGE,
+              DATA_MANAGE_NAMESPACES_PRIVILEGE,
+              DATA_LIST_ENTITIES_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -776,7 +831,8 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
-          VERSION_SET_PRIVILEGES);
+          VERSION_SET_PRIVILEGES,
+          PLATFORM_INSTANCE_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

@@ -30,6 +30,7 @@ dependencies {
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
+    implementation externalDependency.opentelemetrySdkTrace
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

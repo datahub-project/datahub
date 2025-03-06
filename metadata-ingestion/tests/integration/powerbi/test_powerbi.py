@@ -103,7 +103,7 @@ def register_mock_api(
 
     api_vs_response.update(override_data or {})
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -978,16 +978,16 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         name="demo-workspace",
         type="Workspace",
         datasets={},
-        dashboards=[],
-        reports=[],
+        dashboards={},
+        reports={},
         report_endorsements={},
         dashboard_endorsements={},
         scan_result={},
-        independent_datasets=[],
+        independent_datasets={},
         app=None,
     )
     # Fetch actual reports
-    reports: List[Report] = cast(
+    reports: Dict[str, Report] = cast(
         PowerBiDashboardSource, pipeline.source
     ).powerbi_client.get_reports(workspace=mock_workspace)
 
@@ -1020,8 +1020,8 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             "pages": [],
         },
     ]
-    expected_reports: List[Report] = [
-        Report(
+    expected_reports: Dict[str, Report] = {
+        report[Constant.ID]: Report(
             id=report[Constant.ID],
             name=report[Constant.NAME],
             type=ReportType.PowerBIReport,
@@ -1045,14 +1045,15 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
         )
         for report in mock_reports
-    ]
+    }
     # Compare actual and expected reports
     for i in range(2):
-        assert reports[i].id == expected_reports[i].id
-        assert reports[i].name == expected_reports[i].name
-        assert reports[i].description == expected_reports[i].description
-        assert reports[i].dataset == expected_reports[i].dataset
-        assert reports[i].pages == expected_reports[i].pages
+        report_id = mock_reports[i][Constant.ID]
+        assert reports[report_id].id == expected_reports[report_id].id
+        assert reports[report_id].name == expected_reports[report_id].name
+        assert reports[report_id].description == expected_reports[report_id].description
+        assert reports[report_id].dataset == expected_reports[report_id].dataset
+        assert reports[report_id].pages == expected_reports[report_id].pages
 
 
 @freeze_time(FROZEN_TIME)
@@ -1439,12 +1440,12 @@ def test_powerbi_cross_workspace_reference_info_message(
     is_entry_present: bool = False
     # Printing INFO entries
     for entry in info_entries.values():
-        if entry.title == "Missing Lineage For Tile":
+        if entry.title == "Missing Dataset Lineage For Tile":
             is_entry_present = True
             break
 
     assert is_entry_present, (
-        'Info message "Missing Lineage For Tile" should be present in reporter'
+        'Info message "Missing Dataset Lineage For Tile" should be present in reporter'
     )
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1462,8 +1463,10 @@ def common_app_ingest(
     pytestconfig: pytest.Config,
     requests_mock: Any,
     output_mcp_path: str,
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Pipeline:
+    if override_config is None:
+        override_config = {}
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,

@@ -107,9 +107,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         assert database_name
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
-        topic_prefix = self.connector_manifest.config.get("topic.prefix", None)
+        topic_prefix = self.connector_manifest.config.get("topic.prefix") or ""
 
-        query = self.connector_manifest.config.get("query", None)
+        query = self.connector_manifest.config.get("query") or ""
 
         transform_names = (
             self.connector_manifest.config.get("transforms", "").split(",")
@@ -447,13 +447,10 @@ class DebeziumSourceConnector(BaseConnector):
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
 
-        if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            parser = self.DebeziumParser(
-                source_platform="mysql",
-                server_name=self.get_server_name(connector_manifest),
-                database_name=None,
-            )
-        elif connector_class == "MySqlConnector":
+        if (
+            connector_class == "io.debezium.connector.mysql.MySqlConnector"
+            or connector_class == "MySqlConnector"
+        ):
             parser = self.DebeziumParser(
                 source_platform="mysql",
                 server_name=self.get_server_name(connector_manifest),

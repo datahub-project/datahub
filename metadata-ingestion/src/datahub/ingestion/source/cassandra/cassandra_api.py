@@ -23,9 +23,9 @@ class CassandraKeyspace:
 
 
 @dataclass
-class CassandraTable:
+class CassandraSharedDatasetFields:
     keyspace_name: str
-    table_name: str
+
     bloom_filter_fp_chance: Optional[float]
     caching: Optional[Dict[str, str]]
     comment: Optional[str]
@@ -44,6 +44,11 @@ class CassandraTable:
 
 
 @dataclass
+class CassandraTable(CassandraSharedDatasetFields):
+    table_name: str
+
+
+@dataclass
 class CassandraColumn:
     keyspace_name: str
     table_name: str
@@ -55,8 +60,10 @@ class CassandraColumn:
 
 
 @dataclass
-class CassandraView(CassandraTable):
+class CassandraView(CassandraSharedDatasetFields):
     view_name: str
+
+    base_table_name: str
     include_all_columns: Optional[bool]
     where_clause: str = ""
 
@@ -152,7 +159,8 @@ class CassandraAPI:
             self.report.failure(message="Failed to authenticate to Cassandra", exc=e)
             return False
 
-    def get(self, query: str, parameters: Optional[List] = []) -> List:
+    def get(self, query: str, parameters: Optional[List] = None) -> List:
+        parameters = parameters or []
         if not self._cassandra_session:
             return []
 
@@ -261,7 +269,7 @@ class CassandraAPI:
             views = self.get(CassandraQueries.GET_VIEWS_QUERY, [keyspace_name])
             view_list = [
                 CassandraView(
-                    table_name=row.base_table_name,
+                    base_table_name=row.base_table_name,
                     keyspace_name=row.keyspace_name,
                     view_name=row.view_name,
                     bloom_filter_fp_chance=row.bloom_filter_fp_chance,

@@ -22,7 +22,9 @@ from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -33,9 +35,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -46,6 +60,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -80,7 +95,7 @@ class ProcessGroupKey(ContainerKey):
     process_group_id: str
 
 
-class NifiSourceConfig(EnvConfigMixin):
+class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     site_url: str = Field(
         description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
     )
@@ -451,8 +466,8 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 
 @dataclass
-class NifiSourceReport(SourceReport):
-    filtered: List[str] = field(default_factory=list)
+class NifiSourceReport(StaleEntityRemovalSourceReport):
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -463,13 +478,14 @@ class NifiSourceReport(SourceReport):
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
-class NifiSource(Source):
+class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
     report: NifiSourceReport
 
     def __init__(self, config: NifiSourceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
+        self.ctx = ctx
         self.report = NifiSourceReport()
         self.session = requests.Session()
 
@@ -487,7 +503,7 @@ class NifiSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -893,7 +909,7 @@ class NifiSource(Source):
         if not delete_response.ok:
             logger.error("failed to delete provenance ", provenance_uri)
 
-    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = self.make_flow_urn()
@@ -1150,6 +1166,14 @@ class NifiSource(Source):
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.authenticate()
@@ -1210,11 +1234,14 @@ class NifiSource(Source):
         job_type: str,
         description: Optional[str],
         job_properties: Optional[Dict[str, str]] = None,
-        inlets: List[str] = [],
-        outlets: List[str] = [],
-        inputJobs: List[str] = [],
+        inlets: Optional[List[str]] = None,
+        outlets: Optional[List[str]] = None,
+        inputJobs: Optional[List[str]] = None,
         status: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        inlets = inlets or []
+        outlets = outlets or []
+        inputJobs = inputJobs or []
         logger.debug(f"Begining construction of job workunit for {job_urn}")
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}

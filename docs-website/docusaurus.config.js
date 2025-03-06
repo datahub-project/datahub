@@ -11,7 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  staticDirectories: ["static", "genStatic"],
+  staticDirectories: ["static"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
   headTags: [
     {
@@ -77,7 +77,7 @@ module.exports = {
     announcementBar: {
           id: "announcement-3",
           content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0 launching at our 5th birthday party!</p><a href="https://lu.ma/0j5jcocn" target="_blank" class="button">Register<span> →</span></a></div>',
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0</p><a href="https://youtu.be/B3IA6cLaKEk" target="_blank" class="button">Watch Now<span> →</span></a></div>',
           backgroundColor: "#111",
           textColor: "#ffffff",
           isCloseable: false,
@@ -167,7 +167,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "/slack",
+              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
               label: "Join Slack",
             },
             {
@@ -189,7 +189,7 @@ module.exports = {
           ],
         },
         {
-          href: "/slack",
+          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {

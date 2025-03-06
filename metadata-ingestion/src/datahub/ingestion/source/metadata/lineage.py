@@ -104,8 +104,8 @@ class FineGrainedLineageConfig(ConfigModel):
 
 class EntityNodeConfig(ConfigModel):
     entity: EntityConfig
-    upstream: Optional[List["EntityNodeConfig"]]
-    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]]
+    upstream: Optional[List["EntityNodeConfig"]] = None
+    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]] = None
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself

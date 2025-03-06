@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenAPIV3Generator {
+  private static final String PATH_PREFIX = "/openapi/v3";
   private static final String MODEL_VERSION = "_v3";
   private static final String TYPE_OBJECT = "object";
   private static final String TYPE_BOOLEAN = "boolean";
@@ -112,8 +113,6 @@ public class OpenAPIV3Generator {
             .nullable(true));
 
     // --> Aspect components
-    components.addSchemas(
-        ASPECTS + ASPECT_RESPONSE_SUFFIX, buildAspectsRefResponseSchema(entityRegistry));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -171,18 +170,19 @@ public class OpenAPIV3Generator {
     final Paths paths = new Paths();
 
     // --> Cross-entity Paths
-    paths.addPathItem("/v3/entity/scroll", buildGenericListEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/scroll", buildGenericListEntitiesPath());
 
     // --> Entity Paths
     definedEntitySpecs.forEach(
         e -> {
           paths.addPathItem(
-              String.format("/v3/entity/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+              String.format(PATH_PREFIX + "/entity/%s", e.getName().toLowerCase()),
+              buildListEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/batchGet", e.getName().toLowerCase()),
               buildBatchGetEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/{urn}", e.getName().toLowerCase()),
               buildSingleEntityPath(e));
         });
 
@@ -196,8 +196,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
     definedEntitySpecs.forEach(
         e ->
@@ -208,8 +209,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
@@ -219,7 +221,8 @@ public class OpenAPIV3Generator {
           .forEach(
               entitySpec -> {
                 paths.addPathItem(
-                    "/v3/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+                    PATH_PREFIX
+                        + "/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
                     buildVersioningRelationshipPath());
               });
     }
@@ -355,6 +358,12 @@ public class OpenAPIV3Generator {
                 .$ref(
                     String.format(
                         "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -529,7 +538,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m")),
+                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -705,43 +714,6 @@ public class OpenAPIV3Generator {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Generate schema for cross-entity scroll/list response
-   *
-   * @param entityRegistry entity registry
-   * @return schema
-   */
-  private static Schema buildAspectsRefResponseSchema(final EntityRegistry entityRegistry) {
-    final Schema result =
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .description(ASPECT_DESCRIPTION)
-            .required(List.of(PROPERTY_VALUE));
-
-    entityRegistry
-        .getAspectSpecs()
-        .values()
-        .forEach(
-            aspect ->
-                result.addProperty(
-                    PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspect.getName())));
-    result.addProperty(
-        NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
-    result.addProperty(
-        NAME_AUDIT_STAMP,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
-            .description("Audit stamp for the aspect.")
-            .nullable(true));
-    return result;
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {

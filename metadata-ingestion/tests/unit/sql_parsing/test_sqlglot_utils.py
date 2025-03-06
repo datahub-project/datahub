@@ -17,7 +17,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 
 
 def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
+    assert {"returning", "this"} == _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 
 def test_is_dialect_instance():

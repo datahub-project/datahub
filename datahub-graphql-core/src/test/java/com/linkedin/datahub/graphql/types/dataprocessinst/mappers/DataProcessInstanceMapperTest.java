@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
@@ -12,6 +13,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
+import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -28,6 +30,7 @@ public class DataProcessInstanceMapperTest {
   private static final String TEST_INSTANCE_URN =
       "urn:li:dataProcessInstance:(test-workflow,test-instance)";
   private static final String TEST_CONTAINER_URN = "urn:li:container:testContainer";
+  private static final String TEST_USER_URN = "urn:li:corpuser:test";
   private static final String TEST_EXTERNAL_URL = "https://example.com/process";
   private static final String TEST_NAME = "Test Process Instance";
 
@@ -52,11 +55,15 @@ public class DataProcessInstanceMapperTest {
   }
 
   @Test
-  public void testMapDataProcessProperties() throws Exception {
+  public void testMapDataProcessInstanceProperties() throws Exception {
     // Create DataProcessInstanceProperties
     DataProcessInstanceProperties properties = new DataProcessInstanceProperties();
     properties.setName(TEST_NAME);
     properties.setExternalUrl(new Url(TEST_EXTERNAL_URL));
+    AuditStamp created = new AuditStamp();
+    created.setTime(123456789L);
+    created.setActor(Urn.createFromString(TEST_USER_URN));
+    properties.setCreated(created);
 
     // Add properties aspect
     addAspect(Constants.DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME, properties);
@@ -66,6 +73,20 @@ public class DataProcessInstanceMapperTest {
     assertNotNull(instance.getProperties());
     assertEquals(instance.getName(), TEST_NAME);
     assertEquals(instance.getExternalUrl(), TEST_EXTERNAL_URL);
+    assertEquals(instance.getCreated().getTime(), 123456789L);
+    assertEquals(instance.getCreated().getActor(), TEST_USER_URN);
+  }
+
+  @Test
+  public void testMapDataProcessInstanceRelationships() throws Exception {
+    DataProcessInstanceRelationships relationships = new DataProcessInstanceRelationships();
+    relationships.setParentTemplate(Urn.createFromString(TEST_INSTANCE_URN));
+
+    addAspect(Constants.DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships);
+
+    DataProcessInstance instance = DataProcessInstanceMapper.map(null, entityResponse);
+    assertNotNull(instance.getParentTemplate());
+    assertEquals(instance.getParentTemplate().getUrn(), TEST_INSTANCE_URN);
   }
 
   @Test
@@ -80,9 +101,10 @@ public class DataProcessInstanceMapperTest {
     DataProcessInstance instance = DataProcessInstanceMapper.map(null, entityResponse);
 
     assertNotNull(instance.getDataPlatformInstance());
-    assertNotNull(instance.getPlatform());
-    assertEquals(instance.getPlatform().getUrn(), TEST_PLATFORM_URN);
-    assertEquals(instance.getPlatform().getType(), EntityType.DATA_PLATFORM);
+    assertNotNull(instance.getDataPlatformInstance().getPlatform());
+    assertEquals(instance.getDataPlatformInstance().getPlatform().getUrn(), TEST_PLATFORM_URN);
+    assertEquals(
+        instance.getDataPlatformInstance().getPlatform().getType(), EntityType.DATA_PLATFORM);
   }
 
   @Test

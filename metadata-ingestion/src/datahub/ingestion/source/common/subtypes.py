@@ -24,6 +24,7 @@ class DatasetSubTypes(StrEnum):
     SAC_LIVE_DATA_MODEL = "Live Data Model"
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
+    SNOWFLAKE_STREAM = "Snowflake Stream"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -59,8 +60,15 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
 
 
+class FlowContainerSubTypes(StrEnum):
+    MSSQL_JOB = "Job"
+    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+
+
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
+    MSSQL_JOBSTEP = "Job Step"
+    MSSQL_STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):

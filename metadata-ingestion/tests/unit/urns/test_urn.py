@@ -10,6 +10,7 @@ from datahub.metadata.urns import (
     DataPlatformUrn,
     DatasetUrn,
     SchemaFieldUrn,
+    TagUrn,
     Urn,
 )
 from datahub.testing.doctest import assert_doctest
@@ -71,9 +72,18 @@ def test_urn_coercion() -> None:
 def test_urns_in_init() -> None:
     platform = DataPlatformUrn("abc")
     assert platform.urn() == "urn:li:dataPlatform:abc"
+    assert platform == DataPlatformUrn(platform)
+    assert platform == DataPlatformUrn(platform.urn())
 
     dataset_urn = DatasetUrn(platform, "def", "PROD")
     assert dataset_urn.urn() == "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+    assert dataset_urn == DatasetUrn(platform.urn(), "def", "PROD")
+    assert dataset_urn == DatasetUrn(platform.platform_name, "def", "PROD")
+
+    with pytest.raises(
+        InvalidUrnError, match="Expecting a DataPlatformUrn but got .*dataset.*"
+    ):
+        assert dataset_urn == DatasetUrn(dataset_urn, "def", "PROD")  # type: ignore
 
     schema_field = SchemaFieldUrn(dataset_urn, "foo")
     assert (
@@ -100,6 +110,11 @@ def test_urn_type_dispatch_2() -> None:
 
     with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
         CorpUserUrn.from_string(urn)
+
+    with pytest.raises(
+        InvalidUrnError, match="Expecting a CorpUserUrn but got .*dataJob.*"
+    ):
+        CorpUserUrn(urn)  # type: ignore
 
 
 def test_urn_type_dispatch_3() -> None:
@@ -131,6 +146,24 @@ def test_urn_type_dispatch_4() -> None:
     assert type(urn2) is Urn
     assert urn2 == urn
     assert urn2.urn() == urn_str
+
+
+def test_urn_from_urn_simple() -> None:
+    # This capability is also tested by a bunch of other tests above.
+
+    tag_str = "urn:li:tag:legacy"
+    tag = TagUrn.from_string(tag_str)
+    assert tag_str == tag.urn()
+    assert tag.name == "legacy"
+    assert tag == TagUrn(tag)
+    assert tag == TagUrn(tag.urn())
+
+
+def test_urn_from_urn_tricky() -> None:
+    tag_str = "urn:li:tag:urn:li:tag:legacy"
+    tag = TagUrn(tag_str)
+    assert tag.urn() == tag_str
+    assert tag.name == "urn:li:tag:legacy"
 
 
 def test_urn_doctest() -> None:

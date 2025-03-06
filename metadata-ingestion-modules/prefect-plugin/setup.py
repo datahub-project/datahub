@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/prefect_datahub/__init__.py") as fp:
+with open("./src/prefect_datahub/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -30,9 +30,7 @@ base_requirements = {
     # Temporary pinning to 2.0.0 until we can upgrade to 3.0.0
     "prefect >= 2.0.0,<3.0.0",
     *rest_common,
-    # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    # f"acryl-datahub[datahub-rest]{_self_pin}",
-    "acryl-datahub[datahub-rest]",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
 }
 
 
@@ -58,7 +56,7 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.9.2",
+    "ruff==0.9.7",
     "mypy>=1.4.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.

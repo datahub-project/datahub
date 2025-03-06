@@ -514,7 +514,8 @@ FIELD_TYPE_MAPPING = {
 }
 
 
-def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
+def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
+    params = params or []
     tags = [
         TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
         for tag in params
@@ -761,7 +762,7 @@ class TableauUpstreamReference:
 
 
 def get_overridden_info(
-    connection_type: Optional[str],
+    connection_type: str,
     upstream_db: Optional[str],
     upstream_db_id: Optional[str],
     platform_instance_map: Optional[Dict[str, str]],

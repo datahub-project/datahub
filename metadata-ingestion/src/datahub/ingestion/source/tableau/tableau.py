@@ -170,6 +170,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -798,7 +799,7 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+    logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
 
@@ -1147,23 +1148,36 @@ class TableauSiteSource:
                 )
             # Set parent project name
             for _project_id, project in all_project_map.items():
-                if (
-                    project.parent_id is not None
-                    and project.parent_id in all_project_map
-                ):
+                if project.parent_id is None:
+                    continue
+
+                if project.parent_id in all_project_map:
                     project.parent_name = all_project_map[project.parent_id].name
+                else:
+                    self.report.warning(
+                        title="Incomplete project hierarchy",
+                        message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.project_name}",
+                    )
+                    project.parent_id = None
+
+            # Post-condition
+            assert all(
+                [
+                    ((project.parent_id is None) == (project.parent_name is None))
+                    and (
+                        project.parent_id is None
+                        or project.parent_id in all_project_map
+                    )
+                    for project in all_project_map.values()
+                ]
+            ), "Parent project id and name should be consistent"
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
-                    if cur_proj.parent_id not in all_project_map:
-                        self.report.warning(
-                            "project-issue",
-                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
-                        )
-                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
@@ -1548,8 +1562,9 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         page_size: int,
-        query_filter: dict = {},
+        query_filter: Optional[dict] = None,
     ) -> Iterable[dict]:
+        query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,
@@ -1896,11 +1911,7 @@ class TableauSiteSource:
                     if upstream_col.get(c.TABLE)
                     else None
                 )
-                if (
-                    name
-                    and upstream_table_id
-                    and upstream_table_id in table_id_to_urn.keys()
-                ):
+                if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)
@@ -2176,6 +2187,10 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                logger.warning(
+                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                )
+                continue
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
@@ -2415,10 +2430,12 @@ class TableauSiteSource:
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-        database_info = datasource.get(c.DATABASE) or {
-            c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
-        }
+        database_field = datasource.get(c.DATABASE) or {}
+        database_id: Optional[str] = database_field.get(c.ID)
+        database_name: Optional[str] = database_field.get(c.NAME) or c.UNKNOWN.lower()
+        database_connection_type: Optional[str] = database_field.get(
+            c.CONNECTION_TYPE
+        ) or datasource.get(c.CONNECTION_TYPE)
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
@@ -2427,10 +2444,7 @@ class TableauSiteSource:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if (
-            database_info.get(c.NAME) is None
-            or database_info.get(c.CONNECTION_TYPE) is None
-        ):
+        if database_connection_type is None:
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -2446,14 +2460,14 @@ class TableauSiteSource:
 
         logger.debug(f"Parsing sql={query}")
 
-        upstream_db = database_info.get(c.NAME)
+        upstream_db = database_name
 
         if func_overridden_info is not None:
             # Override the information as per configuration
             upstream_db, platform_instance, platform, _ = func_overridden_info(
-                database_info[c.CONNECTION_TYPE],
-                database_info.get(c.NAME),
-                database_info.get(c.ID),
+                database_connection_type,
+                database_name,
+                database_id,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
@@ -2520,6 +2534,9 @@ class TableauSiteSource:
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
+        )
+        logger.debug(
+            f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
         )
 
         if parsed_result is None:
@@ -2612,6 +2629,15 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
+        if (
+            not is_embedded_ds
+            and self._get_published_datasource_project_luid(datasource) is None
+        ):
+            logger.warning(
+                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2835,6 +2861,11 @@ class TableauSiteSource:
             query_filter=tables_filter,
             page_size=self.config.effective_database_table_page_size,
         ):
+            if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
+                logger.warning(
+                    f"Skipping table {tableau_table[c.ID]} due to filtered out published datasource"
+                )
+                continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
             ]
@@ -2889,6 +2920,7 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
+            return
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
