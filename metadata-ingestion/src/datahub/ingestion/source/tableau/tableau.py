@@ -1565,6 +1565,7 @@ class TableauSiteSource:
         query_filter: dict = {},
     ) -> Iterable[dict]:
         query_filter = optimize_query_filter(query_filter)
+        logger.debug(f"Query filter {query_filter}")
 
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
@@ -1574,6 +1575,7 @@ class TableauSiteSource:
         self.report.num_filter_queries_by_connection_type[connection_type] += len(
             filter_pages
         )
+        logger.debug(f"Filter pages {filter_pages}")
 
         for filter_page in filter_pages:
             has_next_page = 1
@@ -1616,6 +1618,9 @@ class TableauSiteSource:
                 connection_type=c.WORKBOOKS_CONNECTION,
                 page_size=self.config.effective_workbook_page_size,
             ):
+                logger.debug(
+                    f"Evaluating project: {workbook.get(c.PROJECT_NAME)} workbook {workbook.get(c.NAME)}"
+                )
                 if workbook.get(c.PROJECT_NAME) not in project_names:
                     logger.debug(
                         f"Skipping workbook {workbook.get(c.NAME)} as project {workbook.get(c.PROJECT_NAME)} "

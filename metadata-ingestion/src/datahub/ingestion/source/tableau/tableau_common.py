@@ -946,12 +946,15 @@ def query_metadata_cursor_based_pagination(
     after: Optional[str],
     qry_filter: str = "",
 ) -> dict:
+    if qry_filter:
+        qry_filter = f", filter: {{ {qry_filter} }}"
+        logger.debug(f"qry_filter: {qry_filter}")
     query = f"""
         query GetItems(
           $first: Int,
           $after: String
         ) {{
-            {connection_name} (  first: $first, after: $after, filter:{{ {qry_filter} }})
+            {connection_name} (  first: $first, after: $after{qry_filter})
             {{
                 nodes {main_query}
                 pageInfo {{
