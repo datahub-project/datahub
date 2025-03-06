@@ -48,7 +48,7 @@ class RedshiftProfiler(GenericProfiler):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):
-                    if table.type == "EXTERNAL_TABLE":
+                    if table.is_external_table:
                         if not self.config.profiling.profile_external_tables:
                             # Case 1: If user did not tell us to profile external tables, simply log this.
                             self.report.profiling_skipped_other[schema] += 1
