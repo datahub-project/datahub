@@ -1,6 +1,7 @@
+import { SizeOptions } from '@src/alchemy-components/theme/config';
 import { InputHTMLAttributes } from 'react';
 
-export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
+export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
     label?: string;
     error?: string;
     isChecked?: boolean;
@@ -9,6 +10,7 @@ export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
     isIntermediate?: boolean;
     isRequired?: boolean;
     onCheckboxChange?: () => void;
+    size?: SizeOptions;
 }
 
 export interface CheckboxGroupProps {

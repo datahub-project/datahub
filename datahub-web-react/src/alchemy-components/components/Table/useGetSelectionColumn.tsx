@@ -17,17 +17,26 @@ export const useGetSelectionColumn = <T,>(
     );
 
     const selectionColumn = {
-        title: <Checkbox isChecked={isSelectAll} isIntermediate={isIntermediate} onCheckboxChange={handleSelectAll} />,
+        title: (
+            <Checkbox
+                isChecked={isSelectAll}
+                isIntermediate={isIntermediate}
+                onCheckboxChange={handleSelectAll}
+                size="xs"
+            />
+        ),
         key: 'row-selection',
         render: (record: T, index: number) => (
             <CheckboxWrapper>
                 <Checkbox
                     isChecked={selectedRowKeys.includes(getRowKey(record, index, rowKey))}
                     onCheckboxChange={() => handleRowSelect(record, index)}
+                    size="xs"
                 />
             </CheckboxWrapper>
         ),
-        width: '60px',
+        width: '48px',
+        maxWidth: '60px',
     };
 
     return rowSelection ? [selectionColumn] : [];

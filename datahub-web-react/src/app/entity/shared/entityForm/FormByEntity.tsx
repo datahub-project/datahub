@@ -76,12 +76,6 @@ export default function FormByEntity({ formUrn }: Props) {
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
-                    <ProfileSidebar
-                        sidebarSections={loading ? [] : sections}
-                        topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
-                        backgroundColor="white"
-                        alignLeft
-                    />
                     <Form formUrn={formUrn} />
                     {selectedEntityData && (
                         <ProfileSidebar
