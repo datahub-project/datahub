@@ -34,10 +34,6 @@ class UrnCacheKeyMatcher implements CacheKeyMatcher {
 
   @Override
   public boolean match(String cacheName, Object key) {
-    if (!SUPPORTED_CACHE_NAMES.contains(cacheName)) {
-      return false;
-    }
-
     switch (cacheName) {
       case ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME:
         return matchSearchServiceCacheKey(key);
@@ -48,8 +44,9 @@ class UrnCacheKeyMatcher implements CacheKeyMatcher {
   }
 
   private boolean matchSearchServiceScrollCacheKey(Object key) {
-    Octet<?, List<String>, String, String, ?, ?, List<String>, ?> cacheKey
-        = (Octet<?, List<String>, String, String, ?, ?, List<String>, ?>) key;
+    Octet<?, List<String>, String, String, ?, ?, List<String>, ?> cacheKey =
+        (Octet<?, List<String>, String, String, ?, ?, List<String>, ?>) key;
+    // For reference - cache key contents
     //       @Nonnull OperationContext opContext,
     //       @Nonnull List<String> entities,
     //       @Nonnull String query,
@@ -63,34 +60,52 @@ class UrnCacheKeyMatcher implements CacheKeyMatcher {
     String query = (String) cacheKey.getValue(2);
     List<String> facets = (List<String>) cacheKey.getValue(6);
 
-    //Facets may contain urns. Since the check for urns in filters is similar, can append it to the filter.
-    return isKeyImpactedByEntity(entitiesInCacheKey, query, filter + " " + String.join(" ",facets ));
+    if (filter == null) {
+      filter = "";
+    }
+    filter += " " + String.join(" ", facets);
+    // Facets may contain urns. Since the check for urns in filters is similar, can append it to the
+    // filter.
+    return isKeyImpactedByEntity(entitiesInCacheKey, query, filter);
   }
 
   private boolean matchSearchServiceCacheKey(Object key) {
     Septet<?, List<String>, ?, String, ?, ?, ?> cacheKey =
         (Septet<?, List<String>, ?, String, ?, ?, ?>) key;
+    // For reference
+    //      @Nonnull OperationContext opContext,
+    //      @Nonnull List<String> entityNames,
+    //      @Nonnull String query,
+    //      @Nullable Filter filters,
+    //      List<SortCriterion> sortCriteria,
+    //      @Nonnull List<String> facets
+    //      querySize
 
     List<String> entitiesInCacheKey = (List<String>) cacheKey.getValue(1);
     String filter = (String) cacheKey.getValue(3);
     String query = (String) cacheKey.getValue(2);
+    List<String> facets = (List<String>) cacheKey.getValue(5);
+
+    // Facets may contain urns. Since the check for urns in filters is similar, can append it to the
+    // filter.
+    if (filter == null) {
+      filter = "";
+    }
+    filter += " " + String.join(" ", facets);
 
     return isKeyImpactedByEntity(entitiesInCacheKey, query, filter);
   }
 
-  boolean isKeyImpactedByEntity(List<String> entitiesInCacheKey, String query, String filter){
+  boolean isKeyImpactedByEntity(List<String> entitiesInCacheKey, String query, String filter) {
     boolean entityMatch = entitiesInCacheKey.stream().anyMatch(entityTypes::contains);
     if (!entityMatch) {
       return false;
     }
 
-    if (filter == null){ //No filter, but already established there is an entity match
-      return true;
-    }
-
-    // Ignoring query for now. A query could make this cache entry more targeted, but till there is a quick way to
-    // evaluate if the entities that were updated are affected by this query, ignoring it may mean some cache entries
-    // are invalidated even if they may not be a match, and an uncached query result will still be fetched.
+    // Ignoring query for now. A query could make this cache entry more targeted, but till there is
+    // a quick way to evaluate if the entities that were updated are affected by this query,
+    // ignoring it may mean some cache entries are invalidated even if they may not be a match,
+    // and an uncached query result will still be fetched.
 
     boolean containsUrn = filter.contains("urn:li");
     if (!containsUrn) {

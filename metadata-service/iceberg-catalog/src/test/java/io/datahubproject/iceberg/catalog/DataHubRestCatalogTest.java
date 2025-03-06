@@ -73,12 +73,7 @@ public class DataHubRestCatalogTest {
     when(warehouse.getDataRoot()).thenReturn(warehouseRoot);
     catalog =
         new DataHubRestCatalog(
-            entityService,
-            searchService,
-            operationContext,
-            warehouse,
-            credentialProvider,
-            cacheEvictionService) {
+            entityService, searchService, operationContext, warehouse, credentialProvider) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
             return mockIcebergBatch;
@@ -247,12 +242,7 @@ public class DataHubRestCatalogTest {
     when(warehouse.getDataRoot()).thenReturn(warehouseRoot);
     DataHubRestCatalog testCatalog =
         new DataHubRestCatalog(
-            entityService,
-            searchService,
-            operationContext,
-            warehouse,
-            credentialProvider,
-            cacheEvictionService);
+            entityService, searchService, operationContext, warehouse, credentialProvider);
     String warehouseLocation =
         testCatalog.defaultWarehouseLocation(TableIdentifier.of("db1", "table1"));
     assertEquals(warehouseLocation, "s3://data/warehouse/db1/table1");

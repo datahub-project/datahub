@@ -23,7 +23,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.client.CacheEvictionService;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
@@ -70,8 +69,6 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
   private final String warehouseRoot;
 
-  private final CacheEvictionService cacheEvictionService;
-
   private static final String CONTAINER_SUB_TYPE = "Namespace";
 
   public DataHubRestCatalog(
@@ -79,14 +76,12 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
       EntitySearchService searchService,
       OperationContext operationContext,
       DataHubIcebergWarehouse warehouse,
-      CredentialProvider credentialProvider,
-      CacheEvictionService cacheEvictionService) {
+      CredentialProvider credentialProvider) {
     this.entityService = entityService;
     this.searchService = searchService;
     this.operationContext = operationContext;
     this.credentialProvider = credentialProvider;
     this.warehouse = warehouse;
-    this.cacheEvictionService = cacheEvictionService;
 
     if (warehouse.getDataRoot().endsWith("/")) {
       this.warehouseRoot = warehouse.getDataRoot();

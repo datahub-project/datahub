@@ -177,12 +177,7 @@ public class AbstractIcebergController {
       OperationContext operationContext, DataHubIcebergWarehouse warehouse) {
     DataHubRestCatalog catalog =
         new DataHubRestCatalog(
-            entityService,
-            searchService,
-            operationContext,
-            warehouse,
-            cachingCredentialProvider,
-            cacheEvictionService);
+            entityService, searchService, operationContext, warehouse, cachingCredentialProvider);
     return catalog;
   }
 

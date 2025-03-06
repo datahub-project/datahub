@@ -51,7 +51,8 @@ public class DataHubIcebergWarehouse {
 
   private final CacheEvictionService cacheEvictionService;
 
-  // When evicting a iceberg entity urn, these are additional urns that need to be evicted since they are a way to
+  // When evicting a iceberg entity urn, these are additional urns that need to be evicted since
+  // they are a way to
   // ge to the newly modified iceberg entity
   private final List<Urn> commonUrnsToEvict;
 

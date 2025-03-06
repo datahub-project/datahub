@@ -29,80 +29,87 @@ public class CacheEvictionServiceTest {
   CacheManager cacheManagerWithCaffeine;
   CacheManager cacheManagerWithHazelCast;
 
-  //HazelcastInstance hazelcastInstance;
-
+  // HazelcastInstance hazelcastInstance;
 
   int cacheKeyCount;
-  // We cant use the spring Caffeine cache Manager in metadata-io due to a java 11 dependency.
+  // We cant use the spring Caffeine cache Manager in metadata-io due to a java 11 dependency --
+  // this is not a problem
+  // with the gms, but an issue with just the metadata-io jar and the associated unit tests.
   final Map<String, Cache> nativeCacheMapForCaffeine = new HashMap<>();
 
   final String UNSUPPORTED_CACHE_NAME = "SampleUnsupportedCacheName";
 
   @BeforeClass
   void setupCacheManagers() {
-    //hazelcastInstance = Hazelcast.newHazelcastInstance();
-    //this.cacheManagerWithHazelCast = new HazelcastCacheManager(hazelcastInstance);
-
+    // hazelcastInstance = Hazelcast.newHazelcastInstance();
+    // this.cacheManagerWithHazelCast = new HazelcastCacheManager(hazelcastInstance);
 
     // Not using the remaining cache methods in the unit tests.
-    this.cacheManagerWithCaffeine = new CacheManager() {
-      {
-        Caffeine<Object, Object> caffeine =
-            Caffeine.newBuilder().expireAfterWrite(60, TimeUnit.MINUTES).maximumSize(2000);
-        nativeCacheMapForCaffeine.put(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME, caffeine.build());
-        nativeCacheMapForCaffeine.put(UNSUPPORTED_CACHE_NAME, caffeine.build());
-      }
-
-      @Override
-      public org.springframework.cache.Cache getCache(String name) {
-        return new org.springframework.cache.Cache() {
-          @Override
-          public String getName() {
-            return name;
+    this.cacheManagerWithCaffeine =
+        new CacheManager() {
+          {
+            Caffeine<Object, Object> caffeine =
+                Caffeine.newBuilder().expireAfterWrite(60, TimeUnit.MINUTES).maximumSize(2000);
+            nativeCacheMapForCaffeine.put(
+                ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME, caffeine.build());
+            nativeCacheMapForCaffeine.put(UNSUPPORTED_CACHE_NAME, caffeine.build());
           }
 
           @Override
-          public Object getNativeCache() {
-            return nativeCacheMapForCaffeine.get(name);
+          public org.springframework.cache.Cache getCache(String name) {
+            if (name.equals("missingcache")) {
+              return null;
+            } else {
+              return new org.springframework.cache.Cache() {
+                @Override
+                public String getName() {
+                  return name;
+                }
+
+                @Override
+                public Object getNativeCache() {
+                  return nativeCacheMapForCaffeine.get(name);
+                }
+
+                // Not using the remaining cache methods in the unit tests.
+                @Override
+                public ValueWrapper get(Object key) {
+                  return null;
+                }
+
+                @Override
+                public <T> T get(Object key, Class<T> type) {
+                  return null;
+                }
+
+                @Override
+                public <T> T get(Object key, Callable<T> valueLoader) {
+                  return null;
+                }
+
+                @Override
+                public void put(Object key, Object value) {}
+
+                @Override
+                public void evict(Object key) {
+                  nativeCacheMapForCaffeine.get(name).invalidate(key);
+                }
+
+                @Override
+                public void clear() {
+                  nativeCacheMapForCaffeine.get(name).invalidateAll();
+                }
+              };
+            }
           }
 
-          // Not using the remaining cache methods in the unit tests.
           @Override
-          public ValueWrapper get(Object key) {
-            return null;
-          }
-
-          @Override
-          public <T> T get(Object key, Class<T> type) {
-            return null;
-          }
-
-          @Override
-          public <T> T get(Object key, Callable<T> valueLoader) {
-            return null;
-          }
-
-          @Override
-          public void put(Object key, Object value) {}
-
-          @Override
-          public void evict(Object key) {
-            nativeCacheMapForCaffeine.get(name).invalidate(key);
-          }
-
-          @Override
-          public void clear() {
-            nativeCacheMapForCaffeine.get(name).invalidateAll();
+          public Collection<String> getCacheNames() {
+            return nativeCacheMapForCaffeine.keySet();
           }
         };
-      }
-
-      @Override
-      public Collection<String> getCacheNames() {
-        return nativeCacheMapForCaffeine.keySet();
-      }
-    };
   }
+
   @BeforeMethod
   void setupCacheManager() {
 
@@ -121,26 +128,25 @@ public class CacheEvictionServiceTest {
                     "{\"or\":[{\"and\":[{\"condition\":\"EQUAL\",\"negated\":false,\"field\":\"_entityType\",\"value\":\"\",\"values\":[\"CONTAINER\"]}]}]}",
                     // filters
                     null, // sort criteria
-                    null, // facets
+                    Arrays.asList("some facet json"),
                     null /* querySize*/),
                 "allcontainers",
                 Septet.with(
                     null,
                     Arrays.asList("dashboard", "container"),
                     "*",
-                    "some json that contains known urn:li:container:foo",
+                    "some json that contains container urn:li:container:foo",
                     null,
-                    null,
+                    Arrays.asList("some facet json"),
                     null),
                 "container.foo",
                 Septet.with(
                     null,
-                    Arrays.asList(
-                        "dashboard", "container"), // entity match, but URN not a match in filter
+                    Arrays.asList("dashboard", "container"),
                     "*",
                     "some json that contains unknown urn:li:container:bar",
                     null,
-                    null,
+                    Arrays.asList("some facet json"),
                     null),
                 "container.bar",
                 Septet.with(
@@ -150,7 +156,7 @@ public class CacheEvictionServiceTest {
                     "*",
                     "some json that contains unknown urn:li:dashboard:foobar",
                     null,
-                    null,
+                    Arrays.asList("some facet json"),
                     null),
                 "dashboard.foobar",
                 Septet.with(
@@ -159,10 +165,18 @@ public class CacheEvictionServiceTest {
                     "*",
                     "{\"or\":[{\"and\":[{\"condition\":\"EQUAL\",\"negated\":false,\"field\":\"_entityType\",\"value\":\"\",\"values\":[\"CONTAINER\"]}]}]}",
                     null,
-                    null,
+                    Arrays.asList("some facet json"),
                     null),
-                "structuredproperty");
-
+                "structuredproperty",
+                Septet.with(
+                    null,
+                    Arrays.asList("container"), // entity match, but URN not a match in filter
+                    "*",
+                    null, // filter
+                    null,
+                    Arrays.asList("some facet json"),
+                    null),
+                "containeronly");
 
     Cache cache =
         (Cache) cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME).getNativeCache();
@@ -204,24 +218,28 @@ public class CacheEvictionServiceTest {
 
   @Test
   void testEntityTypeMatched() throws URISyntaxException {
+    // Type in cache, but not urn
     evictionService.evict(List.of(Urn.createFromString("urn:li:container:dontmatch")));
 
     Map cacheAsMap = getAsMap(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
-    assertEquals(cacheAsMap.size(), cacheKeyCount - 1); // one eviction
+    assertEquals(cacheAsMap.size(), cacheKeyCount - 2); // evictions
     assertEquals(getAsMap(UNSUPPORTED_CACHE_NAME).size(), cacheKeyCount);
     assertFalse(cacheAsMap.values().contains("allcontainers")); // show be evicted
+    assertFalse(cacheAsMap.values().contains("containeronly")); // show be evicted
 
     assertEquals(getAsMap(UNSUPPORTED_CACHE_NAME).size(), cacheKeyCount); // no evictions
   }
 
   @Test
   void testEntityTypeAndUrnMatched() throws URISyntaxException {
+    // type and urn in cache
     evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
 
     Map cacheAsMap = getAsMap(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
-    assertEquals(cacheAsMap.size(), cacheKeyCount - 2); // 2 evictions
+    assertEquals(cacheAsMap.size(), cacheKeyCount - 3); //  evictions
     assertFalse(cacheAsMap.values().contains("allcontainers")); // evicted
     assertFalse(cacheAsMap.values().contains("container.bar")); // evicted
+    assertFalse(cacheAsMap.values().contains("containeronly")); // evicted
 
     assertEquals(getAsMap(UNSUPPORTED_CACHE_NAME).size(), cacheKeyCount); // no evictions
   }
@@ -238,7 +256,7 @@ public class CacheEvictionServiceTest {
               "*",
               "{\"or\":[{\"and\":[{\"condition\":\"EQUAL\",\"negated\":false,\"field\":\"_entityType\",\"value\":\"\",\"values\":[\"CONTAINER\"]}]}]}",
               null,
-              null,
+              Arrays.asList("some facet json"),
               null);
       String value = "structuredproperty" + i;
 
@@ -247,10 +265,13 @@ public class CacheEvictionServiceTest {
     evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
 
     Map cacheAsMap = getAsMap(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
-    assertEquals(cacheAsMap.size(), cacheKeyCount + 1000 - 2); // 2 evictions
+    assertEquals(cacheAsMap.size(), cacheKeyCount + 1000 - 3);
     assertFalse(cacheAsMap.values().contains("allcontainers")); // evicted
     assertFalse(cacheAsMap.values().contains("container.bar")); // evicted
+    assertFalse(cacheAsMap.values().contains("containeronly")); // evicted
     assertEquals(getAsMap(UNSUPPORTED_CACHE_NAME).size(), cacheKeyCount);
+
+    // Note, this was just to check timing
   }
 
   @Test
@@ -266,5 +287,26 @@ public class CacheEvictionServiceTest {
     evictionService.invalidateAll();
     ;
     assertEquals(getAsMap(UNSUPPORTED_CACHE_NAME).size(), 0);
+  }
+
+  @Test
+  void testDumpCache() {
+    evictionService.dumpCache("test");
+  }
+
+  @Test(expectedExceptions = AssertionError.class)
+  void testInvalidCache() {
+    evictionService.invalidate("missingcache");
+  }
+
+  @Test
+  void testDisabledFlags() throws URISyntaxException {
+    CacheEvictionService service = new CacheEvictionService(null, true, false);
+    service.invalidateAll(); // should be no op though
+    evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
+
+    service = new CacheEvictionService(null, false, true);
+    service.invalidateAll(); // should be no op though
+    evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
   }
 }
