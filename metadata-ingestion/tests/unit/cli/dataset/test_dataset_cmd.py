@@ -217,3 +217,63 @@ class TestDatasetCli:
             # Verify both dataset instances had to_yaml called
             mock_dataset1.to_yaml.assert_called_once()
             mock_dataset2.to_yaml.assert_called_once()
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_dry_run_sync(self, mock_get_default_graph):
+        mock_graph = MagicMock()
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        test_file = TEST_RESOURCES_DIR / "dataset_dry_run.yaml"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--to-datahub", "-f", str(test_file)]
+        )
+
+        # Verify
+        assert result.exit_code == 0
+        assert not mock_get_default_graph.emit.called
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_dry_run_sync_fail(self, mock_get_default_graph):
+        mock_graph = MagicMock()
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        test_file = TEST_RESOURCES_DIR / "dataset_dry_run_bad_type.yaml"
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--to-datahub", "-f", str(test_file)]
+        )
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "Type bad_type is not a valid primitive type" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_run_sync(self, mock_get_default_graph):
+        mock_graph = MagicMock()
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        test_file = TEST_RESOURCES_DIR / "dataset_dry_run.yaml"
+
+        runner = CliRunner()
+        result = runner.invoke(dataset, ["sync", "--to-datahub", "-f", str(test_file)])
+
+        # Verify
+        assert result.exit_code == 0
+        assert mock_graph.emit.called
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_run_sync_fail(self, mock_get_default_graph):
+        mock_graph = MagicMock()
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        test_file = TEST_RESOURCES_DIR / "dataset_dry_run_bad_type.yaml"
+        runner = CliRunner()
+        result = runner.invoke(dataset, ["sync", "--to-datahub", "-f", str(test_file)])
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "is not a valid primitive type" in result.output
