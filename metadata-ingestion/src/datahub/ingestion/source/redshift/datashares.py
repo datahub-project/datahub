@@ -108,8 +108,8 @@ class RedshiftDatasharesHelper:
 
     def generate_lineage(
         self,
-        share: Union[InboundDatashare | PartialInboundDatashare],
-        tables: Dict[str, List[RedshiftTable | RedshiftView]],
+        share: Union[InboundDatashare, PartialInboundDatashare],
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]],
     ) -> Iterable[KnownLineageMapping]:
         upstream_share = self.find_upstream_share(share)
 

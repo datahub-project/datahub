@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List
+from typing import Dict, List, Union
 from unittest.mock import patch
 
 from datahub.api.entities.platformresource.platform_resource import (
@@ -62,7 +62,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="consumer_db",
         )
-        tables: dict[str, list[RedshiftTable | RedshiftView]] = {
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
             "schema1": [
                 RedshiftTable(name="table1", comment=None, created=None),
                 RedshiftTable(name="table2", comment=None, created=None),
@@ -128,7 +128,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="consumer_db",
         )
-        tables: dict[str, list[RedshiftTable | RedshiftView]] = {
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
             "schema1": [
                 RedshiftTable(name="table1", comment=None, created=None),
                 RedshiftTable(name="table2", comment=None, created=None),
@@ -196,7 +196,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="test_db",
         )
-        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {}
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {}
 
         # Execute
         list(helper.generate_lineage(share, tables))
@@ -232,7 +232,7 @@ class TestDatasharesHelper:
         )
 
         # Create mock tables
-        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
             "schema1": [RedshiftTable(name="table1", created=None, comment=None)]
         }
 
@@ -270,7 +270,7 @@ class TestDatasharesHelper:
             share_name="test_share",
             consumer_database="consumer_db",
         )
-        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
             "schema1": [RedshiftTable(name="table1", comment=None, created=None)]
         }
 
@@ -323,7 +323,7 @@ class TestDatasharesHelper:
             consumer_database="db",
             share_name="share",
         )
-        tables: Dict[str, List[RedshiftTable | RedshiftView]] = {}
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {}
 
         with patch.object(PlatformResource, "search_by_key") as mocked_method:
             mocked_method.return_value = []
