@@ -1606,28 +1606,24 @@ class TableauSiteSource:
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
+            project_names: List[str] = [
+                project.name for project in self.tableau_project_registry.values()
+            ]
+            logger.debug(f"Workbook emit: Project names: {project_names}")
+
             for workbook in self.get_connection_objects(
                 query=workbook_graphql_query,
                 connection_type=c.WORKBOOKS_CONNECTION,
                 page_size=self.config.effective_workbook_page_size,
             ):
-                # This check is needed as we are using projectNameWithin which return project as per project name so if
-                # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
-                # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
-                # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
-                # project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-                # if project_luid not in self.tableau_project_registry.keys():
-                #     wrk_name: Optional[str] = workbook.get(c.NAME)
-                #     wrk_id: Optional[str] = workbook.get(c.ID)
-                #     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
-                #
-                #     self.report.warning(
-                #         title="Skipping Missing Workbook",
-                #         message="Skipping workbook as its project is not present in project registry",
-                #         context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
-                #     )
-                #     continue
+                if workbook.get(c.PROJECT_NAME) not in project_names:
+                    logger.debug(
+                        f"Skipping workbook {workbook.get(c.NAME)} as project {workbook.get(c.PROJECT_NAME)} "
+                        f"is not in the project registry"
+                    )
+                    continue
 
+                logger.debug(f"Adding workbook {workbook.get(c.NAME)}")
                 yield from self.emit_workbook_as_container(workbook)
 
                 for sheet in workbook.get(c.SHEETS, []):
