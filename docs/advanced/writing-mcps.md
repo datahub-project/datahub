@@ -39,15 +39,47 @@ For example, if you want to understand the structure of entities in your DataHub
 
 ## Saving MCPs to a file
 
-### Exporting rom DataHub Instance
+### Exporting from Ingestion Source
 
-You can export MCPs directly from your DataHub instance using a recipe file. This is useful when you want to:
+You can export MCPs from an ingestion source (such as BigQuery, Snowflake, etc.) to a file using the `file` sink type in your recipe. This approach is useful when you want to:
 
-- Examine existing entities in your DataHub instance
+- Save MCPs for later ingestion
+- Examine existing entities in the source
+- Debug ingestion issues
+
+To get started, create a recipe file (e.g., `export_mcps.yaml`) specifying your target source and the file `sink` type:
+
+```yaml
+source:
+  type: bigquery # Replace with your source type
+  config:
+    ... # Add your source configuration here
+sink:
+  type: "file"
+  config:
+    filename: "mcps.json"
+```
+
+Run the ingestion with the following command:
+
+```python
+datahub ingest -c export_mcps.yaml
+```
+
+This command will extract all entities from your source and write them to `mcps.json` in MCP format. 
+
+For more details about the `file` sink type, please refer to [Metadata File](../../metadata-ingestion/sink_docs/metadata-file.md)
+
+### Exporting from DataHub Instance
+
+You can also export MCPs directly from an existing DataHub instance using a similar recipe approach. This method is particularly useful when you need to:
+
+- Examine entities already in your DataHub instance
 - Create test cases based on real data
 - Debug entity relationships
 
-First, create a recipe file (e.g., `export_mcps.yaml`):
+The process is similar to exporting from an ingestion source, with the only difference being that you'll use `datahub` as the source type.
+Create a recipe file (e.g., `export_mcps.yaml`) with this configuration:
 
 ```yaml
 source:
@@ -69,7 +101,7 @@ Run the ingestion:
 datahub ingest -c export_mcps.yaml
 ```
 
-This will write all the entities from your DataHub instance to `mcps.json` in MCP format.
+This will extract all entities from your DataHub instance and save them to `mcps.json` in MCP format.
 
 ### Creating MCPs with Python SDK
 
