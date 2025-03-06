@@ -364,6 +364,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Request timed out while fetching dataset info for {dataset_id}."
             )
+        return {}
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
