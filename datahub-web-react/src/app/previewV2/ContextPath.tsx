@@ -82,7 +82,6 @@ const PlatFormTitle = styled.span`
 interface Props {
     // eslint-disable-next-line react/no-unused-prop-types
     entityLogoComponent?: JSX.Element;
-    instanceId?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     typeIcon?: JSX.Element;
     type?: string;
@@ -103,7 +102,6 @@ function ContextPath(props: Props) {
         entityType,
         parentEntities,
         browsePaths,
-        instanceId,
         entityTitleWidth = 200,
         previewType,
         isCompactView,
@@ -118,12 +116,10 @@ function ContextPath(props: Props) {
 
     const divider = <PlatformDivider>|</PlatformDivider>;
 
-    const hasPlatformInstance = !!instanceId;
     const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
     const hasParentEntities = !!parentEntities?.length;
 
-    const showInstanceIdDivider = hasBrowsePath || hasParentEntities;
-    const showEntityTypeDivider = hasPlatformInstance || hasBrowsePath || hasParentEntities;
+    const showEntityTypeDivider = hasBrowsePath || hasParentEntities;
 
     return (
         <PlatformContentWrapper>
@@ -136,12 +132,6 @@ function ContextPath(props: Props) {
                 <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
                 {showEntityTypeDivider && divider}
             </PlatformText>
-            {instanceId && (
-                <PlatformText>
-                    {instanceId}
-                    {showInstanceIdDivider && divider}
-                </PlatformText>
-            )}
             {hasBrowsePath ? (
                 <BrowsePaths
                     browsePaths={browsePaths}
