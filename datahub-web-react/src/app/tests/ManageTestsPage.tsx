@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { PageTitle, Input } from '@src/alchemy-components';
 import { message } from 'antd';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { Tests } from './Tests';
-import { DEFAULT_TESTS_PAGE_SIZE, METADATA_TESTS_DOC_URL } from './constants';
+import { DEFAULT_TESTS_PAGE_SIZE } from './constants';
 import { useListTestsQuery } from '../../graphql/test.generated';
 import { Message } from '../shared/Message';
-import { useEntityRegistry } from '../useEntityRegistry';
 import { filterTests } from './utils';
 import { NewTestButton } from './NewTestButton';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
@@ -20,7 +18,6 @@ import {
 } from '../govern/structuredProperties/styledComponents';
 
 export const ManageTestsPage = () => {
-    const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 

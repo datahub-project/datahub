@@ -12,26 +12,23 @@ const StyledCard = styled(Card)`
     box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
     min-width: 138px;
 
+    .ant-card-head {
+        padding: 12px 12px; // Reduce padding (adjust values as needed)
+    }
 
-  .ant-card-head {
-    padding: 12px 12px; // Reduce padding (adjust values as needed)
-  }
-  
-  // You might also want to adjust these related elements
-  .ant-card-head-title {
-    padding: 0px 0; // Reduced from default
-  }
-  
-  .ant-card-extra {
-    padding: 0px 0; // Reduced from default
-    
-  }
-  .ant-card-body {
-    padding: 12px 12px; // Reduce padding (adjust values as needed)
-    display: flex;
-    flex-wrap: wrap;
-  }
+    // You might also want to adjust these related elements
+    .ant-card-head-title {
+        padding: 0px 0; // Reduced from default
+    }
 
+    .ant-card-extra {
+        padding: 0px 0; // Reduced from default
+    }
+    .ant-card-body {
+        padding: 12px 12px; // Reduce padding (adjust values as needed)
+        display: flex;
+        flex-wrap: wrap;
+    }
 `;
 
 type Props = {

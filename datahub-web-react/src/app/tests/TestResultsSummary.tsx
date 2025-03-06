@@ -1,24 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { colors } from '@components';
 import { Button, Tag, Typography } from 'antd';
 import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
 import { useGetTestResultsSummaryQuery } from '../../graphql/test.generated';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import { NoResultsSummary } from './NoResultsSummary';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { PLACEHOLDER_TEST_URN } from './constants';
 import TestResultsModal from './TestResultsModal';
 import { TestResultType } from '../../types.generated';
 import { toRelativeTimeString } from '../shared/time/timeUtils';
 import Loading from '../shared/Loading';
-import { colors } from '@src/alchemy-components';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: space-between; // Helps push LastComputed to the bottom
-
-    
 `;
 
 // const Container = styled.div`

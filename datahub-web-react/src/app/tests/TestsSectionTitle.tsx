@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PageTitle } from '@components';
-import { Typography } from 'antd';
-import { Tooltip, colors } from '@components';
+import { PageTitle, Tooltip, colors } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 
 const Container = styled.div`

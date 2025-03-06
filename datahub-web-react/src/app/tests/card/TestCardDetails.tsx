@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { message, Modal, Typography } from 'antd';
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { useApolloClient } from '@apollo/client';
 import { TestCardActions } from './TestCardActions';
 import { Test, TestDefinitionInput } from '../../../types.generated';
@@ -11,14 +11,12 @@ import { DEFAULT_TESTS_PAGE_SIZE } from '../constants';
 import { TestBuilderState } from '../builder/types';
 import { useDeleteTestMutation, useUpdateTestMutation } from '../../../graphql/test.generated';
 import { TestBuilderModal } from '../builder/TestBuilderModal';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Details = styled.div`
     height: 120px;
     overflow: visible;
     font-size: 12px;
     color: ${colors.gray[1700]};
-
 `;
 
 const Header = styled.div`
