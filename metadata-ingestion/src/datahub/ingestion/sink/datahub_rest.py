@@ -18,6 +18,7 @@ from datahub.configuration.common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.openapi_emitter import DataHubOpenApiEmitter
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DataHubRestEmitter,
@@ -49,6 +50,16 @@ _DEFAULT_REST_SINK_MAX_THREADS = int(
 )
 
 
+class RestSinkEndpoint(ConfigEnum):
+    RESTLI = auto()
+    OPENAPI = auto()
+
+
+class RestTraceMode(ConfigEnum):
+    ENABLED = auto()
+    DISABLED = auto()
+
+
 class RestSinkMode(ConfigEnum):
     SYNC = auto()
     ASYNC = auto()
@@ -64,8 +75,22 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 )
 
 
+_DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+    RestSinkEndpoint,
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+)
+
+
+_DEFAULT_REST_TRACE_MODE = pydantic.parse_obj_as(
+    RestTraceMode,
+    os.getenv("DATAHUB_REST_TRACE_MODE", RestTraceMode.DISABLED),
+)
+
+
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
+    endpoint: RestSinkEndpoint = _DEFAULT_REST_SINK_ENDPOINT
+    default_trace_mode: RestTraceMode = _DEFAULT_REST_TRACE_MODE
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -161,18 +186,40 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
     @classmethod
     def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
-        return DataHubRestEmitter(
-            config.server,
-            config.token,
-            connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
-            read_timeout_sec=config.timeout_sec,
-            retry_status_codes=config.retry_status_codes,
-            retry_max_times=config.retry_max_times,
-            extra_headers=config.extra_headers,
-            ca_certificate_path=config.ca_certificate_path,
-            client_certificate_path=config.client_certificate_path,
-            disable_ssl_verification=config.disable_ssl_verification,
-        )
+        if config.endpoint == RestSinkEndpoint.OPENAPI:
+            logger.debug("Using OpenAPI emitter")
+            return DataHubOpenApiEmitter(
+                config.server,
+                config.token,
+                connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
+                read_timeout_sec=config.timeout_sec,
+                retry_status_codes=config.retry_status_codes,
+                retry_max_times=config.retry_max_times,
+                extra_headers=config.extra_headers,
+                ca_certificate_path=config.ca_certificate_path,
+                client_certificate_path=config.client_certificate_path,
+                disable_ssl_verification=config.disable_ssl_verification,
+                default_trace_mode=False
+                if config.default_trace_mode == RestTraceMode.DISABLED
+                else True,
+            )
+        else:
+            logger.debug("Using Restli emitter")
+            return DataHubRestEmitter(
+                config.server,
+                config.token,
+                connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
+                read_timeout_sec=config.timeout_sec,
+                retry_status_codes=config.retry_status_codes,
+                retry_max_times=config.retry_max_times,
+                extra_headers=config.extra_headers,
+                ca_certificate_path=config.ca_certificate_path,
+                client_certificate_path=config.client_certificate_path,
+                disable_ssl_verification=config.disable_ssl_verification,
+                default_trace_mode=False
+                if config.default_trace_mode == RestTraceMode.DISABLED
+                else True,
+            )
 
     @property
     def emitter(self) -> DataHubRestEmitter:
