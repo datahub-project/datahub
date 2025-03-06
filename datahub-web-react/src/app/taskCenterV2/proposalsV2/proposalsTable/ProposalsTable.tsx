@@ -2,6 +2,7 @@ import { Table } from '@src/alchemy-components';
 import { ActionRequest } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
+import EmptyProposals from './EmptyProposals';
 import { useGetColumns } from './useGetColumns';
 
 const TableContainer = styled.div`
@@ -20,6 +21,10 @@ interface Props {
 
 const ProposalsTable = ({ actionRequests, isLoading, onActionRequestUpdate, selectedKeys, setSelectedKeys }: Props) => {
     const columns = useGetColumns({ onActionRequestUpdate });
+
+    if (!isLoading && actionRequests.length === 0) {
+        return <EmptyProposals />;
+    }
 
     return (
         <TableContainer>

@@ -6,11 +6,10 @@ import { navigateWithFilters } from '@src/app/sharedV2/filters/navigateWithFilte
 import { useHistory, useLocation } from 'react-router';
 import { SearchBar, Pagination } from '@src/alchemy-components';
 import FilterSection from '@src/app/sharedV2/filters/FilterSection';
+import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
-import { Message } from '../../shared/Message';
 import ProposalsTable from './proposalsTable/ProposalsTable';
 import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput } from '../../../types.generated';
-import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import ActionsBar from './ActionsBar';
 import { ACTION_REQUEST_DEFAULT_FACETS, PROPOSALS_FILTER_LABELS } from '../utils/constants';
 import { MY_PROPOSALS_GROUP_NAME } from './utils';
@@ -117,9 +116,7 @@ export const ProposalList = ({ title, assignee, groupName, userUrn }: Props) => 
 
     return (
         <FinalContainer>
-            {loading && <Message type="loading" content="Loading your requests…" />}
             {error && message.error('Failed to load proposals. An unknown error occurred!')}
-
             <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 <ProposalsTableHeader>
