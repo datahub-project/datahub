@@ -186,7 +186,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             }
                         ],
                         "schema": "test_schema1",
-                        "sql": "SELECT * FROM test_table1",
                         "table_name": "Test Table 1",
                     },
                     {
@@ -287,10 +286,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             "last_name": "Owner1",
                         }
                     ],
-                    "rendered_sql": "SELECT * FROM test_table1",
                     "schema": "test_schema1",
                     "select_star": "SELECT * FROM test_schema1.test_table1 LIMIT 100",
-                    "sql": "SELECT * FROM test_table1",
                     "table_name": "Test Table 1",
                     "uid": "1__table",
                     "url": "/tablemodelview/edit/1",
