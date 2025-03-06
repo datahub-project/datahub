@@ -99,7 +99,7 @@ const SelectActionButtons = ({
         <ActionButtonsContainer>
             {!showCount && !!selectedOptions.length && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon="Close"
+                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
                     isCircle
                     onClick={handleClearSelection}
                     size={fontSize}
