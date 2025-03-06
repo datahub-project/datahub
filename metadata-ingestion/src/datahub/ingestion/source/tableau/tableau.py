@@ -1606,15 +1606,9 @@ class TableauSiteSource:
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
-            project_luids: List[str] = [
-                luid for luid in self.tableau_project_registry.keys()
-            ]
-            projects = {c.PROJECT_LUID_WITH_IN: project_luids}
-
             for workbook in self.get_connection_objects(
                 query=workbook_graphql_query,
                 connection_type=c.WORKBOOKS_CONNECTION,
-                query_filter=projects,
                 page_size=self.config.effective_workbook_page_size,
             ):
                 # This check is needed as we are using projectNameWithin which return project as per project name so if
