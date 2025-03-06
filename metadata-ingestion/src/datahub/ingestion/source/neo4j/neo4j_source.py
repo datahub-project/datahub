@@ -90,7 +90,7 @@ class Neo4jSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config")
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
