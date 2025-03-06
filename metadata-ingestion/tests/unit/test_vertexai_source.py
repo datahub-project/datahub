@@ -120,6 +120,26 @@ def gen_mock_model_version(mock_model: Model) -> VersionInfo:
     )
 
 
+#
+# def gen_mock_experiment() -> Experiment:
+#     mock_experiment = MagicMock(spec=Experiment)
+#     mock_experiment.name = "mock_experiment"
+#     mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
+#     mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+#     mock_experiment.display_name = "mock_experiment_display_name"
+#     mock_experiment.description = "mock_experiment_description"
+#     return mock_experiment
+#
+# def gen_mock_experiment_run() -> ExperimentRun:
+#     mock_experiment_run = MagicMock(spec=ExperimentRun)
+#     mock_experiment_run.name = "mock_experiment_run"
+#     mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
+#     mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+#     mock_experiment_run.display_name = "mock_experiment_run_display_name"
+#     mock_experiment_run.description = "mock_experiment_run_description"
+#     return mock_experiment_run
+
+
 @pytest.fixture
 def source() -> VertexAISource:
     return VertexAISource(
@@ -427,6 +447,40 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
             assert aspect.container == source._get_project_container().as_urn()
         elif isinstance(aspect, SubTypesClass):
             assert aspect.typeNames == ["Dataset"]
+
+
+# def test_gen_experiment_run_mcps(source: VertexAISource) -> None:
+#     # mock_dataset = gen_mock_dataset()
+#     # mock_job = gen_mock_training_job()
+#     # job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
+#
+#
+#
+#     experiment_key1 = ContainerKeyWithId(
+#         platform=str(DataPlatformUrn(source.platform)), id="MyExperimentTest1"
+#     )
+#
+#     experiment_key2 = ContainerKeyWithId(
+#         platform=str(DataPlatformUrn(source.platform)), id="MyExperimentTest1"
+#     )
+#
+#     print(f"1 {experiment_key1.as_urn()}")
+#     print(f"2 {experiment_key2.as_urn()}")
+#
+#     job_id = source._make_vertexai_job_name(entity_id="my test job")
+#     job_urn = builder.make_data_process_instance_urn(job_id)
+#     print(job_urn)
+#
+#     experiment_key = ContainerKeyWithId(
+#         platform=str(DataPlatformUrn(source.platform)), id="experiment"
+#     )
+#     data_process_urn = DataProcessInstance(
+#         id="run.name",
+#         orchestrator=source.platform,
+#         template_urn=None,
+#     ).urn
+#
+#     print(data_process_urn)
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:
