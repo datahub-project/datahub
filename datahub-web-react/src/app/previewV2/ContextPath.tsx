@@ -83,6 +83,8 @@ interface Props {
     // eslint-disable-next-line react/no-unused-prop-types
     entityLogoComponent?: JSX.Element;
     // eslint-disable-next-line react/no-unused-prop-types
+    instanceId?: string;
+    // eslint-disable-next-line react/no-unused-prop-types
     typeIcon?: JSX.Element;
     type?: string;
     entityType: EntityType;
