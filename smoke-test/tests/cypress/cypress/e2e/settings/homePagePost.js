@@ -6,7 +6,7 @@ const homePageRedirection = () => {
 const addOrEditAnnouncement = (text, title, description, testId) => {
   cy.waitTextPresent(text);
   cy.get('[data-testid="create-post-title"]').clear().type(title);
-  cy.get('[id="description"]').clear().type(description);
+  cy.get(".create-post-description").clear().type(description);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
   cy.reload();
   homePageRedirection();
