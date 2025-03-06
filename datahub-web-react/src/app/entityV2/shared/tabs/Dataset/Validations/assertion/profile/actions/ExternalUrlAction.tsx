@@ -47,7 +47,6 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
     return (
         <ActionItem
             key="external-url"
-            primary
             tip={`View in ${platformName}.`}
             onClick={handleRedirect}
             icon={<StyledLaunchOutlined />}

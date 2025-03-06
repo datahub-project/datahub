@@ -5,8 +5,8 @@ import styled from 'styled-components';
 const AssertionTitleContainer = styled.div`
     display: flex;
     justify-content: space-between;
+    align-items: center;
     margin: 20px;
-    height: 50px;
     div {
         border-bottom: 0px;
     }
