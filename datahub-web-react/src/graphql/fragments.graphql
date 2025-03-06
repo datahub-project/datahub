@@ -229,6 +229,9 @@ fragment parentNodesFields on ParentNodesResult {
         properties {
             name
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
 }
 
@@ -238,6 +241,9 @@ fragment parentDomainsFields on ParentDomainsResult {
         urn
         type
         ... on Domain {
+            displayProperties {
+                ...displayPropertiesFields
+            }
             properties {
                 name
                 description
@@ -1259,6 +1265,9 @@ fragment entityDomain on DomainAssociation {
             ...parentDomainsFields
         }
         ...domainEntitiesFields
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     associatedUrn
 }

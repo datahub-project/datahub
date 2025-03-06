@@ -239,6 +239,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -300,6 +301,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -375,6 +377,7 @@ entities:
       - testResults
       - versionProperties
       - subTypes
+      - container
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -394,6 +397,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - container
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -405,6 +409,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
