@@ -384,7 +384,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
-            name=dashboard_data["id"],
+            name=str(dashboard_data["id"]),
             platform_instance=self.config.platform_instance,
         )
         dashboard_snapshot = DashboardSnapshot(
