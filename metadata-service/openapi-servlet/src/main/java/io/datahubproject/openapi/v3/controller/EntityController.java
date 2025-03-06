@@ -646,9 +646,9 @@ public class EntityController
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (opContext.getValidationContext().isAlternateValidation()) {
-            ProposedItem.ProposedItemBuilder builder =
+            items.add(
                 ProposedItem.builder()
-                    .metadataChangeProposal(
+                    .build(
                         new MetadataChangeProposal()
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
@@ -658,14 +658,9 @@ public class EntityController
                             .setHeaders(
                                 headers != null ? new StringMap(headers) : null,
                                 SetMode.IGNORE_NULL)
-                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL))
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .entitySpec(
-                        opContext
-                            .getAspectRetriever()
-                            .getEntityRegistry()
-                            .getEntitySpec(entityUrn.getEntityType()));
-            items.add(builder.build());
+                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL),
+                        AuditStampUtils.createAuditStamp(actor.toUrnStr()),
+                        entityRegistry));
           } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()

@@ -222,18 +222,7 @@ public class JavaEntityClientTest {
                     .urn(testUrn)
                     .request(
                         ProposedItem.builder()
-                            .metadataChangeProposal(mcp)
-                            .entitySpec(
-                                opContext
-                                    .getEntityRegistry()
-                                    .getEntitySpec(Constants.CONTAINER_ENTITY_NAME))
-                            .aspectSpec(
-                                opContext
-                                    .getEntityRegistry()
-                                    .getEntitySpec(Constants.CONTAINER_ENTITY_NAME)
-                                    .getAspectSpec(Constants.STATUS_ASPECT_NAME))
-                            .auditStamp(auditStamp)
-                            .build())
+                            .build(mcp, auditStamp, opContext.getEntityRegistry()))
                     .result(UpdateAspectResult.builder().mcp(mcp).urn(testUrn).build())
                     .isUpdate(true)
                     .publishedMCL(true)

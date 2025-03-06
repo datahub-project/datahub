@@ -38,6 +38,10 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     implementation externalDependency.awsMskIamAuth
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
 }
 
 task avroSchemaSources(type: Copy) {
