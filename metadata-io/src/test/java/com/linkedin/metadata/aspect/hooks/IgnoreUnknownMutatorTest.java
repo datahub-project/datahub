@@ -75,8 +75,7 @@ public class IgnoreUnknownMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(GLOBAL_TAGS_ASPECT_NAME)
@@ -89,9 +88,9 @@ public class IgnoreUnknownMutatorTest {
                                     ByteString.copyString(
                                         "{\"tags\":[{\"tag\":\"urn:li:tag:Legacy\",\"foo\":\"bar\"}]}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -114,8 +113,7 @@ public class IgnoreUnknownMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
@@ -127,10 +125,9 @@ public class IgnoreUnknownMutatorTest {
                                 .setValue(
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\",\"customProperties\":{\"prop2\":\"pikachu\",\"prop1\":\"fakeprop\"}}",
-                                        StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                                        StandardCharsets.UTF_8))),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
