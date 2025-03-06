@@ -1615,18 +1615,18 @@ class TableauSiteSource:
                 # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
-                project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-                if project_luid not in self.tableau_project_registry.keys():
-                    wrk_name: Optional[str] = workbook.get(c.NAME)
-                    wrk_id: Optional[str] = workbook.get(c.ID)
-                    prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
-
-                    self.report.warning(
-                        title="Skipping Missing Workbook",
-                        message="Skipping workbook as its project is not present in project registry",
-                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
-                    )
-                    continue
+                # project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
+                # if project_luid not in self.tableau_project_registry.keys():
+                #     wrk_name: Optional[str] = workbook.get(c.NAME)
+                #     wrk_id: Optional[str] = workbook.get(c.ID)
+                #     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
+                #
+                #     self.report.warning(
+                #         title="Skipping Missing Workbook",
+                #         message="Skipping workbook as its project is not present in project registry",
+                #         context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
+                #     )
+                #     continue
 
                 yield from self.emit_workbook_as_container(workbook)
 
