@@ -8,6 +8,9 @@ import { TestResultsSummary } from './TestResultsSummary';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { Message } from '../../../../../shared/Message';
 import { useGetDatasetTestResultsQuery, useRunTestsMutation } from '../../../../../../graphql/test.generated';
+import { excludeTestsByCategories } from './testUtils';
+
+const CATEGORIES_TO_EXCLUDE: string[] = ['Forms'];
 
 type Props = {
     urn: string;
@@ -16,10 +19,14 @@ type Props = {
 export const AcrylTestResults = ({ urn }: Props) => {
     const { data, refetch } = useGetDatasetTestResultsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
     const [runTestsMutation, { loading }] = useRunTestsMutation();
-    const passingTests = (data?.dataset?.testResults?.passing?.filter((testResult) => testResult.test !== null) ||
-        []) as TestResult[];
-    const failingTests = (data?.dataset?.testResults?.failing?.filter((testResult) => testResult.test !== null) ||
-        []) as TestResult[];
+    const passingTests = excludeTestsByCategories(
+        (data?.dataset?.testResults?.passing?.filter((testResult) => testResult.test !== null) || []) as TestResult[],
+        CATEGORIES_TO_EXCLUDE,
+    );
+    const failingTests = excludeTestsByCategories(
+        (data?.dataset?.testResults?.failing?.filter((testResult) => testResult.test !== null) || []) as TestResult[],
+        CATEGORIES_TO_EXCLUDE,
+    );
     const totalTests = failingTests.length + passingTests.length;
 
     const rerunTests = () => {
