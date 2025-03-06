@@ -397,9 +397,9 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
 
 def _jsonify(data: Any) -> Any:
     if dataclasses.is_dataclass(data):
-        # dataclasses.asdict() is recursive, which is not what we want.
-        # We're doing the recursion manually here, so we don't want
-        # dataclasses to do it too.
+        # dataclasses.asdict() is recursive. We're doing the recursion
+        # manually here via _jsonify calls, so we can't use
+        # dataclasses.asdict() here.
         return {
             f.name: _jsonify(getattr(data, f.name)) for f in dataclasses.fields(data)
         }
