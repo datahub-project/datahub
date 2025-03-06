@@ -1,13 +1,37 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { colors } from '@components';
 import { Card } from 'antd';
 import { TestCardDetails } from './TestCardDetails';
 import { TestCardResults } from './TestCardResults';
 import { Test } from '../../../types.generated';
 
 const StyledCard = styled(Card)`
-    margin: 8px 12px 12px 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    border-radius: 12px;
+    border: solid 1px ${colors.gray[100]};
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    min-width: 138px;
+
+
+  .ant-card-head {
+    padding: 12px 12px; // Reduce padding (adjust values as needed)
+  }
+  
+  // You might also want to adjust these related elements
+  .ant-card-head-title {
+    padding: 0px 0; // Reduced from default
+  }
+  
+  .ant-card-extra {
+    padding: 0px 0; // Reduced from default
+    
+  }
+  .ant-card-body {
+    padding: 12px 12px; // Reduce padding (adjust values as needed)
+    display: flex;
+    flex-wrap: wrap;
+  }
+
 `;
 
 type Props = {

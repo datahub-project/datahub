@@ -11,10 +11,14 @@ import { DEFAULT_TESTS_PAGE_SIZE } from '../constants';
 import { TestBuilderState } from '../builder/types';
 import { useDeleteTestMutation, useUpdateTestMutation } from '../../../graphql/test.generated';
 import { TestBuilderModal } from '../builder/TestBuilderModal';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Details = styled.div`
     height: 120px;
-    overflow: auto;
+    overflow: visible;
+    font-size: 12px;
+    color: ${colors.gray[1700]};
+
 `;
 
 const Header = styled.div`
@@ -22,12 +26,15 @@ const Header = styled.div`
     align-items: top;
     justify-content: space-between;
     margin-bottom: 4px;
+    font-size: 14px;
 `;
 
 const Title = styled(Typography.Title)`
     && {
         margin: 0px;
         padding: 0px;
+        color: ${colors.gray[600]};
+        font-size: 14px;
     }
     :hover {
         cursor: pointer;

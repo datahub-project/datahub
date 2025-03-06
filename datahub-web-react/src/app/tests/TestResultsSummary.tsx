@@ -11,12 +11,14 @@ import TestResultsModal from './TestResultsModal';
 import { TestResultType } from '../../types.generated';
 import { toRelativeTimeString } from '../shared/time/timeUtils';
 import Loading from '../shared/Loading';
+import { colors } from '@src/alchemy-components';
 
 const Container = styled.div`
-    padding: 4px;
-    height: 80px;
     display: flex;
     flex-direction: column;
+    justify-content: space-between; // Helps push LastComputed to the bottom
+
+    
 `;
 
 // const Container = styled.div`
@@ -36,10 +38,8 @@ const StyledTag = styled(Tag)`
 `;
 
 const Title = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${colors.gray[600]}
     font-size: 10px;
-    letter-spacing: 1px;
-    margin-bottom: 12px;
 `;
 
 // Styled component for LastComputed section
@@ -60,7 +60,7 @@ const LastComputed = styled.div`
 const ButtonContainer = styled.div`
     display: flex;
     justify-content: start; // Adjust this as needed
-    gap: 10px; // Adjust the gap as needed
+    flex-wrap: wrap;
 `;
 
 const DEFAULT_MODAL_OPTIONS = { visible: false, defaultActive: TestResultType.Success };

@@ -5,10 +5,7 @@ import { Test } from '../../types.generated';
 import { TestCard } from './card/TestCard';
 import { TestsSectionTitle } from './TestsSectionTitle';
 
-const Container = styled.div`
-    padding-left: 20px;
-    padding-right: 20px;
-`;
+const Container = styled.div``;
 
 type Props = {
     title: string;
@@ -34,7 +31,7 @@ export const TestsSection = ({ title, tooltip, tests }: Props) => {
                 locale={{
                     emptyText: <Empty description="No Tests found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
-                grid={{ gutter: 0, column: 4 }}
+                grid={{ gutter: 16, column: 4 }}
                 pagination={false}
                 renderItem={(test, index) => {
                     return (
