@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
@@ -92,9 +93,9 @@ public class IncidentUtils {
 
     IncidentStatus status = new IncidentStatus();
     status.setState(IncidentState.valueOf(input.getState().toString()));
-    if (input.getStage() != null) {
-      status.setStage(IncidentStage.valueOf(input.getStage().toString()));
-    }
+    status.setStage(
+        input.getStage() == null ? null : IncidentStage.valueOf(input.getStage().toString()),
+        SetMode.REMOVE_IF_NULL);
     if (input.getMessage() != null) {
       status.setMessage(input.getMessage());
     }
