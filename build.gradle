@@ -240,7 +240,7 @@ project.ext.externalDependency = [
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.7.4',
+    'postgresql': 'org.postgresql:postgresql:42.7.5',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
