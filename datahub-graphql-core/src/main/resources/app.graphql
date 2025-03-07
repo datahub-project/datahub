@@ -276,6 +276,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
