@@ -46,7 +46,6 @@ extend-ignore = [
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM103", # Return the condition directly
     "SIM105", # Use `contextlib.suppress(...)` instead of `try`-`except`-`pass`
-    "SIM108", # Use ternary operator {contents} instead of if-else-block
     "SIM115", # Use a context manager for opening files
     "SIM116", # Use a dictionary instead of consecutive `if` statements
     "SIM117", # Use a single with statement with multiple contexts instead of nested with statements
