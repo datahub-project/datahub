@@ -893,7 +893,10 @@ class HiveMetastoreSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            description=column.get("col_description", ""),
+            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
+            description=(
+                column["col_description"] if "col_description" in column else ""  # noqa: SIM401
+            ),
             default_nullable=True,
         )
 
