@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import org.javatuples.Octet;
 import org.javatuples.Septet;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.cache.CacheManager;
@@ -33,8 +34,8 @@ public class CacheEvictionServiceTest {
 
   int cacheKeyCount;
   // We cant use the spring Caffeine cache Manager in metadata-io due to a java 11 dependency --
-  // this is not a problem
-  // with the gms, but an issue with just the metadata-io jar and the associated unit tests.
+  // this is not a problem  with the gms, but an issue with just the metadata-io jar and the
+  // associated unit tests.
   final Map<String, Cache> nativeCacheMapForCaffeine = new HashMap<>();
 
   final String UNSUPPORTED_CACHE_NAME = "SampleUnsupportedCacheName";
@@ -53,6 +54,8 @@ public class CacheEvictionServiceTest {
             nativeCacheMapForCaffeine.put(
                 ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME, caffeine.build());
             nativeCacheMapForCaffeine.put(UNSUPPORTED_CACHE_NAME, caffeine.build());
+            nativeCacheMapForCaffeine.put(
+                ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME, caffeine.build());
           }
 
           @Override
@@ -119,7 +122,7 @@ public class CacheEvictionServiceTest {
     Map<
             @NotNull Septet<Object, List<String>, String, String, Object, Object, Object>,
             @NotNull String>
-        cacheData =
+        searchCacheData =
             Map.of(
                 Septet.with(
                     null, // opContext
@@ -181,15 +184,49 @@ public class CacheEvictionServiceTest {
     Cache cache =
         (Cache) cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME).getNativeCache();
     cache.invalidateAll();
-    for (Map.Entry entry : cacheData.entrySet()) {
+    for (Map.Entry entry : searchCacheData.entrySet()) {
       cache.put(entry.getKey(), entry.getValue());
     }
 
-    cacheKeyCount = cacheData.size();
+    Map<
+            @NotNull Octet<
+                Object, List<String>, String, String, Object, String, List<String>, Integer>,
+            @NotNull String>
+        scrollCacheData =
+            Map.of(
+                Octet.with(
+                    null, // opContext
+                    Arrays.asList("container", "dataset"), // entity matches but no urn in filter.
+                    "*", // query
+                    "{\"or\":[{\"and\":[{\"condition\":\"EQUAL\",\"negated\":false,\"field\":\"_entityType\",\"value\":\"\",\"values\":[\"CONTAINER\"]}]}]}",
+                    // filters
+                    null, // sort criteria
+                    "scrollid",
+                    Arrays.asList("some facet json"),
+                    1 /* querySize*/),
+                "allcontainers",
+                Octet.with(
+                    null, // opContext
+                    Arrays.asList("container", "dataset"), // entity matches but no urn in filter.
+                    "*", // query
+                    null, // filters
+                    null, // sort criteria
+                    "scrollid",
+                    Arrays.asList("some facet json"),
+                    1 /* querySize*/),
+                "allcontainers-null-filter");
+
+    cacheKeyCount = searchCacheData.size();
+
+    cache = (Cache) cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME).getNativeCache();
+    cache.invalidateAll();
+    for (Map.Entry entry : scrollCacheData.entrySet()) {
+      cache.put(entry.getKey(), entry.getValue());
+    }
 
     cache = (Cache) cacheManager.getCache(UNSUPPORTED_CACHE_NAME).getNativeCache();
     cache.invalidateAll();
-    for (Map.Entry entry : cacheData.entrySet()) {
+    for (Map.Entry entry : searchCacheData.entrySet()) {
       cache.put(
           entry.getKey(),
           entry.getValue()); // oK to have the same values, this shouldn't even be looked up.
@@ -303,10 +340,12 @@ public class CacheEvictionServiceTest {
   void testDisabledFlags() throws URISyntaxException {
     CacheEvictionService service = new CacheEvictionService(null, true, false);
     service.invalidateAll(); // should be no op though
-    evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
+    service.invalidate("anycache"); // should be no op
+    service.evict(List.of(Urn.createFromString("urn:li:container:bar")));
 
     service = new CacheEvictionService(null, false, true);
     service.invalidateAll(); // should be no op though
-    evictionService.evict(List.of(Urn.createFromString("urn:li:container:bar")));
+    service.invalidate("anycache"); // should be no op
+    service.evict(List.of(Urn.createFromString("urn:li:container:bar")));
   }
 }
