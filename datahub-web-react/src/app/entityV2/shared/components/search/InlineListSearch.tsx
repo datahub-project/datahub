@@ -1,4 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import React from 'react';
 import { pluralize } from '@src/app/shared/textUtil';
 import { MatchLabelText, SearchContainer, StyledInput } from './styledComponents';
@@ -33,7 +33,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
                 placeholder={options?.placeholder || 'Search...'}
                 onChange={debouncedSetFilterText}
                 allowClear
-                prefix={!options?.hidePrefix && <SearchOutlined />}
+                prefix={!options?.hidePrefix && <Icon icon="MagnifyingGlass" source="phosphor" />}
             />
             {searchText && !options?.hideMatchCountText && (
                 <MatchLabelText>

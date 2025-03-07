@@ -37,7 +37,11 @@ const SelectActionButtons = ({
     return (
         <ActionButtonsContainer>
             {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} iconSize="lg" />
+                <StyledClearButton
+                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
+                    isCircle
+                    onClick={handleClearSelection}
+                />
             )}
             <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
         </ActionButtonsContainer>
