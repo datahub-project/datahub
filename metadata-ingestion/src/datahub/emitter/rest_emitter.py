@@ -237,6 +237,9 @@ class DataHubRestEmitter(Closeable, Emitter):
             f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
 
+        if default_trace_mode:
+            logger.debug("Using API Tracing for ingestion.")
+
         headers = {
             "X-RestLi-Protocol-Version": "2.0.0",
             "X-DataHub-Py-Cli-Version": nice_version_name(),
