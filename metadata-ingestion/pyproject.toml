@@ -54,8 +54,6 @@ extend-ignore = [
     "SIM116", # Use a dictionary instead of consecutive `if` statements
     "SIM117", # Use a single with statement with multiple contexts instead of nested with statements
     "SIM118", # Use key {operator} dict instead of key {operator} dict.keys()
-    "SIM210", # Use `bool(...)` instead of `True if ... else False`
-    "SIM401", # Use `sample_data.get(schema_field.fieldPath, [])` instead of an `if` block
 ]
 
 [tool.ruff.lint.mccabe]
