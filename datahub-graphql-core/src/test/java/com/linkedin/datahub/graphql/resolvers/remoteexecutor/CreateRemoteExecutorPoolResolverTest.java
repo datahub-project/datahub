@@ -14,6 +14,8 @@ import com.linkedin.datahub.graphql.generated.CreateRemoteExecutorPoolInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.RemoteExecutorPoolInfo;
+import com.linkedin.executorpool.RemoteExecutorPoolState;
+import com.linkedin.executorpool.RemoteExecutorPoolStatus;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -86,6 +88,9 @@ public class CreateRemoteExecutorPoolResolverTest {
     RemoteExecutorPoolInfo expectedPoolInfo = new RemoteExecutorPoolInfo();
     expectedPoolInfo.setCreatedAt(TEST_TIMESTAMP);
     expectedPoolInfo.setCreator(UrnUtils.getUrn(TEST_ACTOR_URN));
+    RemoteExecutorPoolState poolState = new RemoteExecutorPoolState();
+    poolState.setStatus(RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+    expectedPoolInfo.setState(poolState);
     assertEquals(
         proposal.getAspect(),
         MutationUtils.buildMetadataChangeProposalWithUrn(

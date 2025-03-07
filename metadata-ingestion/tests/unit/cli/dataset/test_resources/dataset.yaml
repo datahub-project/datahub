@@ -1,0 +1,33 @@
+## This file is used to define the dataset schema for the dataset `foobar`
+- id: user.clicksv2
+  platform: hive
+  # - urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD) # use urn instead of id and platform
+  subtype: Table
+  properties:
+    test_property: test_value
+  schema:
+    # file: examples/structured_properties/click_event.avsc
+    fields:
+    - id: ip
+      structured_properties:
+        io.acryl.privacy.retentionTime:
+        - 30
+        - 90
+      type: string
+      description: The IP address of the user
+    - id: user_id
+      type: string
+      description: The user ID of the user
+- id: user.clicksv3
+  platform: hive
+  urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv3,PROD) # use urn instead of id and platform
+  subtype: View
+  schema:
+    # file: examples/structured_properties/click_event.avsc
+    fields:
+    - id: ip
+      type: string
+      description: The IP address of the user
+    - id: user_id
+      type: string
+      description: The user ID of the user
