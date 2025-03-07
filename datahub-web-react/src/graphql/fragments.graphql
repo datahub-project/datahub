@@ -229,6 +229,9 @@ fragment parentNodesFields on ParentNodesResult {
         properties {
             name
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
 }
 
@@ -238,6 +241,9 @@ fragment parentDomainsFields on ParentDomainsResult {
         urn
         type
         ... on Domain {
+            displayProperties {
+                ...displayPropertiesFields
+            }
             properties {
                 name
                 description
@@ -592,6 +598,9 @@ fragment dataJobFields on DataJob {
     }
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
+    }
+    dataTransformLogic {
+        ...dataTransformLogicFields
     }
 }
 
@@ -1148,6 +1157,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
             trainingJobs
             downstreamJobs
         }
+        customProperties {
+            key
+            value
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields
@@ -1252,6 +1265,9 @@ fragment entityDomain on DomainAssociation {
             ...parentDomainsFields
         }
         ...domainEntitiesFields
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     associatedUrn
 }
@@ -1440,6 +1456,9 @@ fragment entityDisplayNameFields on Entity {
             displayName
             qualifiedName
         }
+    }
+    ... on SchemaFieldEntity {
+        fieldPath
     }
     ... on OwnershipTypeEntity {
         info {
@@ -1787,6 +1806,14 @@ fragment datasetProfileFields on DatasetProfile {
         median
         stdev
         sampleValues
+        quantiles {
+            quantile
+            value
+        }
+        distinctValueFrequencies {
+            value
+            frequency
+        }
     }
 }
 
@@ -1816,6 +1843,15 @@ fragment notes on Entity {
                     }
                 }
             }
+        }
+    }
+}
+
+fragment dataTransformLogicFields on DataTransformLogic {
+    transforms {
+        queryStatement {
+            value
+            language
         }
     }
 }

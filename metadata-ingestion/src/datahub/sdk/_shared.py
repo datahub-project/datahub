@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import warnings
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Callable,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
 )
 
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
@@ -20,6 +24,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import MultipleSubtypesWarning, SdkUsageError
 from datahub.metadata.urns import (
+    ContainerUrn,
     CorpGroupUrn,
     CorpUserUrn,
     DataJobUrn,
@@ -32,7 +37,8 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity
+from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -43,6 +49,8 @@ DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+
+_DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
 
 def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
@@ -84,6 +92,13 @@ class HasPlatformInstance(Entity):
         )
 
     @property
+    def platform(self) -> Optional[DataPlatformUrn]:
+        dataPlatform = self._get_aspect(models.DataPlatformInstanceClass)
+        if dataPlatform and dataPlatform.platform:
+            return DataPlatformUrn.from_string(dataPlatform.platform)
+        return None
+
+    @property
     def platform_instance(self) -> Optional[DataPlatformInstanceUrn]:
         dataPlatformInstance = self._get_aspect(models.DataPlatformInstanceClass)
         if dataPlatformInstance and dataPlatformInstance.instance:
@@ -112,11 +127,11 @@ class HasSubtype(Entity):
         self._set_aspect(models.SubTypesClass(typeNames=[subtype]))
 
 
+# TODO: Reference OwnershipTypeClass as the valid ownership type enum.
 OwnershipTypeType: TypeAlias = Union[str, OwnershipTypeUrn]
 OwnerInputType: TypeAlias = Union[
-    str,
     ActorUrn,
-    Tuple[Union[str, ActorUrn], OwnershipTypeType],
+    Tuple[ActorUrn, OwnershipTypeType],
     models.OwnerClass,
 ]
 OwnersInputType: TypeAlias = List[OwnerInputType]
@@ -126,15 +141,17 @@ class HasOwnership(Entity):
     __slots__ = ()
 
     @staticmethod
-    def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
+    def _parse_owner_class(owner: OwnerInputType) -> Tuple[models.OwnerClass, bool]:
         if isinstance(owner, models.OwnerClass):
-            return owner
+            return owner, False
 
+        was_type_specified = False
         owner_type = models.OwnershipTypeClass.TECHNICAL_OWNER
         owner_type_urn = None
 
         if isinstance(owner, tuple):
             raw_owner, raw_owner_type = owner
+            was_type_specified = True
 
             if isinstance(raw_owner_type, OwnershipTypeUrn):
                 owner_type = models.OwnershipTypeClass.CUSTOM
@@ -151,17 +168,15 @@ class HasOwnership(Entity):
                 owner=make_user_urn(raw_owner),
                 type=owner_type,
                 typeUrn=owner_type_urn,
-            )
+            ), was_type_specified
         elif isinstance(raw_owner, Urn):
             return models.OwnerClass(
                 owner=str(raw_owner),
                 type=owner_type,
                 typeUrn=owner_type_urn,
-            )
+            ), was_type_specified
         else:
-            raise SdkUsageError(
-                f"Invalid owner {owner}: {type(owner)} is not a valid owner type"
-            )
+            assert_never(raw_owner)
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     # Ideally we'd also use first-class ownership type urns here, not strings.
@@ -173,21 +188,74 @@ class HasOwnership(Entity):
 
     def set_owners(self, owners: OwnersInputType) -> None:
         # TODO: add docs on the default parsing + default ownership type
-        parsed_owners = [self._parse_owner_class(owner) for owner in owners]
+        parsed_owners = [self._parse_owner_class(owner)[0] for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
 
+    @classmethod
+    def _owner_key_method(
+        cls, consider_owner_type: bool
+    ) -> Callable[[models.OwnerClass], Tuple[str, ...]]:
+        if consider_owner_type:
+            return cls._typed_owner_key
+        else:
+            return cls._simple_owner_key
 
-ContainerInputType: TypeAlias = Union["Container", ContainerKey]
+    @classmethod
+    def _typed_owner_key(cls, owner: models.OwnerClass) -> Tuple[str, str]:
+        return (owner.owner, owner.typeUrn or str(owner.type))
+
+    @classmethod
+    def _simple_owner_key(cls, owner: models.OwnerClass) -> Tuple[str,]:
+        return (owner.owner,)
+
+    def _ensure_owners(self) -> List[models.OwnerClass]:
+        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
+        return owners
+
+    def add_owner(self, owner: OwnerInputType) -> None:
+        # Tricky: when adding an owner, we always use the ownership type.
+        # For removals, we only use it if it was explicitly specified.
+        parsed_owner, _ = self._parse_owner_class(owner)
+        add_list_unique(
+            self._ensure_owners(),
+            key=self._typed_owner_key,
+            item=parsed_owner,
+        )
+
+    def remove_owner(self, owner: OwnerInputType) -> None:
+        parsed_owner, was_type_specified = self._parse_owner_class(owner)
+        remove_list_unique(
+            self._ensure_owners(),
+            key=self._owner_key_method(was_type_specified),
+            item=parsed_owner,
+        )
+
+
+# If you pass in a container object, we can build on top of its browse path.
+# If you pass in a ContainerKey, we can use parent_key() to build the browse path.
+# If you pass in a list of urns, we'll use that as the browse path. Any non-urn strings
+# will be treated as raw ids.
+ParentContainerInputType: TypeAlias = Union["Container", ContainerKey, List[UrnOrStr]]
 
 
 class HasContainer(Entity):
     __slots__ = ()
 
-    def _set_container(self, container: Optional[ContainerInputType]) -> None:
+    @staticmethod
+    def _maybe_parse_as_urn(urn: UrnOrStr) -> UrnOrStr:
+        if isinstance(urn, Urn):
+            return urn
+        elif urn.startswith("urn:li:"):
+            return Urn.from_string(urn)
+        else:
+            return urn
+
+    def _set_container(self, container: Optional[ParentContainerInputType]) -> None:
         # We need to allow container to be None. It won't happen for datasets much, but
         # will be required for root containers.
         from datahub.sdk.container import Container
 
+        container_urn: Optional[str]
         browse_path: List[Union[str, models.BrowsePathEntryClass]] = []
         if isinstance(container, Container):
             container_urn = container.urn.urn()
@@ -203,6 +271,29 @@ class HasContainer(Entity):
                     id=container_urn,
                     urn=container_urn,
                 ),
+            ]
+        elif isinstance(container, list):
+            parsed_path = [self._maybe_parse_as_urn(entry) for entry in container]
+
+            # Use the last container in the path as the container urn.
+            container_urns = [
+                urn.urn() for urn in parsed_path if isinstance(urn, ContainerUrn)
+            ]
+            container_urn = container_urns[-1] if container_urns else None
+
+            browse_path = [
+                (
+                    models.BrowsePathEntryClass(
+                        id=str(entry),
+                        urn=str(entry),
+                    )
+                    if isinstance(entry, Urn)
+                    else models.BrowsePathEntryClass(
+                        id=entry,
+                        urn=None,
+                    )
+                )
+                for entry in parsed_path
             ]
         elif container is not None:
             container_urn = container.as_urn()
@@ -243,6 +334,24 @@ class HasContainer(Entity):
             )
         )
 
+    @property
+    def parent_container(self) -> Optional[ContainerUrn]:
+        if container := self._get_aspect(models.ContainerClass):
+            return ContainerUrn.from_string(container.container)
+        return None
+
+    @property
+    def browse_path(self) -> Optional[List[UrnOrStr]]:
+        if browse_path := self._get_aspect(models.BrowsePathsV2Class):
+            path: List[UrnOrStr] = []
+            for entry in browse_path.path:
+                if entry.urn:
+                    path.append(Urn.from_string(entry.urn))
+                else:
+                    path.append(entry.id)
+            return path
+        return None
+
 
 TagInputType: TypeAlias = Union[str, TagUrn, models.TagAssociationClass]
 TagsInputType: TypeAlias = List[TagInputType]
@@ -250,6 +359,9 @@ TagsInputType: TypeAlias = List[TagInputType]
 
 class HasTags(Entity):
     __slots__ = ()
+
+    def _ensure_tags(self) -> List[models.TagAssociationClass]:
+        return self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
@@ -275,6 +387,24 @@ class HasTags(Entity):
             )
         )
 
+    @classmethod
+    def _tag_key(cls, tag: models.TagAssociationClass) -> str:
+        return tag.tag
+
+    def add_tag(self, tag: TagInputType) -> None:
+        add_list_unique(
+            self._ensure_tags(),
+            self._tag_key,
+            self._parse_tag_association_class(tag),
+        )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        remove_list_unique(
+            self._ensure_tags(),
+            self._tag_key,
+            self._parse_tag_association_class(tag),
+        )
+
 
 TermInputType: TypeAlias = Union[
     str, GlossaryTermUrn, models.GlossaryTermAssociationClass
@@ -284,6 +414,11 @@ TermsInputType: TypeAlias = List[TermInputType]
 
 class HasTerms(Entity):
     __slots__ = ()
+
+    def _ensure_terms(self) -> List[models.GlossaryTermAssociationClass]:
+        return self._setdefault_aspect(
+            models.GlossaryTermsClass(terms=[], auditStamp=self._terms_audit_stamp())
+        ).terms
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
@@ -306,8 +441,7 @@ class HasTerms(Entity):
     def _terms_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            # TODO figure out what to put here
-            actor=CorpUserUrn("__ingestion").urn(),
+            actor=_DEFAULT_ACTOR_URN,
         )
 
     def set_terms(self, terms: TermsInputType) -> None:
@@ -318,6 +452,24 @@ class HasTerms(Entity):
                 ],
                 auditStamp=self._terms_audit_stamp(),
             )
+        )
+
+    @classmethod
+    def _terms_key(self, term: models.GlossaryTermAssociationClass) -> str:
+        return term.urn
+
+    def add_term(self, term: TermInputType) -> None:
+        add_list_unique(
+            self._ensure_terms(),
+            self._terms_key,
+            self._parse_glossary_term_association_class(term),
+        )
+
+    def remove_term(self, term: TermInputType) -> None:
+        remove_list_unique(
+            self._ensure_terms(),
+            self._terms_key,
+            self._parse_glossary_term_association_class(term),
         )
 
 
@@ -343,3 +495,86 @@ class HasDomain(Entity):
     def set_domain(self, domain: DomainInputType) -> None:
         domain_urn = DomainUrn.from_string(domain)  # basically a type assertion
         self._set_aspect(models.DomainsClass(domains=[str(domain_urn)]))
+
+
+LinkInputType: TypeAlias = Union[
+    str,
+    Tuple[str, str],  # url, description
+    models.InstitutionalMemoryMetadataClass,
+]
+LinksInputType: TypeAlias = Sequence[LinkInputType]
+
+
+class HasInstitutionalMemory(Entity):
+    __slots__ = ()
+
+    # Internally the aspect is called institutionalMemory, and so much of the code
+    # uses that name. However, the public-facing API is called "links", since
+    # that's what we call these in the UI.
+
+    def _ensure_institutional_memory(
+        self,
+    ) -> List[models.InstitutionalMemoryMetadataClass]:
+        return self._setdefault_aspect(
+            models.InstitutionalMemoryClass(elements=[])
+        ).elements
+
+    @property
+    def links(self) -> Optional[List[models.InstitutionalMemoryMetadataClass]]:
+        if institutional_memory := self._get_aspect(models.InstitutionalMemoryClass):
+            return institutional_memory.elements
+        return None
+
+    @classmethod
+    def _institutional_memory_audit_stamp(self) -> models.AuditStampClass:
+        return models.AuditStampClass(
+            time=0,
+            actor=_DEFAULT_ACTOR_URN,
+        )
+
+    @classmethod
+    def _parse_link_association_class(
+        cls, link: LinkInputType
+    ) -> models.InstitutionalMemoryMetadataClass:
+        if isinstance(link, models.InstitutionalMemoryMetadataClass):
+            return link
+        elif isinstance(link, str):
+            return models.InstitutionalMemoryMetadataClass(
+                url=link,
+                description=link,
+                createStamp=cls._institutional_memory_audit_stamp(),
+            )
+        elif isinstance(link, tuple) and len(link) == 2:
+            url, description = link
+            return models.InstitutionalMemoryMetadataClass(
+                url=url,
+                description=description,
+                createStamp=cls._institutional_memory_audit_stamp(),
+            )
+        else:
+            assert_never(link)
+
+    def set_links(self, links: LinksInputType) -> None:
+        self._set_aspect(
+            models.InstitutionalMemoryClass(
+                elements=[self._parse_link_association_class(link) for link in links]
+            )
+        )
+
+    @classmethod
+    def _link_key(self, link: models.InstitutionalMemoryMetadataClass) -> str:
+        return link.url
+
+    def add_link(self, link: LinkInputType) -> None:
+        add_list_unique(
+            self._ensure_institutional_memory(),
+            self._link_key,
+            self._parse_link_association_class(link),
+        )
+
+    def remove_link(self, link: LinkInputType) -> None:
+        remove_list_unique(
+            self._ensure_institutional_memory(),
+            self._link_key,
+            self._parse_link_association_class(link),
+        )

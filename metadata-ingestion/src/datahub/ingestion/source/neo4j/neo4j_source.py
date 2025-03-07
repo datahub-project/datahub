@@ -37,6 +37,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
+    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaFieldDataType
@@ -84,8 +85,9 @@ class Neo4jConfig(
 
 
 @dataclass
-class Neo4jSourceReport(StaleEntityRemovalSourceReport):
-    pass
+class Neo4jSourceReport(StatefulIngestionReport):
+    obj_failures: int = 0
+    obj_created: int = 0
 
 
 @platform_name("Neo4j", id="neo4j")
@@ -105,7 +107,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
         self.platform = self.config.platform
         self.platform_instance = self.config.platform_instance
         self.env = self.config.env
-        self.report = Neo4jSourceReport()
+        self.report: Neo4jSourceReport = Neo4jSourceReport()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Neo4jSource":
@@ -328,7 +330,15 @@ class Neo4jSource(StatefulIngestionSourceBase):
         return record["properties"]
 
     def get_relationships(self, record: dict) -> dict:
-        return record.get("relationships", None)
+        return record.get("relationships", {})
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         df = self.get_neo4j_metadata(

@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;

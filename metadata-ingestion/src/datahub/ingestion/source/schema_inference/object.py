@@ -149,7 +149,7 @@ def construct_schema(
 
     extended_schema: Dict[Tuple[str, ...], SchemaDescription] = {}
 
-    for field_path in schema.keys():
+    for field_path in schema:
         field_types = schema[field_path]["types"]
         field_type: Union[str, type] = "mixed"
 
