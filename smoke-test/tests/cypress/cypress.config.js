@@ -30,6 +30,6 @@ module.exports = defineConfig({
     testCaseSwitchClassnameAndName: true,
     suiteNameTemplate: "{filepath}",
     classNameTemplate: "{filepath}",
-    titleTemplate: "{filepath}"
+    titleTemplate: "{filepath}",
   },
 });
