@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
 SQL_PARSING_RESULT_KEY = "datahub_sql"
 
@@ -138,22 +139,29 @@ class GenericSqlExtractor(SqlExtractor):
         return super().default_schema
 
     def _get_scheme(self) -> Optional[str]:
-        # Best effort conversion to DataHub platform names.
-
         with contextlib.suppress(Exception):
             if self.hook:
                 if hasattr(self.hook, "get_uri"):
                     uri = self.hook.get_uri()
+                    # impala connection type인 경우 강제로 hive platform 사용
+                    if self.conn and self.conn.conn_type == 'impala':
+                        return 'hive'
                     return get_platform_from_sqlalchemy_uri(uri)
+        conn_type = self.conn.conn_type if self.conn else None
+        if conn_type == 'impala':
+            return 'hive'
 
-        return self.conn.conn_type or super().dialect
+        return conn_type or super().dialect
 
     def _get_database(self) -> Optional[str]:
         if self.conn:
             # For BigQuery, the "database" is the project name.
             if hasattr(self.conn, "project_id"):
                 return self.conn.project_id
-
+            if self.conn.schema == "default":
+                logger.debug("Using default database")
+                return None
+            logger.debug(f"Using default database: {self.conn.schema}")
             return self.conn.schema
         return None
 
@@ -212,6 +220,7 @@ def _parse_sql_into_task_metadata(
     # Prepare to run the SQL parser.
     graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
 
+    import re
     self.log.debug(
         "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
         "with graph client" if graph else "in offline mode",
@@ -221,7 +230,7 @@ def _parse_sql_into_task_metadata(
         sql,
     )
     sql_parsing_result: SqlParsingResult = create_lineage_sql_parsed_result(
-        query=sql,
+        query=re.sub(r'%\(([^)]+)\)s', r':\1', sql),
         graph=graph,
         platform=platform,
         platform_instance=None,

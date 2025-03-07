@@ -1,8 +1,5 @@
 package datahub.client.rest;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.apache.hc.core5.http.HttpHeaders.*;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,22 +14,6 @@ import datahub.client.MetadataWriteResponse;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
@@ -52,6 +33,26 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.http2.HttpVersionPolicy;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.TimeValue;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.net.ssl.SSLContext;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 @ThreadSafe
 @Slf4j
@@ -89,12 +90,12 @@ public class RestEmitter implements Emitter {
   public RestEmitter(RestEmitterConfig config) {
     objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
     int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+            Integer.parseInt(
+                    System.getenv()
+                            .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
     objectMapper
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+            .getFactory()
+            .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
 
     this.config = config;
@@ -105,8 +106,8 @@ public class RestEmitter implements Emitter {
       // Override httpClient settings with RestEmitter configs if present
       if (config.getTimeoutSec() != null) {
         requestConfigBuilder
-            .setConnectionRequestTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS)
-            .setResponseTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS);
+                .setConnectionRequestTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS)
+                .setResponseTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS);
       }
       if (config.isDisableChunkedEncoding()) {
         requestConfigBuilder.setContentCompressionEnabled(false);
@@ -115,22 +116,22 @@ public class RestEmitter implements Emitter {
     }
 
     PoolingAsyncClientConnectionManagerBuilder poolingAsyncClientConnectionManagerBuilder =
-        PoolingAsyncClientConnectionManagerBuilder.create();
+            PoolingAsyncClientConnectionManagerBuilder.create();
 
     // Forcing http 1.x as 2.0 is not supported yet
     TlsConfig tlsHttp1Config =
-        TlsConfig.copy(TlsConfig.DEFAULT).setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1).build();
+            TlsConfig.copy(TlsConfig.DEFAULT).setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1).build();
     poolingAsyncClientConnectionManagerBuilder.setDefaultTlsConfig(tlsHttp1Config);
 
     if (config.isDisableSslVerification()) {
       try {
         SSLContext sslcontext =
-            SSLContexts.custom().loadTrustMaterial(TrustAllStrategy.INSTANCE).build();
+                SSLContexts.custom().loadTrustMaterial(TrustAllStrategy.INSTANCE).build();
         TlsStrategy tlsStrategy =
-            ClientTlsStrategyBuilder.create()
-                .setSslContext(sslcontext)
-                .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                .build();
+                ClientTlsStrategyBuilder.create()
+                        .setSslContext(sslcontext)
+                        .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                        .build();
         poolingAsyncClientConnectionManagerBuilder.setTlsStrategy(tlsStrategy);
       } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
         throw new RuntimeException("Error while creating insecure http client", e);
@@ -139,8 +140,8 @@ public class RestEmitter implements Emitter {
     httpClientBuilder.setConnectionManager(poolingAsyncClientConnectionManagerBuilder.build());
 
     httpClientBuilder.setRetryStrategy(
-        new DatahubHttpRequestRetryStrategy(
-            config.getMaxRetries(), TimeValue.ofSeconds(config.getRetryIntervalSec())));
+            new DatahubHttpRequestRetryStrategy(
+                    config.getMaxRetries(), TimeValue.ofSeconds(config.getRetryIntervalSec())));
 
     this.httpClient = httpClientBuilder.build();
     this.httpClient.start();
@@ -152,9 +153,9 @@ public class RestEmitter implements Emitter {
 
   private static MetadataWriteResponse mapResponse(SimpleHttpResponse response) {
     MetadataWriteResponse.MetadataWriteResponseBuilder builder =
-        MetadataWriteResponse.builder().underlyingResponse(response);
+            MetadataWriteResponse.builder().underlyingResponse(response);
     if ((response != null) && (response.getCode()) == HttpStatus.SC_OK
-        || Objects.requireNonNull(response).getCode() == HttpStatus.SC_CREATED) {
+            || Objects.requireNonNull(response).getCode() == HttpStatus.SC_CREATED) {
       builder.success(true);
     } else {
       builder.success(false);
@@ -185,9 +186,9 @@ public class RestEmitter implements Emitter {
    *     connection to the server
    */
   public static RestEmitter create(
-      Consumer<RestEmitterConfig.RestEmitterConfigBuilder> builderSupplier) {
+          Consumer<RestEmitterConfig.RestEmitterConfigBuilder> builderSupplier) {
     RestEmitter restEmitter =
-        new RestEmitter(RestEmitterConfig.builder().with(builderSupplier).build());
+            new RestEmitter(RestEmitterConfig.builder().with(builderSupplier).build());
     return restEmitter;
   }
 
@@ -204,13 +205,13 @@ public class RestEmitter implements Emitter {
 
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw, Callback callback)
-      throws IOException {
+          throws IOException {
     return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback)
-      throws IOException {
+          throws IOException {
     DataMap map = new DataMap();
     map.put("proposal", mcp.data());
     String serializedMCP = dataTemplateCodec.mapToString(map);
@@ -219,12 +220,13 @@ public class RestEmitter implements Emitter {
   }
 
   private Future<MetadataWriteResponse> postGeneric(
-      String urlStr, String payloadJson, Object originalRequest, Callback callback)
-      throws IOException {
+          String urlStr, String payloadJson, Object originalRequest, Callback callback)
+          throws IOException {
     SimpleRequestBuilder simpleRequestBuilder = SimpleRequestBuilder.post(urlStr);
     simpleRequestBuilder.setHeader("Content-Type", "application/json");
     simpleRequestBuilder.setHeader("X-RestLi-Protocol-Version", "2.0.0");
     simpleRequestBuilder.setHeader("Accept", "application/json");
+    simpleRequestBuilder.setHeader("Host", "sangam.datahub-gms.dsp.io");
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::setHeader);
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
@@ -239,62 +241,63 @@ public class RestEmitter implements Emitter {
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =
-        new FutureCallback<SimpleHttpResponse>() {
-          @Override
-          public void completed(SimpleHttpResponse response) {
-            MetadataWriteResponse writeResponse = null;
-            try {
-              writeResponse = mapResponse(response);
-              responseAtomicReference.set(writeResponse);
-            } catch (Exception e) {
-              // do nothing
-            }
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onCompletion(writeResponse);
-              } catch (Exception e) {
-                log.error("Error executing user callback on completion.", e);
+            new FutureCallback<SimpleHttpResponse>() {
+              @Override
+              public void completed(SimpleHttpResponse response) {
+                MetadataWriteResponse writeResponse = null;
+                try {
+                  writeResponse = mapResponse(response);
+                  responseAtomicReference.set(writeResponse);
+                } catch (Exception e) {
+                  // do nothing
+                }
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onCompletion(writeResponse);
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on completion.", e);
+                  }
+                }
               }
-            }
-          }
 
-          @Override
-          public void failed(Exception ex) {
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onFailure(ex);
-              } catch (Exception e) {
-                log.error("Error executing user callback on failure.", e);
+              @Override
+              public void failed(Exception ex) {
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onFailure(ex);
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on failure.", e);
+                  }
+                }
               }
-            }
-          }
 
-          @Override
-          public void cancelled() {
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onFailure(new RuntimeException("Cancelled"));
-              } catch (Exception e) {
-                log.error("Error executing user callback on failure due to cancellation.", e);
+              @Override
+              public void cancelled() {
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onFailure(new RuntimeException("Cancelled"));
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on failure due to cancellation.", e);
+                  }
+                }
               }
-            }
-          }
-        };
+            };
     Future<SimpleHttpResponse> requestFuture =
-        httpClient.execute(simpleRequestBuilder.build(), httpCallback);
+            httpClient.execute(simpleRequestBuilder.build(), httpCallback);
     return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
   }
 
   private Future<MetadataWriteResponse> getGeneric(String urlStr) throws IOException {
     SimpleHttpRequest simpleHttpRequest =
-        SimpleRequestBuilder.get(urlStr)
-            .addHeader("Content-Type", "application/json")
-            .addHeader("X-RestLi-Protocol-Version", "2.0.0")
-            .addHeader("Accept", "application/json")
-            .build();
+            SimpleRequestBuilder.get(urlStr)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("X-RestLi-Protocol-Version", "2.0.0")
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Host", "sangam.datahub-gms.dsp.io")
+                    .build();
 
     Future<SimpleHttpResponse> response = this.httpClient.execute(simpleHttpRequest, null);
     return new MetadataResponseFuture(response, RestEmitter::mapResponse);
@@ -312,18 +315,19 @@ public class RestEmitter implements Emitter {
 
   @Override
   public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback)
-      throws IOException {
+          throws IOException {
     log.debug("Emit: URL: {}, Payload: {}\n", this.ingestOpenApiUrl, request);
     return this.postOpenAPI(request, callback);
   }
 
   private Future<MetadataWriteResponse> postOpenAPI(
-      List<UpsertAspectRequest> payload, Callback callback) throws IOException {
+          List<UpsertAspectRequest> payload, Callback callback) throws IOException {
     SimpleRequestBuilder simpleRequestBuilder =
-        SimpleRequestBuilder.post(ingestOpenApiUrl)
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Accept", "application/json")
-            .addHeader("X-RestLi-Protocol-Version", "2.0.0");
+            SimpleRequestBuilder.post(ingestOpenApiUrl)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Host", "sangam.datahub-gms.dsp.io")
+                    .addHeader("X-RestLi-Protocol-Version", "2.0.0");
 
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::addHeader);
 
@@ -331,56 +335,56 @@ public class RestEmitter implements Emitter {
       simpleRequestBuilder.addHeader("Authorization", "Bearer " + this.config.getToken());
     }
     simpleRequestBuilder.setBody(
-        objectMapper.writeValueAsString(payload), ContentType.APPLICATION_JSON);
+            objectMapper.writeValueAsString(payload), ContentType.APPLICATION_JSON);
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =
-        new FutureCallback<SimpleHttpResponse>() {
-          @Override
-          public void completed(SimpleHttpResponse response) {
-            MetadataWriteResponse writeResponse = null;
-            try {
-              writeResponse = mapResponse(response);
-              responseAtomicReference.set(writeResponse);
-            } catch (Exception e) {
-              // do nothing
-            }
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onCompletion(writeResponse);
-              } catch (Exception e) {
-                log.error("Error executing user callback on completion.", e);
+            new FutureCallback<SimpleHttpResponse>() {
+              @Override
+              public void completed(SimpleHttpResponse response) {
+                MetadataWriteResponse writeResponse = null;
+                try {
+                  writeResponse = mapResponse(response);
+                  responseAtomicReference.set(writeResponse);
+                } catch (Exception e) {
+                  // do nothing
+                }
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onCompletion(writeResponse);
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on completion.", e);
+                  }
+                }
               }
-            }
-          }
 
-          @Override
-          public void failed(Exception ex) {
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onFailure(ex);
-              } catch (Exception e) {
-                log.error("Error executing user callback on failure.", e);
+              @Override
+              public void failed(Exception ex) {
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onFailure(ex);
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on failure.", e);
+                  }
+                }
               }
-            }
-          }
 
-          @Override
-          public void cancelled() {
-            responseLatch.countDown();
-            if (callback != null) {
-              try {
-                callback.onFailure(new RuntimeException("Cancelled"));
-              } catch (Exception e) {
-                log.error("Error executing user callback on failure due to cancellation.", e);
+              @Override
+              public void cancelled() {
+                responseLatch.countDown();
+                if (callback != null) {
+                  try {
+                    callback.onFailure(new RuntimeException("Cancelled"));
+                  } catch (Exception e) {
+                    log.error("Error executing user callback on failure due to cancellation.", e);
+                  }
+                }
               }
-            }
-          }
-        };
+            };
     Future<SimpleHttpResponse> requestFuture =
-        httpClient.execute(simpleRequestBuilder.build(), httpCallback);
+            httpClient.execute(simpleRequestBuilder.build(), httpCallback);
     return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
   }
 
