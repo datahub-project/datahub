@@ -177,9 +177,10 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
             containerProperties(namespace, properties));
 
     int nLevels = namespace.length();
+    Urn parentContainerUrn = null;
     if (nLevels > 1) {
       String[] parentLevels = Arrays.copyOfRange(namespace.levels(), 0, nLevels - 1);
-      Urn parentContainerUrn = containerUrn(platformInstance(), parentLevels);
+      parentContainerUrn = containerUrn(platformInstance(), parentLevels);
       if (!entityService.exists(operationContext, parentContainerUrn)) {
         throw new NoSuchNamespaceException(
             "Parent namespace %s does not exist in platformInstance-catalog %s",
@@ -196,6 +197,12 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
         SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray(CONTAINER_SUB_TYPE)));
 
     ingestBatch(icebergBatch);
+
+    List<Urn> urnsToInvalidate = new ArrayList<>(List.of(containerUrn));
+    if (parentContainerUrn != null) {
+      urnsToInvalidate.add(parentContainerUrn);
+    }
+    warehouse.invalidateCacheEntries(urnsToInvalidate);
   }
 
   @Override
@@ -260,6 +267,7 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     if (searchIsEmpty(filter, CONTAINER_ENTITY_NAME, DATASET_ENTITY_NAME)) {
       // TODO handle race conditions
       entityService.deleteUrn(operationContext, containerUrn);
+      warehouse.invalidateCacheEntries(List.of(containerUrn));
       return true;
     } else {
       throw new NamespaceNotEmptyException("Namespace %s is not empty", namespace);
