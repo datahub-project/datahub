@@ -281,7 +281,6 @@ class MLflowSource(StatefulIngestionSourceBase):
             f"urn:li:platformResource:{builder.datahub_guid(guid_dict_user)}"
         )
 
-        # TODO: platform resource key class?
         yield MetadataChangeProposalWrapper(
             entityUrn=platform_user_urn,
             aspect=PlatformResourceInfoClass(
