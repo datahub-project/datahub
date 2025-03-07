@@ -3,13 +3,11 @@ import styled from 'styled-components';
 import { groupTestsByCategory } from './utils';
 import { TestsSection } from './TestsSection';
 import { Test } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import EmptyTests from './EmptyTests';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding-top 28px;
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[3])};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : 'white')};
     ${(props) => !props.$isShowNavBarRedesign && 'min-height: 100vh;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&

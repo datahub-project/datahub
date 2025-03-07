@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { message, Modal, Typography } from 'antd';
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { useApolloClient } from '@apollo/client';
 import { TestCardActions } from './TestCardActions';
 import { Test, TestDefinitionInput } from '../../../types.generated';
@@ -14,7 +14,9 @@ import { TestBuilderModal } from '../builder/TestBuilderModal';
 
 const Details = styled.div`
     height: 120px;
-    overflow: auto;
+    overflow: visible;
+    font-size: 12px;
+    color: ${colors.gray[1700]};
 `;
 
 const Header = styled.div`
@@ -22,12 +24,15 @@ const Header = styled.div`
     align-items: top;
     justify-content: space-between;
     margin-bottom: 4px;
+    font-size: 14px;
 `;
 
 const Title = styled(Typography.Title)`
     && {
         margin: 0px;
         padding: 0px;
+        color: ${colors.gray[600]};
+        font-size: 14px;
     }
     :hover {
         cursor: pointer;
