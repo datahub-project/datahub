@@ -110,6 +110,7 @@ entities:
       - ownership
       - status
       - testResults
+      - subTypes
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -211,6 +212,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -225,6 +227,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -236,6 +239,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -284,6 +288,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -295,6 +300,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -369,6 +376,8 @@ entities:
       - forms
       - testResults
       - versionProperties
+      - subTypes
+      - container
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -387,6 +396,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - container
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -398,6 +409,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -417,6 +429,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -436,6 +449,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -453,6 +467,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -493,6 +508,7 @@ entities:
       - documentation
       - testResults
       - deprecation
+      - subTypes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -521,6 +537,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - subTypes
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey
@@ -566,6 +583,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

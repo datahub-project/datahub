@@ -1,33 +1,38 @@
 import { AxisScaleOutput } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
-import { Margin } from '@visx/xychart';
-import { RenderTooltipGlyphProps } from '@visx/xychart/lib/components/Tooltip';
+import { GlyphProps as VisxGlyphProps, Margin } from '@visx/xychart';
 import React from 'react';
-import { AxisProps, GridProps } from '../BarChart/types';
+import { AxisProps, BaseDatum, GridProps } from '../BarChart/types';
 
-export type LineChartProps<DatumType extends object> = {
-    data: DatumType[];
+export type Datum = BaseDatum;
+
+export type LineChartProps = {
+    data: Datum[];
     isEmpty?: boolean;
 
-    xAccessor: (datum: DatumType) => string | number;
-    yAccessor: (datum: DatumType) => number;
     xScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yScale?: ScaleConfig<AxisScaleOutput, any, any>;
     maxYDomainForZeroData?: number;
 
     lineColor?: string;
     areaColor?: string;
-    margin?: Margin;
+    margin?: Partial<Margin>;
 
-    leftAxisProps?: AxisProps<DatumType>;
-    bottomAxisProps?: AxisProps<DatumType>;
-    gridProps?: GridProps<DatumType>;
+    leftAxisProps?: AxisProps;
+    showLeftAxisLine?: boolean;
+    bottomAxisProps?: AxisProps;
+    showBottomAxisLine?: boolean;
+    gridProps?: GridProps;
 
-    popoverRenderer?: (datum: DatumType) => React.ReactNode;
+    popoverRenderer?: (datum: Datum) => React.ReactNode;
     renderGradients?: () => React.ReactNode;
     toolbarVerticalCrosshairStyle?: React.SVGProps<SVGLineElement>;
-    renderTooltipGlyph?: (props: RenderTooltipGlyphProps<object>) => React.ReactNode | undefined;
+    renderTooltipGlyph?: (props: GlyphProps) => React.ReactElement | null;
+    showGlyphOnSingleDataPoint?: boolean;
+    renderGlyphOnSingleDataPoint?: React.FC<GlyphProps>;
 };
+
+export type GlyphProps = VisxGlyphProps<Datum>;
 
 export type TooltipGlyphProps = {
     x: number;

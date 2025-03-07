@@ -251,13 +251,14 @@ export default class EntityRegistry {
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
             structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
+            versionProperties: genericEntityProperties.versionProperties ?? undefined,
         };
     }
 
     getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): Map<string, LineageAsset> | undefined {
         // TODO: Fold into entity registry?
         if (data?.__typename === 'Domain') {
-            return data?.dataProducts?.searchResults.reduce((obj, r) => {
+            return data?.dataProducts?.searchResults?.reduce((obj, r) => {
                 if (r.entity.__typename === 'DataProduct') {
                     const name = this.getDisplayName(r.entity.type, r.entity);
                     obj.set(name, { name, type: LineageAssetType.DataProduct, size: r.entity.entities?.total });

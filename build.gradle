@@ -60,6 +60,7 @@ buildscript {
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.25.0'
   ext.logbackClassicJava8 = '1.2.12'
+  ext.awsSdk2Version = '2.30.33'
 
   ext.docker_registry = 'acryldata'
 
@@ -120,12 +121,12 @@ project.ext.externalDependency = [
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro': 'org.apache.avro:avro:1.11.4',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.2.0',
-    'awsS3': 'software.amazon.awssdk:s3:2.26.21',
-    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
-    'awsRds':'software.amazon.awssdk:rds:2.18.24',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.23',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.0',
+    'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
+    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
+    'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
@@ -186,7 +187,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.4.9',
+    'jsonSmart': 'net.minidev:json-smart:2.5.2',
     'json': 'org.json:json:20231013',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'junit': 'junit:junit:4.13.2',
@@ -240,7 +241,7 @@ project.ext.externalDependency = [
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.7.4',
+    'postgresql': 'org.postgresql:postgresql:42.7.5',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -419,7 +420,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.116.Final')
+        implementation('io.netty:netty-all:4.1.118.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

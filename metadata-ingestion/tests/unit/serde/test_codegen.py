@@ -54,7 +54,7 @@ def test_key_aspect_info():
         "entityCategory": "internal",
         "entityAspects": ["telemetryClientId"],
     }
-    assert TelemetryKeyClass.ASPECT_INFO == expected
+    assert expected == TelemetryKeyClass.ASPECT_INFO
     assert TelemetryKeyClass.get_aspect_info() == expected
 
 

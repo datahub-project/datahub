@@ -180,10 +180,11 @@ def optimized_get_columns(
     connection: Connection,
     table_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     use_qvci: bool = False,
     **kw: Dict[str, Any],
 ) -> List[Dict]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 
@@ -314,9 +315,10 @@ def optimized_get_view_definition(
     connection: Connection,
     view_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     **kw: Dict[str, Any],
 ) -> Optional[str]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 
@@ -649,7 +651,7 @@ ORDER by DataBaseName, TableName;
             )
 
             # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
-            # setattr(  # noqa: B010
+            # setattr(
             #   TeradataDialect,
             #    "get_view_definition",
             #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
@@ -746,7 +748,7 @@ ORDER by DataBaseName, TableName;
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
-    def cached_loop_tables(  # noqa: C901
+    def cached_loop_tables(
         self,
         inspector: Inspector,
         schema: str,
@@ -782,7 +784,7 @@ ORDER by DataBaseName, TableName;
                 break
         return description, properties, location
 
-    def cached_loop_views(  # noqa: C901
+    def cached_loop_views(
         self,
         inspector: Inspector,
         schema: str,

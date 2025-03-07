@@ -45,8 +45,8 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
   }
 
-  @ExceptionHandler(InvalidUrnException.class)
-  public static ResponseEntity<Map<String, String>> handleUrnException(InvalidUrnException e) {
+  @ExceptionHandler({IllegalArgumentException.class, InvalidUrnException.class})
+  public static ResponseEntity<Map<String, String>> handleUrnException(Exception e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
 

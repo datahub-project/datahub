@@ -845,6 +845,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
         structuredProperties {
             properties {
@@ -1053,11 +1056,17 @@ fragment searchResultFieldsNoLineage on Entity {
 fragment searchResultFields on Entity {
     ...searchResultFieldsNoLineage
     ... on EntityWithRelationships {
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 0 }) {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
             total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
         }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 0 }) {
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
         }
     }
 }

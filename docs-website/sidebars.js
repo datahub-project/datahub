@@ -93,6 +93,11 @@ module.exports = {
           ],
         },
         {
+          label: "Access Management",
+          type: "doc",
+          id: "docs/features/feature-guides/access-management",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: false,
@@ -737,7 +742,7 @@ module.exports = {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/datahub_lite"],
+      items: ["docs/cli-commands/dataset", "docs/datahub_lite"],
     },
     {
       type: "category",
@@ -943,6 +948,7 @@ module.exports = {
     {
       "Advanced Guides": [
         "docs/advanced/mcp-mcl",
+        "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",

@@ -12,7 +12,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+from datahub.metadata.schema_classes import (
+    RecordTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +24,12 @@ logger = logging.getLogger(__name__)
 def flatten(d: dict, prefix: str = "") -> Generator:
     for k, v in d.items():
         if isinstance(v, dict):
+            # First yield the parent field
+            yield f"{prefix}.{k}".strip(".")
+            # Then yield all nested fields
             yield from flatten(v, f"{prefix}.{k}")
         else:
-            yield f"{prefix}-{k}".strip(".")
+            yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
 
 def flatten2list(d: dict) -> list:
@@ -34,7 +41,7 @@ def flatten2list(d: dict) -> list:
          "anotherone": {"third_a": {"last": 3}}
          }
 
-    yeilds:
+    yields:
 
         ["first.second_a",
          "first.second_b",
@@ -43,7 +50,7 @@ def flatten2list(d: dict) -> list:
          ]
     """
     fl_l = list(flatten(d))
-    return [d[1:] if d[0] == "-" else d for d in fl_l]
+    return fl_l
 
 
 def request_call(
@@ -111,7 +118,7 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
+def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs, together with their description and the tags
     """
@@ -160,7 +167,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     Try to determine if example data is defined for the endpoint, and return it
     """
     data = {}
-    if "content" in base_res.keys():
+    if "content" in base_res:
         res_cont = base_res["content"]
         if "application/json" in res_cont.keys():
             ex_field = None
@@ -181,7 +188,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 )
         elif "text/csv" in res_cont.keys():
             data = res_cont["text/csv"]["schema"]
-    elif "examples" in base_res.keys():
+    elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
 
     return data
@@ -322,6 +329,8 @@ def extract_fields(
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
             raise ValueError("unknown format")
+    elif not dict_data:  # Handle empty dict case
+        return [], {}
     if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
@@ -384,16 +393,39 @@ def set_metadata(
     dataset_name: str, fields: List, platform: str = "api"
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
+    seen_paths = set()
 
-    for column in fields:
-        field = SchemaField(
-            fieldPath=column,
-            nativeDataType="str",
-            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-            description="",
-            recursive=False,
-        )
-        canonical_schema.append(field)
+    # Process all flattened fields
+    for field_path in fields:
+        parts = field_path.split(".")
+
+        # Add struct/object fields for each ancestor path
+        current_path: List[str] = []
+        for part in parts[:-1]:
+            ancestor_path = ".".join(current_path + [part])
+            if ancestor_path not in seen_paths:
+                struct_field = SchemaField(
+                    fieldPath=ancestor_path,
+                    nativeDataType="object",  # OpenAPI term for struct/record
+                    type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(struct_field)
+                seen_paths.add(ancestor_path)
+            current_path.append(part)
+
+        # Add the leaf field if not already seen
+        if field_path not in seen_paths:
+            leaf_field = SchemaField(
+                fieldPath=field_path,
+                nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                description="",
+                recursive=False,
+            )
+            canonical_schema.append(leaf_field)
+            seen_paths.add(field_path)
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
