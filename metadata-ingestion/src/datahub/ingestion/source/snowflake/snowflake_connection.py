@@ -125,7 +125,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values):
-        if v not in _VALID_AUTH_TYPES.keys():
+        if v not in _VALID_AUTH_TYPES:
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(_VALID_AUTH_TYPES.keys())}"
@@ -312,7 +312,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             raise ValueError(
                 f"access_token not found in response {response}. "
                 "Please check your OAuth configuration."
-            )
+            ) from None
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
             user=self.username,

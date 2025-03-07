@@ -42,9 +42,9 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -632,7 +632,7 @@ public class EntityController
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
-                EntityApiUtils.parseSystemMetadata(
+                SystemMetadataUtils.parseSystemMetadata(
                     objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
             ((ObjectNode) aspect.getValue()).remove("systemMetadata");
           }
@@ -646,9 +646,9 @@ public class EntityController
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (opContext.getValidationContext().isAlternateValidation()) {
-            ProposedItem.ProposedItemBuilder builder =
+            items.add(
                 ProposedItem.builder()
-                    .metadataChangeProposal(
+                    .build(
                         new MetadataChangeProposal()
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
@@ -658,14 +658,9 @@ public class EntityController
                             .setHeaders(
                                 headers != null ? new StringMap(headers) : null,
                                 SetMode.IGNORE_NULL)
-                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL))
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .entitySpec(
-                        opContext
-                            .getAspectRetriever()
-                            .getEntityRegistry()
-                            .getEntitySpec(entityUrn.getEntityType()));
-            items.add(builder.build());
+                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL),
+                        AuditStampUtils.createAuditStamp(actor.toUrnStr()),
+                        entityRegistry));
           } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
@@ -718,7 +713,7 @@ public class EntityController
     SystemMetadata systemMetadata = null;
     if (jsonNode.has("systemMetadata")) {
       systemMetadata =
-          EntityApiUtils.parseSystemMetadata(
+          SystemMetadataUtils.parseSystemMetadata(
               objectMapper.writeValueAsString(jsonNode.get("systemMetadata")));
     }
     Map<String, String> headers = null;

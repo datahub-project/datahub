@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Input, AutoComplete, Button, Skeleton } from 'antd';
+import { Input, AutoComplete, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { colors } from '@src/alchemy-components';
+import { Button, colors } from '@src/alchemy-components';
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
@@ -31,7 +31,7 @@ import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig'
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
-    max-width: ${(props) => (props.$isShowNavBarRedesign ? '423px' : '540px')};
+    max-width: ${(props) => (props.$isShowNavBarRedesign ? '632px' : '540px')};
 `;
 
 const SkeletonContainer = styled.div`
@@ -258,7 +258,7 @@ export const SearchBar = ({
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            recommendationData?.listRecommendations?.modules.map((module) => ({
+            recommendationData?.listRecommendations?.modules?.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
@@ -333,7 +333,7 @@ export const SearchBar = ({
                 value: 'explore-all-unique-key',
                 type: '',
                 label: (
-                    <Button type="link" onClick={onClickExploreAll}>
+                    <Button variant="text" onClick={onClickExploreAll}>
                         Explore all →
                     </Button>
                 ),
@@ -466,7 +466,7 @@ export const SearchBar = ({
                         maxHeight: 1000,
                         overflowY: 'visible',
                         position: (fixAutoComplete && 'fixed') || 'relative',
-                        ...(isShowNavBarRedesign ? { minWidth: '435px' } : {}),
+                        ...(isShowNavBarRedesign ? { minWidth: '648px' } : {}),
                     }}
                     onDropdownVisibleChange={(isOpen) => {
                         if (!isOpen) {

@@ -29,7 +29,7 @@ export default function GlossaryRoutes() {
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
     const isThemeV2 = useIsThemeV2();
-    const canManageGlossary = authenticatedUser?.platformPrivileges.manageGlossaries || false;
+    const canManageGlossary = authenticatedUser?.platformPrivileges?.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
 

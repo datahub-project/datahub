@@ -9,6 +9,8 @@ ext {
   venv_name = 'venv'
 }
 
+ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "
+
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
@@ -35,7 +37,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install -e . &&" +
     "touch ${sentinel_file}"
 }
@@ -45,7 +47,7 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -56,14 +58,14 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
     project.fileTree(dir: "scripts"),
   )
   outputs.dir('src/datahub/metadata')
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
+  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/codegen.sh"
 }
 
 task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
   def package_name = project.findProperty('package_name')
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
@@ -75,7 +77,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -85,7 +87,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -99,17 +101,17 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
   outputs.dir('../docs/generated/metamodel')
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
+  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/modeldocgen.sh"
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
-    commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocupload.sh"
+    commandLine 'bash', '-c', "${venv_activate_command} ./scripts/modeldocupload.sh"
 }
 
 
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "ruff check src/ tests/ examples/ && " +
     "ruff format --check src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
@@ -117,7 +119,7 @@ task lint(type: Exec, dependsOn: installDev) {
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "ruff check --fix src/ tests/ examples/ && " +
     "ruff format src/ tests/ examples/ "
 }
@@ -132,7 +134,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=junit.quick.xml"
 }
 
@@ -142,7 +144,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -153,7 +155,7 @@ task testSingle(dependsOn: [installDevTest]) {
   if (testFile != 'unknown')  {
     exec {
       commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && ${pytest_default_env} pytest ${testFile} ${pytest_default_args}"
+        "${venv_activate_command} ${pytest_default_env} pytest ${testFile} ${pytest_default_args}"
     }
   } else {
    throw new GradleException("No file provided. Use -PtestFile=<test_file>")
@@ -164,33 +166,33 @@ task testSingle(dependsOn: [installDevTest]) {
 task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_args("intBatch0")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_0' --junit-xml=junit.integrationbatch0.xml"
 }
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_args("intBatch1")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_1' --junit-xml=junit.integrationbatch1.xml"
 }
 task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_args("intBatch2")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_2' --junit-xml=junit.integrationbatch2.xml"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
+    venv_activate_command +
     "${pytest_default_env} pytest ${pytest_default_args} --junit-xml=junit.full.xml"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/specgen.sh"
+  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/specgen.sh"
 }
 task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
+  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/docgen.sh"
 }
 
 
@@ -201,7 +203,7 @@ task cleanPythonCache(type: Exec) {
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && " +
+    venv_activate_command +
     'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 

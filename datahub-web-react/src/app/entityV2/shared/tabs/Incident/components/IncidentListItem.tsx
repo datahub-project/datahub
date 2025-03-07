@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Tag, Typography } from 'antd';
-import { Tooltip, Popover } from '@components';
+import { Dropdown, List, Menu, message, Tag, Typography } from 'antd';
+import { Tooltip, Popover, Button } from '@components';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
@@ -122,18 +122,6 @@ const IncidentResolvedContainer = styled.div`
     margin-right: 30px;
 `;
 
-const IncidentResolvedButton = styled(Button)`
-    background: #ffffff;
-    border: 1px solid #d9d9d9;
-    box-sizing: border-box;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-    color: #262626;
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-`;
-
 const MenuIcon = styled(MoreOutlined)`
     display: flex;
     justify-content: center;
@@ -238,7 +226,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.status.message || 'No additional details'}
+                                            {incident?.status?.message || 'No additional details'}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -269,15 +257,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status.message === null ? (
+                                    incident?.status?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated && (
+                                    {incident?.status?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
                                         </Tooltip>
@@ -306,13 +294,10 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                         </IncidentResolvedTextContainer>
                     ) : (
                         <IncidentResolvedContainer>
-                            <IncidentResolvedButton
-                                icon={<CheckOutlined />}
-                                onClick={() => handleResolved()}
-                                data-testid="resolve-incident"
-                            >
+                            <Button onClick={() => handleResolved()} data-testid="resolve-incident">
+                                <CheckOutlined />
                                 Resolve
-                            </IncidentResolvedButton>
+                            </Button>
                             <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
                         </IncidentResolvedContainer>
                     )}

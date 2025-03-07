@@ -17,7 +17,7 @@ export function AxisBottomMonths<ValueType>({ labelProps }: AxisBottomMonthsProp
 
                 const weeksBefore = weeksInMonth.slice(0, monthIndex).reduce((acc, value) => acc + value, 0);
                 const yLabel = DAYS_IN_WEEK * (squareSize + squareGap) + margin.top + axisTopMargin;
-                const xLabel = weeksBefore * (squareSize + squareGap) + squareGap * monthIndex + margin.left + 10;
+                const xLabel = weeksBefore * (squareSize + squareGap) + squareGap * monthIndex + margin.left;
 
                 return (
                     <TickLabel

@@ -53,7 +53,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1
             ? properties.schemaFields[expandedFieldIndex]
             : undefined;
-    const editableFieldInfo = properties.editableSchemaMetadata?.editableSchemaFieldInfo.find(
+    const editableFieldInfo = properties.editableSchemaMetadata?.editableSchemaFieldInfo?.find(
         (candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );

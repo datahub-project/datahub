@@ -272,7 +272,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

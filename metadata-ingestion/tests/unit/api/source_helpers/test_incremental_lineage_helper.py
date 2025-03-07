@@ -25,13 +25,15 @@ def make_lineage_aspect(
     dataset_name: str,
     upstreams: List[str],
     timestamp: int = 0,
-    columns: List[str] = [],
+    columns: Optional[List[str]] = None,
     include_cll: bool = False,
 ) -> models.UpstreamLineageClass:
     """
     Generates dataset properties and upstream lineage aspects
     with simple column to column lineage between current dataset and all upstreams
     """
+    if not columns:
+        columns = []
 
     dataset_urn = make_dataset_urn(platform, dataset_name)
     return models.UpstreamLineageClass(

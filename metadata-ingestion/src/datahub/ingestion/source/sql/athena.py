@@ -396,7 +396,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location", None)
+        location: Optional[str] = custom_properties.get("location")
         if location is not None:
             if location.startswith("s3://"):
                 location = make_s3_urn(location, self.config.env)
@@ -538,7 +538,7 @@ class AthenaSource(SQLAlchemySource):
             column_name=column["name"],
             column_type=column["type"],
             inspector=inspector,
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column.get("nullable", True),
             is_part_of_key=(
                 True

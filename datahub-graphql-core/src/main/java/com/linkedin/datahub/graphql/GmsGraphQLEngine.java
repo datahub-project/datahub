@@ -204,6 +204,7 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
@@ -1025,7 +1026,8 @@ public class GmsGraphQLEngine {
                     new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "searchAcrossLineage",
-                    new SearchAcrossLineageResolver(this.entityClient, this.entityRegistry))
+                    new SearchAcrossLineageResolver(
+                        this.entityClient, this.entityRegistry, this.viewService))
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
                 .dataFetcher(
@@ -1397,6 +1399,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateIncidentStatus",
                   new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "updateIncident",
+                  new UpdateIncidentResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))

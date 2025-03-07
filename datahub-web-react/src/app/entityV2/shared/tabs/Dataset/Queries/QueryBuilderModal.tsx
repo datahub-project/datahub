@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, message, Modal, Typography } from 'antd';
+import { message, Modal, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
 import { QueryLanguage } from '../../../../../../types.generated';
 import { QueryBuilderState } from './types';
@@ -150,19 +152,14 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 visible
                 onCancel={confirmClose}
                 footer={
-                    <>
-                        <Button onClick={onClose} data-testid="query-builder-cancel-button" type="text">
+                    <ModalButtonContainer>
+                        <Button onClick={onClose} data-testid="query-builder-cancel-button" variant="text" color="gray">
                             Cancel
                         </Button>
-                        <Button
-                            id="createQueryButton"
-                            data-testid="query-builder-save-button"
-                            onClick={saveQuery}
-                            type="primary"
-                        >
+                        <Button id="createQueryButton" data-testid="query-builder-save-button" onClick={saveQuery}>
                             Save
                         </Button>
-                    </>
+                    </ModalButtonContainer>
                 }
                 data-testid="query-builder-modal"
             >
