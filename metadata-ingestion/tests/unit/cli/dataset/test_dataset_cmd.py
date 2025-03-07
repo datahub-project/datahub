@@ -52,6 +52,7 @@ def invalid_value_yaml_file():
     if temp_file.exists():
         temp_file.unlink()
 
+
 @pytest.fixture
 def malformed_yaml_file():
     """Creates a temporary malformed yaml file for testing."""
@@ -259,14 +260,17 @@ class TestDatasetCli:
         assert not mock_get_default_graph.emit.called
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
-    def test_dry_run_sync_fail_bad_type(self, mock_get_default_graph, invalid_value_yaml_file):
+    def test_dry_run_sync_fail_bad_type(
+        self, mock_get_default_graph, invalid_value_yaml_file
+    ):
         mock_graph = MagicMock()
         mock_graph.exists.return_value = True
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
         runner = CliRunner()
         result = runner.invoke(
-            dataset, ["sync", "--dry-run", "--to-datahub", "-f", str(invalid_value_yaml_file)]
+            dataset,
+            ["sync", "--dry-run", "--to-datahub", "-f", str(invalid_value_yaml_file)],
         )
 
         # Verify
@@ -275,7 +279,9 @@ class TestDatasetCli:
         assert "Type bad_type is not a valid primitive type" in result.output
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
-    def test_dry_run_sync_fail_missing_ref(self, mock_get_default_graph, test_yaml_file):
+    def test_dry_run_sync_fail_missing_ref(
+        self, mock_get_default_graph, test_yaml_file
+    ):
         mock_graph = MagicMock()
         mock_graph.exists.return_value = False
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
@@ -297,7 +303,9 @@ class TestDatasetCli:
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
         runner = CliRunner()
-        result = runner.invoke(dataset, ["sync", "--to-datahub", "-f", str(test_yaml_file)])
+        result = runner.invoke(
+            dataset, ["sync", "--to-datahub", "-f", str(test_yaml_file)]
+        )
 
         # Verify
         assert result.exit_code == 0
@@ -310,7 +318,9 @@ class TestDatasetCli:
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
         runner = CliRunner()
-        result = runner.invoke(dataset, ["sync", "--to-datahub", "-f", str(invalid_value_yaml_file)])
+        result = runner.invoke(
+            dataset, ["sync", "--to-datahub", "-f", str(invalid_value_yaml_file)]
+        )
 
         # Verify
         assert result.exit_code != 0
@@ -338,9 +348,10 @@ class TestDatasetCli:
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
         runner = CliRunner()
-        result = runner.invoke(dataset, ["sync", "--dry-run", "--from-datahub", "-f", str(test_yaml_file)])
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--from-datahub", "-f", str(test_yaml_file)]
+        )
 
         # Verify
         assert result.exit_code != 0
         assert "does not exist" in result.output
-
