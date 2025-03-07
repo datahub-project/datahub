@@ -43,7 +43,6 @@ extend-ignore = [
     "RUF015", # unnecessary-iterable-allocation-for-first-element
     
     # Can be enabled later if someone wants to fix existing cases or an auto-fix becomes available
-    "SIM101", # Multiple isinstance calls for {name}, merge into a single call
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM103", # Return the condition directly
     "SIM105", # Use `contextlib.suppress(...)` instead of `try`-`except`-`pass`
