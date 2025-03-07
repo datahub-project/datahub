@@ -1,3 +1,4 @@
+import json
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, TypeVar, Union
@@ -38,6 +39,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import SchemaMetadataClass
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
@@ -266,8 +268,24 @@ class MLflowSource(StatefulIngestionSourceBase):
                 type="SKIPPED", nativeResultType=self.platform
             )
 
-    def _get_dataset_schema(self, schema):
-        return schema
+    def _get_dataset_schema(self, schema: str):
+        try:
+            schema_dict = json.loads(schema)
+        except json.JSONDecodeError:
+            print("Failed to parse schema JSON")
+            return None
+
+        # Check for mlflow_colspec and extract field information
+        if "mlflow_colspec" in schema_dict:
+            try:
+                return [(field["name"],field["type"]) for field in schema_dict["mlflow_colspec"]]
+            except (KeyError, TypeError):
+                print("Schema structure is invalid")
+                return None
+
+        # If we reach here, schema doesn't have the expected structure
+        print("Schema information is vague, returning description")
+        return None
 
     def _get_dataset_platform_from_source_type(self, source_type):
         source_type_to_platform = {}
@@ -281,18 +299,19 @@ class MLflowSource(StatefulIngestionSourceBase):
         ).urn
         dataset_inputs = run.inputs.dataset_inputs
         dataset_reference_urns = []
-         for dataset_input in dataset_inputs:
+        for dataset_input in dataset_inputs:
             source_type = dataset_input.dataset.source_type
-            dataset_tags = {k: v for k,v in dataset_input.tags}
+            dataset_tags = {k[1]: v[1] for k,v in dataset_input.tags}
             dataset = dataset_input.dataset
+            platform = self._get_dataset_platform_from_source_type(source_type)
+            formatted_schema = self._get_dataset_schema(dataset.schema)
             if source_type == "local":
-                # create local dataset reference with metadata
                 local_dataset_reference = Dataset(
-                    platform=self._get_dataset_platform_from_source_type(source_type),
+                    platform=platform,
                     name=dataset.name,
-                    schema=self._get_dataset_schema(dataset.schema),
+                    schema=formatted_schema,
                     custom_properties=dataset_tags,
-
+                    description= dataset.schema if formatted_schema is None else None
                 )
                 yield from local_dataset_reference.as_workunits()
                 dataset_reference_urns.append(str(local_dataset_reference.urn))
@@ -301,12 +320,13 @@ class MLflowSource(StatefulIngestionSourceBase):
                 hosted_dataset = Dataset(
                     platform=self._get_dataset_platform_from_source_type(source_type),
                     name=dataset.name,
-                    schema=self._get_dataset_schema(dataset.schema),
+                    schema=formatted_schema,
                     custom_properties=dataset_tags,
+                    description= dataset.schema if formatted_schema is None else None
                 )
                 # create dataset reference
                 hosted_dataset_reference = Dataset(
-                    platform="", #TODO: none?
+                    platform=source_type, #TODO: none?
                     name=dataset.name, # TODO: something else?
                     upstreams=UpstreamLineageClass(
                         upstreams=[UpstreamClass(dataset=str(hosted_dataset.urn), type="COPY")]
@@ -317,14 +337,11 @@ class MLflowSource(StatefulIngestionSourceBase):
                 yield from hosted_dataset.as_workunits()
                 yield from hosted_dataset_reference.as_workunits()
 
+        if dataset_reference_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(run_urn),
                 aspect=DataProcessInstanceInputClass(inputs=dataset_reference_urns)
-            )
-
-
-
-
+            ).as_workunit()
 
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
