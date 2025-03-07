@@ -27,5 +27,9 @@ module.exports = defineConfig({
   reporterOptions: {
     mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
     toConsole: true,
+    testCaseSwitchClassnameAndName: true,
+    suiteNameTemplate: "{filepath}",
+    classNameTemplate: "{filepath}",
+    titleTemplate: "{filepath}"
   },
 });
