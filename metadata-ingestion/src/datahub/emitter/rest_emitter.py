@@ -4,8 +4,10 @@ import functools
 import json
 import logging
 import os
+import time
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import auto
 from json.decoder import JSONDecodeError
 from typing import (
@@ -35,11 +37,18 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     OperationalError,
+    TraceTimeoutError,
+    TraceValidationError,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
+from datahub.emitter.response_helper import (
+    TraceData,
+    extract_trace_data,
+    extract_trace_data_from_mcps,
+)
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -68,6 +77,11 @@ _DEFAULT_RETRY_MAX_TIMES = int(
 )
 
 _DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
+
+TRACE_PENDING_STATUS = "PENDING"
+TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
+TRACE_MAX_BACKOFF = 300.0  # Cap at 5 minutes
+TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
@@ -185,6 +199,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     _token: Optional[str]
     _session: requests.Session
     _openapi_ingestion: bool
+    _default_trace_mode: bool
 
     def __init__(
         self,
@@ -201,6 +216,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: bool = False,
+        default_trace_mode: bool = False,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -214,6 +230,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._token = token
         self.server_config: Dict[str, Any] = {}
         self._openapi_ingestion = openapi_ingestion
+        self._default_trace_mode = default_trace_mode
         self._session = requests.Session()
 
         logger.debug(
@@ -396,13 +413,21 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        trace_timeout: Optional[timedelta] = None,
     ) -> None:
         ensure_has_system_metadata(mcp)
+
+        trace_data = None
 
         if self._openapi_ingestion:
             request = self._to_openapi_request(mcp, async_flag, async_default=False)
             if request:
-                self._emit_generic(request[0], payload=request[1])
+                response = self._emit_generic(request[0], payload=request[1])
+
+                if self._should_trace(async_flag, trace_flag):
+                    trace_data = extract_trace_data(response) if response else None
+
         else:
             url = f"{self._gms_server}/aspects?action=ingestProposal"
 
@@ -414,12 +439,23 @@ class DataHubRestEmitter(Closeable, Emitter):
 
             payload = json.dumps(payload_dict)
 
-            self._emit_generic(url, payload)
+            response = self._emit_generic(url, payload)
+
+            if self._should_trace(async_flag, trace_flag):
+                trace_data = extract_trace_data_from_mcps(response, [mcp])
+
+        if trace_data:
+            self._await_status(
+                [trace_data],
+                trace_timeout,
+            )
 
     def emit_mcps(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        trace_timeout: Optional[timedelta] = None,
     ) -> int:
         if _DATAHUB_EMITTER_TRACE:
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
@@ -428,7 +464,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             ensure_has_system_metadata(mcp)
 
         if self._openapi_ingestion:
-            return self._emit_openapi_mcps(mcps, async_flag)
+            return self._emit_openapi_mcps(mcps, async_flag, trace_flag, trace_timeout)
         else:
             return self._emit_restli_mcps(mcps, async_flag)
 
@@ -436,6 +472,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        trace_timeout: Optional[timedelta] = None,
     ) -> int:
         """
         1. Grouping MCPs by their entity URL
@@ -482,6 +520,16 @@ class DataHubRestEmitter(Closeable, Emitter):
             for chunk in chunks:
                 response = self._emit_generic(url, payload=_Chunk.join(chunk))
                 responses.append(response)
+
+        if self._should_trace(async_flag, trace_flag, async_default=True):
+            trace_data = []
+            for response in responses:
+                data = extract_trace_data(response) if response else None
+                if data is not None:
+                    trace_data.append(data)
+
+            if trace_data:
+                self._await_status(trace_data, trace_timeout)
 
         return len(responses)
 
@@ -592,6 +640,99 @@ class DataHubRestEmitter(Closeable, Emitter):
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
+
+    def _await_status(
+        self,
+        trace_data: List[TraceData],
+        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
+    ) -> None:
+        """Verify the status of asynchronous write operations.
+        Args:
+            trace_data: List of trace data to verify
+            trace_timeout: Maximum time to wait for verification.
+        Raises:
+            TraceTimeoutError: If verification fails or times out
+            TraceValidationError: Expected write was not completed successfully
+        """
+        if trace_timeout is None:
+            raise ValueError("trace_timeout cannot be None")
+
+        try:
+            if not trace_data:
+                logger.debug("No trace data to verify")
+                return
+
+            start_time = datetime.now()
+
+            for trace in trace_data:
+                current_backoff = TRACE_INITIAL_BACKOFF
+
+                while trace.data:
+                    if datetime.now() - start_time > trace_timeout:
+                        raise TraceTimeoutError(
+                            f"Timeout waiting for async write completion after {trace_timeout.total_seconds()} seconds"
+                        )
+
+                    base_url = f"{self._gms_server}/openapi/v1/trace/write"
+                    url = f"{base_url}/{trace.trace_id}?onlyIncludeErrors=false&detailed=true"
+
+                    response = self._emit_generic(url, payload=trace.data)
+                    json_data = response.json()
+
+                    for urn, aspects in json_data.items():
+                        for aspect_name, aspect_status in aspects.items():
+                            if not aspect_status["success"]:
+                                error_msg = (
+                                    f"Unable to validate async write to DataHub GMS: "
+                                    f"Persistence failure for URN '{urn}' aspect '{aspect_name}'. "
+                                    f"Status: {aspect_status}"
+                                )
+                                raise TraceValidationError(error_msg, aspect_status)
+
+                            primary_storage = aspect_status["primaryStorage"][
+                                "writeStatus"
+                            ]
+                            search_storage = aspect_status["searchStorage"][
+                                "writeStatus"
+                            ]
+
+                            # Remove resolved statuses
+                            if (
+                                primary_storage != TRACE_PENDING_STATUS
+                                and search_storage != TRACE_PENDING_STATUS
+                            ):
+                                trace.data[urn].remove(aspect_name)
+
+                        # Remove urns with all statuses resolved
+                        if not trace.data[urn]:
+                            trace.data.pop(urn)
+
+                    # Adjust backoff based on response
+                    if trace.data:
+                        # If we still have pending items, increase backoff
+                        current_backoff = min(
+                            current_backoff * TRACE_BACKOFF_FACTOR, TRACE_MAX_BACKOFF
+                        )
+                        logger.debug(
+                            f"Waiting {current_backoff} seconds before next check"
+                        )
+                        time.sleep(current_backoff)
+
+        except Exception as e:
+            logger.error(f"Error during status verification: {str(e)}")
+            raise
+
+    def _should_trace(
+        self,
+        async_flag: Optional[bool] = None,
+        trace_flag: Optional[bool] = None,
+        async_default: bool = False,
+    ) -> bool:
+        resolved_trace_flag = (
+            trace_flag if trace_flag is not None else self._default_trace_mode
+        )
+        resolved_async_flag = async_flag if async_flag is not None else async_default
+        return resolved_trace_flag and resolved_async_flag
 
     def __repr__(self) -> str:
         token_str = (
