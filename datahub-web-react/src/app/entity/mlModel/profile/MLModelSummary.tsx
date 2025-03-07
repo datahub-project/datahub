@@ -26,9 +26,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 const InfoItemContent = styled.div`
     padding-top: 8px;
     width: 100px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+    overflow-wrap: break-word;
 `;
 
 const JobLink = styled(Link)`
