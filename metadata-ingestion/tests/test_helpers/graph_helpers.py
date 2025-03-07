@@ -124,7 +124,7 @@ class MockDataHubGraph(DataHubGraph):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
         trace_flag: Optional[bool] = None,
-        trace_timeout: Optional[timedelta] = None,
+        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)
 

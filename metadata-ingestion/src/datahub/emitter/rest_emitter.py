@@ -428,7 +428,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
         trace_flag: Optional[bool] = None,
-        trace_timeout: Optional[timedelta] = None,
+        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         ensure_has_system_metadata(mcp)
 
@@ -469,7 +469,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
         trace_flag: Optional[bool] = None,
-        trace_timeout: Optional[timedelta] = None,
+        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> int:
         if _DATAHUB_EMITTER_TRACE:
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
@@ -487,7 +487,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
         trace_flag: Optional[bool] = None,
-        trace_timeout: Optional[timedelta] = None,
+        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> int:
         """
         1. Grouping MCPs by their entity URL
