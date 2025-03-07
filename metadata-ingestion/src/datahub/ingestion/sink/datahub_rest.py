@@ -21,8 +21,10 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_SINK_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
     DataHubRestEmitter,
     RestSinkEndpoint,
+    RestTraceMode,
 )
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -51,16 +53,6 @@ _DEFAULT_REST_SINK_MAX_THREADS = int(
 )
 
 
-class RestTraceMode(ConfigEnum):
-    ENABLED = auto()
-    DISABLED = auto()
-
-
-class RestSinkEndpoint(ConfigEnum):
-    RESTLI = auto()
-    OPENAPI = auto()
-
-
 class RestSinkMode(ConfigEnum):
     SYNC = auto()
     ASYNC = auto()
@@ -73,18 +65,6 @@ class RestSinkMode(ConfigEnum):
 
 _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
     RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
-)
-
-
-_DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
-    RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
-)
-
-
-_DEFAULT_REST_TRACE_MODE = pydantic.parse_obj_as(
-    RestTraceMode,
-    os.getenv("DATAHUB_REST_TRACE_MODE", RestTraceMode.DISABLED),
 )
 
 

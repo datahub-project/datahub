@@ -97,6 +97,11 @@ BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
 )
 
 
+class RestTraceMode(ConfigEnum):
+    ENABLED = auto()
+    DISABLED = auto()
+
+
 class RestSinkEndpoint(ConfigEnum):
     RESTLI = auto()
     OPENAPI = auto()
@@ -105,6 +110,12 @@ class RestSinkEndpoint(ConfigEnum):
 DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
     RestSinkEndpoint,
     os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+)
+
+
+DEFAULT_REST_TRACE_MODE = pydantic.parse_obj_as(
+    RestTraceMode,
+    os.getenv("DATAHUB_REST_TRACE_MODE", RestTraceMode.DISABLED),
 )
 
 
@@ -237,7 +248,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
 
-        if default_trace_mode:
+        if self._default_trace_mode:
             logger.debug("Using API Tracing for ingestion.")
 
         headers = {
