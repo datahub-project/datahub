@@ -3,7 +3,7 @@ package com.datahub.authorization.fieldresolverprovider;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
