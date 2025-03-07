@@ -45,7 +45,7 @@ const StyledLink = styled(Link)<{ $disabled?: boolean }>`
 
     :hover {
         color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
-
+        cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
         && svg {
             color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
         }

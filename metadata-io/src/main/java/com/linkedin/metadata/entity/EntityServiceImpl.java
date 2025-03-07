@@ -1554,7 +1554,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .retrieverContext(aspectsBatch.getRetrieverContext())
                   .items(
                       aspectsBatch.getItems().stream()
-                          .filter(item -> !item.getAspectSpec().isTimeseries())
+                          .filter(
+                              item ->
+                                  item.getAspectSpec() != null
+                                      && !item.getAspectSpec().isTimeseries())
                           .collect(Collectors.toList()))
                   .build();
 

@@ -71,12 +71,16 @@ const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & 
     if (!path.entity) {
         return <PlatFormTitle>{path.name}</PlatFormTitle>;
     }
+
+    // Till we have a DataPlatform instance page
+    const hasDataPlatformInstance = path.name?.includes('dataPlatformInstance');
+
     return (
         <ContextPathEntityLink
             key={path?.entity?.urn}
             entity={path?.entity}
             style={{ fontSize: '12px' }}
-            linkDisabled={linksDisabled}
+            linkDisabled={linksDisabled || hasDataPlatformInstance}
         />
     );
 };

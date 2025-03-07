@@ -10,6 +10,8 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.CreateRemoteExecutorPoolInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.RemoteExecutorPoolInfo;
+import com.linkedin.executorpool.RemoteExecutorPoolState;
+import com.linkedin.executorpool.RemoteExecutorPoolStatus;
 import com.linkedin.metadata.entity.AspectUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -57,6 +59,10 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
             final RemoteExecutorPoolInfo poolInfo = new RemoteExecutorPoolInfo();
             poolInfo.setCreatedAt(_timeProvider.getAsLong());
             poolInfo.setCreator(UrnUtils.getUrn(context.getActorUrn()));
+
+            final RemoteExecutorPoolState poolState = new RemoteExecutorPoolState();
+            poolState.setStatus(RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+            poolInfo.setState(poolState);
             if (input.getDescription() != null) {
               poolInfo.setDescription(input.getDescription());
             }

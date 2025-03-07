@@ -1,12 +1,15 @@
+import filecmp
 import json
 import logging
+import os
+import shutil
 from pathlib import Path
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 
 import click
 from click_default_group import DefaultGroup
 
-from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.dataset.dataset import Dataset, DatasetRetrievalConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
@@ -30,18 +33,9 @@ def dataset() -> None:
 @telemetry.with_telemetry()
 def upsert(file: Path) -> None:
     """Upsert attributes to a Dataset in DataHub."""
-
-    with get_default_graph() as graph:
-        for dataset in Dataset.from_yaml(str(file)):
-            try:
-                for mcp in dataset.generate_mcp():
-                    graph.emit(mcp)
-                click.secho(f"Update succeeded for urn {dataset.urn}.", fg="green")
-            except Exception as e:
-                click.secho(
-                    f"Update failed for id {id}. due to {e}",
-                    fg="red",
-                )
+    # Call the sync command with to_datahub=True to perform the upsert operation
+    ctx = click.get_current_context()
+    ctx.invoke(sync, file=str(file), to_datahub=True)
 
 
 @dataset.command(
@@ -111,3 +105,123 @@ def _get_existing_siblings(graph: DataHubGraph, urn: str) -> Set[str]:
         return set(existing.siblings)
     else:
         return set()
+
+
+@dataset.command(
+    name="file",
+)
+@click.option("--lintCheck", required=False, is_flag=True)
+@click.option("--lintFix", required=False, is_flag=True)
+@click.argument("file", type=click.Path(exists=True))
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def file(lintcheck: bool, lintfix: bool, file: str) -> None:
+    """Operate on a Dataset file"""
+
+    if lintcheck or lintfix:
+        import tempfile
+        from pathlib import Path
+
+        # Create a temporary file in a secure way
+        # The file will be automatically deleted when the context manager exits
+        with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as temp:
+            temp_path = Path(temp.name)
+            try:
+                # Copy content to the temporary file
+                shutil.copyfile(file, temp_path)
+
+                # Run the linting
+                datasets = Dataset.from_yaml(temp.name)
+                for dataset in datasets:
+                    dataset.to_yaml(temp_path)
+
+                # Compare the files
+                files_match = filecmp.cmp(file, temp_path)
+
+                if files_match:
+                    click.secho("No differences found", fg="green")
+                else:
+                    # Show diff for visibility
+                    os.system(f"diff {file} {temp_path}")
+
+                    if lintfix:
+                        shutil.copyfile(temp_path, file)
+                        click.secho(f"Fixed linting issues in {file}", fg="green")
+                    else:
+                        click.secho(
+                            f"To fix these differences, run 'datahub dataset file --lintFix {file}'",
+                            fg="yellow",
+                        )
+            finally:
+                # Ensure the temporary file is removed
+                if temp_path.exists():
+                    temp_path.unlink()
+    else:
+        click.secho(
+            "No operation specified. Choose from --lintCheck or --lintFix", fg="yellow"
+        )
+
+
+@dataset.command(
+    name="sync",
+)
+@click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.option("--to-datahub/--from-datahub", required=True, is_flag=True)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def sync(file: str, to_datahub: bool) -> None:
+    """Sync a Dataset file to/from DataHub"""
+
+    failures: List[str] = []
+    with get_default_graph() as graph:
+        datasets = Dataset.from_yaml(file)
+        for dataset in datasets:
+            assert (
+                dataset.urn is not None
+            )  # Validator should have ensured this is filled. Tell mypy it's not None
+            if to_datahub:
+                missing_entity_references = [
+                    entity_reference
+                    for entity_reference in dataset.entity_references()
+                    if not graph.exists(entity_reference)
+                ]
+                if missing_entity_references:
+                    click.secho(
+                        "\n\t- ".join(
+                            [
+                                f"Skipping Dataset {dataset.urn} due to missing entity references: "
+                            ]
+                            + missing_entity_references
+                        ),
+                        fg="red",
+                    )
+                    failures.append(dataset.urn)
+                    continue
+                try:
+                    for mcp in dataset.generate_mcp():
+                        graph.emit(mcp)
+                    click.secho(f"Update succeeded for urn {dataset.urn}.", fg="green")
+                except Exception as e:
+                    click.secho(
+                        f"Update failed for id {id}. due to {e}",
+                        fg="red",
+                    )
+            else:
+                # Sync from DataHub
+                if graph.exists(dataset.urn):
+                    dataset_get_config = DatasetRetrievalConfig()
+                    if dataset.downstreams:
+                        dataset_get_config.include_downstreams = True
+                    existing_dataset: Dataset = Dataset.from_datahub(
+                        graph=graph, urn=dataset.urn, config=dataset_get_config
+                    )
+                    existing_dataset.to_yaml(Path(file))
+                else:
+                    click.secho(f"Dataset {dataset.urn} does not exist")
+                    failures.append(dataset.urn)
+    if failures:
+        click.secho(
+            f"\nFailed to sync the following Datasets: {', '.join(failures)}",
+            fg="red",
+        )
+        raise click.Abort()

@@ -404,21 +404,17 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 
 ### dataset (Dataset Entity)
 
-The `dataset` command allows you to interact with the dataset entity.
-
-The `get` operation can be used to read in a dataset into a yaml file.
+The `dataset` command allows you to interact with Dataset entities in DataHub, including creating, updating, retrieving, and validating Dataset metadata.
 
 ```shell
-datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
-```
+# Get a dataset and write to YAML file
+datahub dataset get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,example_table,PROD)" --to-file dataset.yaml
 
-The `upsert` operation can be used to create a new user or update an existing one.
-
-```shell
+# Create or update dataset from YAML file
 datahub dataset upsert -f dataset.yaml
 ```
 
-An example of `dataset.yaml` would look like as in [dataset.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml).
+➡️ [Learn more about the dataset command](./cli-commands/dataset.md)
 
 ### user (User Entity)
 

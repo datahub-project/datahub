@@ -9,6 +9,16 @@
     { "name": "referer", "type": ["string", "null"] },
     { "name": "user_agent", "type": ["string", "null"] },
     { "name": "user_id", "type": ["string", "null"] },
-    { "name": "session_id", "type": ["string", "null"] }
+    { "name": "session_id", "type": ["string", "null"] },
+    {
+      "name": "locator", "type": {
+        "type": "record",
+        "name": "Locator",
+        "fields": [
+          { "name": "latitude", "type": "float" },
+          { "name": "longitude", "type": "float" }
+        ]
+      }
+    }
   ]
 }

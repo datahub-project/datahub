@@ -2,9 +2,11 @@ import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu } from 'antd';
+import { colors } from '@components';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
-    font-size: 14px;
+    font-size: 16px;
+    color: ${colors.gray[1700]};
 `;
 
 type Props = {
