@@ -97,7 +97,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-35/test_ingestion0/mlruns/0"
+                "platform": "urn:li:dataPlatform:mlflow",
+                "id": "Default",
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-48/test_ingestion0/mlruns/0"
             },
             "name": "Default"
         }
@@ -166,7 +168,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-35/test_ingestion0/mlruns/766847104871454225"
+                "platform": "urn:li:dataPlatform:mlflow",
+                "id": "test-experiment",
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-48/test_ingestion0/mlruns/766847104871454225"
             },
             "name": "test-experiment"
         }
@@ -201,6 +205,23 @@
     "aspect": {
         "json": {
             "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:1bbe5a4af9f91bbd2b4dd90c552008e1",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "user",
+            "primaryKey": "unknown"
         }
     },
     "systemMetadata": {
@@ -418,7 +439,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(test-model,mlModel)",
+            "versionSet": "urn:li:versionSet:(658730e7177b283e4f94410fe4b41519,mlModel)",
             "version": {
                 "versionTag": "1",
                 "metadataAttribution": {
@@ -539,6 +560,22 @@
 {
     "entityType": "tag",
     "entityUrn": "urn:li:tag:mlflow_none",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:1bbe5a4af9f91bbd2b4dd90c552008e1",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

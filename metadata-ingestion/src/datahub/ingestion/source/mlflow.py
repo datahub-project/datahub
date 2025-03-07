@@ -40,9 +40,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    BrowsePathsV2Class,
     ContainerClass,
-    ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -56,6 +54,7 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     MLTrainingRunPropertiesClass,
+    PlatformResourceInfoClass,
     SubTypesClass,
     TagAssociationClass,
     TagPropertiesClass,
@@ -66,6 +65,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import (
     DataPlatformUrn,
+    MlModelUrn,
     VersionSetUrn,
 )
 from datahub.sdk.container import Container
@@ -230,33 +230,10 @@ class MLflowSource(StatefulIngestionSourceBase):
             subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
             display_name=experiment.name,
             description=experiment.tags.get("mlflow.note.content"),
+            extra_properties=self._get_experiment_custom_properties(experiment),
         )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(experiment_container.urn),
-            aspect=SubTypesClass(typeNames=[str(experiment_container.subtype)]),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(experiment_container.urn),
-            aspect=ContainerPropertiesClass(
-                name=experiment_container.display_name,
-                description=experiment_container.description,
-                customProperties=self._get_experiment_custom_properties(experiment),
-            ),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(experiment_container.urn),
-            aspect=BrowsePathsV2Class(path=[]),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(experiment_container.urn),
-            aspect=DataPlatformInstanceClass(
-                platform=str(DataPlatformUrn(self.platform)),
-            ),
-        ).as_workunit()
+        yield from experiment_container.as_workunits()
 
     def _get_run_metrics(self, run: Run) -> List[MLMetricClass]:
         return [
@@ -298,9 +275,20 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
 
         created_time = run.info.start_time or int(time.time() * 1000)
-        created_actor = (
-            f"urn:li:platformResource:{run.info.user_id}" if run.info.user_id else ""
+        user_id = run.info.user_id if run.info.user_id else "mlflow"
+        guid_dict_user = {"platform": self.platform, "user": user_id}
+        platform_user_urn = (
+            f"urn:li:platformResource:{builder.datahub_guid(guid_dict_user)}"
         )
+
+        # TODO: platform resource key class?
+        yield MetadataChangeProposalWrapper(
+            entityUrn=platform_user_urn,
+            aspect=PlatformResourceInfoClass(
+                resourceType="user",
+                primaryKey=user_id,
+            ),
+        ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=str(data_process_instance.urn),
@@ -308,7 +296,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 name=run.info.run_name or run.info.run_id,
                 created=AuditStampClass(
                     time=created_time,
-                    actor=created_actor,
+                    actor=platform_user_urn,
                 ),
                 externalUrl=self._make_external_url_from_run(experiment, run),
                 customProperties=getattr(run, "tags", {}) or {},
@@ -512,9 +500,10 @@ class MLflowSource(StatefulIngestionSourceBase):
                 yield self._get_global_tags_workunit(model_version=model_version)
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
+        guid_dict = {"platform": self.platform, "name": registered_model.name}
         version_set_urn = VersionSetUrn(
-            id=f"{registered_model.name}",
-            entity_type="mlModel",
+            id=builder.datahub_guid(guid_dict),
+            entity_type=MlModelUrn.ENTITY_TYPE,
         )
 
         return version_set_urn
