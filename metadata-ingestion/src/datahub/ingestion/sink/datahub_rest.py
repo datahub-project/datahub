@@ -20,7 +20,9 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DEFAULT_REST_SINK_ENDPOINT,
     DataHubRestEmitter,
+    RestSinkEndpoint,
 )
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -49,11 +51,6 @@ _DEFAULT_REST_SINK_MAX_THREADS = int(
 )
 
 
-class RestSinkEndpoint(ConfigEnum):
-    RESTLI = auto()
-    OPENAPI = auto()
-
-
 class RestSinkMode(ConfigEnum):
     SYNC = auto()
     ASYNC = auto()
@@ -69,15 +66,9 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 )
 
 
-_DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
-    RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
-)
-
-
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
-    endpoint: RestSinkEndpoint = _DEFAULT_REST_SINK_ENDPOINT
+    endpoint: RestSinkEndpoint = DEFAULT_REST_SINK_ENDPOINT
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -184,9 +175,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
-            openapi_ingestion=True
-            if config.endpoint == RestSinkEndpoint.OPENAPI
-            else False,
+            openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
         )
 
     @property

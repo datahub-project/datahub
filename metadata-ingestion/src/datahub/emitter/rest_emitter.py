@@ -6,6 +6,7 @@ import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import auto
 from json.decoder import JSONDecodeError
 from typing import (
     TYPE_CHECKING,
@@ -19,6 +20,7 @@ from typing import (
     Union,
 )
 
+import pydantic
 import requests
 from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
@@ -29,6 +31,7 @@ from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import (
+    ConfigEnum,
     ConfigModel,
     ConfigurationError,
     OperationalError,
@@ -77,6 +80,17 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
     os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
+)
+
+
+class RestSinkEndpoint(ConfigEnum):
+    RESTLI = auto()
+    OPENAPI = auto()
+
+
+DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+    RestSinkEndpoint,
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
 )
 
 
@@ -203,7 +217,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._session = requests.Session()
 
         logger.debug(
-            f"Using {'OpenAPI' if openapi_ingestion else 'Restli'} for ingestion."
+            f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
 
         headers = {
