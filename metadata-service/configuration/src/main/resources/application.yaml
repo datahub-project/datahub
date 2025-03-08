@@ -115,6 +115,7 @@ graphService:
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
+  enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
   cache:
     hazelcast:

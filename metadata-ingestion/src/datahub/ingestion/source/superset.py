@@ -384,7 +384,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
-            name=dashboard_data["id"],
+            name=str(dashboard_data["id"]),
             platform_instance=self.config.platform_instance,
         )
         dashboard_snapshot = DashboardSnapshot(
@@ -416,7 +416,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             chart_urns.append(
                 make_chart_urn(
                     platform=self.platform,
-                    name=value.get("meta", {}).get("chartId", "unknown"),
+                    name=str(value.get("meta", {}).get("chartId", "unknown")),
                     platform_instance=self.config.platform_instance,
                 )
             )
@@ -497,7 +497,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
             platform=self.platform,
-            name=chart_data["id"],
+            name=str(chart_data["id"]),
             platform_instance=self.config.platform_instance,
         )
         chart_snapshot = ChartSnapshot(
