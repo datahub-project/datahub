@@ -902,7 +902,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             "name": custom_sql.get("name"),
             # We assume that this is unsupported custom sql if "actual tables that this query references"
             # are missing from api result.
-            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
+            "isUnsupportedCustomSql": not custom_sql.get("tables"),
             "query": custom_sql.get("query"),
             "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
