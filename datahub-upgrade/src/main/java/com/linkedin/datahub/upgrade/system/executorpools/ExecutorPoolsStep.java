@@ -21,7 +21,6 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -32,7 +31,6 @@ import java.util.Map;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.ListQueuesRequest;
 import software.amazon.awssdk.services.sqs.paginators.ListQueuesIterable;
@@ -46,44 +44,47 @@ public class ExecutorPoolsStep implements UpgradeStep {
   private final OperationContext systemOpContext;
   private final EntityService<?> entityService;
   private final SearchService searchService;
+  private final SqsClient sqsClient;
   private final boolean enabled;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
   private final String customerId;
+  private final Region region;
+  private final AuditStamp auditStamp;
 
   public ExecutorPoolsStep(
       OperationContext systemOpContext,
       EntityService<?> entityService,
       SearchService searchService,
+      SqsClient sqsClient,
       boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize,
-      String customerId) {
+      String customerId,
+      Region region,
+      AuditStamp auditStamp) {
     this.systemOpContext = systemOpContext;
     this.entityService = entityService;
     this.searchService = searchService;
+    this.sqsClient = sqsClient;
     this.enabled = enabled;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
     this.customerId = customerId;
+    this.region = region;
+    this.auditStamp = auditStamp;
   }
 
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-      final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
-
       if (customerId == null || customerId.equals("unset")) {
         log.error("Customer ID is not set. Set the variable and re-run the upgrade.");
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       try {
-        SqsClient sqsClient = SqsClient.create();
-        String queueNamePrefix = "re-" + customerId;
-        Region region = DefaultAwsRegionProviderChain.builder().build().getRegion();
-
-        ingestLegacyExecutorPools(sqsClient, queueNamePrefix, region, auditStamp);
+        ingestLegacyExecutorPools(sqsClient, customerId, region, auditStamp);
       } catch (Exception e) {
         log.error("Error ingesting legacy executor pools", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
@@ -95,8 +96,9 @@ public class ExecutorPoolsStep implements UpgradeStep {
   }
 
   private void ingestLegacyExecutorPools(
-      SqsClient sqsClient, String queueNamePrefix, Region region, AuditStamp auditStamp) {
+      SqsClient sqsClient, String customerId, Region region, AuditStamp auditStamp) {
 
+    String queueNamePrefix = "re-" + customerId;
     List<MetadataChangeProposal> mcps = new ArrayList<>();
 
     ListQueuesRequest listQueuesRequest =

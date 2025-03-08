@@ -11,7 +11,7 @@ import com.linkedin.datahub.graphql.generated.ListExecutorConfigsInput;
 import com.linkedin.datahub.graphql.generated.ListExecutorConfigsResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.executorpool.RemoteExecutorPoolInfo;
+import com.linkedin.executorpool.*;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
@@ -43,6 +43,7 @@ import software.amazon.awssdk.services.sts.model.Credentials;
 public class ListExecutorConfigsResolver
     implements DataFetcher<CompletableFuture<ListExecutorConfigsResult>> {
   private final EntityClient _entityClient;
+  private final StsClient _stsClient;
   private final ExecutorConfiguration _executorConfiguration;
 
   /**
@@ -54,8 +55,10 @@ public class ListExecutorConfigsResolver
 
   public ListExecutorConfigsResolver(
       @Nonnull final EntityClient entityClient,
+      @Nonnull final StsClient stsClient,
       @Nonnull final ExecutorConfiguration executorConfiguration) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _stsClient = Objects.requireNonNull(stsClient, "stsClient must not be null");
     _executorConfiguration =
         Objects.requireNonNull(executorConfiguration, "executorConfiguration must not be null");
   }
@@ -75,6 +78,7 @@ public class ListExecutorConfigsResolver
                         String.format(
                             "urn:li:%s:%s", AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME, s))
                 .collect(Collectors.toList());
+
         ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
         final CriterionArray executorIdsAndArray = new CriterionArray();
         executorIdsAndArray.add(buildCriterion("urn", Condition.EQUAL, executorUrns));
@@ -118,8 +122,15 @@ public class ListExecutorConfigsResolver
                             .getValue()
                             .data());
 
-                /** Do not add embedded pool record */
-                if (poolInfo.isIsEmbedded()) {
+                /** Do not return embedded or non-ready pools */
+                if (poolInfo.isIsEmbedded()
+                    || poolInfo.getState().getStatus() != RemoteExecutorPoolStatus.READY) {
+                  log.warn(
+                      String.format(
+                          "Not returning executor pool entry %s: isEmbedded:%s; status:%s",
+                          entity.getEntity().getId(),
+                          poolInfo.isIsEmbedded(),
+                          poolInfo.getState().getStatus()));
                   return;
                 }
 
@@ -156,17 +167,13 @@ public class ListExecutorConfigsResolver
     return CompletableFuture.supplyAsync(
         () -> {
           List<ExecutorConfigs> executorConfigList = new ArrayList<>();
-
           try {
-            StsClient stsClient = StsClient.create();
-
             AssumeRoleRequest roleRequest =
                 AssumeRoleRequest.builder()
                     .roleArn(this._executorConfiguration.executorRoleArn)
                     .roleSessionName("remote-executor-session")
                     .build();
-
-            AssumeRoleResponse roleResponse = stsClient.assumeRole(roleRequest);
+            AssumeRoleResponse roleResponse = _stsClient.assumeRole(roleRequest);
             Credentials myCreds = roleResponse.credentials();
 
             listExecutorConfigs(context, executorIds, myCreds, executorConfigList);

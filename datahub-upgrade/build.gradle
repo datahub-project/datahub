@@ -129,6 +129,11 @@ bootRun {
   args += ["-u", "SystemUpdate"]
 }
 
+test {
+  testLogging.exceptionFormat = 'full'
+  testLogging.showStandardStreams = true
+}
+
 /**
  * Runs SystemUpdate on locally running system
  * Sets up environment variables for local execution
