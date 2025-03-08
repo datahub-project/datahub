@@ -23,7 +23,7 @@ const GradientAnimation = keyframes`
 
 const GenerateButton = styled.button`
     position: relative;
-    background-color: #f1f3fd;
+    background-color: rgb(250, 250, 255);
     width: 140px;
     height: 40px;
     display: flex;
@@ -31,16 +31,16 @@ const GenerateButton = styled.button`
     overflow: hidden;
     cursor: pointer;
     border: 0;
-    box-shadow: 0px 0px 8px #3628ff1a;
+    box-shadow: 0px 0px 4pxrgba (0, 64, 255, 0.1);
     font-size: 12px;
     &:hover,
     &:focus {
         box-shadow: none;
         border: 0;
         background-color: #f9f3fd;
-        box-shadow: 0px 0px 16px #2897ff44;
+        box-shadow: 0px 0px 12px rgba(25, 0, 255, 0.15);
     }
-    transition: box-shadow ease 1s;
+    transition: box-shadow ease 0.5s;
     span,
     path,
     line {
@@ -73,7 +73,17 @@ const ButtonBackground = styled.div`
         top: -75px;
         left: -50%;
         z-index: -1;
-        background: linear-gradient(-45deg, #7839ff, #ede4ff, #28b6ff, #99dbfd, #4e02f0, #a781f7, #3628ff, #7839ff);
+        background: linear-gradient(
+            -45deg,
+            rgb(79, 0, 249),
+            #ede4ff,
+            rgb(40, 79, 255),
+            #99dbfd,
+            #4e02f0,
+            #a781f7,
+            #3628ff,
+            #7839ff
+        );
         animation: ${GradientAnimation} 10s ease infinite;
         background-size: 100%;
     }
@@ -82,7 +92,7 @@ const ButtonBackground = styled.div`
 const ButtonBackgroundInner = styled.div`
     height: 100%;
     width: 100%;
-    background-color: #f1f3fd;
+    background-color: rgb(248, 249, 253);
     opacity: 0.92;
     z-index: 1;
     border-radius: 6px;

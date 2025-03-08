@@ -119,7 +119,7 @@ export default function InferDocsPanel({
         } catch (e: unknown) {
             const error = e as Error;
             console.error(error);
-            message.error({ content: `Failed to generate summary. An unexpected error occured!`, duration: 3 });
+            message.error({ content: `Failed to generate summary. ${error.message}`, duration: 3 });
             setIsPanelExpanded(false);
         } finally {
             setIsLoading(false);
