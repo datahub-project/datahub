@@ -198,7 +198,7 @@ class VertexAISource(Source):
         if self.experiments is None:
             self.experiments = aiplatform.Experiment.list()
         for experiment in self.experiments:
-            logger.info(f"Fetching experiments runs for experiment {experiment.name}")
+            logger.info(f"Fetching experiment runs for experiment {experiment.name}")
             experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
             for run in experiment_runs:
                 yield from self._gen_experiment_run_mcps(experiment, run)
