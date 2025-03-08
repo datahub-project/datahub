@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -72,6 +73,9 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -79,6 +83,10 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
@@ -299,22 +307,28 @@ class SupersetSource(StatefulIngestionSourceBase):
         total_items = page_size
 
         while current_page * page_size < total_items:
-            response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/{entity_type}",
-                params={"q": f"(page:{current_page},page_size:{page_size})"},
-            )
+            try:
+                response = self.session.get(
+                    f"{self.config.connect_uri}/api/v1/{entity_type}",
+                    params={"q": f"(page:{current_page},page_size:{page_size})"},
+                    timeout=10,
+                )
 
-            if response.status_code != 200:
-                logger.warning(f"Failed to get {entity_type} data: {response.text}")
+                if response.status_code != 200:
+                    logger.warning(f"Failed to get {entity_type} data: {response.text}")
 
-            payload = response.json()
-            # Update total_items with the actual count from the response
-            total_items = payload.get("count", total_items)
-            # Yield each item in the result, this gets passed into the construct functions
-            for item in payload.get("result", []):
-                yield item
+                payload = response.json()
+                # Update total_items with the actual count from the response
+                total_items = payload.get("count", total_items)
+                # Yield each item in the result, this gets passed into the construct functions
+                for item in payload.get("result", []):
+                    yield item
 
-            current_page += 1
+                current_page += 1
+            except requests.exceptions.Timeout:
+                logger.info(
+                    f"Request timed out while fetching {entity_type} data (page {current_page})."
+                )
 
     def parse_owner_info(self) -> Dict[str, Any]:
         entity_types = ["dataset", "dashboard", "chart"]
@@ -337,13 +351,20 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-        )
-        if dataset_response.status_code != 200:
-            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
-            dataset_response.raise_for_status()
-        return dataset_response.json()
+        try:
+            dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+                timeout=10,
+            )
+            if dataset_response.status_code != 200:
+                logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+                dataset_response.raise_for_status()
+            return dataset_response.json()
+        except requests.exceptions.Timeout:
+            logger.info(
+                f"Request timed out while fetching dataset info for {dataset_id}."
+            )
+        return {}
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
@@ -601,7 +622,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
             try:
                 chart_id = str(chart_data.get("id"))
-                chart_name = chart_data.get("slice_name", "")
+                chart_name = str(chart_data.get("slice_name", ""))
 
                 if not self.config.chart_pattern.allowed(chart_name):
                     self.report.report_dropped(
@@ -682,6 +703,52 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def generate_virtual_dataset_lineage(
+        self,
+        parsed_query_object: SqlParsingResult,
+        datasource_urn: str,
+        dataset_url: str,
+    ) -> UpstreamLineageClass:
+        cll = (
+            parsed_query_object.column_lineage
+            if parsed_query_object.column_lineage is not None
+            else []
+        )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for cll_info in cll:
+            downstream = (
+                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                if cll_info.downstream and cll_info.downstream.column
+                else []
+            )
+            upstreams = [
+                make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=input_table_urn,
+                    properties={"externalUrl": dataset_url},
+                )
+                for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
@@ -702,6 +769,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
+        upstream_warehouse_db_name = (
+            dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+
+        # if we have rendered sql, we always use that and defualt back to regular sql
+        sql = dataset_response.get("result", {}).get(
+            "rendered_sql"
+        ) or dataset_response.get("result", {}).get("sql")
 
         # Preset has a way of naming their platforms differently than
         # how datahub names them, so map the platform name to the correct naming
@@ -714,22 +789,34 @@ class SupersetSource(StatefulIngestionSourceBase):
         if upstream_warehouse_platform in warehouse_naming:
             upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
 
-        # TODO: Categorize physical vs virtual upstream dataset
-        # mark all upstream dataset as physical for now, in the future we would ideally like
-        # to differentiate physical vs virtual upstream datasets
-        tag_urn = f"urn:li:tag:{self.platform}:physical"
-        upstream_dataset = self.get_datasource_urn_from_id(
-            dataset_response, upstream_warehouse_platform
+        parsed_query_object = create_lineage_sql_parsed_result(
+            query=sql,
+            default_db=upstream_warehouse_db_name,
+            platform=upstream_warehouse_platform,
+            platform_instance=None,
+            env=self.config.env,
         )
-        upstream_lineage = UpstreamLineageClass(
-            upstreams=[
-                UpstreamClass(
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    dataset=upstream_dataset,
-                    properties={"externalUrl": dataset_url},
-                )
-            ]
-        )
+
+        # if we sql, we label the datasets as virtual
+        if sql:
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            upstream_lineage = self.generate_virtual_dataset_lineage(
+                parsed_query_object, datasource_urn, dataset_url
+            )
+        else:
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_dataset = self.get_datasource_urn_from_id(
+                dataset_response, upstream_warehouse_platform
+            )
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=upstream_dataset,
+                        properties={"externalUrl": dataset_url},
+                    )
+                ]
+            )
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
