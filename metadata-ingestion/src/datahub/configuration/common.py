@@ -198,6 +198,14 @@ class IgnorableError(MetaError):
     """An error that can be ignored."""
 
 
+class TraceTimeoutError(OperationalError):
+    """Failure to complete an API Trace within the timeout."""
+
+
+class TraceValidationError(OperationalError):
+    """Failure to complete the expected write operation."""
+
+
 @runtime_checkable
 class ExceptionWithProps(Protocol):
     def get_telemetry_props(self) -> Dict[str, Any]: ...
