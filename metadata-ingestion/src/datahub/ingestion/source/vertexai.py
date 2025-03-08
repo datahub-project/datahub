@@ -1,9 +1,8 @@
 import dataclasses
 import logging
-import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Iterable, List, Optional, TypeVar
+from typing import Any, Iterable, List, Optional, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform
@@ -164,7 +163,7 @@ class VertexAISource(Source):
         self.client = aiplatform
         self.endpoints: Optional[dict] = None
         self.datasets: Optional[dict] = None
-        self.experiments: Optional[list] = None
+        self.experiments: Optional[List[Experiment]] = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -176,13 +175,13 @@ class VertexAISource(Source):
         - Training Jobs
         """
 
-        # # Ingest Project
-        # yield from self._gen_project_workunits()
-        # # Fetch and Ingest Models, Model Versions a from Model Registry
-        # yield from auto_workunit(self._get_ml_models_mcps())
-        # # Fetch and Ingest Training Jobs
-        # yield from auto_workunit(self._get_training_jobs_mcps())
-        # # Fetch and Ingest Experiments
+        # Ingest Project
+        yield from self._gen_project_workunits()
+        # Fetch and Ingest Models, Model Versions a from Model Registry
+        yield from auto_workunit(self._get_ml_models_mcps())
+        # Fetch and Ingest Training Jobs
+        yield from auto_workunit(self._get_training_jobs_mcps())
+        # Fetch and Ingest Experiments
         yield from self._get_experiments_workunits()
         # # Fetch and Ingest Experiment Runs
         yield from auto_workunit(self._get_experiment_runs_mcps())
@@ -196,6 +195,8 @@ class VertexAISource(Source):
             yield from self._gen_experiment_workunits(experiment)
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        if self.experiments is None:
+            self.experiments = aiplatform.Experiment.list()
         for experiment in self.experiments:
             logger.info(f"Fetching experiments runs for experiment {experiment.name}")
             experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
@@ -215,7 +216,9 @@ class VertexAISource(Source):
             extra_properties={
                 "name": experiment.name,
                 "resourceName": experiment.resource_name,
-                "dashboardURL": experiment.dashboard_url,
+                "dashboardURL": experiment.dashboard_url
+                if experiment.dashboard_url
+                else "",
             },
             external_url=self._make_experiment_external_url(experiment),
         )
@@ -230,23 +233,39 @@ class VertexAISource(Source):
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
-    def _get_create_time_from_run(self, run: ExperimentRun) -> int:
+    def _get_create_time_from_run(self, run: ExperimentRun) -> Optional[int]:
         executions = run.get_executions()
         if len(executions) == 0:
-            return int(time.time() * 1000)
-        min_create_time = min([execution.create_time for execution in executions])
-        return min_create_time.timestamp() * 1000
+            return None
+        min_create_time = min([exec.create_time for exec in executions])
+        return int(min_create_time.timestamp() * 1000)
 
-    def _get_run_result_status(self, status: str) -> RunResultTypeClass:
+    def _get_run_result_status(self, status: str) -> Union[str, RunResultTypeClass]:
         if status == "COMPLETE":
             return RunResultTypeClass.SUCCESS
-
         elif status == "FAILED":
             return RunResultTypeClass.FAILURE
+        elif status == "RUNNING":  # No Corresponding RunResultTypeClass for RUNNING
+            return "RUNNING"
         else:
             return RunResultTypeClass.SKIPPED
 
-    def _gen_experiment_run_mcps(self, experiment: Experiment, run: ExperimentRun):
+    def _make_custom_properties_for_run(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> dict:
+        properties = dict[str, str]()
+        properties["externalUrl"] = self._make_experiment_run_external_url(
+            experiment, run
+        )
+        for exec in run.get_executions():
+            exec_name = exec.name
+            properties[f"created time ({exec_name})"] = str(exec.create_time)
+            properties[f"update time ({exec_name}) "] = str(exec.update_time)
+        return properties
+
+    def _gen_experiment_run_mcps(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         experiment_key = ContainerKeyWithId(
             platform=self.platform,
             id=self._make_vertexai_experiment_name(experiment.name),
@@ -257,8 +276,7 @@ class VertexAISource(Source):
         )
         run_urn = builder.make_data_process_instance_urn(run_name)
 
-        # created_time = self._get_create_time_from_run(run)
-        created_time = datetime_to_ts_millis(datetime.now())
+        created_time = self._get_create_time_from_run(run)
         created_actor = f"urn:li:platformResource:{self.platform}"
 
         aspects: List[_Aspect] = list()
@@ -267,15 +285,13 @@ class VertexAISource(Source):
             DataProcessInstancePropertiesClass(
                 name=run.name,
                 created=AuditStampClass(
-                    time=created_time,
+                    time=created_time
+                    if created_time
+                    else datetime_to_ts_millis(datetime.now()),
                     actor=created_actor,
                 ),
                 externalUrl=self._make_experiment_run_external_url(experiment, run),
-                customProperties={
-                    "externalUrl": self._make_experiment_run_external_url(
-                        experiment, run
-                    )
-                },
+                customProperties=self._make_custom_properties_for_run(experiment, run),
             )
         )
 
@@ -285,22 +301,23 @@ class VertexAISource(Source):
             MLTrainingRunPropertiesClass(
                 hyperParams=self._get_experiment_run_params(run),
                 trainingMetrics=self._get_experiment_run_metrics(run),
-                outputUrls=[self._make_experiment_run_external_url(experiment, run)],
+                externalUrl=self._make_experiment_run_external_url(experiment, run),
                 id=f"{experiment.name}-{run.name}",
             )
         )
 
-        aspects.append(
-            DataProcessInstanceRunEventClass(
-                status=DataProcessRunStatusClass.COMPLETE,
-                # timestampMillis=self._get_last_update_time_from_run(run) ,
-                timestampMillis=datetime_to_ts_millis(datetime.now()),
-                result=DataProcessInstanceRunResultClass(
-                    type=self._get_run_result_status(run.get_state()),
-                    nativeResultType=self.platform,
-                ),
+        run_result_type = self._get_run_result_status(run.get_state())
+        if isinstance(run_result_type, RunResultTypeClass) and created_time is not None:
+            aspects.append(
+                DataProcessInstanceRunEventClass(
+                    status=DataProcessRunStatusClass.STARTED,
+                    timestampMillis=created_time,
+                    result=DataProcessInstanceRunResultClass(
+                        type=self._get_run_result_status(run.get_state()),
+                        nativeResultType=self.platform,
+                    ),
+                )
             )
-        )
 
         aspects.append(
             DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform)))
@@ -859,7 +876,7 @@ class VertexAISource(Source):
         )
         return external_url
 
-    def _make_experiment_external_url(self, experiment: Experiment):
+    def _make_experiment_external_url(self, experiment: Experiment) -> str:
         """
         Experiment external URL in Vertex AI
         https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs?project=acryl-poc
@@ -873,7 +890,7 @@ class VertexAISource(Source):
 
     def _make_experiment_run_external_url(
         self, experiment: Experiment, run: ExperimentRun
-    ):
+    ) -> str:
         """
         Experiment Run external URL in Vertex AI
         https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs/experiment-run-with-automljob-1-automl-job-with-run-1/charts?project=acryl-poc

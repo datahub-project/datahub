@@ -5,14 +5,17 @@ from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.cloud.aiplatform import AutoMLTabularTrainingJob
+from google.cloud.aiplatform import AutoMLTabularTrainingJob, Experiment, ExperimentRun
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
 from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai import (
+    ContainerKeyWithId,
     MLTypes,
     ModelMetadata,
     TrainingJobMetadata,
@@ -25,10 +28,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
+    DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     MLModelDeploymentPropertiesClass,
     MLTrainingRunPropertiesClass,
+    StatusClass,
     SubTypesClass,
 )
 
@@ -120,24 +126,28 @@ def gen_mock_model_version(mock_model: Model) -> VersionInfo:
     )
 
 
-#
-# def gen_mock_experiment() -> Experiment:
-#     mock_experiment = MagicMock(spec=Experiment)
-#     mock_experiment.name = "mock_experiment"
-#     mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
-#     mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-#     mock_experiment.display_name = "mock_experiment_display_name"
-#     mock_experiment.description = "mock_experiment_description"
-#     return mock_experiment
-#
-# def gen_mock_experiment_run() -> ExperimentRun:
-#     mock_experiment_run = MagicMock(spec=ExperimentRun)
-#     mock_experiment_run.name = "mock_experiment_run"
-#     mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
-#     mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-#     mock_experiment_run.display_name = "mock_experiment_run_display_name"
-#     mock_experiment_run.description = "mock_experiment_run_description"
-#     return mock_experiment_run
+def gen_mock_experiment(num: int = 1) -> Experiment:
+    mock_experiment = MagicMock(spec=Experiment)
+    mock_experiment.name = f"mock_experiment_{num}"
+    mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.display_name = f"mock_experiment_{num}_display_name"
+    mock_experiment.description = f"mock_experiment_{num}_description"
+    return mock_experiment
+
+
+def gen_mock_experiments(num: int) -> List[Experiment]:
+    return [gen_mock_experiment(i) for i in range(num)]
+
+
+def gen_mock_experiment_run() -> ExperimentRun:
+    mock_experiment_run = MagicMock(spec=ExperimentRun)
+    mock_experiment_run.name = "mock_experiment_run"
+    mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.display_name = "mock_experiment_run_display_name"
+    mock_experiment_run.description = "mock_experiment_run_description"
+    return mock_experiment_run
 
 
 @pytest.fixture
@@ -449,38 +459,103 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
             assert aspect.typeNames == ["Dataset"]
 
 
-# def test_gen_experiment_run_mcps(source: VertexAISource) -> None:
-#     # mock_dataset = gen_mock_dataset()
-#     # mock_job = gen_mock_training_job()
-#     # job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
-#
-#
-#
-#     experiment_key1 = ContainerKeyWithId(
-#         platform=str(DataPlatformUrn(source.platform)), id="MyExperimentTest1"
-#     )
-#
-#     experiment_key2 = ContainerKeyWithId(
-#         platform=str(DataPlatformUrn(source.platform)), id="MyExperimentTest1"
-#     )
-#
-#     print(f"1 {experiment_key1.as_urn()}")
-#     print(f"2 {experiment_key2.as_urn()}")
-#
-#     job_id = source._make_vertexai_job_name(entity_id="my test job")
-#     job_urn = builder.make_data_process_instance_urn(job_id)
-#     print(job_urn)
-#
-#     experiment_key = ContainerKeyWithId(
-#         platform=str(DataPlatformUrn(source.platform)), id="experiment"
-#     )
-#     data_process_urn = DataProcessInstance(
-#         id="run.name",
-#         orchestrator=source.platform,
-#         template_urn=None,
-#     ).urn
-#
-#     print(data_process_urn)
+@patch("google.cloud.aiplatform.Experiment.list")
+def test_get_experiment_mcps(
+    mock_list: List[Experiment], source: VertexAISource
+) -> None:
+    experiment = gen_mock_experiment()
+    assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
+    mock_list.return_value = [experiment]
+    workunits: List[MetadataWorkUnit] = list(source._get_experiments_workunits())
+
+    expected_urn = ContainerKeyWithId(
+        platform=source.platform,
+        id=source._make_vertexai_experiment_name(experiment.name),
+    ).as_urn()
+
+    actual_urns = [
+        wu.metadata.entityUrn for wu in workunits if hasattr(wu.metadata, "entityUrn")
+    ]
+    assert [expected_urn] * 4 == actual_urns
+
+    expected_classes = {
+        ContainerPropertiesClass,
+        SubTypesClass,
+        DataPlatformInstanceClass,
+        StatusClass,
+    }
+    instances = set(
+        [
+            wu.metadata.aspect.__class__
+            for wu in workunits
+            if hasattr(wu.metadata, "aspect")
+        ]
+    )
+    assert expected_classes == instances
+
+    for wu in workunits:
+        assert wu.get_urn() == expected_urn
+        aspect = wu.get_metadata()["metadata"]
+        if isinstance(aspect, ContainerPropertiesClass):
+            assert aspect.name == experiment.name
+            assert aspect.externalUrl == source._make_experiment_external_url(
+                experiment
+            )
+        elif isinstance(aspect, SubTypesClass):
+            assert aspect.typeNames == [MLTypes.EXPERIMENT]
+        elif isinstance(aspect, DataPlatformInstanceClass):
+            assert aspect.platform == source.platform
+
+
+@patch("google.cloud.aiplatform.ExperimentRun.list")
+def test_gen_experiment_run_mcps(
+    mock_list: List[ExperimentRun], source: VertexAISource
+) -> None:
+    mock_exp = gen_mock_experiment()
+    source.experiments = [mock_exp]
+    mock_exp_run = gen_mock_experiment_run()
+    assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
+    mock_list.return_value = [mock_exp_run]
+
+    expected_exp_urn = ContainerKeyWithId(
+        platform=source.platform,
+        id=source._make_vertexai_experiment_name(mock_exp.name),
+    ).as_urn()
+
+    mcps: List[MetadataChangeProposalWrapper] = list(source._get_experiment_runs_mcps())
+
+    run_name = source._make_vertexai_experiment_run_name(
+        entity_id=f"{mock_exp.name}-{mock_exp_run.name}"
+    )
+
+    expected_urn = builder.make_data_process_instance_urn(run_name)
+
+    assert [expected_urn] * 5 == [mcp.entityUrn for mcp in mcps]
+    expected_classes = {
+        DataProcessInstancePropertiesClass,
+        ContainerClass,
+        MLTrainingRunPropertiesClass,
+        DataPlatformInstanceClass,
+        SubTypesClass,
+    }
+    actual_classes = set([mcp.aspect.__class__ for mcp in mcps])
+    assert expected_classes == actual_classes
+
+    for mcp in mcps:
+        aspect = mcp.aspect
+        if isinstance(aspect, DataProcessInstancePropertiesClass):
+            assert aspect.name == mock_exp_run.name
+            assert aspect.externalUrl == source._make_experiment_run_external_url(
+                mock_exp, mock_exp_run
+            )
+        elif isinstance(aspect, ContainerClass):
+            assert aspect.container == expected_exp_urn
+        elif isinstance(aspect, MLTrainingRunPropertiesClass):
+            assert aspect.externalUrl == source._make_experiment_run_external_url(
+                mock_exp, mock_exp_run
+            )
+        elif isinstance(aspect, SubTypesClass):
+            assert aspect.typeNames == [MLTypes.EXPERIMENT_RUN]
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:

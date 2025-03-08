@@ -14,7 +14,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717242,
+        "lastObserved": 1741412026734,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -30,7 +30,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717242,
+        "lastObserved": 1741412026734,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -46,7 +46,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717243,
+        "lastObserved": 1741412026735,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717243,
+        "lastObserved": 1741412026735,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -80,7 +80,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717243,
+        "lastObserved": 1741412026735,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -100,7 +100,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717244,
+        "lastObserved": 1741412026737,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -120,7 +120,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717245,
+        "lastObserved": 1741412026738,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -139,13 +139,13 @@
             "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=mock_auto_automl_tabular_job?project=test-project-id",
             "name": "test-project-id.job.mock_auto_automl_tabular_job",
             "created": {
-                "time": 1741205717245,
+                "time": 1741412026738,
                 "actor": "urn:li:platformResource:vertexai"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717246,
+        "lastObserved": 1741412026739,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -163,7 +163,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717246,
+        "lastObserved": 1741412026739,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -181,7 +181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717246,
+        "lastObserved": 1741412026739,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -197,7 +197,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717247,
+        "lastObserved": 1741412026740,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -215,7 +215,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717247,
+        "lastObserved": 1741412026740,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -238,7 +238,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717247,
+        "lastObserved": 1741412026741,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -256,7 +256,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717248,
+        "lastObserved": 1741412026741,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -272,7 +272,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717248,
+        "lastObserved": 1741412026741,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -293,7 +293,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717248,
+        "lastObserved": 1741412026742,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -328,7 +328,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717249,
+        "lastObserved": 1741412026742,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -347,13 +347,13 @@
             "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=mock_auto_automl_tabular_job?project=test-project-id",
             "name": "test-project-id.job.mock_auto_automl_tabular_job",
             "created": {
-                "time": 1741205717249,
+                "time": 1741412026742,
                 "actor": "urn:li:platformResource:vertexai"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717249,
+        "lastObserved": 1741412026743,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -371,7 +371,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717250,
+        "lastObserved": 1741412026743,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -389,7 +389,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717250,
+        "lastObserved": 1741412026744,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -405,7 +405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717250,
+        "lastObserved": 1741412026744,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -423,7 +423,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717251,
+        "lastObserved": 1741412026744,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717251,
+        "lastObserved": 1741412026745,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -464,7 +464,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717251,
+        "lastObserved": 1741412026745,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -480,7 +480,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717252,
+        "lastObserved": 1741412026746,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -515,7 +515,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717252,
+        "lastObserved": 1741412026746,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -534,13 +534,13 @@
             "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=mock_auto_automl_tabular_job?project=test-project-id",
             "name": "test-project-id.job.mock_auto_automl_tabular_job",
             "created": {
-                "time": 1741205717252,
+                "time": 1741412026746,
                 "actor": "urn:li:platformResource:vertexai"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717253,
+        "lastObserved": 1741412026747,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -558,7 +558,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717253,
+        "lastObserved": 1741412026747,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -576,7 +576,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717253,
+        "lastObserved": 1741412026748,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -592,7 +592,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717254,
+        "lastObserved": 1741412026748,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -610,7 +610,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717254,
+        "lastObserved": 1741412026748,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -633,7 +633,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717254,
+        "lastObserved": 1741412026749,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -651,7 +651,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717255,
+        "lastObserved": 1741412026749,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -667,7 +667,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717255,
+        "lastObserved": 1741412026750,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -702,7 +702,207 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717255,
+        "lastObserved": 1741412026750,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "id": "test-project-id.experiment.mock_experiment_1",
+                "name": "mock_experiment_1",
+                "resourceName": "projects/123/locations/us-central1/experiments/1",
+                "dashboardURL": "https://console.cloud.google.com/vertex-ai/locations/us-central1/experiments/123"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/mock_experiment_1/runs?project=test-project-id",
+            "name": "mock_experiment_1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026753,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026753,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026754,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Experiment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026754,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026754,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "externalUrl": "https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/mock_experiment_1/runs/mock_experiment_1-mock_experiment_run/charts?project=test-project-id"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/mock_experiment_1/runs/mock_experiment_1-mock_experiment_run/charts?project=test-project-id",
+            "name": "mock_experiment_run",
+            "created": {
+                "time": 1741412026751,
+                "actor": "urn:li:platformResource:vertexai"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026755,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b7661ca4f9851ac953d1a1d35d2e71c9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026755,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/mock_experiment_1/runs/mock_experiment_1-mock_experiment_run/charts?project=test-project-id",
+            "id": "mock_experiment_1-mock_experiment_run",
+            "hyperParams": [],
+            "trainingMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026755,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026756,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Experiment Run"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026756,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:test-project-id.experiment_run.mock_experiment_1-mock_experiment_run",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741412026756,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -718,7 +918,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717256,
+        "lastObserved": 1741412026757,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -734,7 +934,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717256,
+        "lastObserved": 1741412026757,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -750,7 +950,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717256,
+        "lastObserved": 1741412026757,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -766,7 +966,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717257,
+        "lastObserved": 1741412026758,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -782,7 +982,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1741205717257,
+        "lastObserved": 1741412026758,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -4,7 +4,13 @@ from typing import Any, Dict, List, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.cloud.aiplatform import AutoMLTabularTrainingJob, CustomJob, Model
+from google.cloud.aiplatform import (
+    AutoMLTabularTrainingJob,
+    CustomJob,
+    Experiment,
+    ExperimentRun,
+    Model,
+)
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 from google.protobuf import timestamp_pb2
@@ -112,6 +118,30 @@ def gen_mock_dataset() -> VertexAiResourceNoun:
     return mock_dataset
 
 
+def gen_mock_experiment(num: int = 1) -> Experiment:
+    mock_experiment = MagicMock(spec=Experiment)
+    mock_experiment.name = f"mock_experiment_{num}"
+    mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.display_name = f"mock_experiment_{num}_display_name"
+    mock_experiment.description = f"mock_experiment_{num}_description"
+    mock_experiment.resource_name = (
+        f"projects/123/locations/us-central1/experiments/{num}"
+    )
+    mock_experiment.dashboard_url = "https://console.cloud.google.com/vertex-ai/locations/us-central1/experiments/123"
+    return mock_experiment
+
+
+def gen_mock_experiment_run() -> ExperimentRun:
+    mock_experiment_run = MagicMock(spec=ExperimentRun)
+    mock_experiment_run.name = "mock_experiment_run"
+    mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.display_name = "mock_experiment_run_display_name"
+    mock_experiment_run.description = "mock_experiment_run_description"
+    return mock_experiment_run
+
+
 def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) -> None:
     mock_automl_job = gen_mock_training_automl_job()
     mock_models = gen_mock_models()
@@ -137,6 +167,8 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
             "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
             "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
             "datahub.ingestion.source.vertexai.VertexAISource._get_training_job_metadata",
+            "google.cloud.aiplatform.Experiment.list",
+            "google.cloud.aiplatform.ExperimentRun.list",
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
 
@@ -161,7 +193,10 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
                     output_model=mock_models[0],
                     output_model_version=mock_model_version,
                 )
-
+            elif func_to_mock == "google.cloud.aiplatform.Experiment.list":
+                mock.return_value = [gen_mock_experiment()]
+            elif func_to_mock == "google.cloud.aiplatform.ExperimentRun.list":
+                mock.return_value = [gen_mock_experiment_run()]
             else:
                 mock.return_value = []
 
