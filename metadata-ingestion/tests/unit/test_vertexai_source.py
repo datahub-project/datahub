@@ -32,6 +32,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
+    MetadataChangeProposalClass,
     MLModelDeploymentPropertiesClass,
     MLTrainingRunPropertiesClass,
     StatusClass,
@@ -474,7 +475,10 @@ def test_get_experiment_mcps(
     ).as_urn()
 
     actual_urns = [
-        wu.metadata.entityUrn for wu in workunits if hasattr(wu.metadata, "entityUrn")
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        or isinstance(wu.metadata, MetadataChangeProposalWrapper)
     ]
     assert [expected_urn] * 4 == actual_urns
 
@@ -488,7 +492,8 @@ def test_get_experiment_mcps(
         [
             wu.metadata.aspect.__class__
             for wu in workunits
-            if hasattr(wu.metadata, "aspect")
+            if isinstance(wu.metadata, MetadataChangeProposalClass)
+            or isinstance(wu.metadata, MetadataChangeProposalWrapper)
         ]
     )
     assert expected_classes == instances
