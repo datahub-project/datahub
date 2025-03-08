@@ -32,7 +32,11 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import (
+    DEFAULT_REST_SINK_ENDPOINT,
+    DatahubRestEmitter,
+    RestSinkEndpoint,
+)
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
     DatahubClientConfig as DatahubClientConfig,
@@ -141,6 +145,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
+            openapi_ingestion=DEFAULT_REST_SINK_ENDPOINT == RestSinkEndpoint.OPENAPI,
         )
 
         self.server_id = _MISSING_SERVER_ID
