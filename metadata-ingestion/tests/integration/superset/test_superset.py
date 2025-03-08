@@ -35,7 +35,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "count": 2,
                 "result": [
                     {
-                        "id": "1",
+                        "id": 1,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -63,7 +63,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "certification_details": "Approved",
                     },
                     {
-                        "id": "2",
+                        "id": 2,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -95,7 +95,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "count": 4,
                 "result": [
                     {
-                        "id": "10",
+                        "id": 10,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -109,7 +109,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "11",
+                        "id": 11,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -123,7 +123,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "12",
+                        "id": 12,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -137,7 +137,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "13",
+                        "id": 13,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -396,7 +396,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     "schema": "test_schema_name",
                     "table_name": "test_table_name",
                     "database": {
-                        "id": "30",
+                        "id": 30,
                         "database_name": "test_database_name",
                     },
                 },
@@ -579,7 +579,7 @@ def test_superset_stateful_ingest(
                 "count": 1,
                 "result": [
                     {
-                        "id": "1",
+                        "id": 1,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -616,7 +616,7 @@ def test_superset_stateful_ingest(
                 "count": 3,
                 "result": [
                     {
-                        "id": "10",
+                        "id": 10,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -630,7 +630,7 @@ def test_superset_stateful_ingest(
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "11",
+                        "id": 11,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -644,7 +644,7 @@ def test_superset_stateful_ingest(
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "12",
+                        "id": 12,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
