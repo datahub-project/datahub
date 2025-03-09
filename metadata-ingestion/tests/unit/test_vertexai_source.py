@@ -1,16 +1,12 @@
 import contextlib
 import json
-from datetime import datetime
 from typing import List
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from google.cloud.aiplatform import AutoMLTabularTrainingJob
-from google.cloud.aiplatform.base import VertexAiResourceNoun
-from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
-from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai import (
     MLTypes,
@@ -27,97 +23,24 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
+    DatasetPropertiesClass,
     MLModelDeploymentPropertiesClass,
+    MLModelGroupPropertiesClass,
     MLTrainingRunPropertiesClass,
     SubTypesClass,
+)
+from tests.integration.vertexai.mock_vertexai_entity import (
+    gen_mock_dataset,
+    gen_mock_endpoint,
+    gen_mock_model,
+    gen_mock_model_version,
+    gen_mock_models,
+    gen_mock_training_automl_job,
+    gen_mock_training_custom_job,
 )
 
 PROJECT_ID = "acryl-poc"
 REGION = "us-west2"
-
-
-def gen_mock_model() -> Model:
-    mock_model_1 = MagicMock(spec=Model)
-    mock_model_1.name = "mock_prediction_model_1"
-    mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.version_id = "1"
-    mock_model_1.display_name = "mock_prediction_model_1_display_name"
-    mock_model_1.resource_name = (
-        "projects/872197881936/locations/us-west2/models/3583871344875405312"
-    )
-    return mock_model_1
-
-
-def gen_mock_models() -> List[Model]:
-    mock_model_1 = MagicMock(spec=Model)
-    mock_model_1.name = "mock_prediction_model_1"
-    mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.version_id = "1"
-    mock_model_1.display_name = "mock_prediction_model_1_display_name"
-    mock_model_1.description = "mock_prediction_model_1_description"
-
-    mock_model_2 = MagicMock(spec=Model)
-    mock_model_2.name = "mock_prediction_model_2"
-
-    mock_model_2.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_2.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_2.version_id = "1"
-    mock_model_2.display_name = "mock_prediction_model_2_display_name"
-    mock_model_2.description = "mock_prediction_model_1_description"
-
-    return [mock_model_1, mock_model_2]
-
-
-def gen_mock_training_job() -> VertexAiResourceNoun:
-    mock_training_job = MagicMock(spec=VertexAiResourceNoun)
-    mock_training_job.name = "mock_training_job"
-    mock_training_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_training_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_training_job.display_name = "mock_training_job_display_name"
-    mock_training_job.description = "mock_training_job_description"
-    return mock_training_job
-
-
-def gen_mock_dataset() -> VertexAiResourceNoun:
-    mock_dataset = MagicMock(spec=VertexAiResourceNoun)
-    mock_dataset.name = "mock_dataset"
-    mock_dataset.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_dataset.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_dataset.display_name = "mock_dataset_display_name"
-    mock_dataset.description = "mock_dataset_description"
-    return mock_dataset
-
-
-def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
-    mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
-    mock_automl_job.name = "mock_auto_automl_tabular_job"
-    mock_automl_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_automl_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
-    mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
-    return mock_automl_job
-
-
-def gen_mock_endpoint() -> Endpoint:
-    mock_endpoint = MagicMock(spec=Endpoint)
-    mock_endpoint.description = "test endpoint"
-    mock_endpoint.create_time = datetime.now()
-    mock_endpoint.display_name = "test endpoint display name"
-    return mock_endpoint
-
-
-def gen_mock_model_version(mock_model: Model) -> VersionInfo:
-    version = "1"
-    return VersionInfo(
-        version_id=version,
-        version_description="test",
-        version_create_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        version_update_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        model_display_name=mock_model.name,
-        model_resource_name=mock_model.resource_name,
-    )
 
 
 @pytest.fixture
@@ -128,43 +51,46 @@ def source() -> VertexAISource:
     )
 
 
-@patch("google.cloud.aiplatform.Model.list")
-def test_get_ml_model_mcps(mock_list: List[Model], source: VertexAISource) -> None:
+def test_get_ml_model_mcps(source: VertexAISource) -> None:
     mock_models = gen_mock_models()
-    assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
-    mock_list.return_value = mock_models
+    with contextlib.ExitStack() as exit_stack:
+        mock = exit_stack.enter_context(patch("google.cloud.aiplatform.Model.list"))
+        mock.return_value = mock_models
 
-    # Running _get_ml_models_mcps
-    actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
-
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    expected_urns = []
-    for mock_model in mock_models:
-        expected_urns.append(
+        # Running _get_ml_models_mcps
+        actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
+        actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+        expected_urns = [
             builder.make_ml_model_group_urn(
                 platform=source.platform,
                 group_name=source._make_vertexai_model_group_name(mock_model.name),
                 env=source.config.env,
             )
-        )
+            for mock_model in mock_models
+        ]
+        # expect 2 model groups
+        assert actual_urns == expected_urns
 
-    # expect 2 model groups
-    assert actual_urns == expected_urns
+        # assert expected aspect classes
+        expected_classes = [MLModelGroupPropertiesClass] * 2
+        actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
 
-    for mcp in actual_mcps:
-        assert hasattr(mcp, "aspect")
-        aspect = mcp.aspect
-        if isinstance(aspect, MLModelGroupProperties):
-            assert (
-                aspect.name
-                == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
-                or aspect.name
-                == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
-            )
-            assert (
-                aspect.description == mock_models[0].description
-                or aspect.description == mock_models[1].description
-            )
+        assert expected_classes == actual_classes
+
+        for mcp in actual_mcps:
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
+            aspect = mcp.aspect
+            if isinstance(aspect, MLModelGroupProperties):
+                assert (
+                    aspect.name
+                    == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
+                    or aspect.name
+                    == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
+                )
+                assert (
+                    aspect.description == mock_models[0].description
+                    or aspect.description == mock_models[1].description
+                )
 
 
 def test_get_ml_model_properties_mcps(
@@ -175,10 +101,17 @@ def test_get_ml_model_properties_mcps(
     model_meta = ModelMetadata(mock_model, model_version)
 
     # Run _gen_ml_model_mcps
-    mcp = [mcp for mcp in source._gen_ml_model_mcps(model_meta)]
-    assert len(mcp) == 1
-    assert hasattr(mcp[0], "aspect")
-    aspect = mcp[0].aspect
+    mcps = list(source._gen_ml_model_mcps(model_meta))
+    assert len(mcps) == 1
+    mcp = mcps[0]
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+
+    # Assert URN
+    assert mcp.entityUrn == source._make_ml_model_urn(
+        model_version, source._make_vertexai_model_name(mock_model.name)
+    )
+    aspect = mcp.aspect
+    # Assert Aspect Class
     assert isinstance(aspect, MLModelProperties)
     assert (
         aspect.name
@@ -200,7 +133,7 @@ def test_get_endpoint_mcps(
     )
 
     # Run _gen_endpoint_mcps
-    actual_mcps = [mcp for mcp in source._gen_endpoint_mcps(model_meta)]
+    actual_mcps = list(source._gen_endpoints_mcps(model_meta))
     actual_urns = [mcp.entityUrn for mcp in actual_mcps]
     endpoint_urn = builder.make_ml_model_deployment_urn(
         platform=source.platform,
@@ -209,13 +142,17 @@ def test_get_endpoint_mcps(
         ),
         env=source.config.env,
     )
-
-    expected_urns = [endpoint_urn] * 1
-    # expect 1 endpoint urn
+    expected_urns = [endpoint_urn]
+    # Assert URN,   expect 1 endpoint urn
     assert actual_urns == expected_urns
 
-    for mcp in source._gen_endpoint_mcps(model_meta):
-        assert hasattr(mcp, "aspect")
+    # Assert Aspect Classes
+    expected_classes = [MLModelDeploymentPropertiesClass]
+    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+    assert actual_classes == expected_classes
+
+    for mcp in source._gen_endpoints_mcps(model_meta):
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
         if isinstance(aspect, MLModelDeploymentPropertiesClass):
             assert aspect.description == mock_model.description
@@ -233,7 +170,7 @@ def test_get_endpoint_mcps(
 def test_get_training_jobs_mcps(
     source: VertexAISource,
 ) -> None:
-    mock_training_job = gen_mock_training_job()
+    mock_training_job = gen_mock_training_custom_job()
     mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
@@ -268,11 +205,21 @@ def test_get_training_jobs_mcps(
                 source._make_vertexai_job_name(mock_training_job.name)
             )
         ] * 4  # expect 4 aspects
-
         assert actual_urns == expected_urns
 
+        # Assert Aspect Classes
+        expected_classes = [
+            DataProcessInstancePropertiesClass,
+            MLTrainingRunPropertiesClass,
+            SubTypesClass,
+            ContainerClass,
+        ]
+        actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+        assert set(expected_classes) == set(actual_classes)
+
+        # Assert Aspect Contents
         for mcp in actual_mcps:
-            assert hasattr(mcp, "aspect")
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
             aspect = mcp.aspect
             if isinstance(aspect, DataProcessInstancePropertiesClass):
                 assert (
@@ -298,20 +245,31 @@ def test_get_training_jobs_mcps(
 
 
 def test_gen_training_job_mcps(source: VertexAISource) -> None:
-    mock_training_job = gen_mock_training_job()
+    mock_training_job = gen_mock_training_custom_job()
     mock_dataset = gen_mock_dataset()
-    mock_job = gen_mock_training_job()
-    job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
+    job_meta = TrainingJobMetadata(mock_training_job, input_dataset=mock_dataset)
 
     actual_mcps = [mcp for mcp in source._gen_training_job_mcps(job_meta)]
+
+    # Assert Entity Urns
     actual_urns = [mcp.entityUrn for mcp in actual_mcps]
     expected_urns = [
         builder.make_data_process_instance_urn(
             source._make_vertexai_job_name(mock_training_job.name)
         )
     ] * 5  # expect 5 aspects under the same urn for the job
-
     assert actual_urns == expected_urns
+
+    # Assert Aspect Classes
+    expected_classes = [
+        DataProcessInstancePropertiesClass,
+        MLTrainingRunPropertiesClass,
+        SubTypesClass,
+        ContainerClass,
+        DataProcessInstanceInputClass,
+    ]
+    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+    assert set(expected_classes) == set(actual_classes)
 
     dataset_name = source._make_vertexai_dataset_name(entity_id=mock_dataset.name)
     dataset_urn = builder.make_dataset_urn(
@@ -321,7 +279,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
     )
 
     for mcp in actual_mcps:
-        assert hasattr(mcp, "aspect")
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
             assert (
@@ -413,12 +371,34 @@ def test_vertexai_config_init():
 
 def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mock_dataset = gen_mock_dataset()
-    mock_job = gen_mock_training_job()
+    mock_job = gen_mock_training_custom_job()
     job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
 
+    actual_mcps: List[MetadataChangeProposalWrapper] = list(
+        source._get_input_dataset_mcps(job_meta)
+    )
+
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    assert job_meta.input_dataset is not None
+    expected_urns = [
+        builder.make_dataset_urn(
+            platform=source.platform,
+            name=source._make_vertexai_dataset_name(
+                entity_id=job_meta.input_dataset.name
+            ),
+            env=source.config.env,
+        )
+    ] * 3  # expect 3 aspects
+    assert actual_urns == expected_urns
+
+    # Assert Aspect Classes
+    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+    expected_classes = [DatasetPropertiesClass, ContainerClass, SubTypesClass]
+    assert set(expected_classes) == set(actual_classes)
+
     # Run _get_input_dataset_mcps
-    for mcp in source._get_input_dataset_mcps(job_meta):
-        assert hasattr(mcp, "aspect")
+    for mcp in actual_mcps:
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
             assert aspect.name == f"{source._make_vertexai_job_name(mock_dataset.name)}"
@@ -439,7 +419,7 @@ def test_make_model_external_url(source: VertexAISource) -> None:
 
 
 def test_make_job_urn(source: VertexAISource) -> None:
-    mock_training_job = gen_mock_training_job()
+    mock_training_job = gen_mock_training_automl_job()
     assert (
         source._make_job_urn(mock_training_job)
         == f"{builder.make_data_process_instance_urn(source._make_vertexai_job_name(mock_training_job.name))}"

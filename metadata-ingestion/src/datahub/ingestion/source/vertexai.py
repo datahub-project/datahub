@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-from collections import defaultdict
 from datetime import datetime
 from typing import Any, Iterable, List, Optional, TypeVar
 
@@ -77,17 +76,14 @@ class VertexAIConfig(EnvConfigMixin):
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
     )
+
     _credentials_path: Optional[str] = PrivateAttr(None)
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-
         if self.credential:
             self._credentials_path = self.credential.create_credential_temp_file(
-                self.project_id
-            )
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
+                project_id=self.project_id
             )
 
 
@@ -144,8 +140,8 @@ class VertexAISource(Source):
             project=config.project_id, location=config.region, credentials=credentials
         )
         self.client = aiplatform
-        self.endpoints: Optional[dict] = None
-        self.datasets: Optional[dict] = None
+        self.endpoints: Optional[dict[str, List[Endpoint]]] = None
+        self.datasets: Optional[dict[str, VertexAiResourceNoun]] = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -197,7 +193,7 @@ class VertexAISource(Source):
         # Create ML Model Entity
         yield from self._gen_ml_model_mcps(model_meta)
         # Create Endpoint Entity
-        yield from self._gen_endpoint_mcps(model_meta)
+        yield from self._gen_endpoints_mcps(model_meta)
 
     def _get_ml_model_metadata(
         self, model: Model, model_version: VersionInfo
@@ -333,14 +329,16 @@ class VertexAISource(Source):
             MLModelGroupPropertiesClass(
                 name=self._make_vertexai_model_group_name(model.name),
                 description=model.description,
-                created=TimeStampClass(time=datetime_to_ts_millis(model.create_time))
-                if model.create_time
-                else None,
-                lastModified=TimeStampClass(
-                    time=datetime_to_ts_millis(model.update_time)
-                )
-                if model.update_time
-                else None,
+                created=(
+                    TimeStampClass(time=datetime_to_ts_millis(model.create_time))
+                    if model.create_time
+                    else None
+                ),
+                lastModified=(
+                    TimeStampClass(time=datetime_to_ts_millis(model.update_time))
+                    if model.update_time
+                    else None
+                ),
                 customProperties={"displayName": model.display_name},
             )
         )
@@ -397,14 +395,14 @@ class VertexAISource(Source):
         ]
 
         if self.datasets is None:
-            self.datasets = dict()
+            self.datasets = dict[str, VertexAiResourceNoun]()
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
                 for ds in dataset_class.list():
                     self.datasets[ds.name] = ds
 
-        return self.datasets.get(dataset_id) if dataset_id in self.datasets else None
+        return self.datasets[dataset_id] if dataset_id in self.datasets else None
 
     def _get_input_dataset_mcps(
         self, job_meta: TrainingJobMetadata
@@ -428,9 +426,11 @@ class VertexAISource(Source):
             aspects.append(
                 DatasetPropertiesClass(
                     name=self._make_vertexai_dataset_name(ds.name),
-                    created=TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
-                    if ds.create_time
-                    else None,
+                    created=(
+                        TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
+                        if ds.create_time
+                        else None
+                    ),
                     description=f"Dataset: {ds.display_name}",
                     customProperties={
                         "displayName": ds.display_name,
@@ -458,54 +458,54 @@ class VertexAISource(Source):
         and output models. It checks if the job is an AutoML job and retrieves the relevant
         input dataset and output model information.
         """
-
         job_meta = TrainingJobMetadata(job=job)
-
         # Check if the job is an AutoML job
-        if self._is_automl_job(job):
-            # Check if input dataset is present in the job configuration
-            if (
-                hasattr(job, "_gca_resource")
-                and hasattr(job._gca_resource, "input_data_config")
-                and hasattr(job._gca_resource.input_data_config, "dataset_id")
-            ):
-                # Create URN of Input Dataset for Training Job
-                dataset_id = job._gca_resource.input_data_config.dataset_id
-                logger.info(
-                    f"Found input dataset (id: {dataset_id}) for training job ({job.display_name})"
-                )
+        job_conf = job.to_dict()
+        # Check if input dataset is present in the job configuration
+        if "inputDataConfig" in job_conf and "datasetId" in job_conf["inputDataConfig"]:
+            # Create URN of Input Dataset for Training Job
+            dataset_id = job_conf["inputDataConfig"]["datasetId"]
+            logger.info(
+                f"Found input dataset (id: {dataset_id}) for training job ({job.display_name})"
+            )
 
-                if dataset_id:
-                    input_ds = self._search_dataset(dataset_id)
-                    if input_ds:
-                        logger.info(
-                            f"Found the name of input dataset ({input_ds.display_name}) with dataset id ({dataset_id})"
-                        )
+            if dataset_id:
+                input_ds = self._search_dataset(dataset_id)
+                if input_ds:
+                    logger.info(
+                        f"Found the name of input dataset ({input_ds.display_name}) with dataset id ({dataset_id})"
+                    )
                     job_meta.input_dataset = input_ds
 
-            # Check if output model is present in the job configuration
-            if hasattr(job, "_gca_resource") and hasattr(
-                job._gca_resource, "model_to_upload"
-            ):
-                model_version_str = job._gca_resource.model_to_upload.version_id
-                model_name = job._gca_resource.model_to_upload.name
-                try:
-                    model = Model(model_name=model_name)
-                    model_version = self._search_model_version(model, model_version_str)
-                    if model and model_version:
-                        logger.info(
-                            f"Found output model (name:{model.display_name} id:{model_version_str}) "
-                            f"for training job: {job.display_name}"
-                        )
-                        job_meta.output_model = model
-                        job_meta.output_model_version = model_version
-                except GoogleAPICallError:
-                    logger.error(
-                        f"Error while fetching model version {model_version_str}"
+        # Check if output model is present in the job configuration
+        if (
+            "modelToUpload" in job_conf
+            and "name" in job_conf["modelToUpload"]
+            and job_conf["modelToUpload"]["name"]
+            and job_conf["modelToUpload"]["versionId"]
+        ):
+            model_name = job_conf["modelToUpload"]["name"]
+            model_version_str = job_conf["modelToUpload"]["versionId"]
+            try:
+                model = Model(model_name=model_name)
+                model_version = self._search_model_version(model, model_version_str)
+                if model and model_version:
+                    logger.info(
+                        f"Found output model (name:{model.display_name} id:{model_version_str}) "
+                        f"for training job: {job.display_name}"
                     )
+                    job_meta.output_model = model
+                    job_meta.output_model_version = model_version
+            except GoogleAPICallError as e:
+                self.report.report_failure(
+                    title="Unable to fetch model and model version",
+                    message="Encountered an error while fetching output model and model version which training job generates",
+                    exc=e,
+                )
+
         return job_meta
 
-    def _gen_endpoint_mcps(
+    def _gen_endpoints_mcps(
         self, model_meta: ModelMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
         model: Model = model_meta.model
@@ -592,21 +592,25 @@ class VertexAISource(Source):
                     "versionId": f"{model_version.version_id}",
                     "resourceName": model.resource_name,
                 },
-                created=TimeStampClass(
-                    datetime_to_ts_millis(model_version.version_create_time)
-                )
-                if model_version.version_create_time
-                else None,
-                lastModified=TimeStampClass(
-                    datetime_to_ts_millis(model_version.version_update_time)
-                )
-                if model_version.version_update_time
-                else None,
+                created=(
+                    TimeStampClass(
+                        datetime_to_ts_millis(model_version.version_create_time)
+                    )
+                    if model_version.version_create_time
+                    else None
+                ),
+                lastModified=(
+                    TimeStampClass(
+                        datetime_to_ts_millis(model_version.version_update_time)
+                    )
+                    if model_version.version_update_time
+                    else None
+                ),
                 version=VersionTagClass(versionTag=str(model_version.version_id)),
                 groups=[model_group_urn],  # link model version to model group
-                trainingJobs=[training_job_urn]
-                if training_job_urn
-                else None,  # link to training job
+                trainingJobs=(
+                    [training_job_urn] if training_job_urn else None
+                ),  # link to training job
                 deployments=endpoint_urns,
                 externalUrl=self._make_model_version_external_url(model),
                 type="ML Model",
@@ -629,13 +633,19 @@ class VertexAISource(Source):
         Search for an endpoint associated with the model.
         """
         if self.endpoints is None:
-            endpoint_dict = defaultdict(list)
+            endpoint_dict = dict[str, List[Endpoint]]()
             for endpoint in self.client.Endpoint.list():
                 for resource in endpoint.list_models():
+                    if resource.model not in endpoint_dict:
+                        endpoint_dict[resource.model] = []
                     endpoint_dict[resource.model].append(endpoint)
             self.endpoints = endpoint_dict
 
-        endpoints = self.endpoints[model.resource_name]
+        endpoints = (
+            self.endpoints[model.resource_name]
+            if model.resource_name in self.endpoints
+            else []
+        )
         return endpoints
 
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
@@ -655,27 +665,22 @@ class VertexAISource(Source):
         self,
         entity_id: str,
     ) -> str:
-        separator: str = "."
-        return f"{self.config.project_id}{separator}model_group{separator}{entity_id}"
+        return f"{self.config.project_id}.model_group.{entity_id}"
 
     def _make_vertexai_endpoint_name(self, entity_id: str) -> str:
-        separator: str = "."
-        return f"{self.config.project_id}{separator}endpoint{separator}{entity_id}"
+        return f"{self.config.project_id}.endpoint.{entity_id}"
 
     def _make_vertexai_model_name(self, entity_id: str) -> str:
-        separator: str = "."
-        return f"{self.config.project_id}{separator}model{separator}{entity_id}"
+        return f"{self.config.project_id}.model.{entity_id}"
 
     def _make_vertexai_dataset_name(self, entity_id: str) -> str:
-        separator: str = "."
-        return f"{self.config.project_id}{separator}dataset{separator}{entity_id}"
+        return f"{self.config.project_id}.dataset.{entity_id}"
 
     def _make_vertexai_job_name(
         self,
         entity_id: Optional[str],
     ) -> str:
-        separator: str = "."
-        return f"{self.config.project_id}{separator}job{separator}{entity_id}"
+        return f"{self.config.project_id}.job.{entity_id}"
 
     def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
         """
