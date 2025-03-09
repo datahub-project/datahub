@@ -421,6 +421,6 @@ def test_make_model_external_url(source: VertexAISource) -> None:
 def test_make_job_urn(source: VertexAISource) -> None:
     mock_training_job = gen_mock_training_automl_job()
     assert (
-        source._make_job_urn(mock_training_job)
+        source._make_training_job_urn(mock_training_job)
         == f"{builder.make_data_process_instance_urn(source._make_vertexai_job_name(mock_training_job.name))}"
     )

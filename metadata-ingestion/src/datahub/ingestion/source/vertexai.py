@@ -656,7 +656,7 @@ class VertexAISource(Source):
         )
         return urn
 
-    def _make_job_urn(self, job: VertexAiResourceNoun) -> str:
+    def _make_training_job_urn(self, job: VertexAiResourceNoun) -> str:
         job_id = self._make_vertexai_job_name(entity_id=job.name)
         urn = builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
         return urn
