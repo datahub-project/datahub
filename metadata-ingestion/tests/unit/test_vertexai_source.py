@@ -29,7 +29,7 @@ from datahub.metadata.schema_classes import (
     MLTrainingRunPropertiesClass,
     SubTypesClass,
 )
-from tests.integration.vertexai.mock_vertexai_entity import (
+from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_endpoint,
     gen_mock_model,

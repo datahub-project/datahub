@@ -7,7 +7,7 @@ import pytest
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.integration.vertexai.mock_vertexai_entity import (
+from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_model,
     gen_mock_models,
@@ -67,7 +67,6 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
             mock.return_value = []
-
 
         # Mock the Vertex AI with Mock data list
         mock_models = exit_stack.enter_context(
