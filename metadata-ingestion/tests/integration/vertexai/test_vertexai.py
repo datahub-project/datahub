@@ -1,29 +1,28 @@
 import contextlib
 from pathlib import Path
-from typing import Any, Dict, List, TypeVar
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, TypeVar
+from unittest.mock import patch
 
 import pytest
-from google.cloud.aiplatform import (
-    AutoMLTabularTrainingJob,
-    CustomJob,
-    Experiment,
-    ExperimentRun,
-    Model,
-)
-from google.cloud.aiplatform.base import VertexAiResourceNoun
-from google.cloud.aiplatform.models import VersionInfo
-from google.protobuf import timestamp_pb2
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.vertexai import TrainingJobMetadata
+from tests.integration.vertexai.mock_vertexai import (
+    gen_mock_dataset,
+    gen_mock_model,
+    gen_mock_models,
+    gen_mock_training_automl_job,
+    gen_mock_training_custom_job,
+    gen_mock_experiment,
+    gen_mock_experiment_run
+)
 from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
 
 PROJECT_ID = "test-project-id"
 REGION = "us-west2"
+
 
 
 @pytest.fixture
@@ -51,162 +50,70 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     }
 
 
-def gen_mock_models() -> List[Model]:
-    mock_model_1 = MagicMock(spec=Model)
-    mock_model_1.name = "mock_prediction_model_1"
-    mock_model_1.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_1.version_id = "1"
-    mock_model_1.display_name = "mock_prediction_model_1_display_name"
-    mock_model_1.description = "mock_prediction_model_1_description"
-    mock_model_1.resource_name = "projects/123/locations/us-central1/models/456"
-
-    mock_model_2 = MagicMock(spec=Model)
-    mock_model_2.name = "mock_prediction_model_2"
-
-    mock_model_2.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_2.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_model_2.version_id = "1"
-    mock_model_2.display_name = "mock_prediction_model_2_display_name"
-    mock_model_2.description = "mock_prediction_model_1_description"
-    mock_model_2.resource_name = "projects/123/locations/us-central1/models/789"
-
-    return [mock_model_1, mock_model_2]
-
-
-def gen_mock_training_custom_job() -> CustomJob:
-    mock_training_job = MagicMock(spec=CustomJob)
-    mock_training_job.name = "mock_training_job"
-    mock_training_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_training_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_training_job.display_name = "mock_training_job_display_name"
-    mock_training_job.description = "mock_training_job_description"
-
-    return mock_training_job
-
-
-def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
-    mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
-    mock_automl_job.name = "mock_auto_automl_tabular_job"
-    mock_automl_job.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_automl_job.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
-    mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
-    return mock_automl_job
-
-
-def gen_mock_model_version(mock_model: Model) -> VersionInfo:
-    version = "1"
-    return VersionInfo(
-        version_id=version,
-        version_description="test",
-        version_create_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        version_update_time=timestamp_pb2.Timestamp().GetCurrentTime(),
-        model_display_name=mock_model.name,
-        model_resource_name=mock_model.resource_name,
-    )
-
-
-def gen_mock_dataset() -> VertexAiResourceNoun:
-    mock_dataset = MagicMock(spec=VertexAiResourceNoun)
-    mock_dataset.name = "mock_dataset"
-    mock_dataset.create_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_dataset.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_dataset.display_name = "mock_dataset_display_name"
-    mock_dataset.description = "mock_dataset_description"
-    mock_dataset.resource_name = "projects/123/locations/us-central1/datasets/456"
-    return mock_dataset
-
-
-def gen_mock_experiment(num: int = 1) -> Experiment:
-    mock_experiment = MagicMock(spec=Experiment)
-    mock_experiment.name = f"mock_experiment_{num}"
-    mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_experiment.display_name = f"mock_experiment_{num}_display_name"
-    mock_experiment.description = f"mock_experiment_{num}_description"
-    mock_experiment.resource_name = (
-        f"projects/123/locations/us-central1/experiments/{num}"
-    )
-    mock_experiment.dashboard_url = "https://console.cloud.google.com/vertex-ai/locations/us-central1/experiments/123"
-    return mock_experiment
-
-
-def gen_mock_experiment_run() -> ExperimentRun:
-    mock_experiment_run = MagicMock(spec=ExperimentRun)
-    mock_experiment_run.name = "mock_experiment_run"
-    mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
-    mock_experiment_run.display_name = "mock_experiment_run_display_name"
-    mock_experiment_run.description = "mock_experiment_run_description"
-    return mock_experiment_run
-
-
 def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) -> None:
-    mock_automl_job = gen_mock_training_automl_job()
-    mock_models = gen_mock_models()
-    mock_model_version = gen_mock_model_version(mock_models[0])
-    mock_dataset = gen_mock_dataset()
-
     with contextlib.ExitStack() as exit_stack:
+        # Mock the Vertex API with empty list
         for func_to_mock in [
             "google.cloud.aiplatform.init",
-            "google.cloud.aiplatform.Model.list",
             "google.cloud.aiplatform.datasets.TextDataset.list",
-            "google.cloud.aiplatform.datasets.TabularDataset.list",
             "google.cloud.aiplatform.datasets.ImageDataset.list",
             "google.cloud.aiplatform.datasets.TimeSeriesDataset.list",
             "google.cloud.aiplatform.datasets.VideoDataset.list",
-            "google.cloud.aiplatform.CustomJob.list",
             "google.cloud.aiplatform.CustomTrainingJob.list",
             "google.cloud.aiplatform.CustomContainerTrainingJob.list",
             "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
             "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
             "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
             "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
             "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
-            "datahub.ingestion.source.vertexai.VertexAISource._get_training_job_metadata",
-            "google.cloud.aiplatform.Experiment.list",
-            "google.cloud.aiplatform.ExperimentRun.list",
+            "google.cloud.aiplatform.TabularDataset.list",
         ]:
             mock = exit_stack.enter_context(patch(func_to_mock))
+            mock.return_value = []
 
-            if func_to_mock == "google.cloud.aiplatform.Model.list":
-                mock.return_value = gen_mock_models()
-            elif func_to_mock == "google.cloud.aiplatform.CustomJob.list":
-                mock.return_value = [
-                    gen_mock_training_custom_job(),
-                    gen_mock_training_automl_job(),
-                ]
-            elif (
-                func_to_mock == "google.cloud.aiplatform.AutoMLTabularTrainingJob.list"
-            ):
-                mock.return_value = [mock_automl_job]
-            elif (
-                func_to_mock
-                == "datahub.ingestion.source.vertexai.VertexAISource._get_training_job_metadata"
-            ):
-                mock.return_value = TrainingJobMetadata(
-                    job=mock_automl_job,
-                    input_dataset=mock_dataset,
-                    output_model=mock_models[0],
-                    output_model_version=mock_model_version,
-                )
-            elif func_to_mock == "google.cloud.aiplatform.Experiment.list":
-                mock.return_value = [gen_mock_experiment()]
-            elif func_to_mock == "google.cloud.aiplatform.ExperimentRun.list":
-                mock.return_value = [gen_mock_experiment_run()]
-            else:
-                mock.return_value = []
+        # Mock the Vertex AI with Mock data list
+        mock_models = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Model.list")
+        )
+        mock_models.return_value = gen_mock_models()
+
+        mock_custom_job = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.CustomJob.list")
+        )
+        mock_custom_job.return_value = [gen_mock_training_custom_job()]
+
+        mock_automl_job = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.AutoMLTabularTrainingJob.list")
+        )
+        mock_automl_job.return_value = [gen_mock_training_automl_job()]
+
+        mock_ds = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.datasets.TabularDataset.list")
+        )
+        mock_ds.return_value = [gen_mock_dataset()]
+
+        mock_model = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.models.Model")
+        )
+        mock_model.return_value = gen_mock_model()
+
+        mock_exp = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Experiment.list")
+        )
+        mock_exp.return_value = [gen_mock_experiment()]
+
+        mock_exp_run = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.ExperimentRun.list")
+        )
+        mock_exp_run.return_value = [gen_mock_experiment_run()]
 
         golden_file_path = (
             pytestconfig.rootpath
             / "tests/integration/vertexai/vertexai_mcps_golden.json"
         )
 
-        print(f"mcps file path: {str(sink_file_path)}")
-        print(f"golden file path: {str(golden_file_path)}")
+        print(f"Output mcps file path: {str(sink_file_path)}")
+        print(f"Golden file path: {str(golden_file_path)}")
 
         pipeline = Pipeline.create(get_pipeline_config(sink_file_path))
         pipeline.run()

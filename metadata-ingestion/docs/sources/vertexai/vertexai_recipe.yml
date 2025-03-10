@@ -3,7 +3,7 @@ source:
   config:
     project_id: "acryl-poc"
     region:  "us-west2"
-# Note that GOOGLE_APPLICATION_CREDENTIALS or credential section below is required for authentication.
+# You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
 #   credential:
 #      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
 #      private_key_id: "project_key_id"
