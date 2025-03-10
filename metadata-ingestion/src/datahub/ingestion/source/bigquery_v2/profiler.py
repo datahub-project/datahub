@@ -160,7 +160,7 @@ FROM PartitionStats"""
 
                 try:
                     query_job = self.config.get_bigquery_client().query(query)
-                    results = list(query_job.result(timeout=30))
+                    results = list(query_job.result(timeout=300))
 
                     if not results or results[0].val is None:
                         logger.warning(
@@ -328,7 +328,7 @@ FROM PartitionStats"""
                 logger.debug(f"Executing query for partition value: {query}")
 
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job.result(timeout=30))
+                results = list(query_job.result(timeout=300))
 
                 if not results or results[0].val is None:
                     logger.warning(
