@@ -84,32 +84,69 @@ class BigqueryProfiler(GenericProfiler):
             None if partition filters could not be determined
         """
         try:
+            # For external tables, we need to check specifically for partitioning columns
+            # and also look at the DDL if available to detect hive-style partitioning
+
+            # First, try to get partition columns directly from INFORMATION_SCHEMA
             query = f"""SELECT column_name, data_type
 FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
 WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
             query_job = self.config.get_bigquery_client().query(query)
             results = list(query_job)
 
-            if results:
-                # For external tables, also capture data type
-                partition_cols_with_types = {
-                    row.column_name: row.data_type for row in results
-                }
-                required_partition_columns = set(partition_cols_with_types.keys())
+            partition_cols_with_types = {
+                row.column_name: row.data_type for row in results
+            }
+
+            # If we didn't find any partition columns through INFORMATION_SCHEMA,
+            # check the DDL for external table declarations that have partition info
+            if not partition_cols_with_types and table.ddl:
+                # Very simple DDL parsing to look for PARTITION BY statements
+                if "PARTITION BY" in table.ddl.upper():
+                    ddl_lines = table.ddl.upper().split("\n")
+                    for line in ddl_lines:
+                        if "PARTITION BY" in line:
+                            # Look for column names mentioned in the PARTITION BY clause
+                            # This is a basic extraction and may need enhancement for complex DDLs
+                            parts = (
+                                line.split("PARTITION BY")[1]
+                                .split("OPTIONS")[0]
+                                .strip()
+                            )
+                            potential_cols = [
+                                col.strip(", `()") for col in parts.split()
+                            ]
+
+                            # Get all columns to check data types for potential partition columns
+                            all_cols_query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+                            all_cols_job = self.config.get_bigquery_client().query(
+                                all_cols_query
+                            )
+                            all_cols_results = list(all_cols_job)
+                            all_cols_dict = {
+                                row.column_name.upper(): row.data_type
+                                for row in all_cols_results
+                            }
+
+                            # Add potential partition columns with their types
+                            for col in potential_cols:
+                                if col in all_cols_dict:
+                                    partition_cols_with_types[col] = all_cols_dict[col]
+
+            partition_filters = []
+
+            # Process all identified partition columns
+            for col_name, data_type in partition_cols_with_types.items():
                 logger.debug(
-                    f"Found external partition columns: {required_partition_columns}"
+                    f"Processing external table partition column: {col_name} with type {data_type}"
                 )
 
-                # For tables with single DATE/TIMESTAMP partition, we can use current date/time
-                if len(required_partition_columns) == 1:
-                    col_name = list(required_partition_columns)[0]
-                    col_type = partition_cols_with_types[col_name].upper()
-
-                    # For temporal partitions, find the latest non-empty partition
-                    if col_type in ("DATE", "TIMESTAMP", "DATETIME"):
-                        # Query to find latest non-empty partition for temporal columns
-                        temporal_query = f"""WITH PartitionStats AS (
-    SELECT {col_name} as partition_value,
+                # For each partition column, we need to find a valid value
+                query = f"""
+WITH PartitionStats AS (
+    SELECT {col_name} as val,
            COUNT(*) as record_count
     FROM `{project}.{schema}.{table.name}`
     WHERE {col_name} IS NOT NULL
@@ -118,41 +155,57 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
     ORDER BY {col_name} DESC
     LIMIT 1
 )
-SELECT partition_value, record_count
+SELECT val, record_count
 FROM PartitionStats"""
 
-                        query_job = self.config.get_bigquery_client().query(
-                            temporal_query
+                try:
+                    query_job = self.config.get_bigquery_client().query(query)
+                    results = list(query_job.result(timeout=30))
+
+                    if not results or results[0].val is None:
+                        logger.warning(
+                            f"No non-empty partition values found for column {col_name}"
                         )
-                        temporal_results = list(query_job)
+                        continue
 
-                        if not temporal_results:
-                            logger.warning(
-                                f"No non-empty partitions found for {col_name}"
+                    val = results[0].val
+                    record_count = results[0].record_count
+                    logger.info(
+                        f"Selected external partition {col_name}={val} with {record_count} records"
+                    )
+
+                    # Format the filter based on the data type
+                    data_type_upper = data_type.upper() if data_type else ""
+                    if data_type_upper in ("STRING", "VARCHAR"):
+                        partition_filters.append(f"`{col_name}` = '{val}'")
+                    elif data_type_upper == "DATE":
+                        partition_filters.append(f"`{col_name}` = DATE '{val}'")
+                    elif data_type_upper in ("TIMESTAMP", "DATETIME"):
+                        if isinstance(val, datetime):
+                            partition_filters.append(
+                                f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
                             )
-                            return None
-
-                        partition_value = temporal_results[0].partition_value
-                        record_count = temporal_results[0].record_count
-
-                        if col_type == "DATE":
-                            filter_value = (
-                                f"DATE '{partition_value.strftime('%Y-%m-%d')}'"
+                        else:
+                            partition_filters.append(
+                                f"`{col_name}` = TIMESTAMP '{val}'"
                             )
-                        else:  # TIMESTAMP or DATETIME
-                            filter_value = f"TIMESTAMP '{partition_value.strftime('%Y-%m-%d %H:%M:%S')}'"
+                    else:
+                        # Default to numeric or other type
+                        partition_filters.append(f"`{col_name}` = {val}")
 
-                        logger.info(
-                            f"Selected temporal partition {col_name}={partition_value} "
-                            f"with {record_count} records"
-                        )
-                        return [f"`{col_name}` = {filter_value}"]
+                except Exception as e:
+                    logger.warning(
+                        f"Error determining value for partition column {col_name}: {e}"
+                    )
+                    continue
 
-            return []  # No partitions found (valid for external tables)
+            return partition_filters
+
         except Exception as e:
             logger.error(f"Error checking external table partitioning: {e}")
             return None
 
+    # Add this method to improve detection of partition columns from INFORMATION_SCHEMA if not found in partition_info
     def _get_required_partition_filters(
         self,
         table: BigqueryTable,
@@ -187,7 +240,22 @@ FROM PartitionStats"""
                     col.name for col in table.partition_info.columns if col
                 )
 
-        # If no partition columns found, check for external table partitioning
+        # If no partition columns found from partition_info, query INFORMATION_SCHEMA
+        if not required_partition_columns:
+            try:
+                query = f"""SELECT column_name
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job)
+                required_partition_columns = {row.column_name for row in results}
+                logger.debug(
+                    f"Found partition columns from schema: {required_partition_columns}"
+                )
+            except Exception as e:
+                logger.error(f"Error querying partition columns: {e}")
+
+        # If still no partition columns found, check for external table partitioning
         if not required_partition_columns:
             logger.debug(f"No partition columns found for table {table.name}")
             if table.external:
@@ -195,7 +263,7 @@ FROM PartitionStats"""
                     table, project, schema, current_time
                 )
             else:
-                return None  # Internal table without partitions (unexpected)
+                return None
 
         logger.debug(f"Required partition columns: {required_partition_columns}")
 
@@ -245,8 +313,7 @@ WHERE table_name = '{table.name}'"""
         for col_name in other_columns:
             try:
                 # Query to get latest non-empty partition
-                query = f"""
-WITH PartitionStats AS (
+                query = f"""WITH PartitionStats AS (
     SELECT {col_name} as val,
            COUNT(*) as record_count
     FROM `{project}.{schema}.{table.name}`
@@ -299,14 +366,16 @@ FROM PartitionStats"""
             "table_name": bq_table.name,
         }
 
-        # For external tables, add specific handling
+        # Different handling path for external tables vs native tables
         if bq_table.external:
-            base_kwargs["is_external"] = "true"
-            # Add any specific external table options needed
-
-        partition_filters = self._get_required_partition_filters(
-            bq_table, db_name, schema_name
-        )
+            logger.info(f"Processing external table: {bq_table.name}")
+            partition_filters = self._get_external_table_partition_filters(
+                bq_table, db_name, schema_name, datetime.now(timezone.utc)
+            )
+        else:
+            partition_filters = self._get_required_partition_filters(
+                bq_table, db_name, schema_name
+            )
 
         if partition_filters is None:
             logger.warning(
@@ -315,7 +384,7 @@ FROM PartitionStats"""
             )
             return base_kwargs
 
-        # If no partition filters needed (e.g. some external tables), return base kwargs
+        # If no partition filters needed, return base kwargs
         if not partition_filters:
             return base_kwargs
 

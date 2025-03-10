@@ -119,6 +119,7 @@ def test_get_partition_filters_for_single_day_partition():
     timestamp_str = filters[0].split("'")[1]
     datetime.strptime(timestamp_str.split("+")[0], "%Y-%m-%d %H:%M:%S.%f")
 
+
 def test_get_partition_filters_for_external_table_with_partitions():
     """Test handling of external table with partitions."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
