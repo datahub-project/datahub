@@ -1193,6 +1193,11 @@ enum EntityType {
     ACTIONS_PIPELINE
 
     """
+    A datahub action request.
+    """
+    ACTION_REQUEST
+
+    """
     An asset monitor
     """
     MONITOR

@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataHubRestCatalog;
 import io.datahubproject.iceberg.catalog.DataOperation;
@@ -40,6 +41,7 @@ public class AbstractIcebergController {
   @Autowired protected EntityService entityService;
   @Autowired private EntitySearchService searchService;
   @Autowired private SecretService secretService;
+  @Autowired private CacheEvictionService cacheEvictionService;
 
   @Inject
   @Named("cachingCredentialProvider")
@@ -136,7 +138,11 @@ public class AbstractIcebergController {
       String platformInstance, Function<DataHubRestCatalog, R> function) {
     DataHubIcebergWarehouse warehouse =
         DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, systemOperationContext);
+            platformInstance,
+            entityService,
+            secretService,
+            cacheEvictionService,
+            systemOperationContext);
     return catalogOperation(warehouse, systemOperationContext, function);
   }
 
@@ -178,7 +184,7 @@ public class AbstractIcebergController {
   protected DataHubIcebergWarehouse warehouse(
       String platformInstance, OperationContext operationContext) {
     return DataHubIcebergWarehouse.of(
-        platformInstance, entityService, secretService, operationContext);
+        platformInstance, entityService, secretService, cacheEvictionService, operationContext);
   }
 
   protected RuntimeException noSuchEntityException(

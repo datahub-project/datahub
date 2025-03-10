@@ -10,11 +10,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.InferredColumnDescriptions;
 import com.linkedin.datahub.graphql.generated.InferredDocumentation;
+import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -53,7 +53,7 @@ public class InferDocumentationResolver
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
     final Boolean saveResult =
         bindArgument(environment.getArgumentOrDefault("saveResult", false), Boolean.class);
-    if (!AuthorizationUtils.canView(context.getOperationContext(), targetUrn)) {
+    if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

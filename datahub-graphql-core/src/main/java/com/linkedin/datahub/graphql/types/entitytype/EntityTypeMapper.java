@@ -65,6 +65,7 @@ public class EntityTypeMapper {
           .put(EntityType.INCIDENT, Constants.INCIDENT_ENTITY_NAME)
           .put(EntityType.ROLE, Constants.ROLE_ENTITY_NAME)
           .put(EntityType.STRUCTURED_PROPERTY, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
+          .put(EntityType.ACTION_REQUEST, Constants.ACTION_REQUEST_ENTITY_NAME)
           .put(EntityType.FORM, Constants.FORM_ENTITY_NAME)
           .put(EntityType.DATA_TYPE, Constants.DATA_TYPE_ENTITY_NAME)
           .put(EntityType.ENTITY_TYPE, Constants.ENTITY_TYPE_ENTITY_NAME)

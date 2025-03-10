@@ -27,6 +27,9 @@ const DEFAULT_PAGE_SIZE = 25;
 const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
 const REMOTE_EXECUTORS_REFRESH_SOURCE_ID = 'REMOTE_EXECUTORS_REFRESH_SOURCE_ID';
 
+// TODO: remove this once SQS provisioning is ready
+const IS_CREATE_POOL_ENABLED = false;
+
 const ExecutorsContainer = styled.div``;
 
 const PlusStyled = styled(Plus)`
@@ -124,7 +127,7 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                 {/* ----------- Toolbar ----------- */}
                 <TabToolbar>
                     <div>
-                        {canManagePools && (
+                        {canManagePools && IS_CREATE_POOL_ENABLED && (
                             <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
                                 <PlusStyled />
                                 <span style={{ marginLeft: 4 }}>Create</span>

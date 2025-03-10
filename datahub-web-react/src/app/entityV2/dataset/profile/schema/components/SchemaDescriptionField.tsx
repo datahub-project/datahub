@@ -8,6 +8,7 @@ import { Sparkle } from 'phosphor-react';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+import { colors } from '@src/alchemy-components';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
@@ -37,13 +38,16 @@ const InferDescriptionButton = styled(Button)`
     display: flex;
     padding-left: 4px;
     padding-right: 4px;
-    background-color: #ffffff;
+    background-color: transparent !important;
     border-radius: 4px;
     align-items: center;
     justify-content: flex-start;
     span,
     path {
-        color: #5c3fd1 !important;
+        color: ${colors.violet[500]} !important;
+    }
+    &:hover {
+        background-color: ${colors.gray[100]} !important;
     }
 `;
 

@@ -1,5 +1,6 @@
 import re
-from typing import Any, Dict, Optional, Tuple, Type
+import threading
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 from datahub.ingestion.graph.client import DataHubGraph
 from fastapi import status
@@ -39,7 +40,8 @@ class AnalyticsEngineFactory:
 
     def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
-        self.engine_cache: dict[str, Any] = {}
+        self._engine_creation_lock = threading.Lock()
+        self._engine_cache: dict[str, Any] = {}
 
     def get_connection_model(
         self,
@@ -55,6 +57,17 @@ class AnalyticsEngineFactory:
             if connection_json:
                 return connector_model_class.parse_obj(connection_json)
         return None
+
+    def _get_or_create_engine(
+        self, engine_name: str, create_engine_fn: Callable[[], AnalyticsEngine]
+    ) -> AnalyticsEngine:
+        if engine_name not in self._engine_cache:
+            with self._engine_creation_lock:
+                # If someone else took the lock first and already created the engine,
+                # we don't need to do anything.
+                if engine_name not in self._engine_cache:
+                    self._engine_cache[engine_name] = create_engine_fn()
+        return self._engine_cache[engine_name]
 
     def get_engine_with_params(
         self, locator: AnalyticsEngineLocator
@@ -85,27 +98,17 @@ class AnalyticsEngineFactory:
                 locator=locator,
                 connector_model_class=SnowflakeConnection,
             )
-            # check if the engine is already in the cache
-            if (
-                "snowflake" in self.engine_cache
-                and self.engine_cache["snowflake"].account == account
-            ):
-                return self.engine_cache["snowflake"], {
-                    "warehouse": warehouse,
-                    "database": database,
-                    "schema": schema,
-                    "connection": connection_model,
-                }
-            else:
-                # return the SnowflakeAnalyticsEngine and the parameters
-                engine = SnowflakeAnalyticsEngine(account, graph=self.graph)
-                self.engine_cache["snowflake"] = engine
-                return engine, {
-                    "warehouse": warehouse,
-                    "database": database,
-                    "schema": schema,
-                    "connection": connection_model,
-                }
+            engine = self._get_or_create_engine(
+                "snowflake",
+                lambda: SnowflakeAnalyticsEngine(account, graph=self.graph),
+            )
+            return engine, {
+                "warehouse": warehouse,
+                "database": database,
+                "schema": schema,
+                "connection": connection_model,
+            }
+
         # if physical location is a BigQuery URL
         if physical_location.startswith("bigquery://"):
             # extract the BigQuery project, dataset, and table
@@ -132,9 +135,10 @@ class AnalyticsEngineFactory:
             connection_model = self.get_connection_model(
                 graph=self.graph, locator=locator, connector_model_class=S3Connection
             )
-
-            if "s3" not in self.engine_cache:
-                self.engine_cache["s3"] = S3AnalyticsEngine.create(S3EngineConfig())
+            engine = self._get_or_create_engine(
+                "s3",
+                lambda: S3AnalyticsEngine.create(S3EngineConfig()),
+            )
 
             params: Dict[str, Any] = {
                 "bucket": physical_location[5:],
@@ -142,7 +146,7 @@ class AnalyticsEngineFactory:
             }
             if locator.last_updated_millis:
                 params["last_modified_millis"] = locator.last_updated_millis
-            return self.engine_cache["s3"], params
+            return engine, params
 
         # if physical location is a local file system, return the
         # LocalFSAnalyticsEngine

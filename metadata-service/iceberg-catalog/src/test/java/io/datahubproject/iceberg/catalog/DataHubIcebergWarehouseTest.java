@@ -22,6 +22,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import com.linkedin.platformresource.PlatformResourceInfo;
 import com.linkedin.secret.DataHubSecretValue;
 import com.linkedin.util.Pair;
@@ -43,6 +44,8 @@ public class DataHubIcebergWarehouseTest {
   @Mock private EntityService entityService;
 
   @Mock private SecretService secretService;
+
+  @Mock private CacheEvictionService cacheEvictionService;
 
   @Mock private OperationContext operationContext;
 
@@ -113,7 +116,7 @@ public class DataHubIcebergWarehouseTest {
 
     DataHubIcebergWarehouse warehouse =
         DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
 
     CredentialProvider.StorageProviderCredentials credentials =
         warehouse.getStorageProviderCredentials();
@@ -140,7 +143,7 @@ public class DataHubIcebergWarehouseTest {
 
     DataHubIcebergWarehouse warehouse =
         DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
 
     assertNotNull(warehouse);
     assertEquals(warehouse.getPlatformInstance(), platformInstance);
@@ -157,7 +160,8 @@ public class DataHubIcebergWarehouseTest {
             eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
         .thenReturn(null);
 
-    DataHubIcebergWarehouse.of(platformInstance, entityService, secretService, operationContext);
+    DataHubIcebergWarehouse.of(
+        platformInstance, entityService, secretService, cacheEvictionService, operationContext);
   }
 
   @Test
@@ -175,7 +179,7 @@ public class DataHubIcebergWarehouseTest {
 
     DataHubIcebergWarehouse warehouse =
         DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
 
     String result = warehouse.getDataRoot();
 
@@ -210,6 +214,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -262,6 +267,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -314,6 +320,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -371,6 +378,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -430,6 +438,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -475,6 +484,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -501,6 +511,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo().setEnv(FabricType.PROD),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -571,6 +582,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {
@@ -619,6 +631,7 @@ public class DataHubIcebergWarehouseTest {
             new IcebergWarehouseInfo(),
             entityService,
             secretService,
+            cacheEvictionService,
             operationContext) {
           @Override
           IcebergBatch newIcebergBatch(OperationContext operationContext) {

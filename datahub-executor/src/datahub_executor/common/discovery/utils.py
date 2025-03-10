@@ -23,7 +23,7 @@ def send_remote_executor_status(
 
 
 def get_utc_timestamp() -> int:
-    return int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
+    return int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
 
 
 def get_backend_revision(graph: DataHubGraph) -> int:

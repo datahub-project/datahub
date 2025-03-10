@@ -10,6 +10,7 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
         overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
+        scrollbarWidth: 'none',
 
         '& .selected-row': {
             background: `${colors.gray[100]} !important`,
@@ -24,20 +25,21 @@ export const BaseTable = styled.table({
 
 export const TableHeader = styled.thead({
     backgroundColor: colors.gray[1500],
-    borderRadius: radius.lg,
+    boxShadow: '0px 1px 1px rgba(0, 0, 0, 0.1)',
     position: 'sticky',
     top: 0,
     zIndex: 100,
 });
 
-export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?: boolean }>(
-    ({ width, shouldAddRightBorder }) => ({
+export const TableHeaderCell = styled.th<{ width?: string; maxWidth?: string; shouldAddRightBorder?: boolean }>(
+    ({ width, maxWidth, shouldAddRightBorder }) => ({
         padding: `${spacing.sm} ${spacing.md}`,
         color: colors.gray[600],
         fontSize: typography.fontSizes.sm,
         fontWeight: typography.fontWeights.medium,
         textAlign: 'start',
         width: width || 'auto',
+        maxWidth,
         borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,
     }),
 );

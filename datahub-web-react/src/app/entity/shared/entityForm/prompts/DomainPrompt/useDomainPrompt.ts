@@ -3,6 +3,7 @@ import { useEntityData } from '../../../EntityContext';
 import { FormPrompt, FormPromptType, SubmitFormPromptInput } from '../../../../../../types.generated';
 import { FormView, useEntityFormContext } from '../../EntityFormContext';
 import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
+import { getDefaultDomain } from './utils';
 
 interface Props {
     prompt: FormPrompt;
@@ -21,9 +22,9 @@ export default function useDomainPrompt({ prompt, submitResponse }: Props) {
     const initialEntity = useMemo(
         () =>
             formView === FormView.BY_ENTITY
-                ? promptAssociation?.response?.domainResponse?.domain || entityData?.domain?.domain || null
+                ? promptAssociation?.response?.domainResponse?.domain || getDefaultDomain(entityData, prompt)
                 : null,
-        [formView, promptAssociation?.response?.domainResponse?.domain, entityData?.domain?.domain],
+        [formView, promptAssociation?.response?.domainResponse?.domain, entityData, prompt],
     );
 
     const [selectedDomain, setSelectedDomain] = useState<string | null>(initialEntity?.urn || null);

@@ -1,7 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
-import static com.linkedin.datahub.graphql.generated.ActionRequestType.TAG_ASSOCIATION;
+import static com.linkedin.datahub.graphql.generated.ActionRequestType.*;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_COMPLETE;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME;
@@ -12,19 +13,15 @@ import static org.testng.Assert.*;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.actionrequest.ActionRequestInfo;
+import com.linkedin.actionrequest.*;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
-import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.ai.InferenceMetadata;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.ActionRequestAssignee;
-import com.linkedin.datahub.graphql.generated.AssigneeType;
-import com.linkedin.datahub.graphql.generated.ListActionRequestsInput;
-import com.linkedin.datahub.graphql.generated.ListActionRequestsResult;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -36,10 +33,11 @@ import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
-import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -48,25 +46,23 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/**
- * Basic TestNG test for {@link ListActionRequestsResolver}.
- *
- * <p>TODO: We need better tests for the specific filter criteria being built. This test is quite
- * basic checks.
- */
+/** Basic TestNG test for {@link ListActionRequestsResolver}. */
 public class ListActionRequestsResolverTest {
   private static final String TEST_USER_URN = "urn:li:corpuser:testUser";
+  private static final String TEST_USER_URN_2 = "urn:li:corpuser:testUser2";
+  private static final String DEFAULT_RESOURCE =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,myDataset,PROD)";
+  private static final String DEFAULT_RESOURCE_2 =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,myDataset2,PROD)";
   @Mock private EntityClient mockEntityClient;
   @Mock private DataFetchingEnvironment mockEnvironment;
   @Mock private QueryContext mockContext;
@@ -77,10 +73,13 @@ public class ListActionRequestsResolverTest {
 
   private AutoCloseable mocks;
   private ListActionRequestsResolver resolver;
+  private Map<String, Entity> testEntities;
+  private Map<String, Urn> testUrns;
 
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
     mocks = MockitoAnnotations.openMocks(this);
+    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN);
     when(mockContext.getOperationContext()).thenReturn(mockOpContext);
     when(mockOpContext.getOperationContextConfig())
         .thenReturn(
@@ -120,7 +119,111 @@ public class ListActionRequestsResolverTest {
             eq(null)))
         .thenReturn(userEntityResponse);
 
+    initializeTestEntities();
     resolver = new ListActionRequestsResolver(mockEntityClient);
+  }
+
+  /** Initialize a collection of test entities that can be reused across tests */
+  private void initializeTestEntities() {
+    testEntities = new HashMap<>();
+    testUrns = new HashMap<>();
+
+    try {
+      // Create various test entities with different characteristics
+
+      // Entity 1: TAG_ASSOCIATION, COMPLETE
+      createTestEntity(
+          "entity1",
+          "urn:li:actionRequest:111",
+          TAG_ASSOCIATION.toString(),
+          ACTION_REQUEST_STATUS_COMPLETE,
+          DEFAULT_RESOURCE,
+          12345L,
+          null);
+
+      // Entity 2: TERM_ASSOCIATION, COMPLETE
+      createTestEntity(
+          "entity2",
+          "urn:li:actionRequest:222",
+          TAG_ASSOCIATION.toString(),
+          ACTION_REQUEST_STATUS_COMPLETE,
+          DEFAULT_RESOURCE,
+          23456L,
+          null);
+
+      // Entity 3: TAG_ASSOCIATION, PENDING
+      createTestEntity(
+          "entity3",
+          "urn:li:actionRequest:333",
+          TAG_ASSOCIATION.toString(),
+          ACTION_REQUEST_STATUS_COMPLETE,
+          DEFAULT_RESOURCE,
+          34567L,
+          null);
+
+      // Entity 4: TAG_ASSOCIATION, COMPLETE, different resource
+      createTestEntity(
+          "entity4",
+          "urn:li:actionRequest:444",
+          TERM_ASSOCIATION.toString(),
+          ACTION_REQUEST_STATUS_COMPLETE,
+          DEFAULT_RESOURCE_2,
+          45678L,
+          null);
+
+      // Entity 5: OWNER_ASSOCIATION, PENDING
+      createTestEntity(
+          "entity5",
+          "urn:li:actionRequest:555",
+          DOMAIN_ASSOCIATION.toString(),
+          ACTION_REQUEST_STATUS_PENDING,
+          DEFAULT_RESOURCE,
+          56789L,
+          Urn.createFromString(TEST_USER_URN_2));
+
+    } catch (Exception e) {
+      throw new RuntimeException("Mocking entities failed", e);
+    }
+  }
+
+  /** Helper method to create a test entity and add it to the collections */
+  private void createTestEntity(
+      String key,
+      String urnString,
+      String type,
+      String status,
+      String resourceUrn,
+      Long createdTimestamp,
+      Urn createdBy)
+      throws Exception {
+    Urn urn = UrnUtils.getUrn(urnString);
+    testUrns.put(key, urn);
+    testEntities.put(
+        key,
+        createActionRequestEntity(
+            urnString, type, status, resourceUrn, createdTimestamp, createdBy));
+  }
+
+  /** Helper to create an entity map from a list of entity keys */
+  private Map<Urn, Entity> createEntityMap(List<String> entityKeys) {
+    Map<Urn, Entity> entityMap = new HashMap<>();
+    for (String key : entityKeys) {
+      entityMap.put(testUrns.get(key), testEntities.get(key));
+    }
+    return entityMap;
+  }
+
+  /** Helper to mock entity client to return specific entities */
+  private void mockEntityClientBatchGet(List<String> entityKeys) {
+    try {
+      Set<Urn> urns = entityKeys.stream().map(key -> testUrns.get(key)).collect(Collectors.toSet());
+
+      Map<Urn, Entity> entityMap = createEntityMap(entityKeys);
+
+      when(mockEntityClient.batchGet(any(), eq(urns))).thenReturn(entityMap);
+    } catch (Exception e) {
+
+    }
   }
 
   @AfterMethod
@@ -128,19 +231,23 @@ public class ListActionRequestsResolverTest {
     mocks.close();
   }
 
+  /** Helper method to set up basic environment mocks */
+  private void setupEnvironmentMocks(ListActionRequestsInput input) {
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockContext);
+  }
+
   @Test
   public void testGetNoAssignee() throws Exception {
     // -----------------------------------------
     // Given: No assignee is set
     // -----------------------------------------
-    ListActionRequestsInput input = buildInput(0, 10, null, null);
+    ListActionRequestsInput input = buildInput(0, 10, null, null, null);
+    // Setup environment mocks
+    setupEnvironmentMocks(input);
 
-    // Environment & context mocks
-    when(mockEnvironment.getArgument("input")).thenReturn(input);
-    when(mockEnvironment.getContext()).thenReturn(mockContext);
-    // The current user
-    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN);
-
+    // Select entities for this test
+    List<String> entityKeys = Arrays.asList("entity1");
     // Mock filter output
     SearchResult mockSearchResult =
         new SearchResult()
@@ -149,56 +256,27 @@ public class ListActionRequestsResolverTest {
             .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(
-                    Collections.singletonList(
-                        new SearchEntity()
-                            .setEntity(UrnUtils.getUrn("urn:li:actionRequest:111")))));
+                    entityKeys.stream()
+                        .map(key -> testUrns.get(key))
+                        .map(urn -> new SearchEntity().setEntity(urn))
+                        .collect(Collectors.toList())))
+            .setMetadata(new SearchResultMetadata());
 
     // Mock returns from the EntityClient
-    when(mockEntityClient.filter(
-            any(), eq("actionRequest"), any(Filter.class), anyList(), eq(0), eq(10)))
+    when(mockEntityClient.searchAcrossEntities(
+            any(),
+            eq(List.of("actionRequest")),
+            any(),
+            any(Filter.class),
+            eq(0),
+            eq(10),
+            anyList(),
+            any(),
+            any()))
         .thenReturn(mockSearchResult);
 
-    TagProposal tagProposal = new TagProposal();
-    tagProposal.setTag(UrnUtils.getUrn("urn:li:tag:myTestTag"));
-    tagProposal.setTags(new UrnArray(Collections.emptyList()));
-
-    ActionRequestParams requestParams = new ActionRequestParams();
-    requestParams.setTagProposal(tagProposal);
-
-    ActionRequestInfo infoAspect = new ActionRequestInfo();
-    infoAspect.setType(TAG_ASSOCIATION.toString());
-    infoAspect.setResource("urn:li:dataset:(urn:li:dataPlatform:hive,myDataset,PROD)");
-    infoAspect.setCreated(12345L);
-    infoAspect.setCreatedBy(Urn.createFromString(TEST_USER_URN));
-    infoAspect.setParams(requestParams);
-    infoAspect.setOrigin(com.linkedin.actionrequest.ActionRequestOrigin.MANUAL);
-    infoAspect.setInferenceMetadata(
-        new InferenceMetadata().setVersion(1).setLastInferredAt(98765L));
-    infoAspect.setAssignedUsers(new UrnArray());
-    infoAspect.setAssignedGroups(new UrnArray());
-    infoAspect.setAssignedRoles(new UrnArray());
-
-    ActionRequestStatus status = new ActionRequestStatus();
-    status.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
-
-    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
-    ActionRequestAspect aspect2 = ActionRequestAspect.create(status);
-
-    Entity mockEntity = new Entity();
-    ActionRequestSnapshot mockSnapshot = new ActionRequestSnapshot();
-    mockSnapshot.setUrn(UrnUtils.getUrn("urn:li:actionRequest:111"));
-    mockSnapshot.setAspects(new ActionRequestAspectArray(Arrays.asList(aspect1, aspect2)));
-    mockEntity.setValue(Snapshot.create(mockSnapshot));
-
-    Map<Urn, Entity> entityMap = new HashMap<>();
-    entityMap.put(UrnUtils.getUrn("urn:li:actionRequest:111"), mockEntity);
-
-    when(mockEntityClient.batchGet(
-            any(),
-            eq(
-                new HashSet<>(
-                    Collections.singletonList(UrnUtils.getUrn("urn:li:actionRequest:111"))))))
-        .thenReturn(entityMap);
+    // Mock batch get response
+    mockEntityClientBatchGet(entityKeys);
 
     // -----------------------------------------
     // When: Invoking the resolver
@@ -247,14 +325,11 @@ public class ListActionRequestsResolverTest {
     assignee.setUrn("urn:li:corpGroup:testGroup");
     assignee.setType(AssigneeType.GROUP);
 
-    ListActionRequestsInput input = buildInput(0, 10, null, assignee);
-
-    // Mock environment & context
-    when(mockEnvironment.getArgument("input")).thenReturn(input);
-    when(mockEnvironment.getContext()).thenReturn(mockContext);
-    // The current user is not used for filters if an assignee is provided
-    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN);
-
+    ListActionRequestsInput input = buildInput(0, 10, null, null, null);
+    // Setup environment mocks
+    setupEnvironmentMocks(input);
+    // Select entities for this test
+    List<String> entityKeys = Arrays.asList("entity2", "entity3");
     // Set up mock search result
     SearchResult mockSearchResult =
         new SearchResult()
@@ -263,65 +338,26 @@ public class ListActionRequestsResolverTest {
             .setNumEntities(2)
             .setEntities(
                 new SearchEntityArray(
-                    Arrays.asList(
-                        new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:actionRequest:222")),
-                        new SearchEntity()
-                            .setEntity(UrnUtils.getUrn("urn:li:actionRequest:333")))));
+                    entityKeys.stream()
+                        .map(key -> testUrns.get(key))
+                        .map(urn -> new SearchEntity().setEntity(urn))
+                        .collect(Collectors.toList())))
+            .setMetadata(new SearchResultMetadata());
 
-    when(mockEntityClient.filter(
-            any(), eq("actionRequest"), any(Filter.class), anyList(), eq(0), eq(10)))
-        .thenReturn(mockSearchResult);
-
-    TagProposal tagProposal = new TagProposal();
-    tagProposal.setTag(UrnUtils.getUrn("urn:li:tag:myTestTag"));
-    tagProposal.setTags(new UrnArray(Collections.emptyList()));
-
-    ActionRequestParams requestParams = new ActionRequestParams();
-    requestParams.setTagProposal(tagProposal);
-
-    ActionRequestInfo infoAspect = new ActionRequestInfo();
-    infoAspect.setType(TAG_ASSOCIATION.toString());
-    infoAspect.setResource("urn:li:dataset:(urn:li:dataPlatform:hive,myDataset,PROD)");
-    infoAspect.setCreated(12345L);
-    infoAspect.setCreatedBy(Urn.createFromString(TEST_USER_URN));
-    infoAspect.setParams(requestParams);
-    infoAspect.setOrigin(com.linkedin.actionrequest.ActionRequestOrigin.MANUAL);
-    infoAspect.setInferenceMetadata(
-        new InferenceMetadata().setVersion(1).setLastInferredAt(98765L));
-    infoAspect.setAssignedUsers(new UrnArray());
-    infoAspect.setAssignedGroups(new UrnArray());
-    infoAspect.setAssignedRoles(new UrnArray());
-
-    ActionRequestStatus status = new ActionRequestStatus();
-    status.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
-
-    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
-    ActionRequestAspect aspect2 = ActionRequestAspect.create(status);
-
-    Entity mockEntity1 = new Entity();
-    ActionRequestSnapshot mockSnapshot1 = new ActionRequestSnapshot();
-    mockSnapshot1.setUrn(UrnUtils.getUrn("urn:li:actionRequest:222"));
-    mockSnapshot1.setAspects(new ActionRequestAspectArray(Arrays.asList(aspect1, aspect2)));
-    mockEntity1.setValue(Snapshot.create(mockSnapshot1));
-
-    Entity mockEntity2 = new Entity();
-    ActionRequestSnapshot mockSnapshot2 = new ActionRequestSnapshot();
-    mockSnapshot2.setUrn(UrnUtils.getUrn("urn:li:actionRequest:333"));
-    mockSnapshot2.setAspects(new ActionRequestAspectArray(Arrays.asList(aspect1, aspect2)));
-    mockEntity2.setValue(Snapshot.create(mockSnapshot2));
-
-    Map<Urn, Entity> entityMap = new HashMap<>();
-    entityMap.put(UrnUtils.getUrn("urn:li:actionRequest:222"), mockEntity1);
-    entityMap.put(UrnUtils.getUrn("urn:li:actionRequest:333"), mockEntity2);
-
-    when(mockEntityClient.batchGet(
+    // Mock returns from the EntityClient
+    when(mockEntityClient.searchAcrossEntities(
             any(),
-            eq(
-                new HashSet<>(
-                    Arrays.asList(
-                        UrnUtils.getUrn("urn:li:actionRequest:222"),
-                        UrnUtils.getUrn("urn:li:actionRequest:333"))))))
-        .thenReturn(entityMap);
+            eq(List.of("actionRequest")),
+            any(),
+            any(Filter.class),
+            eq(0),
+            eq(10),
+            anyList(),
+            any(),
+            any()))
+        .thenReturn(mockSearchResult);
+    // Mock batch get response
+    mockEntityClientBatchGet(entityKeys);
 
     // -----------------------------------------
     // When: We execute the resolver
@@ -343,9 +379,7 @@ public class ListActionRequestsResolverTest {
     assertEquals(result.getActionRequests().get(0).getAssignedGroups().size(), 0);
     assertEquals(result.getActionRequests().get(0).getAssignedRoles().size(), 0);
     assertEquals(result.getActionRequests().get(0).getAssignedUsers().size(), 0);
-    assertEquals(
-        result.getActionRequests().get(0).getEntity().getUrn(),
-        "urn:li:dataset:(urn:li:dataPlatform:hive,myDataset,PROD)");
+    assertEquals(result.getActionRequests().get(0).getEntity().getUrn(), DEFAULT_RESOURCE);
     assertEquals(
         result.getActionRequests().get(0).getOrigin(),
         com.linkedin.datahub.graphql.generated.ActionRequestOrigin.MANUAL);
@@ -361,14 +395,273 @@ public class ListActionRequestsResolverTest {
         "urn:li:tag:myTestTag");
   }
 
+  @Test
+  public void testGetListByFilters() throws Exception {
+    // -----------------------------------------
+    // Given: Input with orFilters
+    // -----------------------------------------
+    ListActionRequestsInput input = buildInput(0, 10, null, null, null);
+
+    // TODO: Set the orFilters input here
+
+    List<AndFilterInput> orFilters = new ArrayList<>();
+    AndFilterInput andFilterInput = new AndFilterInput();
+    FacetFilterInput typeFilterInput = new FacetFilterInput();
+    typeFilterInput.setField("type");
+    typeFilterInput.setValues(ImmutableList.of(DOMAIN_ASSOCIATION.toString()));
+    FacetFilterInput createdByFilterInput = new FacetFilterInput();
+    createdByFilterInput.setField("createdBy");
+    createdByFilterInput.setValues(ImmutableList.of(TEST_USER_URN_2));
+    FacetFilterInput statusFilterInput = new FacetFilterInput();
+    statusFilterInput.setField("status");
+    statusFilterInput.setValues(ImmutableList.of(ACTION_REQUEST_STATUS_PENDING));
+    andFilterInput.setAnd(
+        ImmutableList.of(typeFilterInput, createdByFilterInput, statusFilterInput));
+    orFilters.add(andFilterInput);
+
+    // Set the input orFilters
+    input.setOrFilters(orFilters);
+
+    // Setup environment mocks
+    setupEnvironmentMocks(input);
+    // Select entities for this test
+    List<String> entityKeys = Collections.singletonList("entity5");
+
+    // Mock filter output
+    SearchResult mockSearchResult =
+        new SearchResult()
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(1)
+            .setEntities(
+                new SearchEntityArray(
+                    entityKeys.stream()
+                        .map(key -> testUrns.get(key))
+                        .map(urn -> new SearchEntity().setEntity(urn))
+                        .collect(Collectors.toList())))
+            .setMetadata(new SearchResultMetadata());
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    when(mockEntityClient.searchAcrossEntities(
+            any(),
+            eq(List.of("actionRequest")),
+            any(),
+            filterCaptor.capture(),
+            eq(0),
+            eq(10),
+            anyList(),
+            any(),
+            any()))
+        .thenReturn(mockSearchResult);
+
+    // Mock batch get response
+    mockEntityClientBatchGet(entityKeys);
+
+    // -----------------------------------------
+    // When: Invoking the resolver
+    // -----------------------------------------
+    ListActionRequestsResult result = resolver.get(mockEnvironment).get();
+
+    // -----------------------------------------
+    // Then: Validate the result
+    // -----------------------------------------
+
+    // Get the actual filter created by the resolver
+    Filter capturedFilter = filterCaptor.getValue();
+
+    System.out.println("CAPTURED_FILTER: " + capturedFilter);
+    assertTrue(
+        isFilterAppied(capturedFilter, "status", ACTION_REQUEST_STATUS_PENDING),
+        "Filter should contain status condition");
+    assertTrue(
+        isFilterAppied(capturedFilter, "createdBy", TEST_USER_URN_2),
+        "Filter should contain createdBy condition");
+    assertTrue(
+        isFilterAppied(capturedFilter, "type", DOMAIN_ASSOCIATION.toString()),
+        "Filter should contain type condition");
+
+    assertNotNull(result);
+    assertEquals(result.getStart(), Integer.valueOf(0));
+    assertEquals(result.getCount(), Integer.valueOf(10));
+    assertEquals(result.getTotal(), Integer.valueOf(1));
+
+    // Verify the returned action request
+    assertNotNull(result.getActionRequests());
+    assertEquals(result.getActionRequests().size(), 1);
+    assertEquals(result.getActionRequests().get(0).getEntity().getUrn(), DEFAULT_RESOURCE);
+
+    System.out.println(result.getActionRequests().get(0).getEntity().getUrn());
+    System.out.println(result.getActionRequests().get(0).getType());
+    System.out.println(result.getActionRequests().get(0).getStatus());
+    System.out.println(result.getActionRequests().get(0).getCreated().getActor().getUrn());
+
+    assertEquals(result.getActionRequests().get(0).getEntity().getUrn(), DEFAULT_RESOURCE);
+    assertEquals(result.getActionRequests().get(0).getType(), DOMAIN_ASSOCIATION);
+    assertEquals(
+        result.getActionRequests().get(0).getStatus().toString(), ACTION_REQUEST_STATUS_PENDING);
+    assertEquals(
+        result.getActionRequests().get(0).getCreated().getActor().getUrn(), TEST_USER_URN_2);
+  }
+
+  @Test
+  public void testGetListByResourceUrn() throws Exception {
+    // -----------------------------------------
+    // Given: Input with resource URN parameter
+    // -----------------------------------------
+    ListActionRequestsInput input = buildInput(0, 10, DEFAULT_RESOURCE_2, null, null);
+
+    // Setup environment mocks
+    setupEnvironmentMocks(input);
+    // Select entities for this test
+    List<String> entityKeys = Collections.singletonList("entity4");
+
+    // Mock filter output
+    SearchResult mockSearchResult =
+        new SearchResult()
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(1)
+            .setEntities(
+                new SearchEntityArray(
+                    entityKeys.stream()
+                        .map(key -> testUrns.get(key))
+                        .map(urn -> new SearchEntity().setEntity(urn))
+                        .collect(Collectors.toList())))
+            .setMetadata(new SearchResultMetadata());
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    when(mockEntityClient.searchAcrossEntities(
+            any(),
+            eq(List.of("actionRequest")),
+            any(),
+            filterCaptor.capture(),
+            eq(0),
+            eq(10),
+            anyList(),
+            any(),
+            any()))
+        .thenReturn(mockSearchResult);
+
+    // Mock batch get response
+    mockEntityClientBatchGet(entityKeys);
+
+    // -----------------------------------------
+    // When: Invoking the resolver
+    // -----------------------------------------
+    ListActionRequestsResult result = resolver.get(mockEnvironment).get();
+
+    // -----------------------------------------
+    // Then: Validate the result
+    // -----------------------------------------
+
+    // Get the actual filter created by the resolver
+    Filter capturedFilter = filterCaptor.getValue();
+    assertTrue(
+        isFilterAppied(capturedFilter, "resource", DEFAULT_RESOURCE_2),
+        "Filter should contain resource URN condition");
+
+    assertNotNull(result);
+    assertEquals(result.getStart(), Integer.valueOf(0));
+    assertEquals(result.getCount(), Integer.valueOf(10));
+    assertEquals(result.getTotal(), Integer.valueOf(1));
+
+    // Verify the returned action request
+    assertNotNull(result.getActionRequests());
+    assertEquals(result.getActionRequests().size(), 1);
+    assertEquals(result.getActionRequests().get(0).getEntity().getUrn(), DEFAULT_RESOURCE_2);
+  }
+
   /** Helper method to build a ListActionRequestsInput with optional assignee fields. */
   private ListActionRequestsInput buildInput(
-      Integer start, Integer count, String resourceUrn, ActionRequestAssignee assignee) {
+      Integer start,
+      Integer count,
+      String resourceUrn,
+      ActionRequestAssignee assignee,
+      List<AndFilterInput> orFilters) {
     ListActionRequestsInput input = new ListActionRequestsInput();
     input.setStart(start);
     input.setCount(count);
     input.setResourceUrn(resourceUrn);
     input.setAssignee(assignee);
+    input.setOrFilters(orFilters);
+    input.setFacets(null);
     return input;
+  }
+
+  private Boolean isFilterAppied(Filter capturedFilter, String key, String value) {
+    boolean foundResourceCondition = false;
+
+    for (ConjunctiveCriterion cc : capturedFilter.getOr()) {
+      if (cc.getAnd() != null) {
+        for (Criterion c : cc.getAnd()) {
+          if (key.equals(c.getField()) && c.getValues() != null && c.getValues().contains(value)) {
+            foundResourceCondition = true;
+            break;
+          }
+        }
+      }
+    }
+
+    return foundResourceCondition;
+  }
+
+  /** Helper to create action request entity with given parameters. */
+  private Entity createActionRequestEntity(
+      String urn,
+      String type,
+      String status,
+      String resourceUrn,
+      Long createdTimestamp,
+      Urn createdBy)
+      throws Exception {
+    ActionRequestInfo infoAspect = new ActionRequestInfo();
+    infoAspect.setType(type);
+    infoAspect.setResource(resourceUrn);
+    infoAspect.setCreated(createdTimestamp != null ? createdTimestamp : 12345L);
+    infoAspect.setCreatedBy(createdBy != null ? createdBy : Urn.createFromString(TEST_USER_URN));
+    infoAspect.setOrigin(com.linkedin.actionrequest.ActionRequestOrigin.MANUAL);
+    infoAspect.setAssignedUsers(new UrnArray());
+    infoAspect.setAssignedGroups(new UrnArray());
+    infoAspect.setAssignedRoles(new UrnArray());
+
+    // Add params based on type. Adding mocks for three types for now..
+    ActionRequestParams requestParams = new ActionRequestParams();
+    if (type.equals(TAG_ASSOCIATION.toString())) {
+      TagProposal tagProposal = new TagProposal();
+      tagProposal.setTag(UrnUtils.getUrn("urn:li:tag:myTestTag"));
+      tagProposal.setTags(new UrnArray(Collections.emptyList()));
+      requestParams.setTagProposal(tagProposal);
+    } else if (type.equals(DOMAIN_ASSOCIATION.toString())) {
+      DomainProposal domainProposal = new DomainProposal();
+      domainProposal.setDomains(new UrnArray());
+      requestParams.setDomainProposal(domainProposal);
+    } else if (type.equals(CREATE_GLOSSARY_TERM.toString())) {
+      CreateGlossaryTermProposal termProposal = new CreateGlossaryTermProposal();
+      termProposal.setName("Test Glossary");
+      requestParams.setCreateGlossaryTermProposal(termProposal);
+    }
+
+    infoAspect.setParams(requestParams);
+
+    // Add inference metadata
+    infoAspect.setInferenceMetadata(
+        new InferenceMetadata().setVersion(1).setLastInferredAt(98765L));
+
+    // Create status aspect
+    ActionRequestStatus statusAspect = new ActionRequestStatus();
+    statusAspect.setStatus(status);
+
+    // Create aspects
+    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
+    ActionRequestAspect aspect2 = ActionRequestAspect.create(statusAspect);
+
+    // Create entity
+    Entity entity = new Entity();
+    ActionRequestSnapshot snapshot = new ActionRequestSnapshot();
+    snapshot.setUrn(UrnUtils.getUrn(urn));
+    snapshot.setAspects(new ActionRequestAspectArray(Arrays.asList(aspect1, aspect2)));
+    entity.setValue(Snapshot.create(snapshot));
+
+    return entity;
   }
 }
