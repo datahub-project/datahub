@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 
@@ -63,6 +63,313 @@ class BigqueryProfiler(GenericProfiler):
         upper_bound_partition_datetime = partition_datetime + duration
         return partition_datetime, upper_bound_partition_datetime
 
+    def _get_most_populated_partitions(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_columns: List[str],
+        max_results: int = 5,
+        timeout: int = 120,
+    ) -> Dict[str, Any]:
+        """
+        Find the most populated partitions for a table based on record count.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            partition_columns: List of partition column names
+            max_results: Maximum number of top partitions to return
+            timeout: Query timeout in seconds
+
+        Returns:
+            Dictionary mapping partition column names to their values
+        """
+        result_values = {}
+
+        # First try with all partition columns together to find combinations with data
+        if len(partition_columns) > 1:
+            try:
+                partition_cols_select = ", ".join(
+                    [f"{col}" for col in partition_columns]
+                )
+                partition_cols_group = ", ".join(partition_columns)
+
+                query = f"""WITH PartitionStats AS (
+    SELECT {partition_cols_select}, COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {" AND ".join([f"{col} IS NOT NULL" for col in partition_columns])}
+    GROUP BY {partition_cols_group}
+    HAVING record_count > 0
+    ORDER BY record_count DESC
+    LIMIT {max_results}
+)
+SELECT * FROM PartitionStats"""
+
+                logger.debug(f"Executing combined partition query: {query}")
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=timeout))
+
+                if results:
+                    # Take the partition combination with the most records
+                    best_result = results[0]
+                    logger.info(
+                        f"Found combined partition with {best_result.record_count} records"
+                    )
+
+                    # Extract values for each partition column
+                    for col in partition_columns:
+                        result_values[col] = getattr(best_result, col)
+
+                    return result_values
+            except Exception as e:
+                logger.warning(f"Error finding combined partition values: {e}")
+                # Continue to individual column approach if combined approach fails
+
+        # If combined approach didn't work or returned no results, try each column individually
+        for col_name in partition_columns:
+            try:
+                # Special handling for date-named columns
+                is_date_column = col_name.lower() in {
+                    "date",
+                    "day",
+                    "dt",
+                    "partition_date",
+                    "date_partition",
+                }
+                is_time_column = col_name.lower() in {
+                    "timestamp",
+                    "datetime",
+                    "time",
+                    "created_at",
+                    "modified_at",
+                    "event_time",
+                }
+                is_month_column = col_name.lower() in {
+                    "month",
+                    "partition_month",
+                    "month_partition",
+                }
+                is_year_column = col_name.lower() in {
+                    "year",
+                    "partition_year",
+                    "year_partition",
+                }
+
+                # For date-related columns, order by the column itself to get most recent
+                # For other columns, order by record count to get most populated
+                if (
+                    is_date_column
+                    or is_time_column
+                    or is_month_column
+                    or is_year_column
+                ):
+                    order_by = f"{col_name} DESC"  # Most recent date first
+                else:
+                    order_by = "record_count DESC"  # Most records first
+
+                query = f"""WITH PartitionStats AS (
+    SELECT {col_name} as val, COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {col_name} IS NOT NULL
+    GROUP BY {col_name}
+    HAVING record_count > 0
+    ORDER BY {order_by}
+    LIMIT {max_results}
+)
+SELECT val, record_count FROM PartitionStats"""
+
+                logger.debug(
+                    f"Executing query for partition column {col_name}: {query}"
+                )
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=timeout))
+
+                if not results or results[0].val is None:
+                    logger.warning(
+                        f"No non-empty partition values found for column {col_name}"
+                    )
+                    continue
+
+                # For time-based columns, prefer the most recent with data
+                # For other columns, use the one with the most data
+                if (
+                    is_date_column
+                    or is_time_column
+                    or is_month_column
+                    or is_year_column
+                ):
+                    chosen_result = results[0]  # Already sorted by date DESC
+                else:
+                    # Find the result with the most records
+                    chosen_result = max(results, key=lambda r: r.record_count)
+
+                result_values[col_name] = chosen_result.val
+                logger.info(
+                    f"Selected partition {col_name}={chosen_result.val} with {chosen_result.record_count} records"
+                )
+
+            except Exception as e:
+                logger.error(f"Error getting partition value for {col_name}: {e}")
+
+        return result_values
+
+    def _get_partition_columns_from_info_schema(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Dict[str, str]:
+        """
+        Get partition columns from INFORMATION_SCHEMA.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            Dictionary mapping column names to data types
+        """
+        query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+        query_job = self.config.get_bigquery_client().query(query)
+        results = list(query_job)
+
+        return {row.column_name: row.data_type for row in results}
+
+    def _get_partition_columns_from_ddl(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Dict[str, str]:
+        """
+        Extract partition columns from table DDL.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            Dictionary mapping column names to data types
+        """
+        partition_cols_with_types: Dict[str, str] = {}
+
+        if not table.ddl:
+            return partition_cols_with_types
+
+        # Look for PARTITION BY in DDL
+        if "PARTITION BY" in table.ddl.upper():
+            ddl_lines = table.ddl.upper().split("\n")
+            for line in ddl_lines:
+                if "PARTITION BY" in line:
+                    # Extract column names from PARTITION BY clause
+                    parts = line.split("PARTITION BY")[1].split("OPTIONS")[0].strip()
+                    potential_cols = [col.strip(", `()") for col in parts.split()]
+
+                    # Get data types for these columns
+                    all_cols_query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+                    all_cols_job = self.config.get_bigquery_client().query(
+                        all_cols_query
+                    )
+                    all_cols_results = list(all_cols_job)
+                    all_cols_dict = {
+                        row.column_name.upper(): row.data_type
+                        for row in all_cols_results
+                    }
+
+                    # Add columns to our result
+                    for col in potential_cols:
+                        if col in all_cols_dict:
+                            partition_cols_with_types[col] = all_cols_dict[col]
+
+        return partition_cols_with_types
+
+    def _create_filter_for_partition_column(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        col_name: str,
+        data_type: str,
+        timeout: int = 300,
+    ) -> Optional[str]:
+        """
+        Create a filter for a single partition column.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            col_name: Partition column name
+            data_type: Data type of the column
+            timeout: Query timeout in seconds
+
+        Returns:
+            Filter string if a valid partition value is found, None otherwise
+        """
+        logger.debug(
+            f"Processing external table partition column: {col_name} with type {data_type}"
+        )
+
+        # Query to find a partition value with data
+        query = f"""WITH PartitionStats AS (
+    SELECT {col_name} as val,
+           COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {col_name} IS NOT NULL
+    GROUP BY {col_name}
+    HAVING record_count > 0
+    ORDER BY {col_name} DESC
+    LIMIT 1
+)
+SELECT val, record_count
+FROM PartitionStats"""
+
+        try:
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result(timeout=timeout))
+
+            if not results or results[0].val is None:
+                logger.warning(
+                    f"No non-empty partition values found for column {col_name}"
+                )
+                return None
+
+            val = results[0].val
+            record_count = results[0].record_count
+            logger.info(
+                f"Selected external partition {col_name}={val} with {record_count} records"
+            )
+
+            # Format filter based on data type
+            data_type_upper = data_type.upper() if data_type else ""
+            if data_type_upper in ("STRING", "VARCHAR"):
+                return f"`{col_name}` = '{val}'"
+            elif data_type_upper == "DATE":
+                if isinstance(val, datetime):
+                    return f"`{col_name}` = DATE '{val.strftime('%Y-%m-%d')}'"
+                return f"`{col_name}` = DATE '{val}'"
+            elif data_type_upper in ("TIMESTAMP", "DATETIME"):
+                if isinstance(val, datetime):
+                    return f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
+                return f"`{col_name}` = TIMESTAMP '{val}'"
+            else:
+                # Default to numeric or other type
+                return f"`{col_name}` = {val}"
+
+        except Exception as e:
+            logger.warning(
+                f"Error determining value for partition column {col_name}: {e}"
+            )
+            return None
+
     def _get_external_table_partition_filters(
         self,
         table: BigqueryTable,
@@ -84,120 +391,36 @@ class BigqueryProfiler(GenericProfiler):
             None if partition filters could not be determined
         """
         try:
-            # For external tables, we need to check specifically for partitioning columns
-            # and also look at the DDL if available to detect hive-style partitioning
+            # Step 1: Get partition columns from INFORMATION_SCHEMA
+            partition_cols_with_types = self._get_partition_columns_from_info_schema(
+                table, project, schema
+            )
 
-            # First, try to get partition columns directly from INFORMATION_SCHEMA
-            query = f"""SELECT column_name, data_type
-FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
-            query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job)
-
-            partition_cols_with_types = {
-                row.column_name: row.data_type for row in results
-            }
-
-            # If we didn't find any partition columns through INFORMATION_SCHEMA,
-            # check the DDL for external table declarations that have partition info
-            if not partition_cols_with_types and table.ddl:
-                # Very simple DDL parsing to look for PARTITION BY statements
-                if "PARTITION BY" in table.ddl.upper():
-                    ddl_lines = table.ddl.upper().split("\n")
-                    for line in ddl_lines:
-                        if "PARTITION BY" in line:
-                            # Look for column names mentioned in the PARTITION BY clause
-                            # This is a basic extraction and may need enhancement for complex DDLs
-                            parts = (
-                                line.split("PARTITION BY")[1]
-                                .split("OPTIONS")[0]
-                                .strip()
-                            )
-                            potential_cols = [
-                                col.strip(", `()") for col in parts.split()
-                            ]
-
-                            # Get all columns to check data types for potential partition columns
-                            all_cols_query = f"""SELECT column_name, data_type
-FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}'"""
-                            all_cols_job = self.config.get_bigquery_client().query(
-                                all_cols_query
-                            )
-                            all_cols_results = list(all_cols_job)
-                            all_cols_dict = {
-                                row.column_name.upper(): row.data_type
-                                for row in all_cols_results
-                            }
-
-                            # Add potential partition columns with their types
-                            for col in potential_cols:
-                                if col in all_cols_dict:
-                                    partition_cols_with_types[col] = all_cols_dict[col]
-
-            partition_filters = []
-
-            # Process all identified partition columns
-            for col_name, data_type in partition_cols_with_types.items():
-                logger.debug(
-                    f"Processing external table partition column: {col_name} with type {data_type}"
+            # Step 2: If no columns found, try extracting from DDL
+            if not partition_cols_with_types:
+                partition_cols_with_types = self._get_partition_columns_from_ddl(
+                    table, project, schema
                 )
 
-                # For each partition column, we need to find a valid value
-                query = f"""
-WITH PartitionStats AS (
-    SELECT {col_name} as val,
-           COUNT(*) as record_count
-    FROM `{project}.{schema}.{table.name}`
-    WHERE {col_name} IS NOT NULL
-    GROUP BY {col_name}
-    HAVING record_count > 0
-    ORDER BY {col_name} DESC
-    LIMIT 1
-)
-SELECT val, record_count
-FROM PartitionStats"""
+            # Step 3: If still no columns found, return empty list
+            if not partition_cols_with_types:
+                logger.info(
+                    f"No partition columns found for external table {table.name}"
+                )
+                return []
 
-                try:
-                    query_job = self.config.get_bigquery_client().query(query)
-                    results = list(query_job.result(timeout=300))
+            logger.info(
+                f"Found {len(partition_cols_with_types)} partition columns: {list(partition_cols_with_types.keys())}"
+            )
 
-                    if not results or results[0].val is None:
-                        logger.warning(
-                            f"No non-empty partition values found for column {col_name}"
-                        )
-                        continue
-
-                    val = results[0].val
-                    record_count = results[0].record_count
-                    logger.info(
-                        f"Selected external partition {col_name}={val} with {record_count} records"
-                    )
-
-                    # Format the filter based on the data type
-                    data_type_upper = data_type.upper() if data_type else ""
-                    if data_type_upper in ("STRING", "VARCHAR"):
-                        partition_filters.append(f"`{col_name}` = '{val}'")
-                    elif data_type_upper == "DATE":
-                        partition_filters.append(f"`{col_name}` = DATE '{val}'")
-                    elif data_type_upper in ("TIMESTAMP", "DATETIME"):
-                        if isinstance(val, datetime):
-                            partition_filters.append(
-                                f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
-                            )
-                        else:
-                            partition_filters.append(
-                                f"`{col_name}` = TIMESTAMP '{val}'"
-                            )
-                    else:
-                        # Default to numeric or other type
-                        partition_filters.append(f"`{col_name}` = {val}")
-
-                except Exception as e:
-                    logger.warning(
-                        f"Error determining value for partition column {col_name}: {e}"
-                    )
-                    continue
+            # Step 4: Create filters for each partition column
+            partition_filters = []
+            for col_name, data_type in partition_cols_with_types.items():
+                filter_str = self._create_filter_for_partition_column(
+                    table, project, schema, col_name, data_type
+                )
+                if filter_str:
+                    partition_filters.append(filter_str)
 
             return partition_filters
 
