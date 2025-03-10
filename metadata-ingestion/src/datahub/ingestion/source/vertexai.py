@@ -395,7 +395,7 @@ class VertexAISource(Source):
         ]
 
         if self.datasets is None:
-            self.datasets: Dict[str, VertexAiResourceNoun] = {}
+            self.datasets = {}
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
@@ -633,7 +633,7 @@ class VertexAISource(Source):
         Search for an endpoint associated with the model.
         """
         if self.endpoints is None:
-            endpoint_dict:Dict[str, List[Endpoint]] = {}
+            endpoint_dict: Dict[str, List[Endpoint]] = {}
             for endpoint in self.client.Endpoint.list():
                 for resource in endpoint.list_models():
                     if resource.model not in endpoint_dict:
