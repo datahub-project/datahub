@@ -496,7 +496,6 @@ plugins:
   aspectPayloadValidators:
     - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
       packageScan:
-        - com.linkedin.metadata.aspect.plugins.config
         - com.linkedin.metadata.aspect.plugins.spring.validation
       enabled: true
       supportedOperations:
