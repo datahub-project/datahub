@@ -612,7 +612,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
             try:
                 chart_id = str(chart_data.get("id"))
-                chart_name = str(chart_data.get("slice_name", ""))
+                chart_name = chart_data.get("slice_name", "")
 
                 if not self.config.chart_pattern.allowed(chart_name):
                     self.report.report_dropped(
@@ -787,7 +787,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        # if we sql, we label the datasets as virtual
+        # if we have sql, we label the datasets as virtual
         if sql:
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             upstream_lineage = self.generate_virtual_dataset_lineage(
