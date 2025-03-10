@@ -128,6 +128,10 @@ class RedshiftConfig(
         default=True,
         description="Whether lineage should be collected from copy commands",
     )
+    include_share_lineage: bool = Field(
+        default=True,
+        description="Whether lineage should be collected from datashares",
+    )
 
     include_usage_statistics: bool = Field(
         default=False,

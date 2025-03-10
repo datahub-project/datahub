@@ -968,8 +968,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // lock)
 
                     // Initial database state from database
-                    Map<String, Map<String, SystemAspect>> batchAspects =
+                    final Map<String, Map<String, SystemAspect>> batchAspects =
                         aspectDao.getLatestAspects(opContext, urnAspects, true);
+                    final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
 
                     // read #2 (potentially)
                     final Map<String, Map<String, Long>> nextVersions =
@@ -989,7 +990,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // These items are new items from side effects
                       Map<String, Set<String>> sideEffects = updatedItems.getFirst();
 
-                      final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
                       final Map<String, Map<String, Long>> updatedNextVersions;
 
                       Map<String, Map<String, SystemAspect>> newLatestAspects =
@@ -1024,6 +1024,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               .collect(Collectors.toList());
                     } else {
                       changeMCPs = updatedItems.getSecond();
+                      updatedLatestAspects = batchAspects;
                     }
 
                     // No changes, return
@@ -1080,7 +1081,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                     Latest aspect after possible in-memory mutation
                                   */
                                   final SystemAspect latestAspect =
-                                      batchAspects
+                                      updatedLatestAspects
                                           .getOrDefault(writeItem.getUrn().toString(), Map.of())
                                           .get(writeItem.getAspectName());
 
@@ -1145,8 +1146,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                       // Only consider retention when there was a previous version
                                       .filter(
                                           result ->
-                                              batchAspects.containsKey(result.getUrn().toString())
-                                                  && batchAspects
+                                              updatedLatestAspects.containsKey(
+                                                      result.getUrn().toString())
+                                                  && updatedLatestAspects
                                                       .get(result.getUrn().toString())
                                                       .containsKey(
                                                           result.getRequest().getAspectName()))
@@ -1359,7 +1361,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @param aspectsBatch timeseries upserts batch
    * @return returns ingest proposal result, however was never in the MCP topic
    */
-  private Stream<IngestResult> ingestTimeseriesProposal(
+  @VisibleForTesting
+  Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
 
     List<? extends BatchItem> unsupported =
@@ -1379,31 +1382,38 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "ingestTimeseriesProposal",
         () -> {
-          if (!async) {
-            // Handle throttling
-            APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
+          // Handle throttling
+          APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
 
-            // Create default non-timeseries aspects for timeseries aspects
-            List<MCPItem> timeseriesKeyAspects =
-                aspectsBatch.getMCPItems().stream()
-                    .filter(
-                        item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
-                    .map(
-                        item ->
-                            ChangeItemImpl.builder()
-                                .urn(item.getUrn())
-                                .aspectName(item.getEntitySpec().getKeyAspectName())
-                                .changeType(ChangeType.UPSERT)
-                                .entitySpec(item.getEntitySpec())
-                                .aspectSpec(item.getEntitySpec().getKeyAspectSpec())
-                                .auditStamp(item.getAuditStamp())
-                                .systemMetadata(item.getSystemMetadata())
-                                .recordTemplate(
-                                    EntityApiUtils.buildKeyAspect(
-                                        opContext.getEntityRegistry(), item.getUrn()))
-                                .build(opContext.getAspectRetriever()))
-                    .collect(Collectors.toList());
+          // Create default non-timeseries aspects for timeseries aspects
+          List<MCPItem> timeseriesKeyAspects =
+              aspectsBatch.getMCPItems().stream()
+                  .filter(
+                      item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
+                  .map(
+                      item ->
+                          ChangeItemImpl.builder()
+                              .urn(item.getUrn())
+                              .aspectName(item.getEntitySpec().getKeyAspectName())
+                              .changeType(ChangeType.UPSERT)
+                              .entitySpec(item.getEntitySpec())
+                              .aspectSpec(item.getEntitySpec().getKeyAspectSpec())
+                              .auditStamp(item.getAuditStamp())
+                              .systemMetadata(item.getSystemMetadata())
+                              .recordTemplate(
+                                  EntityApiUtils.buildKeyAspect(
+                                      opContext.getEntityRegistry(), item.getUrn()))
+                              .build(opContext.getAspectRetriever()))
+                  .collect(Collectors.toList());
 
+          if (async) {
+            ingestProposalAsync(
+                opContext,
+                AspectsBatchImpl.builder()
+                    .retrieverContext(aspectsBatch.getRetrieverContext())
+                    .items(timeseriesKeyAspects)
+                    .build());
+          } else {
             ingestProposalSync(
                 opContext,
                 AspectsBatchImpl.builder()
@@ -1477,8 +1487,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @param aspectsBatch non-timeseries ingest aspects
    * @return produced items to the MCP topic
    */
-  private Stream<IngestResult> ingestProposalAsync(
-      OperationContext opContext, AspectsBatch aspectsBatch) {
+  @VisibleForTesting
+  Stream<IngestResult> ingestProposalAsync(OperationContext opContext, AspectsBatch aspectsBatch) {
     return opContext.withSpan(
         "ingestProposalAsync",
         () -> {
@@ -1522,7 +1532,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         String.valueOf(aspectsBatch.getItems().size()));
   }
 
-  private Stream<IngestResult> ingestProposalSync(
+  @VisibleForTesting
+  Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
 
     return opContext.withSpan(

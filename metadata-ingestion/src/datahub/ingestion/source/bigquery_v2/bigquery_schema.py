@@ -343,7 +343,7 @@ class BigQuerySchemaApi:
         with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
-            filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
+            filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
             if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset

@@ -108,6 +108,26 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
     "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://example.com/doc1",
+                    "description": "https://example.com/doc1",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
         "json": {

@@ -8,7 +8,7 @@ const SlackUtm = ({ pageId }) => {
     <div className={styles.slackUtm}>
       <div className={styles.slackUtm}>
          <hr />
-            Need more help? Join the conversation in <a href={`https://datahubproject.io/slack?utm_source=docs&utm_medium=footer&utm_campaign=docs_footer&utm_content=${pageId}`}>Slack!</a>
+            Need more help? Join the conversation in <a href={`https://pages.acryl.io/slack?utm_source=docs&utm_medium=footer&utm_campaign=docs_footer&utm_content=${pageId}`}>Slack!</a>
       </div>
     </div>
   );
