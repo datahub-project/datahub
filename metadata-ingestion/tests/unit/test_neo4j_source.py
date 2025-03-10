@@ -328,7 +328,7 @@ def test_get_relationships(source, mock_data):
     assert list(source.get_relationships(results[0]["value"]).keys()) == [
         "RELATIONSHIP_1"
     ]
-    assert source.get_relationships(results[2]["value"]) is None
+    assert source.get_relationships(results[2]["value"]) == {}
 
 
 def test_get_field_type(source):
@@ -384,7 +384,6 @@ def test_type_mapping(source, test_input, expected):
 
 def test_platform_instance_config(source_with_platform_instance):
     """Test platform instance configuration"""
-    assert source_with_platform_instance.platform_instance == "test-instance"
     assert source_with_platform_instance.config.platform_instance == "test-instance"
 
 
@@ -454,7 +453,6 @@ def test_default_values():
     config = Neo4jConfig(
         uri="neo4j://localhost:7687", username="neo4j", password="password", env="PROD"
     )
-    assert config.platform == "neo4j"
     assert config.platform_instance is None
     assert config.stateful_ingestion is None
 

@@ -32,7 +32,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -75,7 +74,6 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
-    platform: str = Field(default="neo4j", hidden_from_docs=True)
     username: str = Field(description="Neo4j Username")
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
@@ -92,7 +90,9 @@ class Neo4jSourceReport(StatefulIngestionReport):
 
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config")
+@capability(
+    SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
+)
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
@@ -104,23 +104,13 @@ class Neo4jSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.platform = self.config.platform
-        self.platform_instance = self.config.platform_instance
-        self.env = self.config.env
+        self.platform = "neo4j"
         self.report: Neo4jSourceReport = Neo4jSourceReport()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Neo4jSource":
         config = Neo4jConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
         type_class: type = _type_mapping.get(attribute_type, NullTypeClass)
@@ -159,8 +149,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
             entityUrn=make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=dataset,
-                platform_instance=self.platform_instance,
-                env=self.env,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             ),
             aspect=dataset_properties,
         ).as_workunit()
@@ -178,8 +168,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
                 entityUrn=make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=dataset,
-                    platform_instance=self.platform_instance,
-                    env=self.env,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
@@ -359,8 +349,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     entityUrn=make_dataset_urn_with_platform_instance(
                         platform=self.platform,
                         name=row["key"],
-                        platform_instance=self.platform_instance,
-                        env=self.env,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
                     ),
                     aspect=SubTypesClass(
                         typeNames=[
