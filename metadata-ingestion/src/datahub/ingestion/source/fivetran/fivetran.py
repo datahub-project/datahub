@@ -26,7 +26,9 @@ from datahub.ingestion.source.fivetran.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
-from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_access import (
+    create_fivetran_access,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
     MAX_TABLE_LINEAGE_PER_CONNECTOR,
@@ -60,7 +62,7 @@ logger = logging.getLogger(__name__)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.
-    This plugin is in beta and has only been tested on Snowflake connector.
+    Supports both enterprise and standard versions.
     """
 
     config: FivetranSourceConfig
@@ -72,7 +74,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = FivetranSourceReport()
 
-        self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
+        # Create the appropriate access implementation using the factory
+        self.fivetran_access = create_fivetran_access(config)
+
+        # For backward compatibility with existing tests
+        self.audit_log = self.fivetran_access
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
         input_dataset_urn_list: List[DatasetUrn] = []
@@ -104,11 +110,33 @@ class FivetranSource(StatefulIngestionSourceBase):
             connector.destination_id, PlatformDetail()
         )
         if destination_details.platform is None:
-            destination_details.platform = (
-                self.config.fivetran_log_config.destination_platform
-            )
+            # If using enterprise version, get destination platform from config
+            if (
+                hasattr(self.config, "fivetran_log_config")
+                and self.config.fivetran_log_config is not None
+            ):
+                destination_details.platform = (
+                    self.config.fivetran_log_config.destination_platform
+                )
+            else:
+                # For standard version, use the detected platform if available
+                detected_platform = connector.additional_properties.get(
+                    "destination_platform"
+                )
+                if detected_platform:
+                    destination_details.platform = detected_platform
+                else:
+                    # Default to snowflake if detection failed
+                    destination_details.platform = "snowflake"
+
+        # Ensure database is not None to avoid attribute errors when calling .lower()
         if destination_details.database is None:
-            destination_details.database = self.audit_log.fivetran_log_database
+            destination_details.database = (
+                self.fivetran_access.fivetran_log_database or ""
+            )
+
+        if source_details.database is None:
+            source_details.database = ""
 
         if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
             self.report.warning(
@@ -124,13 +152,17 @@ class FivetranSource(StatefulIngestionSourceBase):
                 if source_details.include_schema_in_urn
                 else lineage.source_table.split(".", 1)[1]
             )
+
+            # Safe access to database.lower() with None check
+            source_table_name = (
+                f"{source_details.database.lower()}.{source_table}"
+                if source_details.database
+                else source_table
+            )
+
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_details.platform,
-                table_name=(
-                    f"{source_details.database.lower()}.{source_table}"
-                    if source_details.database
-                    else source_table
-                ),
+                table_name=source_table_name,
                 env=source_details.env,
                 platform_instance=source_details.platform_instance,
             )
@@ -141,9 +173,17 @@ class FivetranSource(StatefulIngestionSourceBase):
                 if destination_details.include_schema_in_urn
                 else lineage.destination_table.split(".", 1)[1]
             )
+
+            # Safe access to database.lower() with None check
+            destination_table_name = (
+                f"{destination_details.database.lower()}.{destination_table}"
+                if destination_details.database
+                else destination_table
+            )
+
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=destination_details.platform,
-                table_name=f"{destination_details.database.lower()}.{destination_table}",
+                table_name=destination_table_name,
                 env=destination_details.env,
                 platform_instance=destination_details.platform_instance,
             )
@@ -211,7 +251,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        owner_email = self.audit_log.get_user_email(connector.user_id)
+        owner_email = self.fivetran_access.get_user_email(connector.user_id)
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
@@ -314,7 +354,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Fivetran plugin execution is started")
-        connectors = self.audit_log.get_allowed_connectors_list(
+        connectors = self.fivetran_access.get_allowed_connectors_list(
             self.config.connector_patterns,
             self.config.destination_patterns,
             self.report,

@@ -19,19 +19,24 @@ from datahub.ingestion.source.fivetran.data_classes import (
     Job,
     TableLineage,
 )
+from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class FivetranLogAPI:
+class FivetranLogAPI(FivetranAccessInterface):
     def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
         self.fivetran_log_config = fivetran_log_config
         (
             self.engine,
             self.fivetran_log_query,
-            self.fivetran_log_database,
+            self._fivetran_log_database,
         ) = self._initialize_fivetran_variables()
+
+    @property
+    def fivetran_log_database(self) -> Optional[str]:
+        return self._fivetran_log_database
 
     def _initialize_fivetran_variables(
         self,

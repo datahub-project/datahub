@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -26,6 +26,7 @@ class Connector:
     user_id: str
     lineage: List[TableLineage]
     jobs: List["Job"]
+    additional_properties: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
