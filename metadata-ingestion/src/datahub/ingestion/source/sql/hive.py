@@ -858,8 +858,11 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_partitions(
             self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        partition_columns: List[dict] =  inspector.get_indexes(table_name=table, schema=schema)
+        partition_columns: List[dict] = inspector.get_indexes(
+            table_name=table, schema=schema
+        )
         for partition_column in partition_columns:
             if partition_column.get("column_names"):
                 return partition_column.get("column_names")
+
         return []
