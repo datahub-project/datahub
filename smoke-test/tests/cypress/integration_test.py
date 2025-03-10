@@ -202,6 +202,9 @@ def _get_cypress_tests_batch():
     # return test_batches[int(batch_number)]  #if BATCH_NUMBER was set, we this test just runs that one batch.
 
 
+# junits for cypress are generated separately by cypress. This pytest report will lump all cypress
+# as one test -- which isnt very helpful.
+@pytest.mark.skipif(False, reason="Cypress tests are reported separately in junit.xml")
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
