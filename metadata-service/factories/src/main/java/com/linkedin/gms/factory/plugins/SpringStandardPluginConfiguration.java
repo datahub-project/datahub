@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
@@ -230,6 +231,24 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
+  public MCPSideEffect versionPropertiesSideEffect() {
+    return new VersionPropertiesSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(VersionPropertiesSideEffect.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionSetSideEffect() {
     return new VersionSetSideEffect()
         .setConfig(
@@ -266,7 +285,7 @@ public class SpringStandardPluginConfiguration {
     return new UserDeleteValidator()
         .setConfig(
             AspectPluginConfig.builder()
-                .className(UrnAnnotationValidator.class.getName())
+                .className(UserDeleteValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
                     // Special note: RESTATE is not included to allow out of order restoration of

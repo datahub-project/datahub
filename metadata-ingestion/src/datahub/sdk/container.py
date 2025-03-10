@@ -16,16 +16,17 @@ from datahub.metadata.urns import (
     ContainerUrn,
     Urn,
 )
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     DomainInputType,
     HasContainer,
     HasDomain,
+    HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
     HasSubtype,
     HasTags,
     HasTerms,
+    LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagsInputType,
@@ -33,6 +34,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Auto, auto
 
 
@@ -41,6 +43,7 @@ class Container(
     HasSubtype,
     HasContainer,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
@@ -71,9 +74,11 @@ class Container(
         parent_container: Auto | ParentContainerInputType | None = auto,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         # Hack: while the type annotations say container_key is always a ContainerKey,
         # we allow ContainerUrn to make the graph-based constructor work.
@@ -82,6 +87,7 @@ class Container(
         else:
             urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         # This needs to come first to ensure that the display name is registered.
         self._ensure_container_props(name=display_name)
@@ -131,6 +137,8 @@ class Container(
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
         if tags is not None:
             self.set_tags(tags)
         if terms is not None:

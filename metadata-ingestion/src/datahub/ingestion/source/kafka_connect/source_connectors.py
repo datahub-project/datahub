@@ -447,13 +447,10 @@ class DebeziumSourceConnector(BaseConnector):
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
 
-        if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            parser = self.DebeziumParser(
-                source_platform="mysql",
-                server_name=self.get_server_name(connector_manifest),
-                database_name=None,
-            )
-        elif connector_class == "MySqlConnector":
+        if (
+            connector_class == "io.debezium.connector.mysql.MySqlConnector"
+            or connector_class == "MySqlConnector"
+        ):
             parser = self.DebeziumParser(
                 source_platform="mysql",
                 server_name=self.get_server_name(connector_manifest),

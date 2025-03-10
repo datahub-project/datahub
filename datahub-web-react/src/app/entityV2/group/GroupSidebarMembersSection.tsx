@@ -12,9 +12,8 @@ export const GroupSidebarMembersSection = ({ groupMemberRelationships }: Props) 
         <SidebarSection
             title="Members"
             count={groupMemberRelationships?.total || undefined}
-            content={
-                <GroupMembersSideBarSectionContent relationships={groupMemberRelationships?.relationships || []} />
-            }
+            showFullCount
+            content={<GroupMembersSideBarSectionContent groupMemberRelationships={groupMemberRelationships} />}
         />
     );
 };

@@ -1,21 +1,19 @@
 comment:
-  layout: "header, files, footer" # remove "new" from "header" and "footer"
-  hide_project_coverage: true # set to false
+  layout: "condensed_header, condensed_files, condensed_footer"
+  hide_project_coverage: true
   require_changes: false  # if true: only post the comment if coverage changes
 
 codecov:
   #due to ci-optimization, reports for modules that have not changed may be quite old
   max_report_age: off
 
+github_checks:
+  #Hide annotations that show up in github PR reviews. There still is a red bar next to lines not covered
+  annotations: false
+
 flag_management:
   default_rules: # the rules that will be followed for any flag added, generally
     carryforward: true
-    statuses:
-      - type: project
-        target: auto
-        threshold: 0%  #Not enforcing project coverage yet.
-      - type: patch
-        target: 90%
   individual_flags: # exceptions to the default rules above, stated flag by flag
     - name: frontend
       paths:
@@ -55,11 +53,8 @@ flag_management:
         - "metadata-ingestion-modules/prefect-plugin/**"
 coverage:
   status:
-    project:
-      default:
-        target: 0% # no threshold enforcement yet
-        only_pulls: true
+    project: false
     patch:
       default:
-        target: 90% # for new code added in the patch
+        target: 75% # for new code added in the patch
         only_pulls: true

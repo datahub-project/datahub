@@ -11,7 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  staticDirectories: ["static", "genStatic"],
+  staticDirectories: ["static"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
   headTags: [
     {
@@ -167,7 +167,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "/slack",
+              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
               label: "Join Slack",
             },
             {
@@ -189,7 +189,7 @@ module.exports = {
           ],
         },
         {
-          href: "/slack",
+          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {
@@ -288,14 +288,6 @@ module.exports = {
       // theme: require("prism-react-renderer/themes/vsLight"),
       // darkTheme: require("prism-react-renderer/themes/vsDark"),
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
-    },
-    algolia: {
-      appId: "RK0UG797F3",
-      apiKey: "39d7eb90d8b31d464e309375a52d674f",
-      indexName: "datahubproject",
-      insights: true,
-      contextualSearch: true,
-      // debug: true,
     },
   },
   presets: [

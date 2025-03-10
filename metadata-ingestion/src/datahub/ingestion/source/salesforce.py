@@ -615,7 +615,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
 
-        text = field.get("InlineHelpText", None)
+        text = field.get("InlineHelpText")
         if text:
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"

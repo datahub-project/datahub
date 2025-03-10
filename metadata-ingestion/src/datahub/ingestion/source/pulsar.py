@@ -230,8 +230,8 @@ class PulsarSource(StatefulIngestionSourceBase):
                 self.report.report_warning("HTTPError", message)
         except requests.exceptions.RequestException as e:
             raise Exception(
-                f"An ambiguous exception occurred while handling the request: {e}"
-            )
+                "An ambiguous exception occurred while handling the request"
+            ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):

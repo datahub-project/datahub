@@ -129,7 +129,7 @@ def assert_field_paths_match(
 )
 def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):
     fields = avro_schema_to_mce_fields(schema)
-    assert 1 == len(fields)
+    assert len(fields) == 1
     assert fields[0].nullable
 
 
@@ -762,7 +762,7 @@ def test_logical_types_fully_specified_in_type():
         json.dumps(schema), default_nullable=True
     )
     assert len(fields) == 1
-    assert "[version=2.0].[type=test].[type=bytes].name" == fields[0].fieldPath
+    assert fields[0].fieldPath == "[version=2.0].[type=test].[type=bytes].name"
     assert isinstance(fields[0].type.type, NumberTypeClass)
 
 

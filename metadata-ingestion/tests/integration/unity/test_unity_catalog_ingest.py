@@ -33,7 +33,7 @@ def register_mock_api(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
