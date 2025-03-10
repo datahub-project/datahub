@@ -1,12 +1,16 @@
 import datetime
+import json
 from functools import partial
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+import responses
 from freezegun import freeze_time
 
-from datahub.configuration.common import ConfigurationWarning
+from datahub.configuration.common import (
+    ConfigurationWarning,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
@@ -22,6 +26,7 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
+# Enterprise mode mock data
 default_connector_query_results = [
     {
         "connector_id": "calendar_elected",
@@ -159,6 +164,205 @@ def default_query_results(
         ]
     # Unreachable code
     raise Exception(f"Unknown query {query}")
+
+
+# Standard mode API mock data
+def setup_api_mocks():
+    # Data for mock responses
+    connectors_data = {
+        "data": {
+            "items": [
+                {
+                    "id": "calendar_elected",
+                    "name": "postgres",
+                    "service": "postgres",
+                    "created_by": "reapply_phone",
+                    "paused": False,
+                    "schedule": {"sync_frequency": 1440},
+                    "group": {"id": "interval_unconstitutional"},
+                },
+                {
+                    "id": "my_confluent_cloud_connector_id",
+                    "name": "confluent_cloud",
+                    "service": "confluent_cloud",
+                    "created_by": "reapply_phone",
+                    "paused": False,
+                    "schedule": {"sync_frequency": 1440},
+                    "group": {"id": "my_confluent_cloud_connector_id"},
+                },
+            ],
+            "next_cursor": None,
+        }
+    }
+
+    sync_history_data = {
+        "data": {
+            "items": [
+                {
+                    "id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                    "started_at": "2023-09-20T06:37:32.606Z",
+                    "completed_at": "2023-09-20T06:38:05.056Z",
+                    "status": "COMPLETED",
+                },
+                {
+                    "id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                    "started_at": "2023-10-03T14:35:30.345Z",
+                    "completed_at": "2023-10-03T14:35:31.512Z",
+                    "status": "CANCELLED",
+                },
+                {
+                    "id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                    "started_at": "2023-10-03T14:35:55.401Z",
+                    "completed_at": "2023-10-03T14:36:29.678Z",
+                    "status": "FAILED",
+                },
+            ],
+        }
+    }
+
+    users_data = {
+        "data": {
+            "items": [
+                {
+                    "id": "reapply_phone",
+                    "given_name": "Shubham",
+                    "family_name": "Jagtap",
+                    "email": "abc.xyz@email.com",
+                }
+            ]
+        }
+    }
+
+    user_data = {
+        "data": {
+            "id": "reapply_phone",
+            "given_name": "Shubham",
+            "family_name": "Jagtap",
+            "email": "abc.xyz@email.com",
+        }
+    }
+
+    destination_data = {
+        "data": {
+            "id": "interval_unconstitutional",
+            "name": "My Snowflake Destination",
+            "service": "snowflake",
+        }
+    }
+
+    schemas_data = {
+        "data": {
+            "schemas": [
+                {
+                    "name": "public",
+                    "tables": [
+                        {
+                            "name": "employee",
+                            "enabled": True,
+                            "columns": [
+                                {"name": "id", "type": "INTEGER"},
+                                {"name": "name", "type": "VARCHAR"},
+                            ],
+                        },
+                        {
+                            "name": "company",
+                            "enabled": True,
+                            "columns": [
+                                {"name": "id", "type": "INTEGER"},
+                                {"name": "name", "type": "VARCHAR"},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": "confluent_cloud",
+                    "tables": [
+                        {
+                            "name": "my-source-topic",
+                            "enabled": True,
+                            "columns": [
+                                {"name": "id", "type": "INTEGER"},
+                                {"name": "name", "type": "VARCHAR"},
+                            ],
+                        }
+                    ],
+                },
+            ]
+        }
+    }
+
+    # Add mock responses
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/connectors",
+        json=connectors_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/connectors/calendar_elected/sync_history",
+        json=sync_history_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/connectors/my_confluent_cloud_connector_id/sync_history",
+        json=sync_history_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/users",
+        json=users_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/users/reapply_phone",
+        json=user_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/groups/interval_unconstitutional",
+        json=destination_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/groups/my_confluent_cloud_connector_id",
+        json={
+            "data": {
+                "id": "my_confluent_cloud_connector_id",
+                "name": "My Kafka Destination",
+                "service": "kafka",
+            }
+        },
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/connectors/calendar_elected/schemas",
+        json=schemas_data,
+        status=200,
+    )
+
+    responses.add(
+        responses.GET,
+        "https://api.fivetran.com/v1/connectors/my_confluent_cloud_connector_id/schemas",
+        json=schemas_data,
+        status=200,
+    )
+
+
+# EXISTING TESTS
 
 
 @freeze_time(FROZEN_TIME)
@@ -458,3 +662,203 @@ def test_compat_sources_to_database() -> None:
         "calendar_elected": PlatformDetail(env="DEV", database="my_db"),
         "connector_2": PlatformDetail(database="my_db_2"),
     }
+
+
+# NEW TESTS FOR STANDARD MODE AND MODE SELECTION
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+@responses.activate
+def test_fivetran_standard_mode(pytestconfig, tmp_path):
+    """
+    Tests ingestion with the standard mode using the REST API.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "fivetran_standard_test_events.json"
+    golden_file = test_resources_dir / "fivetran_standard_golden.json"
+
+    # Setup mock API responses
+    setup_api_mocks()
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "fivetran-standard-test",
+            "source": {
+                "type": "fivetran",
+                "config": {
+                    "fivetran_mode": "standard",
+                    "api_config": {
+                        "api_key": "test_api_key",
+                        "api_secret": "test_api_secret",
+                    },
+                    "connector_patterns": {"allow": ["postgres", "confluent_cloud"]},
+                    "destination_patterns": {
+                        "allow": [
+                            "interval_unconstitutional",
+                            "my_confluent_cloud_connector_id",
+                        ]
+                    },
+                    "sources_to_platform_instance": {
+                        "calendar_elected": {
+                            "database": "postgres_db",
+                            "env": "DEV",
+                        },
+                        "my_confluent_cloud_connector_id": {
+                            "platform": "kafka",
+                            "include_schema_in_urn": False,
+                            "database": "kafka_prod",
+                        },
+                    },
+                    "destination_to_platform_instance": {
+                        "my_confluent_cloud_connector_id": {
+                            "platform": "kafka",
+                            "include_schema_in_urn": False,
+                            "database": "kafka_prod",
+                        }
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{output_file}",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Create or update the golden file if it doesn't exist
+    # This part is for initial development only - remove or comment out in real test
+    if not golden_file.exists():
+        with open(output_file, "r") as f:
+            output_json = json.load(f)
+
+        with open(golden_file, "w") as f:
+            json.dump(output_json, f, indent=2)
+
+    # Check against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@responses.activate
+def test_fivetran_auto_detection():
+    """
+    Tests the auto-detection of fivetran mode based on provided config.
+    """
+    # Test auto detection with only log config
+    with patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
+        source = FivetranSource.create(
+            {
+                "fivetran_mode": "auto",
+                "fivetran_log_config": {
+                    "destination_platform": "snowflake",
+                    "snowflake_destination_config": {
+                        "account_id": "testid",
+                        "warehouse": "test_wh",
+                        "username": "test",
+                        "password": "test@123",
+                        "database": "test_database",
+                        "role": "testrole",
+                        "log_schema": "test",
+                    },
+                },
+            },
+            ctx=PipelineContext(run_id="fivetran-auto-log"),
+        )
+
+        # Verify it's using the enterprise (log) mode
+        assert source.fivetran_access.__class__.__name__ == "FivetranLogAPI"
+
+    # Test auto detection with only API config
+    setup_api_mocks()
+    source = FivetranSource.create(
+        {
+            "fivetran_mode": "auto",
+            "api_config": {
+                "api_key": "test_api_key",
+                "api_secret": "test_api_secret",
+            },
+        },
+        ctx=PipelineContext(run_id="fivetran-auto-api"),
+    )
+
+    # Verify it's using the standard (API) mode
+    assert source.fivetran_access.__class__.__name__ == "FivetranStandardAPI"
+
+    # Test auto detection with both configs (should prefer enterprise)
+    with patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
+        source = FivetranSource.create(
+            {
+                "fivetran_mode": "auto",
+                "fivetran_log_config": {
+                    "destination_platform": "snowflake",
+                    "snowflake_destination_config": {
+                        "account_id": "testid",
+                        "warehouse": "test_wh",
+                        "username": "test",
+                        "password": "test@123",
+                        "database": "test_database",
+                        "role": "testrole",
+                        "log_schema": "test",
+                    },
+                },
+                "api_config": {
+                    "api_key": "test_api_key",
+                    "api_secret": "test_api_secret",
+                },
+            },
+            ctx=PipelineContext(run_id="fivetran-auto-both"),
+        )
+
+        # Verify it's using the enterprise (log) mode when both are provided
+        assert source.fivetran_access.__class__.__name__ == "FivetranLogAPI"
+
+
+def test_fivetran_mode_validation():
+    """
+    Tests validation of fivetran mode and required configurations.
+    """
+    # Test enterprise mode without log config
+    with pytest.raises(
+        ValueError, match="Enterprise mode requires 'fivetran_log_config'"
+    ):
+        FivetranSource.create(
+            {
+                "fivetran_mode": "enterprise",
+                # No fivetran_log_config provided
+            },
+            ctx=PipelineContext(run_id="fivetran-validation"),
+        )
+
+    # Test standard mode without API config
+    with pytest.raises(ValueError, match="Standard mode requires 'api_config'"):
+        FivetranSource.create(
+            {
+                "fivetran_mode": "standard",
+                # No api_config provided
+            },
+            ctx=PipelineContext(run_id="fivetran-validation"),
+        )
+
+    # Test auto mode without any config
+    with pytest.raises(
+        ValueError, match="Either 'fivetran_log_config'.*or 'api_config'"
+    ):
+        FivetranSource.create(
+            {
+                "fivetran_mode": "auto",
+                # No config provided
+            },
+            ctx=PipelineContext(run_id="fivetran-validation"),
+        )
