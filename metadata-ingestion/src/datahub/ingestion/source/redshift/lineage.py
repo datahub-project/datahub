@@ -814,8 +814,8 @@ class RedshiftLineageExtractor:
 
         tablename = table.name
         if (
-            table.is_external_table
-            and schema.is_external_schema
+            table.is_external_table()
+            and schema.is_external_schema()
             and schema.external_platform
         ):
             # external_db_params = schema.option

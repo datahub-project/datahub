@@ -42,7 +42,6 @@ class RedshiftTable(BaseTable):
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
 
-    @property
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
 
@@ -56,7 +55,6 @@ class RedshiftView(BaseTable):
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
 
-    @property
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
 
@@ -71,9 +69,27 @@ class RedshiftSchema:
     external_platform: Optional[str] = None
     external_database: Optional[str] = None
 
-    @property
     def is_external_schema(self) -> bool:
         return self.type == "external"
+
+    def get_upstream_schema_name(self) -> Optional[str]:
+        """Gets the schema name from the external schema option.
+
+        Returns:
+            Optional[str]: The schema name from the external schema option
+            if this is an external schema and has a valid option format, None otherwise.
+        """
+
+        if not self.is_external_schema() or not self.option:
+            return None
+
+        # For external schema on redshift, option is in form
+        # {"SCHEMA":"tickit"}
+        schema_match = re.search(r'"SCHEMA"\s*:\s*"([^"]*)"', self.option)
+        if not schema_match:
+            return None
+        else:
+            return schema_match.group(1)
 
 
 @dataclass
@@ -117,7 +133,6 @@ class RedshiftDatabase:
     type: str
     options: Optional[str] = None
 
-    @property
     def is_shared_database(self) -> bool:
         return self.type == "shared"
 
@@ -128,7 +143,7 @@ class RedshiftDatabase:
     def get_inbound_share(
         self,
     ) -> Optional[Union[InboundDatashare, PartialInboundDatashare]]:
-        if not self.is_shared_database or not self.options:
+        if not self.is_shared_database() or not self.options:
             return None
 
         # Convert into single regex ??
@@ -323,6 +338,7 @@ class RedshiftDataDictionary:
     def get_tables_and_views(
         self,
         conn: redshift_connector.Connection,
+        database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
@@ -336,6 +352,7 @@ class RedshiftDataDictionary:
         cur = RedshiftDataDictionary.get_query_result(
             conn,
             RedshiftCommonQuery.list_tables(
+                database=database,
                 skip_external_tables=skip_external_tables,
                 is_shared_database=is_shared_database,
             ),
@@ -484,14 +501,17 @@ class RedshiftDataDictionary:
     @staticmethod
     def get_columns_for_schema(
         conn: redshift_connector.Connection,
+        database: str,
         schema: RedshiftSchema,
         is_shared_database: bool = False,
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
             RedshiftCommonQuery.list_columns(
-                is_shared_database=is_shared_database
-            ).format(schema_name=schema.name),
+                database_name=database,
+                schema_name=schema.name,
+                is_shared_database=is_shared_database,
+            ),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}
