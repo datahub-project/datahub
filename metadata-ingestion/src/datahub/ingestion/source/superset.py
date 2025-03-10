@@ -307,28 +307,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         total_items = page_size
 
         while current_page * page_size < total_items:
-            try:
-                response = self.session.get(
-                    f"{self.config.connect_uri}/api/v1/{entity_type}",
-                    params={"q": f"(page:{current_page},page_size:{page_size})"},
-                    timeout=10,
-                )
+            response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/{entity_type}",
+                params={"q": f"(page:{current_page},page_size:{page_size})"},
+                timeout=10,
+            )
 
-                if response.status_code != 200:
-                    logger.warning(f"Failed to get {entity_type} data: {response.text}")
+            if response.status_code != 200:
+                logger.warning(f"Failed to get {entity_type} data: {response.text}")
 
-                payload = response.json()
-                # Update total_items with the actual count from the response
-                total_items = payload.get("count", total_items)
-                # Yield each item in the result, this gets passed into the construct functions
-                for item in payload.get("result", []):
-                    yield item
+            payload = response.json()
+            # Update total_items with the actual count from the response
+            total_items = payload.get("count", total_items)
+            # Yield each item in the result, this gets passed into the construct functions
+            for item in payload.get("result", []):
+                yield item
 
-                current_page += 1
-            except requests.exceptions.Timeout:
-                logger.info(
-                    f"Request timed out while fetching {entity_type} data (page {current_page})."
-                )
+            current_page += 1
 
     def parse_owner_info(self) -> Dict[str, Any]:
         entity_types = ["dataset", "dashboard", "chart"]
@@ -351,20 +346,15 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
-        try:
-            dataset_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-                timeout=10,
-            )
-            if dataset_response.status_code != 200:
-                logger.warning(f"Failed to get dataset info: {dataset_response.text}")
-                dataset_response.raise_for_status()
-            return dataset_response.json()
-        except requests.exceptions.Timeout:
-            logger.info(
-                f"Request timed out while fetching dataset info for {dataset_id}."
-            )
-        return {}
+        dataset_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            timeout=10,
+        )
+        if dataset_response.status_code != 200:
+            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+            dataset_response.raise_for_status()
+            return {}
+        return dataset_response.json()
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
