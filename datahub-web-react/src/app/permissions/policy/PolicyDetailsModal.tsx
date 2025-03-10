@@ -171,6 +171,13 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
+                            <Typography.Title level={5}>Asset Condition</Typography.Title>
+                            <ThinDivider />
+                            <PoliciesTag>
+                                {resourceFilterCondition === PolicyMatchCondition.NotEquals ? 'Excludes' : 'Includes'}
+                            </PoliciesTag>
+                        </div>
+                        <div>
                             <Typography.Title level={5}>Assets</Typography.Title>
                             <ThinDivider />
                             {(resourceEntities?.length &&
