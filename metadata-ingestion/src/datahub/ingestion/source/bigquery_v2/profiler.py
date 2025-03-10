@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 
@@ -9,7 +9,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    RANGE_PARTITION_NAME,
     BigqueryTable,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseTable
@@ -57,7 +56,6 @@ class BigqueryProfiler(GenericProfiler):
                 partition_datetime = datetime.strptime(
                     partition_datetime.strftime(format), format
                 )
-
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -65,100 +63,627 @@ class BigqueryProfiler(GenericProfiler):
         upper_bound_partition_datetime = partition_datetime + duration
         return partition_datetime, upper_bound_partition_datetime
 
-    def generate_partition_profiler_query(
+    def _get_most_populated_partitions(
         self,
+        table: BigqueryTable,
         project: str,
         schema: str,
-        table: BigqueryTable,
-        partition_datetime: Optional[datetime] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+        partition_columns: List[str],
+        max_results: int = 5,
+        timeout: int = 120,
+    ) -> Dict[str, Any]:
         """
-        Method returns partition id if table is partitioned or sharded and generate custom partition query for
-        partitioned table.
-        See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
+        Find the most populated partitions for a table based on record count.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            partition_columns: List of partition column names
+            max_results: Maximum number of top partitions to return
+            timeout: Query timeout in seconds
+
+        Returns:
+            Dictionary mapping partition column names to their values
+        """
+        result_values = {}
+
+        # First try with all partition columns together to find combinations with data
+        if len(partition_columns) > 1:
+            try:
+                partition_cols_select = ", ".join(
+                    [f"{col}" for col in partition_columns]
+                )
+                partition_cols_group = ", ".join(partition_columns)
+
+                query = f"""WITH PartitionStats AS (
+    SELECT {partition_cols_select}, COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {" AND ".join([f"{col} IS NOT NULL" for col in partition_columns])}
+    GROUP BY {partition_cols_group}
+    HAVING record_count > 0
+    ORDER BY record_count DESC
+    LIMIT {max_results}
+)
+SELECT * FROM PartitionStats"""
+
+                logger.debug(f"Executing combined partition query: {query}")
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=timeout))
+
+                if results:
+                    # Take the partition combination with the most records
+                    best_result = results[0]
+                    logger.info(
+                        f"Found combined partition with {best_result.record_count} records"
+                    )
+
+                    # Extract values for each partition column
+                    for col in partition_columns:
+                        result_values[col] = getattr(best_result, col)
+
+                    return result_values
+            except Exception as e:
+                logger.warning(f"Error finding combined partition values: {e}")
+                # Continue to individual column approach if combined approach fails
+
+        # If combined approach didn't work or returned no results, try each column individually
+        for col_name in partition_columns:
+            try:
+                # Special handling for date-named columns
+                is_date_column = col_name.lower() in {
+                    "date",
+                    "day",
+                    "dt",
+                    "partition_date",
+                    "date_partition",
+                }
+                is_time_column = col_name.lower() in {
+                    "timestamp",
+                    "datetime",
+                    "time",
+                    "created_at",
+                    "modified_at",
+                    "event_time",
+                }
+                is_month_column = col_name.lower() in {
+                    "month",
+                    "partition_month",
+                    "month_partition",
+                }
+                is_year_column = col_name.lower() in {
+                    "year",
+                    "partition_year",
+                    "year_partition",
+                }
+
+                # For date-related columns, order by the column itself to get most recent
+                # For other columns, order by record count to get most populated
+                if (
+                    is_date_column
+                    or is_time_column
+                    or is_month_column
+                    or is_year_column
+                ):
+                    order_by = f"{col_name} DESC"  # Most recent date first
+                else:
+                    order_by = "record_count DESC"  # Most records first
+
+                query = f"""WITH PartitionStats AS (
+    SELECT {col_name} as val, COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {col_name} IS NOT NULL
+    GROUP BY {col_name}
+    HAVING record_count > 0
+    ORDER BY {order_by}
+    LIMIT {max_results}
+)
+SELECT val, record_count FROM PartitionStats"""
+
+                logger.debug(
+                    f"Executing query for partition column {col_name}: {query}"
+                )
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=timeout))
+
+                if not results or results[0].val is None:
+                    logger.warning(
+                        f"No non-empty partition values found for column {col_name}"
+                    )
+                    continue
+
+                # For time-based columns, prefer the most recent with data
+                # For other columns, use the one with the most data
+                if (
+                    is_date_column
+                    or is_time_column
+                    or is_month_column
+                    or is_year_column
+                ):
+                    chosen_result = results[0]  # Already sorted by date DESC
+                else:
+                    # Find the result with the most records
+                    chosen_result = max(results, key=lambda r: r.record_count)
+
+                result_values[col_name] = chosen_result.val
+                logger.info(
+                    f"Selected partition {col_name}={chosen_result.val} with {chosen_result.record_count} records"
+                )
+
+            except Exception as e:
+                logger.error(f"Error getting partition value for {col_name}: {e}")
+
+        return result_values
+
+    def _get_partition_columns_from_info_schema(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Dict[str, str]:
+        """
+        Get partition columns from INFORMATION_SCHEMA.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            Dictionary mapping column names to data types
+        """
+        query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+        query_job = self.config.get_bigquery_client().query(query)
+        results = list(query_job)
+
+        return {row.column_name: row.data_type for row in results}
+
+    def _get_partition_columns_from_ddl(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Dict[str, str]:
+        """
+        Extract partition columns from table DDL.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            Dictionary mapping column names to data types
+        """
+        partition_cols_with_types: Dict[str, str] = {}
+
+        if not table.ddl:
+            return partition_cols_with_types
+
+        # Look for PARTITION BY in DDL
+        if "PARTITION BY" in table.ddl.upper():
+            ddl_lines = table.ddl.upper().split("\n")
+            for line in ddl_lines:
+                if "PARTITION BY" in line:
+                    # Extract column names from PARTITION BY clause
+                    parts = line.split("PARTITION BY")[1].split("OPTIONS")[0].strip()
+                    potential_cols = [col.strip(", `()") for col in parts.split()]
+
+                    # Get data types for these columns
+                    all_cols_query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+                    all_cols_job = self.config.get_bigquery_client().query(
+                        all_cols_query
+                    )
+                    all_cols_results = list(all_cols_job)
+                    all_cols_dict = {
+                        row.column_name.upper(): row.data_type
+                        for row in all_cols_results
+                    }
+
+                    # Add columns to our result
+                    for col in potential_cols:
+                        if col in all_cols_dict:
+                            partition_cols_with_types[col] = all_cols_dict[col]
+
+        return partition_cols_with_types
+
+    def _create_filter_for_partition_column(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        col_name: str,
+        data_type: str,
+        timeout: int = 300,
+    ) -> Optional[str]:
+        """
+        Create a filter for a single partition column.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            col_name: Partition column name
+            data_type: Data type of the column
+            timeout: Query timeout in seconds
+
+        Returns:
+            Filter string if a valid partition value is found, None otherwise
         """
         logger.debug(
-            f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
+            f"Processing external table partition column: {col_name} with type {data_type}"
         )
-        partition = table.max_partition_id
-        if table.partition_info and partition:
-            partition_where_clause: str
 
-            if table.partition_info.type == RANGE_PARTITION_NAME:
-                if table.partition_info.column:
-                    partition_where_clause = (
-                        f"{table.partition_info.column.name} >= {partition}"
-                    )
-                else:
-                    logger.warning(
-                        f"Partitioned table {table.name} without partition column"
-                    )
-                    self.report.profiling_skipped_invalid_partition_ids[
-                        f"{project}.{schema}.{table.name}"
-                    ] = partition
-                    return None, None
-            else:
-                logger.debug(
-                    f"{table.name} is partitioned and partition column is {partition}"
+        # Query to find a partition value with data
+        query = f"""WITH PartitionStats AS (
+    SELECT {col_name} as val,
+           COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {col_name} IS NOT NULL
+    GROUP BY {col_name}
+    HAVING record_count > 0
+    ORDER BY {col_name} DESC
+    LIMIT 1
+)
+SELECT val, record_count
+FROM PartitionStats"""
+
+        try:
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result(timeout=timeout))
+
+            if not results or results[0].val is None:
+                logger.warning(
+                    f"No non-empty partition values found for column {col_name}"
                 )
-                try:
-                    (
-                        partition_datetime,
-                        upper_bound_partition_datetime,
-                    ) = self.get_partition_range_from_partition_id(
-                        partition, partition_datetime
-                    )
-                except ValueError as e:
-                    logger.error(
-                        f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
-                    )
-                    self.report.profiling_skipped_invalid_partition_ids[
-                        f"{project}.{schema}.{table.name}"
-                    ] = partition
-                    return None, None
+                return None
 
-                partition_data_type: str = "TIMESTAMP"
-                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
-                # See more about this at
-                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
-                partition_column_name = "_PARTITIONTIME"
-                if table.partition_info.column:
-                    partition_column_name = table.partition_info.column.name
-                    partition_data_type = table.partition_info.column.data_type
-                if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                else:
-                    logger.warning(
-                        f"Not supported partition type {table.partition_info.type}"
-                    )
-                    self.report.profiling_skipped_invalid_partition_type[
-                        f"{project}.{schema}.{table.name}"
-                    ] = table.partition_info.type
-                    return None, None
-            custom_sql = """
-SELECT
-    *
-FROM
-    `{table_catalog}.{table_schema}.{table_name}`
-WHERE
-    {partition_where_clause}
-            """.format(
-                table_catalog=project,
-                table_schema=schema,
-                table_name=table.name,
-                partition_where_clause=partition_where_clause,
+            val = results[0].val
+            record_count = results[0].record_count
+            logger.info(
+                f"Selected external partition {col_name}={val} with {record_count} records"
             )
 
-            return (partition, custom_sql)
-        elif table.max_shard_id:
-            # For sharded table we want to get the partition id but not needed to generate custom query
-            return table.max_shard_id, None
+            # Format filter based on data type
+            data_type_upper = data_type.upper() if data_type else ""
+            if data_type_upper in ("STRING", "VARCHAR"):
+                return f"`{col_name}` = '{val}'"
+            elif data_type_upper == "DATE":
+                if isinstance(val, datetime):
+                    return f"`{col_name}` = DATE '{val.strftime('%Y-%m-%d')}'"
+                return f"`{col_name}` = DATE '{val}'"
+            elif data_type_upper in ("TIMESTAMP", "DATETIME"):
+                if isinstance(val, datetime):
+                    return f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
+                return f"`{col_name}` = TIMESTAMP '{val}'"
+            else:
+                # Default to numeric or other type
+                return f"`{col_name}` = {val}"
 
-        return None, None
+        except Exception as e:
+            logger.warning(
+                f"Error determining value for partition column {col_name}: {e}"
+            )
+            return None
+
+    def _get_external_table_partition_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        current_time: datetime,
+    ) -> Optional[List[str]]:
+        """Get partition filters specifically for external tables.
+
+        Args:
+            table: BigqueryTable instance containing table metadata
+            project: The BigQuery project ID
+            schema: The dataset/schema name
+            current_time: Current UTC datetime
+
+        Returns:
+            List of partition filter strings if partition columns found and filters could be constructed
+            Empty list if no partitions found
+            None if partition filters could not be determined
+        """
+        try:
+            # Step 1: Get partition columns from INFORMATION_SCHEMA
+            partition_cols_with_types = self._get_partition_columns_from_info_schema(
+                table, project, schema
+            )
+
+            # Step 2: If no columns found, try extracting from DDL
+            if not partition_cols_with_types:
+                partition_cols_with_types = self._get_partition_columns_from_ddl(
+                    table, project, schema
+                )
+
+            # Step 3: If still no columns found, return empty list
+            if not partition_cols_with_types:
+                logger.info(
+                    f"No partition columns found for external table {table.name}"
+                )
+                return []
+
+            logger.info(
+                f"Found {len(partition_cols_with_types)} partition columns: {list(partition_cols_with_types.keys())}"
+            )
+
+            # Step 4: Create filters for each partition column
+            partition_filters = []
+            for col_name, data_type in partition_cols_with_types.items():
+                filter_str = self._create_filter_for_partition_column(
+                    table, project, schema, col_name, data_type
+                )
+                if filter_str:
+                    partition_filters.append(filter_str)
+
+            return partition_filters
+
+        except Exception as e:
+            logger.error(f"Error checking external table partitioning: {e}")
+            return None
+
+    # Add this method to improve detection of partition columns from INFORMATION_SCHEMA if not found in partition_info
+    def _get_required_partition_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Optional[List[str]]:
+        """Get partition filters for all required partition columns.
+
+        Args:
+            table: BigqueryTable instance containing table metadata
+            project: The BigQuery project ID
+            schema: The dataset/schema name
+
+        Returns:
+            List of partition filter strings if partition columns found and filters could be constructed
+            Empty list if no partitions found
+            None if partition filters could not be determined
+        """
+        current_time = datetime.now(timezone.utc)
+        partition_filters = []
+
+        # Get required partition columns from table info
+        required_partition_columns = set()
+
+        # Get from explicit partition_info if available
+        if table.partition_info:
+            if isinstance(table.partition_info.fields, list):
+                required_partition_columns.update(table.partition_info.fields)
+
+            if table.partition_info.columns:
+                required_partition_columns.update(
+                    col.name for col in table.partition_info.columns if col
+                )
+
+        # If no partition columns found from partition_info, query INFORMATION_SCHEMA
+        if not required_partition_columns:
+            try:
+                query = f"""SELECT column_name
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job)
+                required_partition_columns = {row.column_name for row in results}
+                logger.debug(
+                    f"Found partition columns from schema: {required_partition_columns}"
+                )
+            except Exception as e:
+                logger.error(f"Error querying partition columns: {e}")
+
+        # If still no partition columns found, check for external table partitioning
+        if not required_partition_columns:
+            logger.debug(f"No partition columns found for table {table.name}")
+            if table.external:
+                return self._get_external_table_partition_filters(
+                    table, project, schema, current_time
+                )
+            else:
+                return None
+
+        logger.debug(f"Required partition columns: {required_partition_columns}")
+
+        # Get column data types to handle casting correctly
+        column_data_types = {}
+        try:
+            query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job)
+            column_data_types = {row.column_name: row.data_type for row in results}
+        except Exception as e:
+            logger.error(f"Error fetching column data types: {e}")
+
+        # Handle standard time-based columns without querying
+        standard_time_columns = {"year", "month", "day", "hour"}
+        time_based_columns = {
+            col
+            for col in required_partition_columns
+            if col.lower() in standard_time_columns
+        }
+        other_columns = required_partition_columns - time_based_columns
+
+        for col_name in time_based_columns:
+            col_name_lower = col_name.lower()
+            col_data_type = column_data_types.get(col_name, "STRING")
+
+            if col_name_lower == "year":
+                value = current_time.year
+            elif col_name_lower == "month":
+                value = current_time.month
+            elif col_name_lower == "day":
+                value = current_time.day
+            elif col_name_lower == "hour":
+                value = current_time.hour
+            else:
+                continue
+
+            # Handle casting based on column type
+            if col_data_type.upper() in {"STRING"}:
+                partition_filters.append(f"`{col_name}` = '{value}'")
+            else:
+                partition_filters.append(f"`{col_name}` = {value}")
+
+        # Fetch latest value for non-time-based partitions
+        for col_name in other_columns:
+            try:
+                # Query to get latest non-empty partition
+                query = f"""WITH PartitionStats AS (
+    SELECT {col_name} as val,
+           COUNT(*) as record_count
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {col_name} IS NOT NULL
+    GROUP BY {col_name}
+    HAVING record_count > 0
+    ORDER BY {col_name} DESC
+    LIMIT 1
+)
+SELECT val, record_count
+FROM PartitionStats"""
+                logger.debug(f"Executing query for partition value: {query}")
+
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=300))
+
+                if not results or results[0].val is None:
+                    logger.warning(
+                        f"No non-empty partition values found for column {col_name}"
+                    )
+                    continue
+
+                val = results[0].val
+                record_count = results[0].record_count
+                logger.info(
+                    f"Selected partition {col_name}={val} with {record_count} records"
+                )
+
+                if isinstance(val, (int, float)):
+                    partition_filters.append(f"`{col_name}` = {val}")
+                else:
+                    partition_filters.append(f"`{col_name}` = '{val}'")
+
+            except Exception as e:
+                logger.error(f"Error getting partition value for {col_name}: {e}")
+
+        logger.debug(f"Final partition filters: {partition_filters}")
+        return partition_filters if partition_filters else None
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        """Handle partition-aware querying for all operations including COUNT."""
+        bq_table = cast(BigqueryTable, table)
+        base_kwargs = {
+            "schema": db_name,  # <project>
+            "table": f"{schema_name}.{table.name}",  # <dataset>.<table>
+            "project": db_name,
+            "dataset": schema_name,
+            "table_name": bq_table.name,
+        }
+
+        # Different handling path for external tables vs native tables
+        if bq_table.external:
+            logger.info(f"Processing external table: {bq_table.name}")
+            partition_filters = self._get_external_table_partition_filters(
+                bq_table, db_name, schema_name, datetime.now(timezone.utc)
+            )
+        else:
+            partition_filters = self._get_required_partition_filters(
+                bq_table, db_name, schema_name
+            )
+
+        if partition_filters is None:
+            logger.warning(
+                f"Could not construct partition filters for {bq_table.name}. "
+                "This may cause partition elimination errors."
+            )
+            return base_kwargs
+
+        # If no partition filters needed, return base kwargs
+        if not partition_filters:
+            return base_kwargs
+
+        # Construct query with partition filters
+        partition_where = " AND ".join(partition_filters)
+        logger.debug(f"Using partition filters: {partition_where}")
+
+        custom_sql = f"""SELECT * 
+FROM `{db_name}.{schema_name}.{table.name}`
+WHERE {partition_where}"""
+
+        base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
+
+        return base_kwargs
+
+    def get_profile_request(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> Optional[TableProfilerRequest]:
+        """Get profile request with appropriate partition handling."""
+        profile_request = super().get_profile_request(table, schema_name, db_name)
+
+        if not profile_request:
+            return None
+
+        bq_table = cast(BigqueryTable, table)
+
+        # Skip external tables if configured to do so
+        if bq_table.external and not self.config.profiling.profile_external_tables:
+            self.report.report_warning(
+                title="Profiling skipped for external table",
+                message="profiling.profile_external_tables is disabled",
+                context=profile_request.pretty_name,
+            )
+            return None
+
+        # Get partition filters
+        partition_filters = self._get_required_partition_filters(
+            bq_table, db_name, schema_name
+        )
+
+        # If we got None back, that means there was an error getting partition filters
+        if partition_filters is None:
+            self.report.report_warning(
+                title="Profile skipped for partitioned table",
+                message="Could not construct partition filters - required for partition elimination",
+                context=profile_request.pretty_name,
+            )
+            return None
+
+        if not self.config.profiling.partition_profiling_enabled:
+            logger.debug(
+                f"{profile_request.pretty_name} is skipped because profiling.partition_profiling_enabled property is disabled"
+            )
+            self.report.profiling_skipped_partition_profiling_disabled.append(
+                profile_request.pretty_name
+            )
+            return None
+
+        # Only add partition handling if we actually have partition filters
+        if partition_filters:
+            partition_where = " AND ".join(partition_filters)
+            custom_sql = f"""SELECT * 
+    FROM `{db_name}.{schema_name}.{bq_table.name}`
+    WHERE {partition_where}"""
+
+            logger.debug(f"Using partition filters: {partition_where}")
+            profile_request.batch_kwargs.update(
+                dict(custom_sql=custom_sql, partition_handling="true")
+            )
+
+        return profile_request
 
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
+        """Get profile workunits handling both internal and external tables."""
         profile_requests: List[TableProfilerRequest] = []
 
         for dataset in tables:
@@ -174,7 +699,7 @@ WHERE
                     )
                     continue
 
-                # Emit the profile work unit
+                # Emit profile work unit
                 logger.debug(
                     f"Creating profile request for table {normalized_table_name}"
                 )
@@ -184,11 +709,12 @@ WHERE
                     profile_requests.append(profile_request)
                 else:
                     logger.debug(
-                        f"Table {normalized_table_name} was not eliagible for profiling."
+                        f"Table {normalized_table_name} was not eligible for profiling."
                     )
 
         if len(profile_requests) == 0:
             return
+
         yield from self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
@@ -197,61 +723,7 @@ WHERE
         )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        """Get dataset name in BigQuery format."""
         return BigqueryTableIdentifier(
             project_id=db_name, dataset=schema_name, table=table_name
         ).get_table_name()
-
-    def get_batch_kwargs(
-        self, table: BaseTable, schema_name: str, db_name: str
-    ) -> dict:
-        return dict(
-            schema=db_name,  # <project>
-            table=f"{schema_name}.{table.name}",  # <dataset>.<table>
-        )
-
-    def get_profile_request(
-        self, table: BaseTable, schema_name: str, db_name: str
-    ) -> Optional[TableProfilerRequest]:
-        profile_request = super().get_profile_request(table, schema_name, db_name)
-
-        if not profile_request:
-            return None
-
-        # Below code handles profiling changes required for partitioned or sharded tables
-        # 1. Skip profile if partition profiling is disabled.
-        # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
-
-        bq_table = cast(BigqueryTable, table)
-        (partition, custom_sql) = self.generate_partition_profiler_query(
-            db_name, schema_name, bq_table, self.config.profiling.partition_datetime
-        )
-
-        if partition is None and bq_table.partition_info:
-            self.report.report_warning(
-                title="Profile skipped for partitioned table",
-                message="profile skipped as partitioned table is empty or partition id or type was invalid",
-                context=profile_request.pretty_name,
-            )
-            return None
-        if (
-            partition is not None
-            and not self.config.profiling.partition_profiling_enabled
-        ):
-            logger.debug(
-                f"{profile_request.pretty_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
-            )
-            self.report.profiling_skipped_partition_profiling_disabled.append(
-                profile_request.pretty_name
-            )
-            return None
-
-        if partition:
-            logger.debug("Updating profiling request for partitioned/sharded tables")
-            profile_request.batch_kwargs.update(
-                dict(
-                    custom_sql=custom_sql,
-                    partition=partition,
-                )
-            )
-
-        return profile_request
