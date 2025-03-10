@@ -2,14 +2,15 @@ name: build jars
 on:
   push:
     branches:
-      - load-cache-workflow
+      - read-cache-workflow
       # master      
     paths-ignore:
       - "docs/**"
       - "**.md"
   pull_request:
     branches:
-      - "load-cache-workflow"
+      - "read-cache-workflow"
+
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -36,8 +37,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-home-cache-key: build-jars-cache-key
-          cache-write-only: true
-
+          cache-read-only: true
+      
       - name: Build JARs
         run: |
           ./gradlew jar -x datahub-web-react:jar -x datahub-frontend:jar --parallel --info
