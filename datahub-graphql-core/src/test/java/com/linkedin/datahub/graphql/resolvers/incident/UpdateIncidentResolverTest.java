@@ -53,17 +53,7 @@ public class UpdateIncidentResolverTest {
     existingInfo.setEntities(
         new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))));
     existingInfo.setStatus(
-        new IncidentStatus()
-            .setState(IncidentState.ACTIVE)
-            .setStage(IncidentStage.INVESTIGATION)
-            .setMessage("Message"));
-    existingInfo.setAssignees(
-        new IncidentAssigneeArray(
-            ImmutableList.of(
-                new IncidentAssignee()
-                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
-                    .setAssignedAt(new AuditStamp()))));
-    existingInfo.setPriority(0);
+        new IncidentStatus().setState(IncidentState.ACTIVE).setMessage("Message"));
     existingInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
 
     EntityService mockEntityService = Mockito.mock(EntityService.class);
