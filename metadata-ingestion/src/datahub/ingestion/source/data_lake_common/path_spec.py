@@ -454,10 +454,8 @@ class PathSpec(ConfigModel):
                     return None
                 partition = partition_split[0]
                 # If partition is in the form of /value1/value2/value3 we infer it from the path and assign partition_0, partition_1, partition_2 etc
-                num = 0
-                for partition_value in partition.split("/"):
+                for num, partition_value in enumerate(partition.split("/")):
                     partition_keys.append((f"partition_{num}", partition_value))
-                    num += 1
             return partition_keys
 
         return None

@@ -821,12 +821,8 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         try:
             view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
+            # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
+            view_definition = str(view_definition) if view_definition else ""
         except NotImplementedError:
             view_definition = ""
 
