@@ -1,5 +1,5 @@
 import { useGetOperationsQuery } from '@src/graphql/dataset.generated';
-import { FacetFilterInput } from '@src/types.generated';
+import { FacetFilterInput, FilterOperator } from '@src/types.generated';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { uniq } from 'lodash';
@@ -9,6 +9,8 @@ import { hasPrefix, removePrefix } from '../../utils';
 import { OPERATIONS_LIMIT } from './constants';
 
 dayjs.extend(utc);
+
+const TIMESTAMP_FIELD = 'lastUpdatedTimestamp';
 
 export default function useGetOperations(
     urn: string,
@@ -35,36 +37,56 @@ export default function useGetOperations(
         return undefined;
     }, [selectedActors]);
 
+    const timeFilters = useMemo(() => {
+        if (!start || !end) return [];
+        return [
+            {
+                field: TIMESTAMP_FIELD,
+                condition: FilterOperator.GreaterThanOrEqualTo,
+                values: [start.toString()],
+            },
+            {
+                field: TIMESTAMP_FIELD,
+                condition: FilterOperator.LessThanOrEqualTo,
+                values: [end.toString()],
+            },
+        ];
+    }, [start, end]);
+
     const predefinedOperationTypesFilters = useMemo(() => {
         const collectedFilters: FacetFilterInput[] = [];
-        collectedFilters.push({
-            field: 'operationType',
-            values: selectedOperationTypes,
-        });
+        collectedFilters.push(
+            {
+                field: 'operationType',
+                values: selectedOperationTypes,
+            },
+            ...timeFilters,
+        );
 
         if (actorsFilter) collectedFilters.push(actorsFilter);
 
         return collectedFilters;
-    }, [actorsFilter, selectedOperationTypes]);
+    }, [actorsFilter, selectedOperationTypes, timeFilters]);
 
     const customOperationTypesFilters = useMemo(() => {
         const collectedFilters: FacetFilterInput[] = [];
-        collectedFilters.push({
-            field: 'customOperationType',
-            values: customOperationTypes,
-        });
+        collectedFilters.push(
+            {
+                field: 'customOperationType',
+                values: customOperationTypes,
+            },
+            ...timeFilters,
+        );
 
         if (actorsFilter) collectedFilters.push(actorsFilter);
 
         return collectedFilters;
-    }, [customOperationTypes, actorsFilter]);
+    }, [customOperationTypes, actorsFilter, timeFilters]);
 
     const { data: predefinedOperationTypesData, loading: predefinedOperationTypesDataloading } = useGetOperationsQuery({
         variables: {
             urn,
             limit: OPERATIONS_LIMIT,
-            startTime: start,
-            endTime: end,
             filters: {
                 and: predefinedOperationTypesFilters,
             },
@@ -75,8 +97,6 @@ export default function useGetOperations(
         variables: {
             urn,
             limit: OPERATIONS_LIMIT,
-            startTime: start,
-            endTime: end,
             filters: {
                 and: customOperationTypesFilters,
             },
@@ -87,9 +107,9 @@ export default function useGetOperations(
     const operations = useMemo(() => {
         const predefinedOperations = predefinedOperationTypesData?.dataset?.operations || [];
         const customOperations = customOperationTypesData?.dataset?.operations || [];
-        const allOperations = [...predefinedOperations, ...customOperations]
-            .sort((a, b) => b.timestampMillis - a.timestampMillis)
-            .slice(0, OPERATIONS_LIMIT);
+        const allOperations = [...predefinedOperations, ...customOperations].sort(
+            (a, b) => b.lastUpdatedTimestamp - a.lastUpdatedTimestamp,
+        );
         return allOperations;
     }, [predefinedOperationTypesData?.dataset?.operations, customOperationTypesData?.dataset?.operations]);
 
