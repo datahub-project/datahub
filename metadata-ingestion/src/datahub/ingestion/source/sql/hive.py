@@ -777,7 +777,7 @@ class HiveSource(TwoTierSQLAlchemySource):
             column,
             inspector,
             pk_constraints,
-            partition_keys=partition_keys
+            partition_keys=partition_keys,
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(
@@ -856,7 +856,7 @@ class HiveSource(TwoTierSQLAlchemySource):
             )
 
     def get_partitions(
-            self, inspector: Inspector, schema: str, table: str
+        self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
         partition_columns: List[dict] = inspector.get_indexes(
             table_name=table, schema=schema
