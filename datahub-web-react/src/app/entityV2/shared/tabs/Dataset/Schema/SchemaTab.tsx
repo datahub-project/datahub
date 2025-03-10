@@ -219,7 +219,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}
-                schemaFilter={filterText}
+                filterText={filterText}
+                setFilterText={setFilterText}
                 showRaw={showRaw}
                 setShowRaw={setShowRaw}
                 hasRaw={hasRawSchema}
@@ -230,7 +231,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 versionList={versionList}
                 showSchemaTimeline={showSchemaTimelineView}
                 setShowSchemaTimeline={setShowSchemaTimelineView}
-                setFilterText={setFilterText}
                 numRows={schemaMetadata?.fields?.length}
                 schemaFilterTypes={schemaFilterTypes}
                 setSchemaFilterTypes={setSchemaFilterTypes}
