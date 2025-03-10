@@ -9,12 +9,12 @@ from pytest import Config
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
+    gen_mock_experiment,
+    gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
-    gen_mock_experiment,
-    gen_mock_experiment_run
 )
 from tests.test_helpers import mce_helpers
 
@@ -22,7 +22,6 @@ T = TypeVar("T")
 
 PROJECT_ID = "test-project-id"
 REGION = "us-west2"
-
 
 
 @pytest.fixture

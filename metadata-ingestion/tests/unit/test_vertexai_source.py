@@ -1,14 +1,10 @@
 import contextlib
 import json
-from datetime import datetime
 from typing import List
 from unittest.mock import patch
 
 import pytest
-from google.cloud.aiplatform import AutoMLTabularTrainingJob, Experiment, ExperimentRun
-from google.cloud.aiplatform.base import VertexAiResourceNoun
-from google.cloud.aiplatform.models import Endpoint, Model, VersionInfo
-from google.protobuf import timestamp_pb2
+from google.cloud.aiplatform import Experiment, ExperimentRun
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -32,8 +28,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
-    MetadataChangeProposalClass,
     DatasetPropertiesClass,
+    MetadataChangeProposalClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLTrainingRunPropertiesClass,
@@ -43,13 +39,13 @@ from datahub.metadata.schema_classes import (
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_endpoint,
+    gen_mock_experiment,
+    gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_version,
     gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
-    gen_mock_experiment,
-    gen_mock_experiment_run,
 )
 
 PROJECT_ID = "acryl-poc"

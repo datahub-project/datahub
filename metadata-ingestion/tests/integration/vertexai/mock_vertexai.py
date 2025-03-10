@@ -2,7 +2,13 @@ from datetime import datetime
 from typing import List
 from unittest.mock import MagicMock
 
-from google.cloud.aiplatform import AutoMLTabularTrainingJob, CustomJob, Model, Experiment, ExperimentRun
+from google.cloud.aiplatform import (
+    AutoMLTabularTrainingJob,
+    CustomJob,
+    Experiment,
+    ExperimentRun,
+    Model,
+)
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, VersionInfo
 from google.protobuf import timestamp_pb2
@@ -80,6 +86,7 @@ def gen_mock_endpoint() -> Endpoint:
     mock_endpoint.create_time = datetime.now()
     mock_endpoint.display_name = "test endpoint display name"
     return mock_endpoint
+
 
 def gen_mock_experiment(num: int = 1) -> Experiment:
     mock_experiment = MagicMock(spec=Experiment)
