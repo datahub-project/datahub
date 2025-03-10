@@ -9,7 +9,7 @@ from freezegun import freeze_time
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
@@ -398,7 +398,7 @@ def test_fivetran_snowflake_destination_config():
 @freeze_time(FROZEN_TIME)
 def test_fivetran_bigquery_destination_config():
     bigquery_dest = BigQueryDestinationConfig(
-        credential=BigQueryCredential(
+        credential=GCPCredential(
             private_key_id="testprivatekey",
             project_id="test-project",
             client_email="fivetran-connector@test-project.iam.gserviceaccount.com",

@@ -1,8 +1,6 @@
-import json
 import logging
 import os
 import re
-import tempfile
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
@@ -17,10 +15,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -107,50 +105,8 @@ class BigQueryUsageConfig(BaseUsageConfig):
     )
 
 
-class BigQueryCredential(ConfigModel):
-    project_id: str = Field(description="Project id to set the credentials")
-    private_key_id: str = Field(description="Private key id")
-    private_key: str = Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
-    )
-    client_email: str = Field(description="Client email")
-    client_id: str = Field(description="Client Id")
-    auth_uri: str = Field(
-        default="https://accounts.google.com/o/oauth2/auth",
-        description="Authentication uri",
-    )
-    token_uri: str = Field(
-        default="https://oauth2.googleapis.com/token", description="Token uri"
-    )
-    auth_provider_x509_cert_url: str = Field(
-        default="https://www.googleapis.com/oauth2/v1/certs",
-        description="Auth provider x509 certificate url",
-    )
-    type: str = Field(default="service_account", description="Authentication type")
-    client_x509_cert_url: Optional[str] = Field(
-        default=None,
-        description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
-    )
-
-    _fix_private_key_newlines = pydantic_multiline_string("private_key")
-
-    @root_validator(skip_on_failure=True)
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if values.get("client_x509_cert_url") is None:
-            values["client_x509_cert_url"] = (
-                f"https://www.googleapis.com/robot/v1/metadata/x509/{values['client_email']}"
-            )
-        return values
-
-    def create_credential_temp_file(self) -> str:
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
-            fp.write(cred_json.encode())
-            return fp.name
-
-
 class BigQueryConnectionConfig(ConfigModel):
-    credential: Optional[BigQueryCredential] = Field(
+    credential: Optional[GCPCredential] = Field(
         default=None, description="BigQuery credential informations"
     )
 
