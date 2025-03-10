@@ -289,14 +289,6 @@ module.exports = {
       // darkTheme: require("prism-react-renderer/themes/vsDark"),
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
-    algolia: {
-      appId: "RK0UG797F3",
-      apiKey: "39d7eb90d8b31d464e309375a52d674f",
-      indexName: "datahubproject",
-      insights: true,
-      contextualSearch: true,
-      // debug: true,
-    },
   },
   presets: [
     [
