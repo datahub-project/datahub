@@ -310,7 +310,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/{entity_type}",
                 params={"q": f"(page:{current_page},page_size:{page_size})"},
-                timeout=10,
             )
 
             if response.status_code != 200:
@@ -348,11 +347,9 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-            timeout=10,
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")
-            dataset_response.raise_for_status()
             return {}
         return dataset_response.json()
 
