@@ -22,11 +22,11 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
-# try:
-#     # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
-#     import pandas
-# except ImportError:
-#     pass
+try:
+    # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
+    import pandas
+except ImportError:
+    pass
 import freezegun  # noqa: E402
 
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
