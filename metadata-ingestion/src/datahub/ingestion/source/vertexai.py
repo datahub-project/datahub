@@ -179,7 +179,7 @@ class VertexAISource(Source):
         yield from auto_workunit(self._get_training_jobs_mcps())
         # Fetch and Ingest Experiments
         yield from self._get_experiments_workunits()
-        # # Fetch and Ingest Experiment Runs
+        # Fetch and Ingest Experiment Runs
         yield from auto_workunit(self._get_experiment_runs_mcps())
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -203,6 +203,7 @@ class VertexAISource(Source):
         self, experiment: Experiment
     ) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
+            parent_container_key=self._get_project_container(),
             container_key=ContainerKeyWithId(
                 platform=self.platform,
                 id=self._make_vertexai_experiment_name(experiment.name),
