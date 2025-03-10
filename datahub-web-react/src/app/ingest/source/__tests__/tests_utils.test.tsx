@@ -48,6 +48,17 @@ const PROPERTY_CONDITIONS = {
     rules: [],
 };
 
+const NULL_CONDITIONS = {
+    source: {
+        type: 'snowflake',
+        config: {
+            profiling: {
+                profile_table_size_limit: null,
+            },
+        },
+    },
+};
+
 const COMPLEX_CONDITIONS = {
     on: {
         types: ['dataset', 'dashboard'],
@@ -111,5 +122,11 @@ describe('removeEmptyArrays', () => {
     test('should remain same as conditions are complex but not empty', () => {
         const result = removeEmptyArrays(COMPLEX_CONDITIONS);
         expect(result).toEqual(COMPLEX_CONDITIONS);
+    });
+
+    test('preserves null values in config settings', () => {
+        const result = removeEmptyArrays(NULL_CONDITIONS);
+        expect(result).toEqual(NULL_CONDITIONS);
+        expect(result.source.config.profiling.profile_table_size_limit).toBeNull();
     });
 });
