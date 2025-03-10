@@ -11,7 +11,7 @@ from cached_property import cached_property
 from pydantic.fields import Field
 from wcmatch import pathlib
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
@@ -145,6 +145,11 @@ class PathSpec(ConfigModel):
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
 
+    tables_filter_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -177,6 +182,12 @@ class PathSpec(ConfigModel):
                 ):
                     return False
         logger.debug(f"{path} is not excluded")
+
+        table_name, _ = self.extract_table_name_and_path(path)
+        if not self.tables_filter_pattern.allowed(table_name):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
@@ -218,6 +229,15 @@ class PathSpec(ConfigModel):
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
                     return False
+
+        file_name_pattern = self.include.rsplit("/", 1)[1]
+        table_name, _ = self.extract_table_name_and_path(
+            os.path.join(path, file_name_pattern)
+        )
+        if not self.tables_filter_pattern.allowed(table_name):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         return True
 
     @classmethod
