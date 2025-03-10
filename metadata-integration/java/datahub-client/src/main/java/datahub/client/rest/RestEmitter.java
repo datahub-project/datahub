@@ -226,7 +226,7 @@ public class RestEmitter implements Emitter {
     simpleRequestBuilder.setHeader("Content-Type", "application/json");
     simpleRequestBuilder.setHeader("X-RestLi-Protocol-Version", "2.0.0");
     simpleRequestBuilder.setHeader("Accept", "application/json");
-    simpleRequestBuilder.setHeader("Host", "sangam.datahub-gms.dsp.io");
+
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::setHeader);
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
@@ -296,7 +296,6 @@ public class RestEmitter implements Emitter {
                     .addHeader("Content-Type", "application/json")
                     .addHeader("X-RestLi-Protocol-Version", "2.0.0")
                     .addHeader("Accept", "application/json")
-                    .addHeader("Host", "sangam.datahub-gms.dsp.io")
                     .build();
 
     Future<SimpleHttpResponse> response = this.httpClient.execute(simpleHttpRequest, null);
@@ -326,7 +325,6 @@ public class RestEmitter implements Emitter {
             SimpleRequestBuilder.post(ingestOpenApiUrl)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("Accept", "application/json")
-                    .addHeader("Host", "sangam.datahub-gms.dsp.io")
                     .addHeader("X-RestLi-Protocol-Version", "2.0.0");
 
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::addHeader);

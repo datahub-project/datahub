@@ -28,6 +28,7 @@ public class SparkConfigParser {
   public static final String EMITTER_TYPE = "emitter";
   public static final String GMS_URL_KEY = "rest.server";
   public static final String GMS_AUTH_TOKEN = "rest.token";
+  public static final String GMS_HEADERS = "rest.headers.";
   public static final String FILE_EMITTER_FILE_NAME = "file.filename";
   public static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
   public static final String REST_DISABLE_CHUNKED_ENCODING = "rest.disable_chunked_encoding";
