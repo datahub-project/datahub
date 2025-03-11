@@ -38,7 +38,7 @@ from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.metadata._urns.urn_defs import DataPlatformUrn
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLTrainingRunProperties,
 )
