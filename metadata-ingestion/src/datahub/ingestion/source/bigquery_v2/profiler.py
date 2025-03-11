@@ -377,7 +377,7 @@ FROM PartitionStats"""
         schema: str,
         current_time: datetime,
     ) -> Optional[List[str]]:
-        """Get partition filters specifically for external tables.
+        """Get partition filters for external tables with minimal scanning.
 
         Args:
             table: BigqueryTable instance containing table metadata
@@ -386,23 +386,14 @@ FROM PartitionStats"""
             current_time: Current UTC datetime
 
         Returns:
-            List of partition filter strings if partition columns found and filters could be constructed
-            Empty list if no partitions found
-            None if partition filters could not be determined
+            List of partition filter strings if found, empty list if no partitions, None if error
         """
         try:
-            # Step 1: Get partition columns from INFORMATION_SCHEMA
-            partition_cols_with_types = self._get_partition_columns_from_info_schema(
+            # Step 1: Get partition columns info
+            partition_cols_with_types = self._get_external_table_partition_columns(
                 table, project, schema
             )
 
-            # Step 2: If no columns found, try extracting from DDL
-            if not partition_cols_with_types:
-                partition_cols_with_types = self._get_partition_columns_from_ddl(
-                    table, project, schema
-                )
-
-            # Step 3: If still no columns found, return empty list
             if not partition_cols_with_types:
                 logger.info(
                     f"No partition columns found for external table {table.name}"
@@ -410,91 +401,346 @@ FROM PartitionStats"""
                 return []
 
             logger.info(
-                f"Found {len(partition_cols_with_types)} partition columns: {list(partition_cols_with_types.keys())}"
+                f"Found partition columns: {list(partition_cols_with_types.keys())}"
             )
 
-            # Step 4: First try sampling approach (most efficient)
-            sample_filters = self._get_partitions_with_sampling(table, project, schema)
-            if sample_filters:
-                return sample_filters
+            # Step 2: Try the most efficient sampling strategies
+            filters = self._try_efficient_sampling_strategies(
+                table, project, schema, partition_cols_with_types, current_time
+            )
+            if filters:
+                return filters
 
-            # Step 5: For time partitions in external tables, try recent dates
-            date_columns = {
-                col: data_type
-                for col, data_type in partition_cols_with_types.items()
-                if (
-                    col.lower()
-                    in {"date", "dt", "day", "created_date", "partition_date"}
-                )
-                or (data_type.upper() == "DATE")
-            }
+            # Step 3: Try column-specific strategies for common partition types
+            filters = self._try_column_specific_strategies(
+                table, project, schema, partition_cols_with_types, current_time
+            )
+            if filters:
+                return filters
 
-            timestamp_columns = {
-                col: data_type
-                for col, data_type in partition_cols_with_types.items()
-                if (
-                    col.lower()
-                    in {"timestamp", "time", "datetime", "created_at", "updated_at"}
-                )
-                or (data_type.upper() in {"TIMESTAMP", "DATETIME"})
-            }
-
-            # Handle date columns first - try working backwards from current date
-            if date_columns:
-                filters = self._try_recent_date_partitions(
-                    table, project, schema, date_columns, current_time
-                )
-                if filters:
-                    return filters
-
-            # Next try timestamp columns similarly
-            if timestamp_columns:
-                filters = self._try_recent_timestamp_partitions(
-                    table, project, schema, timestamp_columns, current_time
-                )
-                if filters:
-                    return filters
-
-            # Step 6: For non-time partitions, try small-scale sampling for each column
-            for col_name, data_type in partition_cols_with_types.items():
-                if col_name in date_columns or col_name in timestamp_columns:
-                    continue  # Already tried these
-
-                # Try to get a few distinct values with minimal scanning
-                try:
-                    query = f"""
-                    SELECT DISTINCT {col_name}
-                    FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (0.5 PERCENT) 
-                    WHERE {col_name} IS NOT NULL
-                    LIMIT 5
-                    """
-
-                    query_job = self.config.get_bigquery_client().query(query)
-                    values = [getattr(row, col_name) for row in query_job.result()]
-
-                    # Try each value to find one that works
-                    for val in values:
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, val, data_type
-                        )
-
-                        # Verify this value returns data with minimal scanning
-                        if self._verify_partition_has_data_with_limit(
-                            table, project, schema, [filter_str], limit=10
-                        ):
-                            return [filter_str]
-                except Exception as e:
-                    logger.warning(f"Error sampling values for column {col_name}: {e}")
-
-            # Last resort: fallback to regular combination finding with careful limits
-            logger.warning(f"Using fallback approach for external table {table.name}")
-            return self._find_valid_partition_combination_for_external(
+            # Step 4: Fall back to general strategies
+            return self._try_general_fallback_strategies(
                 table, project, schema, partition_cols_with_types
             )
 
         except Exception as e:
-            logger.error(f"Error checking external table partitioning: {e}")
+            logger.error(f"Error finding partition filters for external table: {e}")
             return None
+
+    def _get_external_table_partition_columns(
+        self, table: BigqueryTable, project: str, schema: str
+    ) -> Dict[str, str]:
+        """
+        Get partition columns for an external table.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+
+        Returns:
+            Dictionary mapping column names to data types
+        """
+        # First check table metadata
+        partition_cols = set()
+        if table.partition_info and table.partition_info.fields:
+            partition_cols.update(table.partition_info.fields)
+            if table.partition_info.columns:
+                partition_cols.update(
+                    col.name for col in table.partition_info.columns if col
+                )
+
+        # If no columns from metadata, try INFORMATION_SCHEMA
+        if not partition_cols:
+            query = f"""
+            SELECT column_name, data_type
+            FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+            WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'
+            """
+            query_job = self.config.get_bigquery_client().query(query)
+            return {row.column_name: row.data_type for row in query_job}
+        else:
+            # Get data types for the columns we found in metadata
+            query = f"""
+            SELECT column_name, data_type
+            FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+            WHERE table_name = '{table.name}' AND column_name IN ({", ".join([f"'{col}'" for col in partition_cols])})
+            """
+            query_job = self.config.get_bigquery_client().query(query)
+            return {row.column_name: row.data_type for row in query_job}
+
+    def _try_efficient_sampling_strategies(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        current_time: datetime,
+    ) -> Optional[List[str]]:
+        """
+        Try the most efficient sampling strategies to find partition filters.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            partition_cols_with_types: Dictionary of column names to data types
+            current_time: Current UTC datetime
+
+        Returns:
+            List of filter strings if found, None otherwise
+        """
+        # Try with a tiny sample first - most efficient approach
+        query = f"""
+        SELECT * 
+        FROM `{project}.{schema}.{table.name}` 
+        LIMIT 1
+        """
+
+        sample_result = None
+        try:
+            query_job = self.config.get_bigquery_client().query(query)
+            sample_results = list(query_job.result())
+            if sample_results:
+                sample_result = sample_results[0]
+        except Exception as e:
+            logger.warning(f"Error fetching sample row: {e}")
+
+        # If we got a sample row, use it to build filters for partition columns
+        if sample_result:
+            filters = []
+            for col_name, data_type in partition_cols_with_types.items():
+                if (
+                    hasattr(sample_result, col_name)
+                    and getattr(sample_result, col_name) is not None
+                ):
+                    val = getattr(sample_result, col_name)
+                    filter_str = self._create_partition_filter_from_value(
+                        col_name, val, data_type
+                    )
+                    filters.append(filter_str)
+                    logger.info(
+                        f"Using sample value for partition column {col_name}: {val}"
+                    )
+
+            # If we found filters, verify they work
+            if filters and self._quick_verify_filters(table, project, schema, filters):
+                return filters
+
+        return None
+
+    def _try_column_specific_strategies(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        current_time: datetime,
+    ) -> Optional[List[str]]:
+        """
+        Try strategies for specific column types like dates and timestamps.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            partition_cols_with_types: Dictionary of column names to data types
+            current_time: Current UTC datetime
+
+        Returns:
+            List of filter strings if found, None otherwise
+        """
+        # Identify date and time columns
+        date_cols = [
+            col
+            for col, dtype in partition_cols_with_types.items()
+            if dtype.upper() == "DATE" or "date" in col.lower()
+        ]
+
+        time_cols = [
+            col
+            for col, dtype in partition_cols_with_types.items()
+            if dtype.upper() in ("TIMESTAMP", "DATETIME")
+            or any(t in col.lower() for t in ["time", "timestamp", "datetime"])
+        ]
+
+        # Try date columns first - most commonly used for partitioning
+        if date_cols:
+            col_name = date_cols[0]  # Start with first date column
+            data_type = partition_cols_with_types[col_name]
+
+            # Try today, yesterday, last week (most common scenarios)
+            for days_ago in [0, 1, 7, 30]:
+                test_date = (current_time - timedelta(days=days_ago)).date()
+                filter_str = self._create_partition_filter_from_value(
+                    col_name, test_date, data_type
+                )
+
+                if self._quick_verify_filters(table, project, schema, [filter_str]):
+                    logger.info(f"Found valid recent date filter: {filter_str}")
+                    return [filter_str]
+
+        # Try time columns next
+        if time_cols:
+            col_name = time_cols[0]
+            data_type = partition_cols_with_types[col_name]
+
+            # Try current hour, day, etc.
+            for hours_ago in [0, 1, 24, 168]:  # Now, 1hr ago, 1 day ago, 1 week ago
+                test_time = current_time - timedelta(hours=hours_ago)
+                filter_str = self._create_partition_filter_from_value(
+                    col_name, test_time, data_type
+                )
+
+                if self._quick_verify_filters(table, project, schema, [filter_str]):
+                    logger.info(f"Found valid recent time filter: {filter_str}")
+                    return [filter_str]
+
+        return None
+
+    def _try_general_fallback_strategies(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+    ) -> List[str]:
+        """
+        Try general fallback strategies for any column type.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            partition_cols_with_types: Dictionary of column names to data types
+
+        Returns:
+            List of filter strings, empty if nothing found
+        """
+        # Try numeric columns with range filter
+        numeric_cols = [
+            col
+            for col, dtype in partition_cols_with_types.items()
+            if any(t in dtype.upper() for t in ["INT", "FLOAT", "NUMERIC"])
+        ]
+
+        if numeric_cols:
+            col_name = numeric_cols[0]
+            # For numeric columns, try a simple "greater than" filter which is likely to match
+            # but still provide some filtering benefit
+            filter_str = f"`{col_name}` >= 0"  # Most numeric values are positive
+
+            if self._quick_verify_filters(table, project, schema, [filter_str]):
+                logger.info(f"Using simple numeric filter: {filter_str}")
+                return [filter_str]
+
+        # Last resort - try string equality on any column with minimal scanning
+        for col_name, data_type in partition_cols_with_types.items():
+            # Skip columns we've already tried with specialized strategies
+            if any(
+                word in col_name.lower()
+                for word in ["date", "time", "year", "month", "day"]
+            ) or any(t in data_type.upper() for t in ["INT", "FLOAT", "NUMERIC"]):
+                continue
+
+            try:
+                # Use the most minimal query possible to get a valid value
+                query = f"""
+                SELECT DISTINCT {col_name}
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {col_name} IS NOT NULL
+                LIMIT 1
+                """
+
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result())
+
+                if results and hasattr(results[0], col_name):
+                    val = getattr(results[0], col_name)
+                    filter_str = self._create_partition_filter_from_value(
+                        col_name, val, data_type
+                    )
+
+                    if self._quick_verify_filters(table, project, schema, [filter_str]):
+                        logger.info(f"Using last resort filter: {filter_str}")
+                        return [filter_str]
+            except Exception as e:
+                logger.warning(f"Error in last resort approach for {col_name}: {e}")
+
+        # If we got here, we couldn't find any working filter
+        logger.warning(f"Could not find any working partition filter for {table.name}")
+        return []
+
+    def _quick_verify_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+    ) -> bool:
+        """
+        Verify filters with absolute minimal query.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            filters: List of partition filter strings
+
+        Returns:
+            True if filters return data, False otherwise
+        """
+        if not filters:
+            return False
+
+        where_clause = " AND ".join(filters)
+
+        # Most minimal possible query - just check existence
+        query = f"""
+        SELECT 1
+        FROM `{project}.{schema}.{table.name}`
+        WHERE {where_clause}
+        LIMIT 1
+        """
+
+        try:
+            logger.debug(f"Quick verification query: {query}")
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result())
+            return len(results) > 0
+        except Exception as e:
+            logger.warning(f"Error in filter verification: {e}")
+            return False
+
+    def _create_partition_filter_from_value(
+        self, col_name: str, val: Any, data_type: str
+    ) -> str:
+        """
+        Create a filter string for a partition column with a specific value.
+
+        Args:
+            col_name: Column name
+            val: Value for the filter
+            data_type: Data type of the column
+
+        Returns:
+            Filter string in the format `column` = value
+        """
+        data_type_upper = data_type.upper() if data_type else ""
+
+        if data_type_upper in ("STRING", "VARCHAR"):
+            return f"`{col_name}` = '{val}'"
+        elif data_type_upper == "DATE":
+            if isinstance(val, datetime):
+                return f"`{col_name}` = DATE '{val.strftime('%Y-%m-%d')}'"
+            return f"`{col_name}` = DATE '{val}'"
+        elif data_type_upper in ("TIMESTAMP", "DATETIME"):
+            if isinstance(val, datetime):
+                return f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
+            return f"`{col_name}` = TIMESTAMP '{val}'"
+        else:
+            # Default to numeric or other type
+            return f"`{col_name}` = {val}"
 
     def _try_recent_date_partitions(
         self,
@@ -709,36 +955,6 @@ FROM PartitionStats"""
 
         # Empty list indicates no partitions found or usable
         return []
-
-    def _create_partition_filter_from_value(
-        self, col_name: str, val: Any, data_type: str
-    ) -> str:
-        """
-        Create a filter string for a partition column with a specific value.
-
-        Args:
-            col_name: Column name
-            val: Value for the filter
-            data_type: Data type of the column
-
-        Returns:
-            Filter string in the format `column` = value
-        """
-        data_type_upper = data_type.upper() if data_type else ""
-
-        if data_type_upper in ("STRING", "VARCHAR"):
-            return f"`{col_name}` = '{val}'"
-        elif data_type_upper == "DATE":
-            if isinstance(val, datetime):
-                return f"`{col_name}` = DATE '{val.strftime('%Y-%m-%d')}'"
-            return f"`{col_name}` = DATE '{val}'"
-        elif data_type_upper in ("TIMESTAMP", "DATETIME"):
-            if isinstance(val, datetime):
-                return f"`{col_name}` = TIMESTAMP '{val.strftime('%Y-%m-%d %H:%M:%S')}'"
-            return f"`{col_name}` = TIMESTAMP '{val}'"
-        else:
-            # Default to numeric or other type
-            return f"`{col_name}` = {val}"
 
     def _try_partition_combinations(
         self,
