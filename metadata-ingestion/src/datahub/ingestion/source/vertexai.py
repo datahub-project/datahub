@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform
@@ -157,8 +157,8 @@ class VertexAISource(Source):
             project=config.project_id, location=config.region, credentials=credentials
         )
         self.client = aiplatform
-        self.endpoints: Optional[dict[str, List[Endpoint]]] = None
-        self.datasets: Optional[dict[str, VertexAiResourceNoun]] = None
+        self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
+        self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
         self.experiments: Optional[List[Experiment]] = None
 
     def get_report(self) -> SourceReport:
@@ -560,7 +560,7 @@ class VertexAISource(Source):
         ]
 
         if self.datasets is None:
-            self.datasets = dict[str, VertexAiResourceNoun]()
+            self.datasets = {}
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
@@ -799,7 +799,7 @@ class VertexAISource(Source):
         Search for an endpoint associated with the model.
         """
         if self.endpoints is None:
-            endpoint_dict = dict[str, List[Endpoint]]()
+            endpoint_dict: Dict[str, List[Endpoint]] = {}
             for endpoint in self.client.Endpoint.list():
                 for resource in endpoint.list_models():
                     if resource.model not in endpoint_dict:
