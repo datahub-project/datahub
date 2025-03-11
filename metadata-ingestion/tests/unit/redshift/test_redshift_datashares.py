@@ -16,7 +16,10 @@ from datahub.ingestion.source.redshift.datashares import (
     RedshiftTable,
     RedshiftView,
 )
-from datahub.ingestion.source.redshift.redshift_schema import PartialInboundDatashare
+from datahub.ingestion.source.redshift.redshift_schema import (
+    PartialInboundDatashare,
+    RedshiftDatabase,
+)
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata.schema_classes import (
     PlatformResourceInfoClass,
@@ -484,3 +487,47 @@ class TestDatasharesHelper:
             list(report.warnings)[0].title
             == "Downstream lineage to outbound datashare may not work"
         )
+
+    def test_database_get_inbound_datashare_success(self):
+        db = RedshiftDatabase(
+            name="db",
+            type="shared",
+            options='{"datashare_name":"xxx","datashare_producer_account":"1234","datashare_producer_namespace":"yyy"}',
+        )
+
+        assert db.get_inbound_share() == InboundDatashare(
+            share_name="xxx",
+            producer_namespace="yyy",
+            consumer_database="db",
+        )
+
+    def test_database_get_partial_inbound_datashare_success(self):
+        db = RedshiftDatabase(
+            name="db",
+            type="shared",
+            options='{"datashare_name":"xxx","datashare_producer_account":"1234","datashare_producer_namespace":"yy',
+        )
+
+        assert db.get_inbound_share() == PartialInboundDatashare(
+            share_name="xxx",
+            producer_namespace_prefix="yy",
+            consumer_database="db",
+        )
+
+    def test_database_no_inbound_datashare(self):
+        db = RedshiftDatabase(
+            name="db",
+            type="local",
+            options=None,
+        )
+
+        assert db.get_inbound_share() is None
+
+    def test_shared_database_no_inbound_datashare(self):
+        db = RedshiftDatabase(
+            name="db",
+            type="shared",
+            options=None,
+        )
+
+        assert db.get_inbound_share() is None
