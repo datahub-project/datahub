@@ -4,6 +4,10 @@ source:
     tracking_uri: "http://127.0.0.1:5000"
 
 sink:
+#  type: file
+#  config:
+#    filename: "dataset_lineage_test.json"
   type: datahub-rest
   config:
     server: "http://localhost:8080"
+    token: "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjZlMjVlOGQxLWI2MWQtNDYwZi05Yzk1LWViMTU1ZDNjN2U2NiIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NDQyNzM3ODIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.R2FssBr3_AOSZFJHyrRMVqM2gTULKHZn6ibrWHjJcL8"

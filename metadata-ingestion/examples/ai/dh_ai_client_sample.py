@@ -7,6 +7,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
 
 if __name__ == "__main__":
     # Example usage
+
+    test_id = "test_hotfix"
+    # prefix with test_id
+    group_id = f"{test_id}_group"
+    model_id = f"{test_id}_model"
+    experiment_id = f"{test_id}_experiment"
+    run_id = f"{test_id}_run"
+    dataset_input_name = f"{test_id}_input"
+    dataset_output_name = f"{test_id}_output"
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=False, help="DataHub access token")
     parser.add_argument(
@@ -21,7 +31,7 @@ if __name__ == "__main__":
 
     # Create model group
     model_group_urn = client.create_model_group(
-        group_id="airline_forecast_models_group",
+        group_id=group_id,
         properties=models.MLModelGroupPropertiesClass(
             name="Airline Forecast Models Group",
             description="Group of models for airline passenger forecasting",
@@ -33,7 +43,7 @@ if __name__ == "__main__":
 
     # Creating a model with property classes
     model_urn = client.create_model(
-        model_id="arima_model",
+        model_id=model_id,
         properties=models.MLModelPropertiesClass(
             name="ARIMA Model",
             description="ARIMA model for airline passenger forecasting",
@@ -61,7 +71,7 @@ if __name__ == "__main__":
 
     # Creating an experiment with property class
     experiment_urn = client.create_experiment(
-        experiment_id="airline_forecast_experiment",
+        experiment_id=experiment_id,
         properties=models.ContainerPropertiesClass(
             name="Airline Forecast Experiment",
             description="Experiment to forecast airline passenger numbers",
@@ -76,7 +86,7 @@ if __name__ == "__main__":
     )
 
     run_urn = client.create_training_run(
-        run_id="simple_training_run",
+        run_id=run_id,
         properties=models.DataProcessInstancePropertiesClass(
             name="Simple Training Run",
             created=models.AuditStampClass(
@@ -85,7 +95,7 @@ if __name__ == "__main__":
             customProperties={"team": "forecasting"},
         ),
         training_run_properties=models.MLTrainingRunPropertiesClass(
-            id="simple_training_run",
+            id=run_id,
             outputUrls=["s3://my-bucket/output"],
             trainingMetrics=[models.MLMetricClass(name="accuracy", value="0.9")],
             hyperParams=[models.MLHyperParamClass(name="learning_rate", value="0.01")],
@@ -98,12 +108,12 @@ if __name__ == "__main__":
     # Create datasets
     input_dataset_urn = client.create_dataset(
         platform="snowflake",
-        name="iris_input",
+        name=dataset_input_name,
     )
 
     output_dataset_urn = client.create_dataset(
         platform="snowflake",
-        name="iris_ouptut",
+        name=dataset_output_name,
     )
 
     # Add run to experiment

@@ -1,0 +1,2096 @@
+[
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_production",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "mlflow_production",
+            "description": "Production Stage for an ML model in MLflow Model Registry",
+            "colorHex": "#308613"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351054928,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_staging",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "mlflow_staging",
+            "description": "Staging Stage for an ML model in MLflow Model Registry",
+            "colorHex": "#FACB66"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351054928,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_archived",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "mlflow_archived",
+            "description": "Archived Stage for an ML model in MLflow Model Registry",
+            "colorHex": "#5D7283"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351054928,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_none",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "mlflow_none",
+            "description": "None Stage for an ML model in MLflow Model Registry",
+            "colorHex": "#F2F4F5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055148,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e23b7e162638d6dac08208c49ff374ab",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "urn:li:dataPlatform:mlflow",
+                "id": "happy_engineer_forecast_experiment",
+                "team": "data_science",
+                "mlflow.alias": "happy_engineer_forecast",
+                "domain": "time_series_forecasting",
+                "artifacts_location": "mlflow-artifacts:/370966011669478824"
+            },
+            "name": "happy_engineer_forecast_experiment"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055174,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e23b7e162638d6dac08208c49ff374ab",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055174,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e23b7e162638d6dac08208c49ff374ab",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Experiment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055175,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e23b7e162638d6dac08208c49ff374ab",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055175,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "user",
+            "primaryKey": "yoonhyejin"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055175,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://127.0.0.1:5000/#/experiments/370966011669478824/runs/9137bd9f46ce4f1ea447db7169f1067f",
+            "name": "RF_model_run_4",
+            "created": {
+                "time": 1741336042379,
+                "actor": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055194,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e23b7e162638d6dac08208c49ff374ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055194,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_4,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055195,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "9137bd9f46ce4f1ea447db7169f1067f",
+            "outputUrls": [
+                "mlflow-artifacts:/370966011669478824/9137bd9f46ce4f1ea447db7169f1067f/artifacts"
+            ],
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055195,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1741336047564,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "mlflow"
+            },
+            "durationMillis": 5185
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055195,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055195,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Training Run"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055196,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:local"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055196,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:local",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "long",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "string",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "name",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055196,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mlflow.data.context": "training"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055197,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055197,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "user",
+            "primaryKey": "yoonhyejin"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055197,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://127.0.0.1:5000/#/experiments/370966011669478824/runs/29856aa17fa7474aa2149aa56130f80d",
+            "name": "RF_model_run_3",
+            "created": {
+                "time": 1741336037370,
+                "actor": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055205,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e23b7e162638d6dac08208c49ff374ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055205,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_3,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055206,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "29856aa17fa7474aa2149aa56130f80d",
+            "outputUrls": [
+                "mlflow-artifacts:/370966011669478824/29856aa17fa7474aa2149aa56130f80d/artifacts"
+            ],
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055206,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1741336042264,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "mlflow"
+            },
+            "durationMillis": 4894
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055206,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055206,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Training Run"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055206,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:local"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055207,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:local",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "long",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "string",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "name",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055207,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mlflow.data.context": "training"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055208,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055208,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "user",
+            "primaryKey": "yoonhyejin"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055208,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://127.0.0.1:5000/#/experiments/370966011669478824/runs/b55c651392f942c1bb2a04833bde2173",
+            "name": "RF_model_run_2",
+            "created": {
+                "time": 1741336032797,
+                "actor": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055215,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e23b7e162638d6dac08208c49ff374ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055215,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_2,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055215,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "b55c651392f942c1bb2a04833bde2173",
+            "outputUrls": [
+                "mlflow-artifacts:/370966011669478824/b55c651392f942c1bb2a04833bde2173/artifacts"
+            ],
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055215,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1741336037299,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "mlflow"
+            },
+            "durationMillis": 4502
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055216,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055216,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Training Run"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055216,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:local"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055216,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:local",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "long",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "string",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "name",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055217,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mlflow.data.context": "training"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055217,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055217,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "user",
+            "primaryKey": "yoonhyejin"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055218,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://127.0.0.1:5000/#/experiments/370966011669478824/runs/292896a263d5437fbb32febdd52436eb",
+            "name": "RF_model_run_1",
+            "created": {
+                "time": 1741336026997,
+                "actor": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055224,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e23b7e162638d6dac08208c49ff374ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055224,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_1,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055225,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "292896a263d5437fbb32febdd52436eb",
+            "outputUrls": [
+                "mlflow-artifacts:/370966011669478824/292896a263d5437fbb32febdd52436eb/artifacts"
+            ],
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055225,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1741336032663,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "mlflow"
+            },
+            "durationMillis": 5666
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055225,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055225,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Training Run"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055226,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:local"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055226,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:local",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "long",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "string",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "name",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055226,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mlflow.data.context": "training"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055227,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055227,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:03d28ec52349332a202a252cb2388d83",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "urn:li:dataPlatform:mlflow",
+                "id": "Default",
+                "artifacts_location": "file:///Users/yoonhyejin/Desktop/acryl/datahub_playground/mlflow/mlruns/0"
+            },
+            "name": "Default",
+            "description": "this is a description for experiment "
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055238,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:03d28ec52349332a202a252cb2388d83",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055238,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:03d28ec52349332a202a252cb2388d83",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Experiment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055239,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:03d28ec52349332a202a252cb2388d83",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055239,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source": "airline_passengers.csv",
+                "description": "Random Forest regressor for airline passenger forecasting",
+                "team": "data_science",
+                "domain": "time_series_forecasting"
+            },
+            "description": "Random Forest regressor for airline passenger forecasting",
+            "created": {
+                "time": 1741336026770
+            },
+            "lastModified": {
+                "time": 1741336047543
+            },
+            "version": {
+                "versionTag": "4",
+                "metadataAttribution": {
+                    "time": 1741336047543,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055251,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "version_team": "data_science",
+                "mse": "76.43927015035848",
+                "version_stage": "development"
+            },
+            "externalUrl": "http://127.0.0.1:5000/#/models/happy_engineer_forecast_model/versions/4",
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59"
+            ],
+            "description": "Random Forest model (version 4) trained with 100 trees and max depth 10",
+            "created": {
+                "time": 1741336047163
+            },
+            "lastModified": {
+                "time": 1741336047271
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ],
+            "tags": [
+                "version_team:data_science",
+                "mse:76.43927015035848",
+                "version_stage:development"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055256,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(284d6413213f56d9e499f394712e9fc1,mlModel)",
+            "version": {
+                "versionTag": "4",
+                "metadataAttribution": {
+                    "time": 1741336047163,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [
+                {
+                    "versionTag": "happy_engineer_forecast_v4"
+                }
+            ],
+            "sortId": "0000000004",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055257,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:mlflow_none"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055257,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "version_team": "data_science",
+                "mse": "76.43927015035848",
+                "version_stage": "production"
+            },
+            "externalUrl": "http://127.0.0.1:5000/#/models/happy_engineer_forecast_model/versions/3",
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9"
+            ],
+            "description": "Random Forest model (version 3) trained with 100 trees and max depth 10",
+            "created": {
+                "time": 1741336042019
+            },
+            "lastModified": {
+                "time": 1741336042083
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ],
+            "tags": [
+                "version_team:data_science",
+                "mse:76.43927015035848",
+                "version_stage:production"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055262,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(284d6413213f56d9e499f394712e9fc1,mlModel)",
+            "version": {
+                "versionTag": "3",
+                "metadataAttribution": {
+                    "time": 1741336042019,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [
+                {
+                    "versionTag": "happy_engineer_forecast_v3"
+                }
+            ],
+            "sortId": "0000000003",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055263,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:mlflow_none"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055263,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "version_team": "data_science",
+                "mse": "76.43927015035848",
+                "version_stage": "development"
+            },
+            "externalUrl": "http://127.0.0.1:5000/#/models/happy_engineer_forecast_model/versions/2",
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177"
+            ],
+            "description": "Random Forest model (version 2) trained with 100 trees and max depth 10",
+            "created": {
+                "time": 1741336037064
+            },
+            "lastModified": {
+                "time": 1741336037143
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ],
+            "tags": [
+                "version_team:data_science",
+                "mse:76.43927015035848",
+                "version_stage:development"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055268,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(284d6413213f56d9e499f394712e9fc1,mlModel)",
+            "version": {
+                "versionTag": "2",
+                "metadataAttribution": {
+                    "time": 1741336037064,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [
+                {
+                    "versionTag": "happy_engineer_forecast_v2"
+                }
+            ],
+            "sortId": "0000000002",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055269,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:mlflow_none"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055269,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "version_team": "data_science",
+                "mse": "76.43927015035848",
+                "version_stage": "production"
+            },
+            "externalUrl": "http://127.0.0.1:5000/#/models/happy_engineer_forecast_model/versions/1",
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16"
+            ],
+            "description": "Random Forest model (version 1) trained with 100 trees and max depth 10",
+            "created": {
+                "time": 1741336032440
+            },
+            "lastModified": {
+                "time": 1741336032479
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "10"
+                },
+                {
+                    "name": "random_state",
+                    "value": "42"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "mse",
+                    "value": "76.43927015035848"
+                }
+            ],
+            "tags": [
+                "version_team:data_science",
+                "mse:76.43927015035848",
+                "version_stage:production"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055269,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(284d6413213f56d9e499f394712e9fc1,mlModel)",
+            "version": {
+                "versionTag": "1",
+                "metadataAttribution": {
+                    "time": 1741336032440,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [
+                {
+                    "versionTag": "happy_engineer_forecast_v1"
+                }
+            ],
+            "sortId": "0000000001",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:mlflow_none"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:03d28ec52349332a202a252cb2388d83",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e23b7e162638d6dac08208c49ff374ab",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:339837c374dbac4540f797362b4a35b9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8c3712a799e5fa0b68b89040e2ab0177",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055270,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a5645a7ace5756b1e690af7775737d16",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055271,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e17c28d4e5c98218bdaac95adfbb7e59",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055271,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:local,dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055271,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055271,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055271,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,happy_engineer_forecast_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:c1cae923c35486e68db41b1aea216e44",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_archived",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_none",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055272,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_production",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055273,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:mlflow_staging",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741351055604,
+        "runId": "mlflow-2025_03_07-21_37_33-h5g2ko",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
