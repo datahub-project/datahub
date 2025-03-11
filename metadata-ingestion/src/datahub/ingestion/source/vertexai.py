@@ -509,8 +509,8 @@ class VertexAISource(Source):
         )
 
         # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
-        # aspects.append(SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]))
-        # aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
+        aspects.append(SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]))
+        aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
 
         yield from MetadataChangeProposalWrapper.construct_many(
             ml_model_group_urn, aspects=aspects
@@ -699,9 +699,9 @@ class VertexAISource(Source):
                 )
 
                 # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
-                # aspects.append(
-                #     ContainerClass(container=self._get_project_container().as_urn())
-                # )
+                aspects.append(
+                    ContainerClass(container=self._get_project_container().as_urn())
+                )
                 # aspects.append(SubTypesClass(typeNames=[MLTypes.ENDPOINT]))
 
                 yield from MetadataChangeProposalWrapper.construct_many(
@@ -783,11 +783,12 @@ class VertexAISource(Source):
         )
 
         # TODO Add a container for Project as parent of the dataset
-        # aspects.append(
-        #     ContainerClass(
-        #             container=self._get_project_container().as_urn(),
-        #     )
-        # )
+        aspects.append(
+            ContainerClass(
+                container=self._get_project_container().as_urn(),
+            )
+        )
+        aspects.append(SubTypesClass(typeNames=[MLTypes.MODEL]))
 
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=model_urn, aspects=aspects

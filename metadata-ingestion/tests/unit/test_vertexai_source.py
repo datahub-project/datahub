@@ -43,7 +43,6 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_version,
-    gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
 )
@@ -61,10 +60,10 @@ def source() -> VertexAISource:
 
 
 def test_get_ml_model_mcps(source: VertexAISource) -> None:
-    mock_models = gen_mock_models()
+    mock_model = gen_mock_model()
     with contextlib.ExitStack() as exit_stack:
         mock = exit_stack.enter_context(patch("google.cloud.aiplatform.Model.list"))
-        mock.return_value = mock_models
+        mock.return_value = [mock_model]
 
         # Running _get_ml_models_mcps
         actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
@@ -75,16 +74,16 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
                 group_name=source._make_vertexai_model_group_name(mock_model.name),
                 env=source.config.env,
             )
-            for mock_model in mock_models
-        ]
+        ] * 3
+
         # expect 2 model groups
         assert actual_urns == expected_urns
 
         # assert expected aspect classes
-        expected_classes = [MLModelGroupPropertiesClass] * 2
+        expected_classes = [MLModelGroupPropertiesClass, ContainerClass, SubTypesClass]
         actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
 
-        assert expected_classes == actual_classes
+        assert set(expected_classes) == set(actual_classes)
 
         for mcp in actual_mcps:
             assert isinstance(mcp, MetadataChangeProposalWrapper)
@@ -92,43 +91,54 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
             if isinstance(aspect, MLModelGroupProperties):
                 assert (
                     aspect.name
-                    == f"{source._make_vertexai_model_group_name(mock_models[0].name)}"
-                    or aspect.name
-                    == f"{source._make_vertexai_model_group_name(mock_models[1].name)}"
+                    == f"{source._make_vertexai_model_group_name(mock_model.name)}"
                 )
-                assert (
-                    aspect.description == mock_models[0].description
-                    or aspect.description == mock_models[1].description
-                )
+                assert aspect.description == mock_model.description
+            elif isinstance(aspect, SubTypesClass):
+                assert aspect.typeNames == [MLTypes.MODEL_GROUP]
+
+            elif isinstance(aspect, ContainerClass):
+                assert aspect.container == source._get_project_container().as_urn()
 
 
-def test_get_ml_model_properties_mcps(
-    source: VertexAISource,
-) -> None:
+def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
     model_meta = ModelMetadata(mock_model, model_version)
 
     # Run _gen_ml_model_mcps
-    mcps = list(source._gen_ml_model_mcps(model_meta))
-    assert len(mcps) == 1
-    mcp = mcps[0]
-    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    actual_mcps = list(source._gen_ml_model_mcps(model_meta))
 
-    # Assert URN
-    assert mcp.entityUrn == source._make_ml_model_urn(
-        model_version, source._make_vertexai_model_name(mock_model.name)
-    )
-    aspect = mcp.aspect
-    # Assert Aspect Class
-    assert isinstance(aspect, MLModelProperties)
-    assert (
-        aspect.name
-        == f"{source._make_vertexai_model_name(mock_model.name)}_{mock_model.version_id}"
-    )
-    assert aspect.description == model_version.version_description
-    assert aspect.date == model_version.version_create_time
-    assert aspect.hyperParams is None
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    expected_urns = [
+        source._make_ml_model_urn(
+            model_version, source._make_vertexai_model_name(mock_model.name)
+        )
+    ] * 3
+
+    assert actual_urns == expected_urns
+
+    # assert expected aspect classes
+    expected_classes = [MLModelProperties, ContainerClass, SubTypesClass]
+    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+
+    assert set(expected_classes) == set(actual_classes)
+
+    for mcp in actual_mcps:
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        aspect = mcp.aspect
+        if isinstance(aspect, MLModelProperties):
+            assert (
+                aspect.name
+                == f"{source._make_vertexai_model_name(mock_model.name)}_{mock_model.version_id}"
+            )
+            assert aspect.description == model_version.version_description
+            assert aspect.date == model_version.version_create_time
+            assert aspect.hyperParams is None
+        elif isinstance(aspect, SubTypesClass):
+            assert aspect.typeNames == [MLTypes.MODEL]
+        elif isinstance(aspect, ContainerClass):
+            assert aspect.container == source._get_project_container().as_urn()
 
 
 def test_get_endpoint_mcps(
@@ -144,21 +154,22 @@ def test_get_endpoint_mcps(
     # Run _gen_endpoint_mcps
     actual_mcps = list(source._gen_endpoints_mcps(model_meta))
     actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    endpoint_urn = builder.make_ml_model_deployment_urn(
-        platform=source.platform,
-        deployment_name=source._make_vertexai_endpoint_name(
-            entity_id=mock_endpoint.name
-        ),
-        env=source.config.env,
-    )
-    expected_urns = [endpoint_urn]
+    expected_urns = [
+        builder.make_ml_model_deployment_urn(
+            platform=source.platform,
+            deployment_name=source._make_vertexai_endpoint_name(
+                entity_id=mock_endpoint.name
+            ),
+            env=source.config.env,
+        )
+    ] * 2
     # Assert URN,   expect 1 endpoint urn
     assert actual_urns == expected_urns
 
     # Assert Aspect Classes
-    expected_classes = [MLModelDeploymentPropertiesClass]
+    expected_classes = [MLModelDeploymentPropertiesClass, ContainerClass]
     actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-    assert actual_classes == expected_classes
+    assert set(actual_classes) == set(expected_classes)
 
     for mcp in source._gen_endpoints_mcps(model_meta):
         assert isinstance(mcp, MetadataChangeProposalWrapper)
@@ -169,9 +180,9 @@ def test_get_endpoint_mcps(
                 "displayName": mock_endpoint.display_name
             }
             assert aspect.createdAt == int(mock_endpoint.create_time.timestamp() * 1000)
-        # TODO: Add following when container/subtype supported
-        # elif isinstance(aspect, ContainerClass):
-        #     assert aspect.container == source._get_project_container().as_urn()
+        elif isinstance(aspect, ContainerClass):
+            assert aspect.container == source._get_project_container().as_urn()
+        # TODO: Add following when subtype supported
         # elif isinstance(aspect, SubTypesClass):
         #     assert aspect.typeNames == ["Endpoint"]
 
@@ -438,13 +449,14 @@ def test_get_experiment_mcps(
         if isinstance(wu.metadata, MetadataChangeProposalClass)
         or isinstance(wu.metadata, MetadataChangeProposalWrapper)
     ]
-    assert [expected_urn] * 4 == actual_urns
+    assert [expected_urn] * 5 == actual_urns
 
     expected_classes = {
         ContainerPropertiesClass,
         SubTypesClass,
         DataPlatformInstanceClass,
         StatusClass,
+        ContainerClass,
     }
     instances = set(
         [
@@ -468,6 +480,8 @@ def test_get_experiment_mcps(
             assert aspect.typeNames == [MLTypes.EXPERIMENT]
         elif isinstance(aspect, DataPlatformInstanceClass):
             assert aspect.platform == source.platform
+        elif isinstance(aspect, ContainerClass):
+            assert aspect.container == source._get_project_container().as_urn()
 
 
 @patch("google.cloud.aiplatform.ExperimentRun.list")
