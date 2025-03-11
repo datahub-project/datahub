@@ -744,11 +744,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         # To generate column level lineage, we can manually decode the metadata
         # to produce the ColumnLineageInfo
         columns = dataset_response.get("result", {}).get("columns", [])
-        print(f"\n\ncolumns are: {columns}\n\n")
         cll: List[ColumnLineageInfo] = []
 
         for column in columns:
-            print("\nwas here\n")
             cll.append(
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
@@ -765,9 +763,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     logic=None,
                 )
             )
-            print(f"\n\n cll now is: {cll}\n\n")
 
-        print(f"\n\ncll is; {cll}\n\n")
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         for cll_info in cll:
@@ -798,7 +794,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             ],
             fineGrainedLineages=fine_grained_lineages,
         )
-        print(f"\n\n at the end, column level lineage is; {upstream_lineage}\n\n")
         return upstream_lineage
 
     def construct_dataset_from_dataset_data(
@@ -860,7 +855,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 platform_instance=None,
                 env=self.config.env,
             )
-            print(f"\n\n\n parsed query object: {parsed_query_object.column_lineage}")
             upstream_lineage = self.generate_virtual_dataset_lineage(
                 parsed_query_object, datasource_urn
             )
