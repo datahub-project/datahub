@@ -292,7 +292,7 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
     incidents.forEach((incident: Incident) => {
         // filter out tracked types
         const type = incident.incidentType as IncidentType;
-        if (type && ![IncidentType.DatasetColumn].includes(type)) {
+        if (type) {
             const index = remainingIncidentTypes.indexOf(type);
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);

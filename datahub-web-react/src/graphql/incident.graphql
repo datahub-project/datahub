@@ -118,21 +118,5 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
                 canEditIncidents
             }
         }
-        ... on MLFeature {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on MLModel {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
     }
 }
