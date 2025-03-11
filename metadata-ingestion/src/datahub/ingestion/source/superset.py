@@ -728,7 +728,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=input_table_urn,
-                    properties={"externalUrl": dataset_url},
                 )
                 for input_table_urn in parsed_query_object.in_tables
             ],
