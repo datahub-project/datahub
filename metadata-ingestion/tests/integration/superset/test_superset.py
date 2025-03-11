@@ -204,7 +204,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "explore_url": "/explore/?datasource_type=table&datasource_id=2",
                         "extra": None,
                         "id": 2,
-                        "kind": "physical",
+                        "kind": "virtual",
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -213,8 +213,53 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             }
                         ],
                         "schema": "test_schema2",
-                        "sql": "SELECT * FROM test_table2",
                         "table_name": "Test Table 2",
+                    },
+                    {
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "User1",
+                        },
+                        "changed_by_name": "test_username_1",
+                        "changed_on_delta_humanized": "9 months ago",
+                        "columns": [
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "id",
+                                "type": "INT",
+                                "id": 1,
+                                "verbose_name": "null",
+                            },
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "name",
+                                "type": "STRING",
+                                "id": 2,
+                                "verbose_name": "null",
+                            },
+                        ],
+                        "changed_on_utc": "2024-02-10T15:30:20.123456+0000",
+                        "database": {"database_name": "test_database1", "id": 1},
+                        "datasource_type": "table",
+                        "default_endpoint": None,
+                        "description": "Sample description for dataset 3",
+                        "explore_url": "/explore/?datasource_type=table&datasource_id=3",
+                        "extra": None,
+                        "id": 3,
+                        "kind": "physical",
+                        "owners": [
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            }
+                        ],
+                        "schema": "test_schema3",
+                        "select_star": "SELECT * FROM test_schema3.test_table3 LIMIT 100",
+                        "table_name": "Test Table 3",
                     },
                 ],
             },
@@ -373,7 +418,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     ORDER BY tt2.id DESC;
                     """,
                     "schema": "test_schema2",
-                    "select_star": "SELECT * FROM test_schema2.test_table2 LIMIT 100",
                     "table_name": "Test Table 2",
                     "uid": "2__table",
                     "url": "/tablemodelview/edit/2",
@@ -402,6 +446,24 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     },
                     "changed_on": "2024-01-05T21:10:15.650819+0000",
                     "changed_on_humanized": "10 months ago",
+                    "columns": [
+                        {
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "column_name": "id",
+                            "type": "INT",
+                            "id": 1,
+                            "verbose_name": "null",
+                        },
+                        {
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "column_name": "name",
+                            "type": "STRING",
+                            "id": 2,
+                            "verbose_name": "null",
+                        },
+                    ],
                     "created_by": {"first_name": "Test", "last_name": "User1"},
                     "created_on": "2024-01-05T21:10:15.650819+0000",
                     "created_on_humanized": "10 months ago",
@@ -765,7 +827,7 @@ def test_superset_stateful_ingest(
                         "explore_url": "/explore/?datasource_type=table&datasource_id=2",
                         "extra": None,
                         "id": 2,
-                        "kind": "physical",
+                        "kind": "virtual",
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -774,7 +836,13 @@ def test_superset_stateful_ingest(
                             }
                         ],
                         "schema": "test_schema2",
-                        "sql": "SELECT * FROM test_table2;",
+                        "rendered_sql": """
+                        SELECT tt2.id, tt2.name, tt2.description, db.database_name 
+                        FROM test_table2 tt2
+                        JOIN databases db ON tt2.database_id = db.id
+                        WHERE tt2.kind = 'virtual'
+                        ORDER BY tt2.id DESC;
+                        """,
                         "table_name": "Test Table 2",
                     },
                     {
@@ -785,12 +853,30 @@ def test_superset_stateful_ingest(
                         },
                         "changed_by_name": "test_username_1",
                         "changed_on_delta_humanized": "9 months ago",
+                        "columns": [
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "id",
+                                "type": "INT",
+                                "id": 1,
+                                "verbose_name": "null",
+                            },
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "name",
+                                "type": "STRING",
+                                "id": 2,
+                                "verbose_name": "null",
+                            },
+                        ],
                         "changed_on_utc": "2024-02-10T15:30:20.123456+0000",
                         "database": {"database_name": "test_database1", "id": 1},
                         "datasource_type": "table",
                         "default_endpoint": None,
-                        "description": "Sample description for dataset 2",
-                        "explore_url": "/explore/?datasource_type=table&datasource_id=2",
+                        "description": "Sample description for dataset 3",
+                        "explore_url": "/explore/?datasource_type=table&datasource_id=3",
                         "extra": None,
                         "id": 3,
                         "kind": "physical",
