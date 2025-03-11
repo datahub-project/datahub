@@ -38,7 +38,6 @@ from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.metadata.urns import DataPlatformUrn
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLTrainingRunProperties,
 )
@@ -63,6 +62,7 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionTagClass,
 )
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.time import datetime_to_ts_millis
 
