@@ -4,9 +4,6 @@ source:
     tracking_uri: "http://127.0.0.1:5000"
 
 sink:
-#  type: file
-#  config:
-#    filename: "dataset_lineage_test.json"
   type: datahub-rest
   config:
     server: "http://localhost:8080"
