@@ -85,6 +85,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
@@ -692,7 +695,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         self,
         parsed_query_object: SqlParsingResult,
         datasource_urn: str,
-        dataset_url: str,
     ) -> UpstreamLineageClass:
         cll = (
             parsed_query_object.column_lineage
@@ -728,6 +730,72 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dataset=input_table_urn,
                 )
                 for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
+    def generate_physical_dataset_lineage(
+        self,
+        dataset_response: dict,
+        upstream_warehouse_platform: str,
+        datasource_urn: str,
+    ) -> UpstreamLineageClass:
+        # To generate column level lineage, we can manually decode the metadata
+        # to produce the ColumnLineageInfo
+        columns = dataset_response.get("result", {}).get("columns", [])
+        cll: List[ColumnLineageInfo] = []
+
+        for column in columns:
+            cll.append(
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=None,
+                        column=column.get("column_name", ""),
+                        column_type=column.get("type", ""),
+                        native_column_type=column.get("type", ""),
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=upstream_warehouse_platform,
+                            column=column.get("column_name", ""),
+                        )
+                    ],
+                    logic=None,
+                )
+            )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for cll_info in cll:
+            downstream = (
+                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                if cll_info.downstream and cll_info.downstream.column
+                else []
+            )
+            upstreams = [
+                make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_dataset = self.get_datasource_urn_from_id(
+            dataset_response, upstream_warehouse_platform
+        )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=upstream_dataset,
+                )
             ],
             fineGrainedLineages=fine_grained_lineages,
         )
@@ -773,33 +841,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         if upstream_warehouse_platform in warehouse_naming:
             upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
 
-        parsed_query_object = create_lineage_sql_parsed_result(
-            query=sql,
-            default_db=upstream_warehouse_db_name,
-            platform=upstream_warehouse_platform,
-            platform_instance=None,
-            env=self.config.env,
-        )
-
-        # if we have sql, we label the datasets as virtual
-        if sql:
-            tag_urn = f"urn:li:tag:{self.platform}:virtual"
-            upstream_lineage = self.generate_virtual_dataset_lineage(
-                parsed_query_object, datasource_urn, dataset_url
+        # Sometimes the field will be null instead of not existing
+        if sql == "null" or not sql:
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_lineage = self.generate_physical_dataset_lineage(
+                dataset_response, upstream_warehouse_platform, datasource_urn
             )
         else:
-            tag_urn = f"urn:li:tag:{self.platform}:physical"
-            upstream_dataset = self.get_datasource_urn_from_id(
-                dataset_response, upstream_warehouse_platform
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            parsed_query_object = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=upstream_warehouse_db_name,
+                platform=upstream_warehouse_platform,
+                platform_instance=None,
+                env=self.config.env,
             )
-            upstream_lineage = UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        type=DatasetLineageTypeClass.TRANSFORMED,
-                        dataset=upstream_dataset,
-                        properties={"externalUrl": dataset_url},
-                    )
-                ]
+            upstream_lineage = self.generate_virtual_dataset_lineage(
+                parsed_query_object, datasource_urn
             )
 
         dataset_info = DatasetPropertiesClass(
