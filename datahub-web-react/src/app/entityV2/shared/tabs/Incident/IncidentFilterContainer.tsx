@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { IncidentTable } from './types';
 import { INCIDENT_DEFAULT_FILTERS, INCIDENT_GROUP_BY_FILTER_OPTIONS } from './constant';
-import { FilterSelect } from '../../FilterSelect';
 import { FiltersContainer, SearchFilterContainer, StyledFilterContainer } from './styledComponents';
 import { GroupBySelect } from '../../GroupBySelect';
 import { InlineListSearch } from '../../components/search/InlineListSearch';
+import { FilterSelect } from '../../FilterSelect';
 
 interface FilterItem {
     name: string;

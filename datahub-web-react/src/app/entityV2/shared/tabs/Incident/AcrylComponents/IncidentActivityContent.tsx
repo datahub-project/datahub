@@ -4,8 +4,8 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { colors, Text } from '@src/alchemy-components';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { ActivityStatusText, Content, ContentRow } from './styledComponents';
-import useGetUserName from '../../Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUserName';
 import { TimelineContentDetails } from '../types';
+import useGetUserName from '../hooks';
 
 type TimelineContentProps = {
     incidentActivities: TimelineContentDetails;

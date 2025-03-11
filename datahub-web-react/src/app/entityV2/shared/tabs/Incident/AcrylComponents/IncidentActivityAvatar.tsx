@@ -4,7 +4,7 @@ import { Avatar } from '@src/alchemy-components';
 import { CorpUser } from '@src/types.generated';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import useGetUserName from '../../Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUserName';
+import useGetUserName from '../hooks';
 
 type TimelineDotProps = {
     user?: CorpUser;

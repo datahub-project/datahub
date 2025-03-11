@@ -3,9 +3,9 @@ import { Timeline } from '@src/alchemy-components';
 
 import IncidentActivityContent from './IncidentActivityContent';
 import { ActivityLabelSection, ActivitySection, TimelineWrapper } from './styledComponents';
-import TimelineSkeleton from '../../Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimeLineSkeleton';
 import { TimelineContentDetails } from '../types';
 import IncidentActivityAvatar from './IncidentActivityAvatar';
+import TimelineSkeleton from '../../../TimelineSkeleton';
 
 type IncidentActivitySectionProps = {
     loading: boolean;

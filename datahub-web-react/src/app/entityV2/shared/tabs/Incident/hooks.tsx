@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { message } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 
@@ -7,6 +7,8 @@ import { IncidentStagePill } from '@src/alchemy-components/components/IncidentSt
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { CorpUser } from '@src/types.generated';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
@@ -195,3 +197,15 @@ export const useOpenIncidentDetailModal = (setFocusIncidentUrn, updateIncidentDa
 
     return { incidentUrnParam };
 };
+
+export default function useGetUserName() {
+    const entityRegistry = useEntityRegistryV2();
+
+    return useCallback(
+        (user: CorpUser) => {
+            if (!user) return '';
+            return entityRegistry.getDisplayName(user.type, user);
+        },
+        [entityRegistry],
+    );
+}
