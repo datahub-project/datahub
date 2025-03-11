@@ -89,7 +89,7 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                         urn={group.urn}
                         entityType={EntityType.CorpGroup}
                         entityData={group}
-                        menuItems={new Set([EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE, EntityMenuItems.COPY_URN])}
                         size={20}
                         onDeleteEntity={onDelete}
                         options={{ hideDeleteMessage: false, skipDeleteWait: true }}

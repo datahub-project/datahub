@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, List, Tag, Typography } from 'antd';
+import { Dropdown, List, message, Tag, Typography } from 'antd';
 import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
+import { Copy, DotsThreeVertical, LockOpen, Trash } from 'phosphor-react';
 import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -42,7 +42,7 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -88,6 +88,20 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
 
     const items = [
         {
+            key: 'copyurn',
+            label: (
+                <MenuItemStyle
+                    onClick={() => {
+                        navigator.clipboard.writeText(user.urn);
+                        message.success('Urn copied to clipboard');
+                    }}
+                    data-testid="copyurn-menu-item"
+                >
+                    <Copy data-testid="copyUrnButton" /> &nbsp; Copy Urn
+                </MenuItemStyle>
+            ),
+        },
+        {
             key: 'reset',
             label: (
                 <MenuItemStyle
@@ -95,7 +109,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     onClick={() => setIsViewingResetToken(true)}
                     data-testid="reset-menu-item"
                 >
-                    <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                    <LockOpen data-testid="resetButton" /> &nbsp; Reset user password
                 </MenuItemStyle>
             ),
         },
@@ -103,7 +117,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
             key: 'delete',
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <Trash /> &nbsp;Delete
                 </MenuItemStyle>
             ),
         },
