@@ -1,5 +1,5 @@
 describe("models", () => {
-  it("can visit models and groups", () => {
+  it("can visit sagemaker models and groups", () => {
     cy.visitWithLogin(
       "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Summary?is_lineage_mode=false",
     );
@@ -21,7 +21,7 @@ describe("models", () => {
     cy.contains("cypress-model-package-group");
   });
 
-  it("can visit models and groups", () => {
+  it("can visit sagemaker models and groups", () => {
     cy.visitWithLogin(
       "/mlModelGroup/urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,cypress-model-package-group,PROD)",
     );

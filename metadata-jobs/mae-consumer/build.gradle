@@ -64,5 +64,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }
