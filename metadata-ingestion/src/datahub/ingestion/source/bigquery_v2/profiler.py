@@ -545,7 +545,7 @@ FROM PartitionStats"""
             project: BigQuery project ID
             schema: Dataset name
             partition_cols_with_types: Dictionary of column names to data types
-            current_time: Current UTC datetime
+            current_time: Current UTC datetime (used only for context)
 
         Returns:
             List of filter strings if found, None otherwise
@@ -566,35 +566,85 @@ FROM PartitionStats"""
 
         # Try date columns first - most commonly used for partitioning
         if date_cols:
-            col_name = date_cols[0]  # Start with first date column
-            data_type = partition_cols_with_types[col_name]
+            for col_name in date_cols:
+                data_type = partition_cols_with_types[col_name]
 
-            # Try today, yesterday, last week (most common scenarios)
-            for days_ago in [0, 1, 7, 30]:
-                test_date = (current_time - timedelta(days=days_ago)).date()
-                filter_str = self._create_partition_filter_from_value(
-                    col_name, test_date, data_type
+                # Find actual date values with data instead of assuming current date
+                query = f"""
+                WITH PartitionStats AS (
+                    SELECT {col_name} as val, COUNT(*) as record_count
+                    FROM `{project}.{schema}.{table.name}`
+                    WHERE {col_name} IS NOT NULL
+                    GROUP BY {col_name}
+                    HAVING record_count > 0
+                    ORDER BY record_count DESC
+                    LIMIT 5
                 )
+                SELECT val, record_count 
+                FROM PartitionStats
+                """
 
-                if self._quick_verify_filters(table, project, schema, [filter_str]):
-                    logger.info(f"Found valid recent date filter: {filter_str}")
-                    return [filter_str]
+                try:
+                    query_job = self.config.get_bigquery_client().query(query)
+                    results = list(query_job.result())
+
+                    for result in results:
+                        if result.val is not None:
+                            filter_str = self._create_partition_filter_from_value(
+                                col_name, result.val, data_type
+                            )
+
+                            if self._quick_verify_filters(
+                                table, project, schema, [filter_str]
+                            ):
+                                logger.info(
+                                    f"Found valid date filter: {filter_str} with {result.record_count} rows"
+                                )
+                                return [filter_str]
+                except Exception as e:
+                    logger.warning(f"Error finding date partitions for {col_name}: {e}")
 
         # Try time columns next
         if time_cols:
-            col_name = time_cols[0]
-            data_type = partition_cols_with_types[col_name]
+            for col_name in time_cols:
+                data_type = partition_cols_with_types[col_name]
 
-            # Try current hour, day, etc.
-            for hours_ago in [0, 1, 24, 168]:  # Now, 1hr ago, 1 day ago, 1 week ago
-                test_time = current_time - timedelta(hours=hours_ago)
-                filter_str = self._create_partition_filter_from_value(
-                    col_name, test_time, data_type
+                # Find actual timestamp values with data instead of assuming current time
+                query = f"""
+                WITH PartitionStats AS (
+                    SELECT {col_name} as val, COUNT(*) as record_count
+                    FROM `{project}.{schema}.{table.name}`
+                    WHERE {col_name} IS NOT NULL
+                    GROUP BY {col_name}
+                    HAVING record_count > 0
+                    ORDER BY record_count DESC
+                    LIMIT 5
                 )
+                SELECT val, record_count 
+                FROM PartitionStats
+                """
 
-                if self._quick_verify_filters(table, project, schema, [filter_str]):
-                    logger.info(f"Found valid recent time filter: {filter_str}")
-                    return [filter_str]
+                try:
+                    query_job = self.config.get_bigquery_client().query(query)
+                    results = list(query_job.result())
+
+                    for result in results:
+                        if result.val is not None:
+                            filter_str = self._create_partition_filter_from_value(
+                                col_name, result.val, data_type
+                            )
+
+                            if self._quick_verify_filters(
+                                table, project, schema, [filter_str]
+                            ):
+                                logger.info(
+                                    f"Found valid timestamp filter: {filter_str} with {result.record_count} rows"
+                                )
+                                return [filter_str]
+                except Exception as e:
+                    logger.warning(
+                        f"Error finding timestamp partitions for {col_name}: {e}"
+                    )
 
         return None
 
