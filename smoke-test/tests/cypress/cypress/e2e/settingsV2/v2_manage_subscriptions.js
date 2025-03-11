@@ -58,10 +58,7 @@ describe("entity subscription test", () => {
     // Subscribe to dataset
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithTestId("subscribe-action");
-    cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-item")
-      .contains("Subscribe Me")
-      .click();
+    cy.clickOptionWithTestId("manage-my-subscription-button");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
@@ -89,22 +86,18 @@ describe("entity subscription test", () => {
     // Unsubscribe from the dataset page, verify changes applied successfully
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithTestId("subscribe-action");
-    cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-item")
-      .contains("Unsubscribe Me")
-      .click();
+    cy.clickOptionWithTestId("manage-my-subscription-button");
+    cy.clickOptionWithTestId("cancel-button"); // this is the cancel or unsubscribe button
     cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
     cy.goToSubscriptionsSettings();
     cy.ensureTextNotPresent(datasetName);
     cy.waitTextVisible("You are not currently subscribed to any entities.");
 
-    // Remove subscription from my subscriptions settings page
+    // Unsubscribe subscription from my subscriptions settings page
+    // First, subscribe to the dataset
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithTestId("subscribe-action");
-    cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-item")
-      .contains("Subscribe Me")
-      .click();
+    cy.clickOptionWithTestId("manage-my-subscription-button");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
@@ -117,6 +110,7 @@ describe("entity subscription test", () => {
 
     cy.clickOptionWithTestId("subscribe-button");
     cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
+    // Go to my subscriptions settings page and unsubscribe
     cy.goToSubscriptionsSettings();
     cy.get('[data-icon="edit"]').click();
     cy.clickOptionWithTestId("cancel-button");
