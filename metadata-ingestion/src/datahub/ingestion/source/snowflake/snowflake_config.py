@@ -312,6 +312,16 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    skip_standard_edition_check: bool = Field(
+        default=False,
+        description="If set to True, assumes this is Datahub Enterprise Edition, and skips the check for standard edition.",
+    )
+
+    allow_empty_schemas: bool = Field(
+        default=False,
+        description="If set to True, allows schemas with no tables or views to be processed, without reporting generic permissions error.",
+    )
+    
     include_assertion_results: bool = Field(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
