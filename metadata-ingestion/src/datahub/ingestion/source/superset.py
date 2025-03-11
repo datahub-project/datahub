@@ -80,7 +80,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SchemaFieldDataTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -755,7 +754,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                     downstream=DownstreamColumnRef(
                         table=None,
                         column=column.get("column_name", ""),
-                        column_type=SchemaFieldDataTypeClass(column.get("type"), ""),
                         native_column_type=column.get("type", ""),
                     ),
                     upstreams=[
