@@ -52,7 +52,10 @@ jobs:
                 "chakru-r",
                 "brock-acryl",
                 "mminichino",
-                "jayacryl"
+                "jayacryl",
+                "v-tarasevich-blitz-brain",
+                "ryota-cloud",
+                "annadoesdesign"
               ]'), 
               github.actor
             ) 

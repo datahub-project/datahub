@@ -290,8 +290,9 @@ module.exports = {
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
     algolia: {
+      // This is the "Search API Key" in Algolia, which means that it is ok to be public.
+      apiKey: "2adf840a044a5ecbf7bdaac88cbf9ee5",
       appId: "RK0UG797F3",
-      apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
       insights: true,
       contextualSearch: true,
