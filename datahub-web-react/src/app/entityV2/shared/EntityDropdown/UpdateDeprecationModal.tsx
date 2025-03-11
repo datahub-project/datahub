@@ -179,7 +179,12 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                         </Button>
                     )}
                     {!replacementUrn && (
-                        <Button variant="outline" size="sm" onClick={() => setIsReplacementModalVisible(true)}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            size="sm"
+                            onClick={() => setIsReplacementModalVisible(true)}
+                        >
                             Select Replacement
                         </Button>
                     )}
