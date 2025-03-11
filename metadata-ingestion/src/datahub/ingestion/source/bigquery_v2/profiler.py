@@ -391,6 +391,11 @@ FROM PartitionStats"""
             None if partition filters could not be determined
         """
         try:
+            # Try sampling approach first - most efficient
+            sample_filters = self._get_partitions_with_sampling(table, project, schema)
+            if sample_filters:
+                return sample_filters
+
             # Step 1: Get partition columns from INFORMATION_SCHEMA
             partition_cols_with_types = self._get_partition_columns_from_info_schema(
                 table, project, schema
@@ -459,7 +464,7 @@ FROM PartitionStats"""
         schema: str,
         partition_cols: List[str],
         partition_cols_with_types: Dict[str, str],
-        timeout: int = 300,  # This parameter will be ignored
+        timeout: int = 300,
     ) -> Optional[List[str]]:
         """
         Try to find combinations of partition values that return data.
@@ -860,6 +865,152 @@ FROM PartitionStats"""
         logger.warning("All fallback approaches failed to find valid partition values")
         return None
 
+    def _verify_partition_has_data(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        timeout: int = 300,  # Increased from 120
+    ) -> bool:
+        """
+        Verify that the partition filters actually return data.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            filters: List of partition filter strings
+            timeout: Query timeout in seconds
+
+        Returns:
+            True if data exists, False otherwise
+        """
+        if not filters:
+            return False
+
+        # Build WHERE clause from filters
+        where_clause = " AND ".join(filters)
+
+        # Run a simple count query to check if data exists
+        query = f"""SELECT COUNT(*) as cnt
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {where_clause}
+    LIMIT 1000"""  # Limit to avoid expensive full table scans
+
+        try:
+            logger.debug(f"Verifying partition data with query: {query}")
+
+            # Set a longer timeout for this operation
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result())
+
+            if results and results[0].cnt > 0:
+                logger.info(
+                    f"Verified partition filters return {results[0].cnt} rows: {where_clause}"
+                )
+                return True
+            else:
+                logger.warning(f"Partition verification found no data: {where_clause}")
+                return False
+        except Exception as e:
+            logger.warning(f"Error verifying partition data: {e}", exc_info=True)
+
+            # Try with a simpler query as fallback
+            try:
+                simpler_query = f"""
+                SELECT 1 
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {where_clause}
+                LIMIT 1
+                """
+                query_job = self.config.get_bigquery_client().query(simpler_query)
+                results = list(query_job.result())
+
+                return len(results) > 0
+            except Exception as simple_e:
+                logger.warning(f"Simple verification also failed: {simple_e}")
+                return False
+
+    def _get_partitions_with_sampling(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Optional[List[str]]:
+        """
+        Get partition filters using sampling to avoid full table scans.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            List of partition filter strings, or None if unable to build filters
+        """
+        try:
+            # First get partition columns
+            partition_cols_with_types = self._get_partition_columns_from_info_schema(
+                table, project, schema
+            )
+
+            if not partition_cols_with_types:
+                partition_cols_with_types = self._get_partition_columns_from_ddl(
+                    table, project, schema
+                )
+
+            if not partition_cols_with_types:
+                return None
+
+            logger.info(
+                f"Using sampling to find partition values for {len(partition_cols_with_types)} columns"
+            )
+
+            # Use TABLESAMPLE to get a small sample of data
+            sample_query = f"""
+            SELECT *
+            FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (1 PERCENT)
+            LIMIT 100
+            """
+
+            query_job = self.config.get_bigquery_client().query(sample_query)
+            results = list(query_job.result())
+
+            if not results:
+                logger.info("Sample query returned no results")
+                return None
+
+            # Extract values for partition columns
+            filters = []
+            for col_name, data_type in partition_cols_with_types.items():
+                for row in results:
+                    if hasattr(row, col_name) and getattr(row, col_name) is not None:
+                        val = getattr(row, col_name)
+                        filter_str = self._create_partition_filter_from_value(
+                            col_name, val, data_type
+                        )
+                        filters.append(filter_str)
+                        logger.info(
+                            f"Found partition value from sample: {col_name}={val}"
+                        )
+                        break
+
+            # Verify the filters return data
+            if filters and self._verify_partition_has_data(
+                table, project, schema, filters
+            ):
+                logger.info(
+                    f"Successfully created partition filters from sample: {filters}"
+                )
+                return filters
+
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error getting partition filters with sampling: {e}")
+            return None
+
     def _find_valid_partition_combination(
         self,
         table: BigqueryTable,
@@ -947,74 +1098,6 @@ FROM PartitionStats"""
             table, project, schema, partition_cols_with_types, timeout
         )
 
-    def _verify_partition_has_data(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        timeout: int = 300,  # Increased from 120
-    ) -> bool:
-        """
-        Verify that the partition filters actually return data.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: BigQuery dataset name
-            filters: List of partition filter strings
-            timeout: Query timeout in seconds
-
-        Returns:
-            True if data exists, False otherwise
-        """
-        if not filters:
-            return False
-
-        # Build WHERE clause from filters
-        where_clause = " AND ".join(filters)
-
-        # Run a simple count query to check if data exists
-        query = f"""SELECT COUNT(*) as cnt
-    FROM `{project}.{schema}.{table.name}`
-    WHERE {where_clause}
-    LIMIT 1000"""  # Limit to avoid expensive full table scans
-
-        try:
-            logger.debug(f"Verifying partition data with query: {query}")
-
-            # Set a longer timeout for this operation
-            query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job.result())
-
-            if results and results[0].cnt > 0:
-                logger.info(
-                    f"Verified partition filters return {results[0].cnt} rows: {where_clause}"
-                )
-                return True
-            else:
-                logger.warning(f"Partition verification found no data: {where_clause}")
-                return False
-        except Exception as e:
-            logger.warning(f"Error verifying partition data: {e}", exc_info=True)
-
-            # Try with a simpler query as fallback
-            try:
-                simpler_query = f"""
-                SELECT 1 
-                FROM `{project}.{schema}.{table.name}`
-                WHERE {where_clause}
-                LIMIT 1
-                """
-                query_job = self.config.get_bigquery_client().query(simpler_query)
-                results = list(query_job.result())
-
-                return len(results) > 0
-            except Exception as simple_e:
-                logger.warning(f"Simple verification also failed: {simple_e}")
-                return False
-
-    # Add this method to improve detection of partition columns from INFORMATION_SCHEMA if not found in partition_info
     def _get_required_partition_filters(
         self,
         table: BigqueryTable,
@@ -1036,6 +1119,11 @@ FROM PartitionStats"""
         current_time = datetime.now(timezone.utc)
         partition_filters = []
 
+        # First try sampling approach as it's most efficient
+        sample_filters = self._get_partitions_with_sampling(table, project, schema)
+        if sample_filters:
+            return sample_filters
+
         # Get required partition columns from table info
         required_partition_columns = set()
 
@@ -1053,10 +1141,10 @@ FROM PartitionStats"""
         if not required_partition_columns:
             try:
                 query = f"""SELECT column_name
-FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
+    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+    WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job)
+                results = list(query_job.result())
                 required_partition_columns = {row.column_name for row in results}
                 logger.debug(
                     f"Found partition columns from schema: {required_partition_columns}"
@@ -1076,14 +1164,14 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
 
         logger.debug(f"Required partition columns: {required_partition_columns}")
 
-        # Get column data types to handle casting correctly
+        # Get column data types for the partition columns
         column_data_types = {}
         try:
             query = f"""SELECT column_name, data_type
-FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}'"""
+    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+    WHERE table_name = '{table.name}'"""
             query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job)
+            results = list(query_job.result())
             column_data_types = {row.column_name: row.data_type for row in results}
         except Exception as e:
             logger.error(f"Error fetching column data types: {e}")
@@ -1131,9 +1219,9 @@ WHERE table_name = '{table.name}'"""
     HAVING record_count > 0
     ORDER BY {col_name} DESC
     LIMIT 1
-)
-SELECT val, record_count
-FROM PartitionStats"""
+    )
+    SELECT val, record_count
+    FROM PartitionStats"""
                 logger.debug(f"Executing query for partition value: {query}")
 
                 query_job = self.config.get_bigquery_client().query(query)
@@ -1175,16 +1263,14 @@ FROM PartitionStats"""
             "table_name": bq_table.name,
         }
 
-        # Different handling path for external tables vs native tables
+        # For external tables, add specific handling
         if bq_table.external:
-            logger.info(f"Processing external table: {bq_table.name}")
-            partition_filters = self._get_external_table_partition_filters(
-                bq_table, db_name, schema_name, datetime.now(timezone.utc)
-            )
-        else:
-            partition_filters = self._get_required_partition_filters(
-                bq_table, db_name, schema_name
-            )
+            base_kwargs["is_external"] = "true"
+            # Add any specific external table options needed
+
+        partition_filters = self._get_required_partition_filters(
+            bq_table, db_name, schema_name
+        )
 
         if partition_filters is None:
             logger.warning(
@@ -1193,7 +1279,7 @@ FROM PartitionStats"""
             )
             return base_kwargs
 
-        # If no partition filters needed, return base kwargs
+        # If no partition filters needed (e.g. some external tables), return base kwargs
         if not partition_filters:
             return base_kwargs
 
