@@ -250,7 +250,7 @@ class VertexAISource(Source):
     def _make_custom_properties_for_run(
         self, experiment: Experiment, run: ExperimentRun
     ) -> dict:
-        properties = dict[str, str]()
+        properties: Dict[str, str] = dict()
         properties["externalUrl"] = self._make_experiment_run_external_url(
             experiment, run
         )
