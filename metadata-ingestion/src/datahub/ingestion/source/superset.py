@@ -439,9 +439,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_data.get("owners", []),
                 )
             ),
-            "IsCertified": str(
-                True if dashboard_data.get("certified_by") else False
-            ).lower(),
+            "IsCertified": str(bool(dashboard_data.get("certified_by"))).lower(),
         }
 
         if dashboard_data.get("certified_by"):
