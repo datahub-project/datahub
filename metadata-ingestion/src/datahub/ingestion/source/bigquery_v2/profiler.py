@@ -109,7 +109,7 @@ SELECT * FROM PartitionStats"""
 
                 logger.debug(f"Executing combined partition query: {query}")
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job.result(timeout=timeout))
+                results = list(query_job.result())
 
                 if results:
                     # Take the partition combination with the most records
@@ -184,7 +184,7 @@ SELECT val, record_count FROM PartitionStats"""
                     f"Executing query for partition column {col_name}: {query}"
                 )
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job.result(timeout=timeout))
+                results = list(query_job.result())
 
                 if not results or results[0].val is None:
                     logger.warning(
@@ -334,7 +334,7 @@ FROM PartitionStats"""
 
         try:
             query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job.result(timeout=timeout))
+            results = list(query_job.result())
 
             if not results or results[0].val is None:
                 logger.warning(
@@ -459,7 +459,7 @@ FROM PartitionStats"""
         schema: str,
         partition_cols: List[str],
         partition_cols_with_types: Dict[str, str],
-        timeout: int = 300,
+        timeout: int = 300,  # This parameter will be ignored
     ) -> Optional[List[str]]:
         """
         Try to find combinations of partition values that return data.
@@ -470,7 +470,7 @@ FROM PartitionStats"""
             schema: BigQuery dataset name
             partition_cols: List of partition column names
             partition_cols_with_types: Dictionary of column names to data types
-            timeout: Query timeout in seconds
+            timeout: Parameter retained for API compatibility but not used
 
         Returns:
             List of filter strings if found, None otherwise
@@ -494,10 +494,35 @@ FROM PartitionStats"""
         """
 
         logger.debug(f"Finding partition combinations: {query}")
-        query_job = self.config.get_bigquery_client().query(query)
-        results = list(query_job.result(timeout=timeout))
 
+        try:
+            query_job = self.config.get_bigquery_client().query(query)
+            # Call result() without a timeout parameter
+            results = list(query_job.result())
+        except Exception as e:
+            logger.warning(f"Error querying partition combinations: {e}")
+            try:
+                # Try a simpler version of the query
+                simplified_query = f"""
+                SELECT {partition_cols_select}, COUNT(*) as record_count
+                FROM `{project}.{schema}.{table.name}` 
+                WHERE {partition_cols[0]} IS NOT NULL
+                GROUP BY {partition_cols_select}
+                ORDER BY record_count DESC
+                LIMIT 5
+                """
+                logger.info(f"Trying simplified query: {simplified_query}")
+                simplified_job = self.config.get_bigquery_client().query(
+                    simplified_query
+                )
+                results = list(simplified_job.result())
+            except Exception as simplified_error:
+                logger.warning(f"Simplified query also failed: {simplified_error}")
+                return None
+
+        # If the query returned no results
         if not results:
+            logger.warning("No partition combinations found")
             return None
 
         # Try each combination, starting with the one with most records
@@ -683,7 +708,7 @@ FROM PartitionStats"""
             logger.info(f"Executing fallback query with {order_by} ordering")
             try:
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job.result(timeout=timeout))
+                results = list(query_job.result())
 
                 if results:
                     logger.info(f"Query returned {len(results)} potential values")
@@ -759,7 +784,7 @@ FROM PartitionStats"""
             """
 
             query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job.result(timeout=timeout))
+            results = list(query_job.result())
 
             if results and len(results) > 0:
                 for col_name in partition_cols_with_types:
@@ -809,7 +834,7 @@ FROM PartitionStats"""
 
                 try:
                     query_job = self.config.get_bigquery_client().query(query)
-                    results = list(query_job.result(timeout=timeout))
+                    results = list(query_job.result())
 
                     if (
                         results
@@ -960,7 +985,7 @@ FROM PartitionStats"""
 
             # Set a longer timeout for this operation
             query_job = self.config.get_bigquery_client().query(query)
-            results = list(query_job.result(timeout=timeout))
+            results = list(query_job.result())
 
             if results and results[0].cnt > 0:
                 logger.info(
@@ -982,7 +1007,7 @@ FROM PartitionStats"""
                 LIMIT 1
                 """
                 query_job = self.config.get_bigquery_client().query(simpler_query)
-                results = list(query_job.result(timeout=timeout))
+                results = list(query_job.result())
 
                 return len(results) > 0
             except Exception as simple_e:
@@ -1112,7 +1137,7 @@ FROM PartitionStats"""
                 logger.debug(f"Executing query for partition value: {query}")
 
                 query_job = self.config.get_bigquery_client().query(query)
-                results = list(query_job.result(timeout=300))
+                results = list(query_job.result())
 
                 if not results or results[0].val is None:
                     logger.warning(
