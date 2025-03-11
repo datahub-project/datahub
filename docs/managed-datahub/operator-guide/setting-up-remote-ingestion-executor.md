@@ -170,6 +170,28 @@ By default the executor will look for files mounted in `/mnt/secrets`, this is o
 These files are expected to be under 1MB in data by default. To increase this limit set a higher value using:
 `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN` (default: `1024768`, size in bytes)
 
+## Monitoring Remote Executor Deployment
+
+Remote Executor exposes a Prometheus/OpenMetrics endpoint with various task execution and container metrics on port `9087/tcp`. Each exposed metric has an annotation
+explaining its purpose. Metrics can be collected by Prometheus stack or compatible agents, such as DataDog.
+
+
+Example ServiceMonitor resource to allow scraping Remote Executor metrics in Prometheus
+```
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+  name: datahub-remote-executor
+spec:
+  endpoints:
+  - port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: datahub-remote-executor
+```
+
+
 ## FAQ
 
 ### If I need to change (or add) a secret that is stored in AWS Secrets Manager, e.g. for rotation, will the new secret automatically get picked up by Acryl's executor?
