@@ -22,13 +22,6 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
-try:
-    # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
-    import pandas
-except ImportError:
-    pass
-import freezegun  # noqa: E402
-
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
     pytest_addoption,
@@ -41,6 +34,14 @@ from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph,
     mock_datahub_graph_instance,
 )
+
+try:
+    # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
+    import pandas  # noqa: F401
+except ImportError:
+    pass
+
+import freezegun  # noqa: E402
 
 # The freezegun library has incomplete type annotations.
 # See https://github.com/spulec/freezegun/issues/469
