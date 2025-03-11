@@ -782,9 +782,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         results: Dict = self._post_generic(url, search_body)
         num_entities = results["value"]["numEntities"]
         logger.debug(f"Matched {num_entities} containers")
-        entities_yielded: int = 0
         for x in results["value"]["entities"]:
-            entities_yielded += 1
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
 
