@@ -12,6 +12,7 @@ fragment incidentsFields on EntityIncidentsResult {
         startedAt
         status {
             state
+            stage
             message
             lastUpdated {
                 time
@@ -20,6 +21,9 @@ fragment incidentsFields on EntityIncidentsResult {
         }
         source {
             type
+            source {
+                ...assertionDetails
+            }
         }
         created {
             time
@@ -28,21 +32,31 @@ fragment incidentsFields on EntityIncidentsResult {
         tags {
             ...globalTagsFields
         }
+        priority
+        assignees {
+            ... on CorpUser {
+                urn
+                type
+                username
+                status
+                properties {
+                    displayName
+                }
+            }
+        }
+        linkedAssets: relationships(input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000 }) {
+            relationships {
+                entity {
+                    ...entityPreview
+                }
+            }
+        }
     }
 }
 
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary
-        siblings {
-            urn
-            type
-            ... on Dataset {
-                incidents(start: $start, count: $count, state: $state) {
-                    ...incidentsFields
-                }
-            }
-        }
     }
     siblingsSearch(input: { query: "*", count: 5 }) {
         count
@@ -97,6 +111,22 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
             }
         }
         ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeature {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLModel {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentsFields
             }

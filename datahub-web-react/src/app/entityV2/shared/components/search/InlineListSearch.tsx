@@ -36,7 +36,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
                 prefix={!options?.hidePrefix && <SearchOutlined />}
             />
             {searchText && !options?.hideMatchCountText && (
-                <MatchLabelText>
+                <MatchLabelText data-testid="inline-search-matched-result-text">
                     Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
                 </MatchLabelText>
             )}

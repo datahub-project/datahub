@@ -86,6 +86,7 @@ interface OptionProps {
     isLoadingParentChildList?: boolean;
     setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
     hideParentCheckbox?: boolean;
+    isParentOptionLabelExpanded?: boolean;
 }
 
 export const NestedOption = ({
@@ -101,10 +102,11 @@ export const NestedOption = ({
     isLoadingParentChildList,
     setSelectedOptions,
     hideParentCheckbox,
+    isParentOptionLabelExpanded,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
     const directChildren = useMemo(
         () => parentValueToOptions[option.value] || [],
         [parentValueToOptions, option.value],
@@ -248,6 +250,7 @@ export const NestedOption = ({
                         display: 'flex',
                         justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
                     }}
+                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >
                     {option.isParent && <strong>{option.label}</strong>}
                     {!option.isParent && <>{option.label}</>}
@@ -295,7 +298,7 @@ export const NestedOption = ({
                 </OptionLabel>
             </ParentOption>
             {isOpen && (
-                <ChildOptions>
+                <ChildOptions data-testid="children-option-container">
                     {directChildren.map((child) => (
                         <NestedOption
                             key={child.value}
