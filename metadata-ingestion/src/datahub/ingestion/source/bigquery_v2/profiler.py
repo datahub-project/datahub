@@ -391,11 +391,6 @@ FROM PartitionStats"""
             None if partition filters could not be determined
         """
         try:
-            # Try sampling approach first - most efficient
-            sample_filters = self._get_partitions_with_sampling(table, project, schema)
-            if sample_filters:
-                return sample_filters
-
             # Step 1: Get partition columns from INFORMATION_SCHEMA
             partition_cols_with_types = self._get_partition_columns_from_info_schema(
                 table, project, schema
@@ -418,14 +413,302 @@ FROM PartitionStats"""
                 f"Found {len(partition_cols_with_types)} partition columns: {list(partition_cols_with_types.keys())}"
             )
 
-            # Step 4: Find a valid combination of partition filters that returns data
-            return self._find_valid_partition_combination(
+            # Step 4: First try sampling approach (most efficient)
+            sample_filters = self._get_partitions_with_sampling(table, project, schema)
+            if sample_filters:
+                return sample_filters
+
+            # Step 5: For time partitions in external tables, try recent dates
+            date_columns = {
+                col: data_type
+                for col, data_type in partition_cols_with_types.items()
+                if (
+                    col.lower()
+                    in {"date", "dt", "day", "created_date", "partition_date"}
+                )
+                or (data_type.upper() == "DATE")
+            }
+
+            timestamp_columns = {
+                col: data_type
+                for col, data_type in partition_cols_with_types.items()
+                if (
+                    col.lower()
+                    in {"timestamp", "time", "datetime", "created_at", "updated_at"}
+                )
+                or (data_type.upper() in {"TIMESTAMP", "DATETIME"})
+            }
+
+            # Handle date columns first - try working backwards from current date
+            if date_columns:
+                filters = self._try_recent_date_partitions(
+                    table, project, schema, date_columns, current_time
+                )
+                if filters:
+                    return filters
+
+            # Next try timestamp columns similarly
+            if timestamp_columns:
+                filters = self._try_recent_timestamp_partitions(
+                    table, project, schema, timestamp_columns, current_time
+                )
+                if filters:
+                    return filters
+
+            # Step 6: For non-time partitions, try small-scale sampling for each column
+            for col_name, data_type in partition_cols_with_types.items():
+                if col_name in date_columns or col_name in timestamp_columns:
+                    continue  # Already tried these
+
+                # Try to get a few distinct values with minimal scanning
+                try:
+                    query = f"""
+                    SELECT DISTINCT {col_name}
+                    FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (0.5 PERCENT) 
+                    WHERE {col_name} IS NOT NULL
+                    LIMIT 5
+                    """
+
+                    query_job = self.config.get_bigquery_client().query(query)
+                    values = [getattr(row, col_name) for row in query_job.result()]
+
+                    # Try each value to find one that works
+                    for val in values:
+                        filter_str = self._create_partition_filter_from_value(
+                            col_name, val, data_type
+                        )
+
+                        # Verify this value returns data with minimal scanning
+                        if self._verify_partition_has_data_with_limit(
+                            table, project, schema, [filter_str], limit=10
+                        ):
+                            return [filter_str]
+                except Exception as e:
+                    logger.warning(f"Error sampling values for column {col_name}: {e}")
+
+            # Last resort: fallback to regular combination finding with careful limits
+            logger.warning(f"Using fallback approach for external table {table.name}")
+            return self._find_valid_partition_combination_for_external(
                 table, project, schema, partition_cols_with_types
             )
 
         except Exception as e:
             logger.error(f"Error checking external table partitioning: {e}")
             return None
+
+    def _try_recent_date_partitions(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        date_columns: Dict[str, str],
+        current_time: datetime,
+    ) -> Optional[List[str]]:
+        """
+        Try recent date values for external table date partitions.
+        """
+        # Try dates in reverse chronological order
+        test_dates = [
+            current_time.date(),  # Today
+            (current_time - timedelta(days=1)).date(),  # Yesterday
+            (current_time - timedelta(days=7)).date(),  # Last week
+            (current_time - timedelta(days=30)).date(),  # Last month
+            (current_time - timedelta(days=90)).date(),  # Last quarter
+            (current_time - timedelta(days=365)).date(),  # Last year
+        ]
+
+        for col_name, data_type in date_columns.items():
+            for test_date in test_dates:
+                filter_str = self._create_partition_filter_from_value(
+                    col_name, test_date, data_type
+                )
+
+                # Check if this date filter returns data with minimal scanning
+                if self._verify_partition_has_data_with_limit(
+                    table, project, schema, [filter_str], limit=10
+                ):
+                    logger.info(
+                        f"Found working date filter for external table: {filter_str}"
+                    )
+                    return [filter_str]
+
+        return None
+
+    def _try_recent_timestamp_partitions(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        timestamp_columns: Dict[str, str],
+        current_time: datetime,
+    ) -> Optional[List[str]]:
+        """
+        Try recent timestamp values for external table timestamp partitions.
+        """
+        # Create timestamp ranges - truncate to hour to increase matches
+        current_hour = current_time.replace(minute=0, second=0, microsecond=0)
+
+        test_times = [
+            current_hour,  # This hour
+            current_hour - timedelta(hours=1),  # Last hour
+            current_hour - timedelta(hours=24),  # Yesterday same hour
+            current_hour - timedelta(days=7),  # Last week same hour
+        ]
+
+        for col_name, _data_type in timestamp_columns.items():
+            for test_time in test_times:
+                # For timestamps, we can do a range check instead of exact match to increase chances
+                # of finding data in a specific time window
+                filter_str = (
+                    f"`{col_name}` >= TIMESTAMP '{test_time.strftime('%Y-%m-%d %H:00:00')}' "
+                    + f"AND `{col_name}` < TIMESTAMP '{(test_time + timedelta(hours=1)).strftime('%Y-%m-%d %H:00:00')}'"
+                )
+
+                # Check if this filter returns data with minimal scanning
+                if self._verify_partition_has_data_with_limit(
+                    table, project, schema, [filter_str], limit=10
+                ):
+                    logger.info(
+                        f"Found working timestamp filter for external table: {filter_str}"
+                    )
+                    return [filter_str]
+
+        return None
+
+    def _verify_partition_has_data_with_limit(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        limit: int = 10,
+    ) -> bool:
+        """
+        Verify partition filters return data using a LIMIT clause to avoid full scans.
+        """
+        if not filters:
+            return False
+
+        where_clause = " AND ".join(filters)
+
+        # Use LIMIT 1 to minimize data scanned
+        query = f"""
+        SELECT 1
+        FROM `{project}.{schema}.{table.name}`
+        WHERE {where_clause}
+        LIMIT {limit}
+        """
+
+        try:
+            logger.debug(
+                f"Verifying external table partition with minimal query: {query}"
+            )
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result())
+            return len(results) > 0
+        except Exception as e:
+            logger.warning(f"Error verifying partition with limit: {e}")
+            return False
+
+    def _find_valid_partition_combination_for_external(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+    ) -> Optional[List[str]]:
+        """
+        Find valid partition combination for external tables with minimal scanning.
+        """
+        # For external tables, we'll be extra cautious to avoid large scans
+        # Start by trying to get a single value for each partition column individually
+        individual_filters = []
+
+        for col_name, data_type in partition_cols_with_types.items():
+            try:
+                # Use TABLESAMPLE to minimize scanning
+                query = f"""
+                SELECT DISTINCT {col_name}
+                FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (0.1 PERCENT)
+                WHERE {col_name} IS NOT NULL
+                LIMIT 5
+                """
+
+                query_job = self.config.get_bigquery_client().query(query)
+                rows = list(query_job.result())
+
+                if rows:
+                    # Try each value to find one that works
+                    for row in rows:
+                        val = getattr(row, col_name)
+                        filter_str = self._create_partition_filter_from_value(
+                            col_name, val, data_type
+                        )
+
+                        if self._verify_partition_has_data_with_limit(
+                            table, project, schema, [filter_str]
+                        ):
+                            individual_filters.append(filter_str)
+                            logger.info(
+                                f"Found working filter for external table: {filter_str}"
+                            )
+                            # For external tables, we might only need one partition column filter
+                            # to get good performance
+                            return [filter_str]
+            except Exception as e:
+                logger.warning(
+                    f"Error finding valid partition for column {col_name}: {e}"
+                )
+
+        # If we have multiple individual filters, verify they work together
+        if (
+            len(individual_filters) > 1
+            and self._verify_partition_has_data_with_limit(
+                table, project, schema, individual_filters
+            )
+            or len(individual_filters) == 1
+        ):
+            return individual_filters
+
+        # Last resort - return a dummy filter that will get at least some data
+        logger.warning(f"Using catch-all approach for external table {table.name}")
+
+        # Pick a non-time column if available
+        non_time_cols = [
+            col
+            for col in partition_cols_with_types.keys()
+            if not any(
+                time_word in col.lower()
+                for time_word in ["date", "time", "day", "month", "year", "hour"]
+            )
+        ]
+
+        if non_time_cols:
+            col_name = non_time_cols[0]
+            try:
+                # Try to get any value at all
+                query = f"""
+                SELECT DISTINCT {col_name}
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {col_name} IS NOT NULL
+                LIMIT 1
+                """
+
+                query_job = self.config.get_bigquery_client().query(query)
+                rows = list(query_job.result())
+
+                if rows and hasattr(rows[0], col_name):
+                    val = getattr(rows[0], col_name)
+                    data_type = partition_cols_with_types[col_name]
+                    filter_str = self._create_partition_filter_from_value(
+                        col_name, val, data_type
+                    )
+                    return [filter_str]
+            except Exception as e:
+                logger.warning(f"Error in last resort approach: {e}")
+
+        # Empty list indicates no partitions found or usable
+        return []
 
     def _create_partition_filter_from_value(
         self, col_name: str, val: Any, data_type: str
