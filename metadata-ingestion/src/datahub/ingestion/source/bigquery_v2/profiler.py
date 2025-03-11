@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -525,7 +525,7 @@ FROM PartitionStats"""
         project: str,
         schema: str,
         partition_cols_with_types: Dict[str, str],
-        timeout: int = 300,
+        timeout: int = 600,
     ) -> Optional[List[str]]:
         """
         Attempt fallback approaches to find valid partition values.
@@ -540,27 +540,153 @@ FROM PartitionStats"""
         Returns:
             List of filter strings if found, None otherwise
         """
+        # 1. Try date columns first
+        date_columns = [
+            col
+            for col in partition_cols_with_types.keys()
+            if col.lower() in {"date", "day", "dt", "created_date", "partition_date"}
+        ]
+
+        if date_columns:
+            logger.info(f"Found date columns to try first: {date_columns}")
+            date_filters = self._try_date_column_fallback(
+                table, project, schema, date_columns, partition_cols_with_types, timeout
+            )
+            if date_filters:
+                return date_filters
+
+        # 2. Try generic approach for all columns
+        fallback_filters = self._try_generic_column_fallback(
+            table, project, schema, partition_cols_with_types, timeout
+        )
+
+        # 3. If we found filters, verify them
+        if fallback_filters:
+            if self._verify_partition_has_data(
+                table, project, schema, fallback_filters, timeout
+            ):
+                logger.info(f"Found valid fallback filters: {fallback_filters}")
+                return fallback_filters
+            else:
+                logger.warning("Fallback filters validation failed")
+
+        # 4. Last resort - try simplified approach
+        return self._try_simplified_fallback(
+            table, project, schema, partition_cols_with_types, timeout
+        )
+
+    def _try_date_column_fallback(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        date_columns: List[str],
+        partition_cols_with_types: Dict[str, str],
+        timeout: int,
+    ) -> Optional[List[str]]:
+        """Try fallback approach specifically for date-type columns."""
+        for col_name in date_columns:
+            data_type = partition_cols_with_types.get(col_name, "DATE")
+            logger.info(
+                f"Trying fallback approach for date column {col_name} with type {data_type}"
+            )
+
+            try:
+                # Simple approach - try the current date, then 1 day ago, then 2 days ago, etc.
+                current_date = datetime.now(timezone.utc).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+
+                for days_ago in [0, 1, 7, 30, 90, 365]:
+                    test_date = current_date - timedelta(days=days_ago)
+                    filter_str = self._create_partition_filter_from_value(
+                        col_name, test_date, data_type
+                    )
+
+                    logger.info(
+                        f"Testing date filter for {days_ago} days ago: {filter_str}"
+                    )
+                    # Test this filter
+                    if self._verify_partition_has_data(
+                        table, project, schema, [filter_str], timeout
+                    ):
+                        logger.info(f"Found working date filter: {filter_str}")
+                        return [filter_str]
+            except Exception as e:
+                logger.error(
+                    f"Error in date fallback for column {col_name}: {e}", exc_info=True
+                )
+
+        return None
+
+    def _try_generic_column_fallback(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        timeout: int,
+    ) -> List[str]:
+        """Try generic fallback approach for any column type."""
         fallback_filters = []
+        # Skip date columns that were already tried
+        date_columns = [
+            col
+            for col in partition_cols_with_types.keys()
+            if col.lower() in {"date", "day", "dt", "created_date", "partition_date"}
+        ]
 
         for col_name, data_type in partition_cols_with_types.items():
-            try:
-                # Try different ORDER BY clauses to find any value with data
-                for order_by in ["DESC", "ASC", "record_count DESC"]:
-                    query = f"""
-                    WITH PartitionStats AS (
-                        SELECT {col_name} as val, COUNT(*) as record_count
-                        FROM `{project}.{schema}.{table.name}`
-                        WHERE {col_name} IS NOT NULL
-                        GROUP BY {col_name}
-                        HAVING record_count > 0
-                        ORDER BY {col_name} {order_by}
-                        LIMIT 10
-                    )
-                    SELECT val, record_count FROM PartitionStats
-                    """
+            if col_name in date_columns:
+                continue  # Already tried this as a date column
 
-                    query_job = self.config.get_bigquery_client().query(query)
-                    results = list(query_job.result(timeout=timeout))
+            try:
+                logger.info(
+                    f"Trying generic fallback for column {col_name} with type {data_type}"
+                )
+                filter_str = self._try_column_with_different_orderings(
+                    table, project, schema, col_name, data_type, timeout
+                )
+                if filter_str:
+                    fallback_filters.append(filter_str)
+            except Exception as e:
+                logger.error(
+                    f"Error in fallback for column {col_name}: {e}", exc_info=True
+                )
+
+        return fallback_filters
+
+    def _try_column_with_different_orderings(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        col_name: str,
+        data_type: str,
+        timeout: int,
+    ) -> Optional[str]:
+        """Try different ordering strategies to find a valid value for a column."""
+        for order_by in ["DESC", "ASC", "record_count DESC"]:
+            query = f"""
+            WITH PartitionStats AS (
+                SELECT {col_name} as val, COUNT(*) as record_count
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {col_name} IS NOT NULL
+                GROUP BY {col_name}
+                HAVING record_count > 0
+                ORDER BY {col_name} {order_by}
+                LIMIT 10
+            )
+            SELECT val, record_count FROM PartitionStats
+            """
+
+            logger.info(f"Executing fallback query with {order_by} ordering")
+            try:
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=timeout))
+
+                if results:
+                    logger.info(f"Query returned {len(results)} potential values")
 
                     for result in results:
                         val = result.val
@@ -569,27 +695,144 @@ FROM PartitionStats"""
                                 col_name, val, data_type
                             )
 
+                            logger.info(f"Testing filter: {filter_str}")
                             # Test each filter individually
                             if self._verify_partition_has_data(
-                                table, project, schema, [filter_str]
+                                table, project, schema, [filter_str], timeout
                             ):
-                                fallback_filters.append(filter_str)
-                                break  # Found a working filter for this column
+                                logger.info(f"Found working filter: {filter_str}")
+                                return filter_str
+                else:
+                    logger.info(f"No results for {order_by} ordering")
+            except Exception as query_e:
+                logger.warning(
+                    f"Error executing query with {order_by} ordering: {query_e}"
+                )
+                continue
 
-                    if any(f.startswith(f"`{col_name}`") for f in fallback_filters):
-                        # We have a filter for this column
-                        break
-            except Exception as e:
-                logger.warning(f"Error in fallback for column {col_name}: {e}")
+        return None
 
-        # If we found filters for at least some columns
-        if fallback_filters:
-            if self._verify_partition_has_data(
-                table, project, schema, fallback_filters
-            ):
-                logger.info(f"Found valid fallback filters: {fallback_filters}")
-                return fallback_filters
+    def _try_simplified_fallback(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        timeout: int,
+    ) -> Optional[List[str]]:
+        """Last resort approach when other methods fail."""
+        logger.warning(
+            "All approaches failed, trying with a single most populated partition"
+        )
 
+        # Try with simplified approach - just get most recent partition
+        if self._try_get_most_recent_partition(
+            table, project, schema, partition_cols_with_types, timeout
+        ):
+            return self._try_get_most_recent_partition(
+                table, project, schema, partition_cols_with_types, timeout
+            )
+
+        # Try to find the most populated partition for any column
+        return self._try_find_most_populated_partition(
+            table, project, schema, partition_cols_with_types, timeout
+        )
+
+    def _try_get_most_recent_partition(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        timeout: int,
+    ) -> Optional[List[str]]:
+        """Try to get the most recent partition."""
+        logger.info("Trying simplified approach to find most recent partition")
+        try:
+            fallback_filters = []
+            # This query just gets the most recent data for any partition column
+            query = f"""
+            SELECT *
+            FROM `{project}.{schema}.{table.name}`
+            ORDER BY {list(partition_cols_with_types.keys())[0]} DESC
+            LIMIT 1
+            """
+
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job.result(timeout=timeout))
+
+            if results and len(results) > 0:
+                for col_name in partition_cols_with_types:
+                    val = getattr(results[0], col_name, None)
+                    if val is not None:
+                        data_type = partition_cols_with_types.get(col_name, "STRING")
+                        filter_str = self._create_partition_filter_from_value(
+                            col_name, val, data_type
+                        )
+                        fallback_filters.append(filter_str)
+                        logger.info(
+                            f"Found filter from simplified approach: {filter_str}"
+                        )
+
+                if fallback_filters and self._verify_partition_has_data(
+                    table, project, schema, fallback_filters, timeout
+                ):
+                    return fallback_filters
+        except Exception as e:
+            logger.error(f"Error in simplified approach: {e}", exc_info=True)
+
+        return None
+
+    def _try_find_most_populated_partition(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_cols_with_types: Dict[str, str],
+        timeout: int,
+    ) -> Optional[List[str]]:
+        """Find the single most populated partition across all columns."""
+        try:
+            best_col = None
+            best_val = None
+            best_count = 0
+
+            for col_name in partition_cols_with_types:
+                query = f"""
+                SELECT {col_name} as val, COUNT(*) as cnt
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {col_name} IS NOT NULL
+                GROUP BY {col_name}
+                ORDER BY cnt DESC
+                LIMIT 1
+                """
+
+                try:
+                    query_job = self.config.get_bigquery_client().query(query)
+                    results = list(query_job.result(timeout=timeout))
+
+                    if (
+                        results
+                        and results[0].val is not None
+                        and results[0].cnt > best_count
+                    ):
+                        best_col = col_name
+                        best_val = results[0].val
+                        best_count = results[0].cnt
+                except Exception:
+                    continue
+
+            if best_col and best_val:
+                data_type = partition_cols_with_types.get(best_col, "STRING")
+                filter_str = self._create_partition_filter_from_value(
+                    best_col, best_val, data_type
+                )
+                logger.info(f"Last resort filter: {filter_str} with {best_count} rows")
+                return [filter_str]
+        except Exception as e:
+            logger.error(f"Error in last resort approach: {e}", exc_info=True)
+
+        logger.warning("All fallback approaches failed to find valid partition values")
         return None
 
     def _find_valid_partition_combination(
@@ -598,7 +841,7 @@ FROM PartitionStats"""
         project: str,
         schema: str,
         partition_cols_with_types: Dict[str, str],
-        timeout: int = 300,
+        timeout: int = 600,  # Increased from 300
     ) -> Optional[List[str]]:
         """
         Find a valid combination of partition filters that returns data.
@@ -622,6 +865,9 @@ FROM PartitionStats"""
         try:
             # Approach 1: Try to get combinations that work together
             if len(partition_cols) > 1:
+                logger.info(
+                    f"Trying combined partition approach for {len(partition_cols)} columns"
+                )
                 combined_filters = self._try_partition_combinations(
                     table,
                     project,
@@ -632,25 +878,43 @@ FROM PartitionStats"""
                 )
                 if combined_filters:
                     return combined_filters
+                logger.info(
+                    "Combined partition approach didn't yield results, trying individual columns"
+                )
 
             # Approach 2: Try each partition column individually
             individual_filters = []
             for col_name, data_type in partition_cols_with_types.items():
-                filter_str = self._create_filter_for_partition_column(
-                    table, project, schema, col_name, data_type, timeout
+                logger.info(
+                    f"Trying individual column approach for {col_name} with type {data_type}"
                 )
-                if filter_str:
-                    individual_filters.append(filter_str)
+                try:
+                    filter_str = self._create_filter_for_partition_column(
+                        table, project, schema, col_name, data_type, timeout
+                    )
+                    if filter_str:
+                        logger.info(f"Found filter for column {col_name}: {filter_str}")
+                        individual_filters.append(filter_str)
+                except Exception as col_e:
+                    logger.error(
+                        f"Error processing column {col_name}: {col_e}", exc_info=True
+                    )
+                    continue
 
             # Verify the individual filters
-            if individual_filters and self._verify_partition_has_data(
-                table, project, schema, individual_filters
-            ):
-                logger.info(f"Found valid individual filters: {individual_filters}")
-                return individual_filters
+            if individual_filters:
+                logger.info(f"Verifying {len(individual_filters)} individual filters")
+                if self._verify_partition_has_data(
+                    table, project, schema, individual_filters, timeout
+                ):
+                    logger.info(f"Found valid individual filters: {individual_filters}")
+                    return individual_filters
+                logger.info("Individual filters verification failed")
 
         except Exception as e:
-            logger.error(f"Error finding valid partition combination: {e}")
+            logger.error(
+                f"Error finding valid partition combination: {e}", exc_info=True
+            )
 
         # Approach 3: Last resort, try fallback approaches
         logger.warning(f"Trying fallback approach for {table.name}")
@@ -664,7 +928,7 @@ FROM PartitionStats"""
         project: str,
         schema: str,
         filters: List[str],
-        timeout: int = 120,
+        timeout: int = 300,  # Increased from 120
     ) -> bool:
         """
         Verify that the partition filters actually return data.
@@ -687,11 +951,14 @@ FROM PartitionStats"""
 
         # Run a simple count query to check if data exists
         query = f"""SELECT COUNT(*) as cnt
-FROM `{project}.{schema}.{table.name}`
-WHERE {where_clause}"""
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {where_clause}
+    LIMIT 1000"""  # Limit to avoid expensive full table scans
 
         try:
             logger.debug(f"Verifying partition data with query: {query}")
+
+            # Set a longer timeout for this operation
             query_job = self.config.get_bigquery_client().query(query)
             results = list(query_job.result(timeout=timeout))
 
@@ -704,8 +971,23 @@ WHERE {where_clause}"""
                 logger.warning(f"Partition verification found no data: {where_clause}")
                 return False
         except Exception as e:
-            logger.warning(f"Error verifying partition data: {e}")
-            return False
+            logger.warning(f"Error verifying partition data: {e}", exc_info=True)
+
+            # Try with a simpler query as fallback
+            try:
+                simpler_query = f"""
+                SELECT 1 
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {where_clause}
+                LIMIT 1
+                """
+                query_job = self.config.get_bigquery_client().query(simpler_query)
+                results = list(query_job.result(timeout=timeout))
+
+                return len(results) > 0
+            except Exception as simple_e:
+                logger.warning(f"Simple verification also failed: {simple_e}")
+                return False
 
     # Add this method to improve detection of partition columns from INFORMATION_SCHEMA if not found in partition_info
     def _get_required_partition_filters(
