@@ -28,6 +28,12 @@ source:
       # This option is recommended to reduce profiling time and costs.
       turn_off_expensive_profiling_metrics: true
 
+    # If set to True, assumes this is Datahub Enterprise Edition, and skips the check for standard edition. Default is False.
+    skip_standard_edition_check: True
+
+    # If set to True, allows schemas with no tables or views to be processed, without reporting generic permissions error. Default is False.
+    allow_empty_schemas: True
+
     # (Optional) Uncomment and update this section to filter profiled tables
     # profile_pattern:
     #   allow:
