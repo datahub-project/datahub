@@ -638,6 +638,11 @@ class SQLServerSource(SQLAlchemySource):
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_job.urn,
+            aspect=data_job.as_subtypes_aspect,
+        ).as_workunit()
+
         data_platform_instance_aspect = data_job.as_maybe_platform_instance_aspect
         if data_platform_instance_aspect:
             yield MetadataChangeProposalWrapper(
@@ -676,8 +681,6 @@ class SQLServerSource(SQLAlchemySource):
                 ),
             ).as_workunit()
 
-        # TODO: Add SubType when it appear
-
     def construct_flow_workunits(
         self,
         data_flow: MSSQLDataFlow,
@@ -685,6 +688,11 @@ class SQLServerSource(SQLAlchemySource):
         yield MetadataChangeProposalWrapper(
             entityUrn=data_flow.urn,
             aspect=data_flow.as_dataflow_info_aspect,
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_flow.urn,
+            aspect=data_flow.as_subtypes_aspect,
         ).as_workunit()
 
         data_platform_instance_aspect = data_flow.as_maybe_platform_instance_aspect
@@ -699,8 +707,6 @@ class SQLServerSource(SQLAlchemySource):
                 entityUrn=data_flow.urn,
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
-
-        # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

@@ -845,6 +845,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
         structuredProperties {
             properties {
