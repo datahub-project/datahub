@@ -289,6 +289,15 @@ module.exports = {
       // darkTheme: require("prism-react-renderer/themes/vsDark"),
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
+    algolia: {
+      // This is the "Search API Key" in Algolia, which means that it is ok to be public.
+      apiKey: "2adf840a044a5ecbf7bdaac88cbf9ee5",
+      appId: "RK0UG797F3",
+      indexName: "datahubproject",
+      insights: true,
+      contextualSearch: true,
+      // debug: true,
+    },
   },
   presets: [
     [
