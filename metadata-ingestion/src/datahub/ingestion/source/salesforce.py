@@ -412,6 +412,15 @@ class SalesforceSource(StatefulIngestionSourceBase):
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
 
+    def describe_object(self, sObjectName: str) -> dict:
+        logger.debug(f"Querying Salesforce {sObjectName} describe REST API")
+
+        describe_endpoint = f"{self.base_url}sobjects/{sObjectName}/describe/"
+        response = self.sf._call_salesforce("GET", describe_endpoint)
+
+        logger.debug(f"Received Salesforce {sObjectName} describe respone")
+        return response.json()
+
     def get_custom_object_details(self, sObjectDeveloperName: str) -> dict:
         customObject = {}
         query_url = (
@@ -602,7 +611,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     # Here field description is created from label, description and inlineHelpText
-    def _get_field_description(self, field: dict, customField: dict) -> str:
+    def _get_field_description(
+        self, field: dict, customField: dict, formula: Optional[str]
+    ) -> str:
         if "Label" not in field or field["Label"] is None:
             desc = ""
         elif field["Label"].startswith("#"):
@@ -620,6 +631,8 @@ class SalesforceSource(StatefulIngestionSourceBase):
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
 
+        if formula:
+            desc += f"\n\nFormula: {formula}"
         return desc
 
     # Here jsonProps is used to add additional salesforce field level properties.
@@ -638,6 +651,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
         fieldType: str,
         field: dict,
         customField: dict,
+        formula: Optional[str] = None,
     ) -> SchemaFieldClass:
         fieldPath = fieldName
 
@@ -651,7 +665,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         fieldTags: List[str] = self.get_field_tags(fieldName, field)
 
-        description = self._get_field_description(field, customField)
+        description = self._get_field_description(field, customField, formula)
 
         schemaField = SchemaFieldClass(
             fieldPath=fieldPath,
@@ -711,8 +725,21 @@ class SalesforceSource(StatefulIngestionSourceBase):
             actor=builder.make_user_urn(username),
         )
 
+    def get_field_formulae(self, describe_object_result: dict) -> Dict[str, str]:
+        # extract field wise formula and return response
+        calculated_fields = {}
+        for field in describe_object_result["fields"]:
+            if field["calculatedFormula"]:
+                calculated_fields[field["name"]] = field["calculatedFormula"]
+
+        return calculated_fields
+
     def get_schema_metadata_workunit(
-        self, sObjectName: str, sObject: dict, customObject: dict, datasetUrn: str
+        self,
+        sObjectName: str,
+        sObject: dict,
+        customObject: dict,
+        datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
         sObject_fields_query_url = (
             self.base_url
@@ -721,8 +748,8 @@ class SalesforceSource(StatefulIngestionSourceBase):
             + "FieldDefinition.LastModifiedDate, FieldDefinition.LastModifiedBy.Username,"
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
-            + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
-            + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
+            + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText, "
+            + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )
@@ -768,6 +795,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
                 for record in sObject_custom_fields_response["records"]
             }
 
+        describe_object_result = self.describe_object(sObjectName)
+        calculated_fields = self.get_field_formulae(describe_object_result)
+
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []
         foreignKeys: List[ForeignKeyConstraintClass] = []
@@ -783,7 +813,12 @@ class SalesforceSource(StatefulIngestionSourceBase):
                 continue
 
             schemaField: SchemaFieldClass = self._get_schema_field(
-                sObjectName, fieldName, fieldType, field, customField
+                sObjectName,
+                fieldName,
+                fieldType,
+                field,
+                customField,
+                calculated_fields.get(fieldName),
             )
             fields.append(schemaField)
 

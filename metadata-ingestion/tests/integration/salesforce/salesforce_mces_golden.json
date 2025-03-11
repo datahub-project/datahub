@@ -1181,7 +1181,7 @@
                 {
                     "fieldPath": "SLA__c",
                     "nullable": true,
-                    "description": "SLA",
+                    "description": "SLA\n\nFormula: IF(TIER=='GOLD', 60, 300)",
                     "created": {
                         "time": 1651461737000,
                         "actor": "urn:li:corpuser:user@mydomain.com"

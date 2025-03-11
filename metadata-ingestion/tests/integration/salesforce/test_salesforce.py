@@ -33,7 +33,19 @@ class MockResponse:
 def side_effect_call_salesforce(type, url):
     if url.endswith("/services/data/"):
         return MockResponse(_read_response("versions_response.json"), 200)
-    if url.endswith("FROM EntityDefinition WHERE IsCustomizable = true"):
+    if url.endswith("/describe/"):
+        # extract object name from url
+        object_name = url.split("/")[-2]
+        return MockResponse(
+            {
+                "name": object_name,
+                "fields": [
+                    {"name": "SLA__c", "calculatedFormula": "IF(TIER=='GOLD', 60, 300)"}
+                ],
+            },
+            200,
+        )
+    elif url.endswith("FROM EntityDefinition WHERE IsCustomizable = true"):
         return MockResponse(_read_response("entity_definition_soql_response.json"), 200)
     elif url.endswith("FROM EntityParticle WHERE EntityDefinitionId='Account'"):
         return MockResponse(_read_response("account_fields_soql_response.json"), 200)
