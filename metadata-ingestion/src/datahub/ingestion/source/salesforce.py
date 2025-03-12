@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
 from pydantic import Field, validator
@@ -157,7 +157,7 @@ class SalesforceConfig(
     # Given lack of ERD visual graph view support, this alternate is useful.
     use_referenced_entities_as_upstreams: bool = Field(
         default=False,
-        description="If enabled, referenced entities will be treated as upstream entities.",
+        description="(Experimental) If enabled, referenced entities will be treated as upstream entities.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -210,6 +210,89 @@ FIELD_TYPE_MAPPING = {
     "anyType": NullTypeClass,
     "encryptedstring": StringTypeClass,
 }
+
+
+class EntityDefinition(TypedDict):
+    DurableId: str
+    QualifiedApiName: str
+    DeveloperName: str
+    Label: str
+    PluralLabel: str
+    InternalSharingModel: str
+    ExternalSharingModel: str
+    DeploymentStatus: Literal[
+        "Deployed", "InDevelopment"
+    ]  # Common values for DeploymentStatus
+
+
+class UserInfo(TypedDict):
+    Username: str
+
+
+class FieldDefinition(TypedDict):
+    DataType: str
+    LastModifiedDate: str
+    LastModifiedBy: UserInfo
+    IsIndexed: bool
+    ComplianceGroup: Optional[str]
+    Description: Optional[str]
+
+
+class ReferenceTo(TypedDict):
+    referenceTo: List[str]
+
+
+class EntityParticle(TypedDict):
+    QualifiedApiName: str
+    DeveloperName: str
+    Label: str
+    DataType: str
+    Precision: Optional[int]
+    Scale: Optional[int]
+    Length: Optional[int]
+    Digits: Optional[int]
+    IsUnique: bool
+    IsCompound: bool
+    IsComponent: bool
+    ReferenceTo: Optional[ReferenceTo]
+    RelationshipName: Optional[str]
+    IsNillable: bool
+    InlineHelpText: Optional[str]
+    IsCalculated: bool
+    FieldDefinition: FieldDefinition
+
+
+class CustomObject(TypedDict):
+    Description: Optional[str]
+    Language: str
+    ManageableState: Literal["unmanaged", "installed", "beta", "released"]
+    CreatedDate: str
+    CreatedBy: UserInfo
+    LastModifiedDate: str
+    LastModifiedBy: UserInfo
+
+
+class CustomField(TypedDict):
+    DeveloperName: str
+    CreatedDate: str
+    CreatedBy: UserInfo
+    InlineHelpText: Optional[str]
+    LastModifiedDate: str
+    LastModifiedBy: UserInfo
+
+
+class SObjectRecordCount(TypedDict):
+    count: int
+    name: str
+
+
+class SObjectField(TypedDict):
+    name: str
+    calculatedFormula: Optional[str]
+
+
+class SObjectDescribe(TypedDict):
+    fields: List[SObjectField]
 
 
 class SalesforceApi:
@@ -308,7 +391,7 @@ class SalesforceApi:
             "Using Salesforce REST API version: {version}".format(version=sf.sf_version)
         )
 
-    def list_objects(self) -> List:
+    def list_objects(self) -> List[EntityDefinition]:
         # Using Describe Global REST API returns many more objects than required.
         # Response does not have the attribute ("customizable") that can be used
         # to filter out entities not on ObjectManager UI. Hence SOQL on EntityDefinition
@@ -328,17 +411,18 @@ class SalesforceApi:
         )
         return entities_response["records"]
 
-    def describe_object(self, sObjectName: str) -> dict:
+    def describe_object(self, sObjectName: str) -> SObjectDescribe:
         logger.debug(f"Querying Salesforce {sObjectName} describe REST API")
 
         describe_endpoint = f"{self.base_url}sobjects/{sObjectName}/describe/"
         response = self.sf._call_salesforce("GET", describe_endpoint)
 
         logger.debug(f"Received Salesforce {sObjectName} describe respone")
-        return response.json()
+        return {"fields": response.json()["fields"]}
 
-    def get_custom_object_details(self, sObjectDeveloperName: str) -> dict:
-        customObject = {}
+    def get_custom_object_details(
+        self, sObjectDeveloperName: str
+    ) -> Optional[CustomObject]:
         query_url = (
             self.base_url
             + "tooling/query/?q=SELECT Description, Language, ManageableState, "
@@ -348,10 +432,12 @@ class SalesforceApi:
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
             logger.debug("Salesforce CustomObject query returned with details")
-            customObject = custom_objects_response["records"][0]
-        return customObject
+            return custom_objects_response["records"][0]
+        return None
 
-    def get_fields_for_object(self, sObjectName: str, sObjectDurableId: str) -> list:
+    def get_fields_for_object(
+        self, sObjectName: str, sObjectDurableId: str
+    ) -> List[EntityParticle]:
         sObject_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
@@ -376,7 +462,7 @@ class SalesforceApi:
 
     def get_custom_fields_for_object(
         self, sObjectName: str, sObjectDurableId: str
-    ) -> dict:
+    ) -> Dict[str, CustomField]:
         sObject_custom_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
@@ -385,7 +471,7 @@ class SalesforceApi:
             + "FROM CustomField WHERE EntityDefinitionId='{}'".format(sObjectDurableId)
         )
 
-        customFields: Dict[str, Dict] = {}
+        customFields: Dict[str, CustomField] = {}
         try:
             sObject_custom_fields_response = self.sf._call_salesforce(
                 "GET", sObject_custom_fields_query_url
@@ -412,7 +498,7 @@ class SalesforceApi:
 
         return customFields
 
-    def get_approximate_record_count(self, sObjectName: str) -> dict:
+    def get_approximate_record_count(self, sObjectName: str) -> SObjectRecordCount:
         sObject_records_count_url = (
             f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
         )
@@ -509,7 +595,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
                 yield from self.get_salesforce_object_workunits(sObject)
 
     def get_salesforce_object_workunits(
-        self, sObject: dict
+        self, sObject: EntityDefinition
     ) -> Iterable[MetadataWorkUnit]:
         sObjectName = sObject["QualifiedApiName"]
 
@@ -529,7 +615,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
             self.config.env,
         )
 
-        customObject = {}
+        customObject = None
         if sObjectName.endswith("__c"):  # Is Custom Object
             customObject = self.sf_api.get_custom_object_details(
                 sObject["DeveloperName"]
@@ -581,11 +667,15 @@ class SalesforceSource(StatefulIngestionSourceBase):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
 
     def get_upstream_workunit(
-        self, datasetUrn: str, allFields: List[dict]
+        self, datasetUrn: str, allFields: List[EntityParticle]
     ) -> Iterable[MetadataWorkUnit]:
         upstreams: List[UpstreamClass] = []
         for field in allFields:
-            if field["DataType"] == "reference" and field["ReferenceTo"]["referenceTo"]:
+            if (
+                field["DataType"] == "reference"
+                and field["ReferenceTo"]
+                and field["ReferenceTo"]["referenceTo"]
+            ):
                 for referenced_sObjectName in field["ReferenceTo"]["referenceTo"]:
                     upstreams.append(
                         UpstreamClass(
@@ -632,11 +722,15 @@ class SalesforceSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def get_operation_workunit(
-        self, customObject: dict, datasetUrn: str
+        self, customObject: Optional[CustomObject], datasetUrn: str
     ) -> Iterable[MetadataWorkUnit]:
         reported_time: int = int(time.time() * 1000)
 
-        if customObject.get("CreatedBy") and customObject.get("CreatedDate"):
+        if (
+            customObject
+            and customObject.get("CreatedBy")
+            and customObject.get("CreatedDate")
+        ):
             timestamp = self.get_time_from_salesforce_timestamp(
                 customObject["CreatedDate"]
             )
@@ -679,7 +773,10 @@ class SalesforceSource(StatefulIngestionSourceBase):
         )
 
     def get_properties_workunit(
-        self, sObject: dict, customObject: Dict[str, str], datasetUrn: str
+        self,
+        sObject: EntityDefinition,
+        customObject: Optional[CustomObject],
+        datasetUrn: str,
     ) -> MetadataWorkUnit:
         propertyLabels = {
             # from EntityDefinition
@@ -700,17 +797,18 @@ class SalesforceSource(StatefulIngestionSourceBase):
             for k, v in sObject.items()
             if k in propertyLabels and v is not None
         }
-        sObjectProperties.update(
-            {
-                propertyLabels[k]: str(v)
-                for k, v in customObject.items()
-                if k in propertyLabels and v is not None
-            }
-        )
+        if customObject:
+            sObjectProperties.update(
+                {
+                    propertyLabels[k]: str(v)
+                    for k, v in customObject.items()
+                    if k in propertyLabels and v is not None
+                }
+            )
 
         datasetProperties = DatasetPropertiesClass(
             name=sObject["Label"],
-            description=customObject.get("Description"),
+            description=customObject.get("Description") if customObject else None,
             customProperties=sObjectProperties,
         )
         return MetadataChangeProposalWrapper(
@@ -748,7 +846,10 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(
-        self, field: dict, customField: dict, formula: Optional[str]
+        self,
+        field: EntityParticle,
+        customField: Optional[CustomField],
+        formula: Optional[str],
     ) -> str:
         if "Label" not in field or field["Label"] is None:
             desc = ""
@@ -772,7 +873,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
         return desc
 
     # Here jsonProps is used to add additional salesforce field level properties.
-    def _get_field_json_props(self, field: dict, customField: dict) -> str:
+    def _get_field_json_props(
+        self, field: EntityParticle, customField: Optional[CustomField]
+    ) -> str:
         jsonProps = {}
 
         if field.get("IsUnique"):
@@ -785,8 +888,8 @@ class SalesforceSource(StatefulIngestionSourceBase):
         sObjectName: str,
         fieldName: str,
         fieldType: str,
-        field: dict,
-        customField: dict,
+        field: EntityParticle,
+        customField: Optional[CustomField],
         formula: Optional[str] = None,
     ) -> SchemaFieldClass:
         fieldPath = fieldName
@@ -816,11 +919,19 @@ class SalesforceSource(StatefulIngestionSourceBase):
         )
 
         # Created and LastModified Date and Actor are available for Custom Fields only
-        if customField.get("CreatedDate") and customField.get("CreatedBy"):
+        if (
+            customField
+            and customField.get("CreatedDate")
+            and customField.get("CreatedBy")
+        ):
             schemaField.created = self.get_audit_stamp(
                 customField["CreatedDate"], customField["CreatedBy"]["Username"]
             )
-        if customField.get("LastModifiedDate") and customField.get("LastModifiedBy"):
+        if (
+            customField
+            and customField.get("LastModifiedDate")
+            and customField.get("LastModifiedBy")
+        ):
             schemaField.lastModified = self.get_audit_stamp(
                 customField["LastModifiedDate"],
                 customField["LastModifiedBy"]["Username"],
@@ -828,7 +939,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         return schemaField
 
-    def get_field_tags(self, fieldName: str, field: dict) -> List[str]:
+    def get_field_tags(self, fieldName: str, field: EntityParticle) -> List[str]:
         fieldTags: List[str] = []
 
         if fieldName.endswith("__c"):
@@ -882,9 +993,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
     def get_schema_metadata_workunit(
         self,
         sObjectName: str,
-        all_fields: List[dict],
-        custom_fields: dict,
-        customObject: dict,
+        all_fields: List[EntityParticle],
+        custom_fields: Dict[str, CustomField],
+        customObject: Optional[CustomObject],
         datasetUrn: str,
         calculated_field_formulae: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
@@ -893,7 +1004,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
         foreignKeys: List[ForeignKeyConstraintClass] = []
 
         for field in all_fields:
-            customField = custom_fields.get(field["DeveloperName"], {})
+            customField = custom_fields.get(field["DeveloperName"])
 
             fieldName = field["QualifiedApiName"]
             fieldType = field["DataType"]
@@ -915,13 +1026,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
             if fieldType == "id":
                 primaryKeys.append(fieldName)
 
-            if (
-                fieldType == "reference"
-                and field["ReferenceTo"]["referenceTo"] is not None
-            ):
-                foreignKeys.extend(
-                    list(self.get_foreign_keys_from_field(fieldName, field, datasetUrn))
-                )
+            foreignKeys.extend(
+                list(self.get_foreign_keys_from_field(fieldName, field, datasetUrn))
+            )
 
         schemaMetadata = SchemaMetadataClass(
             schemaName="",
@@ -935,7 +1042,11 @@ class SalesforceSource(StatefulIngestionSourceBase):
         )
 
         # Created Date and Actor are available for Custom Object only
-        if customObject.get("CreatedDate") and customObject.get("CreatedBy"):
+        if (
+            customObject
+            and customObject.get("CreatedDate")
+            and customObject.get("CreatedBy")
+        ):
             schemaMetadata.created = self.get_audit_stamp(
                 customObject["CreatedDate"], customObject["CreatedBy"]["Username"]
             )
@@ -946,26 +1057,31 @@ class SalesforceSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def get_foreign_keys_from_field(
-        self, fieldName: str, field: dict, datasetUrn: str
+        self, fieldName: str, field: EntityParticle, datasetUrn: str
     ) -> Iterable[ForeignKeyConstraintClass]:
-        # https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/field_types.htm#i1435823
-        foreignDatasets = [
-            builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                fsObject,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            for fsObject in field["ReferenceTo"]["referenceTo"]
-        ]
+        if (
+            field["DataType"] == "reference"
+            and field["ReferenceTo"]
+            and field["ReferenceTo"]["referenceTo"] is not None
+        ):
+            # https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/field_types.htm#i1435823
+            foreignDatasets = [
+                builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    fsObject,
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for fsObject in field["ReferenceTo"]["referenceTo"]
+            ]
 
-        for foreignDataset in foreignDatasets:
-            yield ForeignKeyConstraintClass(
-                name=field["RelationshipName"] if field.get("RelationshipName") else "",
-                foreignDataset=foreignDataset,
-                foreignFields=[builder.make_schema_field_urn(foreignDataset, "Id")],
-                sourceFields=[builder.make_schema_field_urn(datasetUrn, fieldName)],
-            )
+            for foreignDataset in foreignDatasets:
+                yield ForeignKeyConstraintClass(
+                    name=field["RelationshipName"] if field["RelationshipName"] else "",
+                    foreignDataset=foreignDataset,
+                    foreignFields=[builder.make_schema_field_urn(foreignDataset, "Id")],
+                    sourceFields=[builder.make_schema_field_urn(datasetUrn, fieldName)],
+                )
 
     def get_report(self) -> SourceReport:
         return self.report
