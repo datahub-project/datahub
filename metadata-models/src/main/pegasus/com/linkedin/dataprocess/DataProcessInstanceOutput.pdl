@@ -1,5 +1,6 @@
 namespace com.linkedin.dataprocess
 
+import com.linkedin.common.Edge
 import com.linkedin.common.Urn
 
 /**
