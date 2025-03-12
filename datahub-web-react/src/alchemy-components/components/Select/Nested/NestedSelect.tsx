@@ -135,6 +135,7 @@ export interface SelectProps {
     showCount?: boolean;
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
+    implicitlySelectChildren?: boolean;
 }
 
 export const selectDefaults: SelectProps = {
@@ -171,6 +172,7 @@ export const NestedSelect = ({
     showCount = false,
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
+    implicitlySelectChildren = true,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -286,7 +288,7 @@ export const NestedSelect = ({
     const rootOptions = parentValueToOptions[NO_PARENT_VALUE] || [];
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
+        <Container size={size || 'md'} width={props.width || 255}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <SelectBase
                 isDisabled={isDisabled}
@@ -298,6 +300,7 @@ export const NestedSelect = ({
                 data-testid="nested-options-dropdown-container"
                 width={props.width}
                 {...props}
+                ref={selectRef}
             >
                 <SelectLabelDisplay
                     selectedOptions={selectedOptions}
@@ -350,6 +353,7 @@ export const NestedSelect = ({
                                     isLoadingParentChildList={isLoadingParentChildList}
                                     hideParentCheckbox={hideParentCheckbox}
                                     isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
+                                    implicitlySelectChildren={implicitlySelectChildren}
                                 />
                             );
                         })}
