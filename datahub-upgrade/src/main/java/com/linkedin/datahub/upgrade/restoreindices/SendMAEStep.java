@@ -101,6 +101,7 @@ public class SendMAEStep implements UpgradeStep {
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
     result.start = getStartingOffset(context.parsedArgs());
     result.urnBasedPagination = getUrnBasedPagination(context.parsedArgs());
+    result.readOnly = getReadOnly(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
       context.report().addLine(String.format("aspect is %s", result.aspectName));
@@ -313,6 +314,14 @@ public class SendMAEStep implements UpgradeStep {
           Long.parseLong(parsedArgs.get(RestoreIndices.BATCH_DELAY_MS_ARG_NAME).get());
     }
     return resolvedBatchDelayMs;
+  }
+
+  private boolean getReadOnly(final Map<String, Optional<String>> parsedArgs) {
+    Boolean readOnly = null;
+    if (containsKey(parsedArgs, RestoreIndices.READ_ONLY_ARG_NAME)) {
+      readOnly = Boolean.parseBoolean(parsedArgs.get(RestoreIndices.READ_ONLY_ARG_NAME).get());
+    }
+    return readOnly != null ? readOnly : false;
   }
 
   private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {

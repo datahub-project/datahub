@@ -432,7 +432,8 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
-      @Nullable Integer inputBatchSize)
+      @Nullable Integer inputBatchSize,
+      boolean readOnly)
       throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(

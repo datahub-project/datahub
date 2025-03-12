@@ -26,6 +26,7 @@ public class RestoreIndices implements Upgrade {
   public static final String URN_ARG_NAME = "urn";
   public static final String URN_LIKE_ARG_NAME = "urnLike";
   public static final String URN_BASED_PAGINATION_ARG_NAME = "urnBasedPagination";
+  public static final String READ_ONLY_ARG_NAME = "readOnly";
 
   public static final String STARTING_OFFSET_ARG_NAME = "startingOffset";
   public static final String LAST_URN_ARG_NAME = "lastUrn";

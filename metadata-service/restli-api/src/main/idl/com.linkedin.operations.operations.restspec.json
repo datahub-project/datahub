@@ -67,6 +67,10 @@
         "name" : "lePitEpochMs",
         "type" : "long",
         "optional" : true
+      }, {
+        "name" : "readOnly",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "string"
     }, {

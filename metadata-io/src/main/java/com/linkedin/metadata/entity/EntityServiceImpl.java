@@ -1674,9 +1674,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                 List<SystemAspect> systemAspects =
                     EntityUtils.toSystemAspectFromEbeanAspects(
-                        opContext.getRetrieverContext(), batch.collect(Collectors.toList()));
+                        opContext.getRetrieverContext(), batch.collect(Collectors.toList()), false);
 
-                RestoreIndicesResult result = restoreIndices(opContext, systemAspects, logger);
+                RestoreIndicesResult result =
+                    restoreIndices(opContext, systemAspects, logger, args.readOnly());
                 result.timeSqlQueryMs = timeSqlQueryMs;
 
                 logger.accept("Batch completed.");
@@ -1698,7 +1699,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
-      @Nullable Integer inputBatchSize)
+      @Nullable Integer inputBatchSize,
+      boolean readOnly)
       throws RemoteInvocationException, URISyntaxException {
     int batchSize = inputBatchSize != null ? inputBatchSize : 100;
 
@@ -1723,7 +1725,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 false);
         long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-        RestoreIndicesResult result = restoreIndices(opContext, systemAspects, s -> {});
+        RestoreIndicesResult result = restoreIndices(opContext, systemAspects, s -> {}, readOnly);
         result.timeSqlQueryMs = timeSqlQueryMs;
         results.add(result);
       }
@@ -1742,7 +1744,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private RestoreIndicesResult restoreIndices(
       @Nonnull OperationContext opContext,
       List<SystemAspect> systemAspects,
-      @Nonnull Consumer<String> logger) {
+      @Nonnull Consumer<String> logger,
+      boolean readOnly) {
     RestoreIndicesResult result = new RestoreIndicesResult();
     long startTime = System.currentTimeMillis();
     int ignored = 0;
@@ -1844,26 +1847,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               .getFirst());
 
       // 6. Ensure default aspects are in existence in SQL
-      List<MCPItem> keyAspect =
-          List.of(
-              ChangeItemImpl.builder()
-                  .urn(urn)
-                  .aspectName(entitySpec.getKeyAspectName())
-                  .changeType(ChangeType.UPSERT)
-                  .entitySpec(entitySpec)
-                  .aspectSpec(entitySpec.getKeyAspectSpec())
-                  .auditStamp(auditStamp)
-                  .systemMetadata(latestSystemMetadata)
-                  .recordTemplate(EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn))
-                  .build(opContext.getAspectRetriever()));
-      Stream<IngestResult> defaultAspectsResult =
-          ingestProposalSync(
-              opContext,
-              AspectsBatchImpl.builder()
-                  .retrieverContext(opContext.getRetrieverContext())
-                  .items(keyAspect)
-                  .build());
-      defaultAspectsCreated += defaultAspectsResult.count();
+      if (!readOnly) {
+        List<MCPItem> keyAspect =
+            List.of(
+                ChangeItemImpl.builder()
+                    .urn(urn)
+                    .aspectName(entitySpec.getKeyAspectName())
+                    .changeType(ChangeType.UPSERT)
+                    .entitySpec(entitySpec)
+                    .aspectSpec(entitySpec.getKeyAspectSpec())
+                    .auditStamp(auditStamp)
+                    .systemMetadata(latestSystemMetadata)
+                    .recordTemplate(
+                        EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn))
+                    .build(opContext.getAspectRetriever()));
+        Stream<IngestResult> defaultAspectsResult =
+            ingestProposalSync(
+                opContext,
+                AspectsBatchImpl.builder()
+                    .retrieverContext(opContext.getRetrieverContext())
+                    .items(keyAspect)
+                    .build());
+        defaultAspectsCreated += defaultAspectsResult.count();
+      }
 
       result.sendMessageMs += System.currentTimeMillis() - startTime;
 
@@ -1883,6 +1889,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     result.ignored = ignored;
     result.rowsMigrated = rowsMigrated;
     result.defaultAspectsCreated = defaultAspectsCreated;
+
+    producer.flush();
+
     return result;
   }
 
