@@ -2270,10 +2270,15 @@ type GlossaryTerm implements Entity {
     forms: Forms
 
     """
-    Tags used for searching the data platform instance
+    Tags on the GlossaryTerm
     """
     tags: GlobalTags
-    globalTags: GlobalTags
+
+    """
+    Deprecated, use tags field instead
+    Tags associated with the field
+    """
+    globalTags: GlobalTags @deprecated
 }
 
 """
@@ -2429,10 +2434,15 @@ type GlossaryNode implements Entity {
     forms: Forms
 
     """
-    Tags used for searching the data platform instance
+    Tags on the GlossaryNode
     """
     tags: GlobalTags
-    globalTags: GlobalTags
+
+    """
+    Deprecated, use tags field instead
+    Tags associated with the field
+    """
+    globalTags: GlobalTags @deprecated
 }
 
 """
