@@ -43,19 +43,13 @@ extend-ignore = [
     "RUF015", # unnecessary-iterable-allocation-for-first-element
     
     # Can be enabled later if someone wants to fix existing cases or an auto-fix becomes available
-    "SIM101", # Multiple isinstance calls for {name}, merge into a single call
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM103", # Return the condition directly
     "SIM105", # Use `contextlib.suppress(...)` instead of `try`-`except`-`pass`
-    "SIM108", # Use ternary operator {contents} instead of if-else-block
-    "SIM110", # Use `return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)` instead of `for` loop
-    "SIM113", # Use enumerate() for index variable {index} in for loop
     "SIM115", # Use a context manager for opening files
     "SIM116", # Use a dictionary instead of consecutive `if` statements
     "SIM117", # Use a single with statement with multiple contexts instead of nested with statements
     "SIM118", # Use key {operator} dict instead of key {operator} dict.keys()
-    "SIM210", # Use `bool(...)` instead of `True if ... else False`
-    "SIM401", # Use `sample_data.get(schema_field.fieldPath, [])` instead of an `if` block
 ]
 
 [tool.ruff.lint.mccabe]
