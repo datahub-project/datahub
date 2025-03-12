@@ -121,6 +121,33 @@ public class SlackNotificationRecipientBuilderTest {
   }
 
   @Test
+  public void testBuildGlobalRecipientsWithEmptySettings() {
+    when(settingsService.getGlobalSettings(opContext)).thenReturn(null);
+
+    List<NotificationRecipient> recipients =
+        builder.buildGlobalRecipients(opContext, NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+
+    Assert.assertEquals(recipients.size(), 0);
+
+    // No notification settings
+    when(settingsService.getGlobalSettings(opContext)).thenReturn(new GlobalSettingsInfo());
+
+    recipients =
+        builder.buildGlobalRecipients(opContext, NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+
+    Assert.assertEquals(recipients.size(), 0);
+
+    // No slack settings
+    when(settingsService.getGlobalSettings(opContext))
+        .thenReturn(new GlobalSettingsInfo().setNotifications(new GlobalNotificationSettings()));
+
+    recipients =
+        builder.buildGlobalRecipients(opContext, NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+
+    Assert.assertEquals(recipients.size(), 0);
+  }
+
+  @Test
   public void testBuildGlobalRecipientsWithDefaultChannel() {
     GlobalNotificationSettings globalNotificationSettings = mock(GlobalNotificationSettings.class);
     when(globalNotificationSettings.hasSettings()).thenReturn(true);

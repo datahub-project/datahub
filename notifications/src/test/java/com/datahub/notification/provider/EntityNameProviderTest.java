@@ -38,6 +38,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.Mockito;
@@ -157,6 +158,25 @@ public class EntityNameProviderTest {
   }
 
   @Test
+  public void testGetStructuredPropertyNameDoesNotExist() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(STRUCTURED_PROPERTY_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_STRUCTURED_PROPERTY_URN)),
+                  Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))))
+          .thenReturn(Collections.emptyMap());
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_STRUCTURED_PROPERTY_URN);
+      // Just returns the urn.
+      Assert.assertEquals(name, TEST_STRUCTURED_PROPERTY_URN.toString());
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
   public void testGetGlossaryTermNameExists() {
     try {
       Mockito.when(
@@ -178,6 +198,24 @@ public class EntityNameProviderTest {
   }
 
   @Test
+  public void testGetGlossaryTermNameDoesNotExist() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_GLOSSARY_TERM_URN)),
+                  Mockito.eq(ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME))))
+          .thenReturn(Collections.emptyMap());
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_GLOSSARY_TERM_URN);
+      Assert.assertEquals(name, TEST_GLOSSARY_TERM_URN.getId());
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
   public void testGetGlossaryNodeNameExists() {
     try {
       Mockito.when(
@@ -193,6 +231,24 @@ public class EntityNameProviderTest {
       String name =
           entityNameProvider.getName(mock(OperationContext.class), TEST_GLOSSARY_NODE_URN);
       Assert.assertEquals(name, "Expected Glossary Node Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
+  public void testGetGlossaryNodeNameDoesNotExist() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(GLOSSARY_NODE_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_GLOSSARY_NODE_URN)),
+                  Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
+          .thenReturn(Collections.emptyMap());
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_GLOSSARY_NODE_URN);
+      Assert.assertEquals(name, TEST_GLOSSARY_NODE_URN.getId());
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
     }

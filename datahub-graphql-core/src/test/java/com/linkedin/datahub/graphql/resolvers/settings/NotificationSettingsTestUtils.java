@@ -147,6 +147,18 @@ public class NotificationSettingsTestUtils {
     return notificationSettings;
   }
 
+  public static NotificationSettings getMappedUserNotificationSettingsEmptySinkTypes() {
+    final NotificationSettings notificationSettings = new NotificationSettings();
+    final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();
+    slackNotificationSettings.setUserHandle(SLACK_USER_HANDLE);
+    notificationSettings.setSlackSettings(slackNotificationSettings);
+    final EmailNotificationSettings emailNotificationSettings = new EmailNotificationSettings();
+    emailNotificationSettings.setEmail(EMAIL_ADDRESS);
+    notificationSettings.setEmailSettings(emailNotificationSettings);
+    notificationSettings.setSinkTypes(new ArrayList<>(Collections.emptyList()));
+    return notificationSettings;
+  }
+
   public static NotificationSettings getMappedGroupNotificationSettings() {
     final NotificationSettings notificationSettings = new NotificationSettings();
     final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();

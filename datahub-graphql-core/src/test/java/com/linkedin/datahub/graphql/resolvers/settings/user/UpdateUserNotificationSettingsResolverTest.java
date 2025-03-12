@@ -128,6 +128,38 @@ public class UpdateUserNotificationSettingsResolverTest {
   }
 
   @Test
+  public void testUpdateUserNotificationSettingsNullSinkTypes() throws Exception {
+    when(_settingsService.getCorpUserSettings(any(OperationContext.class), eq(USER_URN)))
+        .thenReturn(
+            new CorpUserSettings()
+                .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false)));
+    when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
+        .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
+    when(_settingsService.createEmailNotificationSettings(eq(EMAIL_ADDRESS)))
+        .thenReturn(USER_EMAIL_NOTIFICATION_SETTINGS);
+
+    final UpdateUserNotificationSettingsInput input = new UpdateUserNotificationSettingsInput();
+    final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
+    final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
+    slackSettings.setUserHandle(SLACK_USER_HANDLE);
+    notificationSettings.setSlackSettings(slackSettings);
+    final EmailNotificationSettingsInput emailSettings = new EmailNotificationSettingsInput();
+    emailSettings.setEmail(EMAIL_ADDRESS);
+    notificationSettings.setEmailSettings(emailSettings);
+
+    notificationSettings.setSinkTypes(null); // Null sink types.
+    input.setNotificationSettings(notificationSettings);
+
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    // Ensure sink types are empty.
+    final NotificationSettingsMatcher matcher =
+        new NotificationSettingsMatcher(getMappedUserNotificationSettingsEmptySinkTypes());
+
+    assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
+  }
+
+  @Test
   public void testUpdateUserNotificationNewSettingsSettingsOnlyNoExistingUserSettings()
       throws Exception {
 
