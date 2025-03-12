@@ -34,7 +34,7 @@ model {
 }
 
 task myTar(type: Tar) {
-  compression = Compression.GZIP
+  compression = Compression.NONE
 
   from("${buildDir}/stage")
 
