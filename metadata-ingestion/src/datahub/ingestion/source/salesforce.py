@@ -151,6 +151,11 @@ class SalesforceConfig(
         description="Regex patterns for profiles to filter in ingestion, allowed by the `object_pattern`.",
     )
 
+    set_referenced_entities_as_upstream: bool = Field(
+        default=False,
+        description="If enabled, referenced entities will be treated as upstream entities.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -199,6 +204,224 @@ FIELD_TYPE_MAPPING = {
 }
 
 
+class SalesforceApi:
+    def __init__(
+        self, sf: Salesforce, config: SalesforceConfig, report: SalesforceSourceReport
+    ) -> None:
+        self.config = config
+        self.report = report
+        self.sf = sf
+        self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
+            instance=self.sf.sf_instance, sf_version=self.sf.sf_version
+        )
+
+    @staticmethod
+    def create_salesforce_client(config: SalesforceConfig) -> Salesforce:
+        common_args: Dict[str, Any] = {
+            "domain": "test" if config.is_sandbox else None,
+            "session": requests.Session(),
+        }
+        if config.api_version:
+            common_args["version"] = config.api_version
+
+        if config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
+            logger.debug("Access Token Provided in Config")
+            assert config.access_token is not None, (
+                "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
+            )
+            assert config.instance_url is not None, (
+                "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+            )
+
+            sf = Salesforce(
+                instance_url=config.instance_url,
+                session_id=config.access_token,
+                **common_args,
+            )
+        elif config.auth is SalesforceAuthType.USERNAME_PASSWORD:
+            logger.debug("Username/Password Provided in Config")
+            assert config.username is not None, (
+                "Config username is required for USERNAME_PASSWORD auth"
+            )
+            assert config.password is not None, (
+                "Config password is required for USERNAME_PASSWORD auth"
+            )
+            assert config.security_token is not None, (
+                "Config security_token is required for USERNAME_PASSWORD auth"
+            )
+
+            sf = Salesforce(
+                username=config.username,
+                password=config.password,
+                security_token=config.security_token,
+                **common_args,
+            )
+
+        elif config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
+            logger.debug("Json Web Token provided in the config")
+            assert config.username is not None, (
+                "Config username is required for JSON_WEB_TOKEN auth"
+            )
+            assert config.consumer_key is not None, (
+                "Config consumer_key is required for JSON_WEB_TOKEN auth"
+            )
+            assert config.private_key is not None, (
+                "Config private_key is required for JSON_WEB_TOKEN auth"
+            )
+
+            sf = Salesforce(
+                username=config.username,
+                consumer_key=config.consumer_key,
+                privatekey=config.private_key,
+                **common_args,
+            )
+
+        SalesforceApi.update_salesforce_api_version(config, sf)
+
+        return sf
+
+    @staticmethod
+    def update_salesforce_api_version(config: SalesforceConfig, sf: Salesforce) -> None:
+        if not config.api_version:
+            # List all REST API versions and use latest one
+            versions_url = "https://{instance}/services/data/".format(
+                instance=sf.sf_instance,
+            )
+            versions_response = sf._call_salesforce("GET", versions_url).json()
+            latest_version = versions_response[-1]
+            version = latest_version["version"]
+            # we could avoid setting the version like below (after the Salesforce object has been already initiated
+            # above), since, according to the docs:
+            # https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_versions.htm
+            # we don't need to be authenticated to list the versions (so we could perform this call before even
+            # authenticating)
+            sf.sf_version = version
+        logger.debug(
+            "Using Salesforce REST API version: {version}".format(version=sf.sf_version)
+        )
+
+    def list_objects(self) -> List:
+        # Using Describe Global REST API returns many more objects than required.
+        # Response does not have the attribute ("customizable") that can be used
+        # to filter out entities not on ObjectManager UI. Hence SOQL on EntityDefinition
+        # object is used instead, as suggested by salesforce support.
+
+        query_url = (
+            self.base_url
+            + "tooling/query/?q=SELECT DurableId,QualifiedApiName,DeveloperName,"
+            + "Label,PluralLabel,InternalSharingModel,ExternalSharingModel,DeploymentStatus "
+            + "FROM EntityDefinition WHERE IsCustomizable = true"
+        )
+        entities_response = self.sf._call_salesforce("GET", query_url).json()
+        logger.debug(
+            "Salesforce EntityDefinition query returned {count} sObjects".format(
+                count=len(entities_response["records"])
+            )
+        )
+        return entities_response["records"]
+
+    def describe_object(self, sObjectName: str) -> dict:
+        logger.debug(f"Querying Salesforce {sObjectName} describe REST API")
+
+        describe_endpoint = f"{self.base_url}sobjects/{sObjectName}/describe/"
+        response = self.sf._call_salesforce("GET", describe_endpoint)
+
+        logger.debug(f"Received Salesforce {sObjectName} describe respone")
+        return response.json()
+
+    def get_custom_object_details(self, sObjectDeveloperName: str) -> dict:
+        customObject = {}
+        query_url = (
+            self.base_url
+            + "tooling/query/?q=SELECT Description, Language, ManageableState, "
+            + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
+            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
+        )
+        custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
+        if len(custom_objects_response["records"]) > 0:
+            logger.debug("Salesforce CustomObject query returned with details")
+            customObject = custom_objects_response["records"][0]
+        return customObject
+
+    def get_fields_for_object(self, sObjectName, sObject):
+        sObject_fields_query_url = (
+            self.base_url
+            + "tooling/query?q=SELECT "
+            + "QualifiedApiName,DeveloperName,Label, FieldDefinition.DataType, DataType,"
+            + "FieldDefinition.LastModifiedDate, FieldDefinition.LastModifiedBy.Username,"
+            + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
+            + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
+            + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText, "
+            + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
+                sObject["DurableId"]
+            )
+        )
+
+        sObject_fields_response = self.sf._call_salesforce(
+            "GET", sObject_fields_query_url
+        ).json()
+
+        logger.debug(f"Received Salesforce {sObjectName} fields response")
+
+        all_fields = sObject_fields_response["records"]
+        return all_fields
+
+    def get_custom_fields_for_object(
+        self, sObjectName: str, sObjectDurableId: str
+    ) -> dict:
+        sObject_custom_fields_query_url = (
+            self.base_url
+            + "tooling/query?q=SELECT "
+            + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
+            + "LastModifiedDate,LastModifiedBy.Username "
+            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(sObjectDurableId)
+        )
+
+        customFields: Dict[str, Dict] = {}
+        try:
+            sObject_custom_fields_response = self.sf._call_salesforce(
+                "GET", sObject_custom_fields_query_url
+            ).json()
+
+            logger.debug(
+                "Received Salesforce {sObject} custom fields response".format(
+                    sObject=sObjectName
+                )
+            )
+
+        except Exception as e:
+            error = "Salesforce CustomField query failed. "
+            if "sObject type 'CustomField' is not supported." in str(e):
+                # https://github.com/afawcett/apex-toolingapi/issues/19
+                error += "Please verify if user has 'View All Data' permission."
+
+            self.report.warning(message=error, exc=e)
+        else:
+            customFields = {
+                record["DeveloperName"]: record
+                for record in sObject_custom_fields_response["records"]
+            }
+
+        return customFields
+
+    def get_approximate_record_count(self, sObjectName: str) -> dict:
+        sObject_records_count_url = (
+            f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
+        )
+
+        sObject_record_count_response = self.sf._call_salesforce(
+            "GET", sObject_records_count_url
+        ).json()
+
+        logger.debug(
+            "Received Salesforce {sObject} record count response".format(
+                sObject=sObjectName
+            )
+        )
+        sobject_record_counts = sObject_record_count_response.get("sObjects", [])
+        return sobject_record_counts[0]
+
+
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -228,119 +451,13 @@ FIELD_TYPE_MAPPING = {
     description="Enabled by default",
 )
 class SalesforceSource(StatefulIngestionSourceBase):
-    base_url: str
-    config: SalesforceConfig
-    report: SalesforceSourceReport
-    session: requests.Session
-    sf: Salesforce
-    fieldCounts: Dict[str, int]
-
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report = SalesforceSourceReport()
-        self.session = requests.Session()
+        self.report: SalesforceSourceReport = SalesforceSourceReport()
         self.platform: str = "salesforce"
-        self.fieldCounts = {}
-        common_args: Dict[str, Any] = {
-            "domain": "test" if self.config.is_sandbox else None,
-            "session": self.session,
-        }
-        if self.config.api_version:
-            common_args["version"] = self.config.api_version
-
-        try:
-            if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
-                logger.debug("Access Token Provided in Config")
-                assert self.config.access_token is not None, (
-                    "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
-                )
-                assert self.config.instance_url is not None, (
-                    "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
-                )
-
-                self.sf = Salesforce(
-                    instance_url=self.config.instance_url,
-                    session_id=self.config.access_token,
-                    **common_args,
-                )
-            elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
-                logger.debug("Username/Password Provided in Config")
-                assert self.config.username is not None, (
-                    "Config username is required for USERNAME_PASSWORD auth"
-                )
-                assert self.config.password is not None, (
-                    "Config password is required for USERNAME_PASSWORD auth"
-                )
-                assert self.config.security_token is not None, (
-                    "Config security_token is required for USERNAME_PASSWORD auth"
-                )
-
-                self.sf = Salesforce(
-                    username=self.config.username,
-                    password=self.config.password,
-                    security_token=self.config.security_token,
-                    **common_args,
-                )
-
-            elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
-                logger.debug("Json Web Token provided in the config")
-                assert self.config.username is not None, (
-                    "Config username is required for JSON_WEB_TOKEN auth"
-                )
-                assert self.config.consumer_key is not None, (
-                    "Config consumer_key is required for JSON_WEB_TOKEN auth"
-                )
-                assert self.config.private_key is not None, (
-                    "Config private_key is required for JSON_WEB_TOKEN auth"
-                )
-
-                self.sf = Salesforce(
-                    username=self.config.username,
-                    consumer_key=self.config.consumer_key,
-                    privatekey=self.config.private_key,
-                    **common_args,
-                )
-
-        except SalesforceAuthenticationFailed as e:
-            logger.error(e)
-            if "API_CURRENTLY_DISABLED" in str(e):
-                # https://help.salesforce.com/s/articleView?id=001473830&type=1
-                error = "Salesforce login failed. Please make sure user has API Enabled Access."
-            else:
-                error = "Salesforce login failed. Please verify your credentials."
-                if (
-                    self.config.instance_url
-                    and "sandbox" in self.config.instance_url.lower()
-                ):
-                    error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
-            raise ConfigurationError(error) from e
-
-        if not self.config.api_version:
-            # List all REST API versions and use latest one
-            versions_url = "https://{instance}/services/data/".format(
-                instance=self.sf.sf_instance,
-            )
-            versions_response = self.sf._call_salesforce("GET", versions_url).json()
-            latest_version = versions_response[-1]
-            version = latest_version["version"]
-            # we could avoid setting the version like below (after the Salesforce object has been already initiated
-            # above), since, according to the docs:
-            # https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_versions.htm
-            # we don't need to be authenticated to list the versions (so we could perform this call before even
-            # authenticating)
-            self.sf.sf_version = version
-
-        self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
-            instance=self.sf.sf_instance, sf_version=self.sf.sf_version
-        )
-
-        logger.debug(
-            "Using Salesforce REST API version: {version}".format(
-                version=self.sf.sf_version
-            )
-        )
+        self.fieldCounts: Dict[str, int] = {}
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -352,7 +469,25 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
-            sObjects = self.get_salesforce_objects()
+            sf = SalesforceApi.create_salesforce_client(self.config)
+        except SalesforceAuthenticationFailed as e:
+            if "API_CURRENTLY_DISABLED" in str(e):
+                # https://help.salesforce.com/s/articleView?id=001473830&type=1
+                error = "Please make sure user has API Enabled Access."
+            else:
+                error = "Please verify your credentials."
+                if (
+                    self.config.instance_url
+                    and "sandbox" in self.config.instance_url.lower()
+                ):
+                    error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
+            self.report.failure(title="Salesforce login failed", message=error, exc=e)
+            return
+
+        self.sf_api = SalesforceApi(sf, self.config, self.report)
+
+        try:
+            sObjects = self.sf_api.list_objects()
         except Exception as e:
             if "sObject type 'EntityDefinition' is not supported." in str(e):
                 # https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/tooling_api_objects_entitydefinition.htm
@@ -388,7 +523,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         customObject = {}
         if sObjectName.endswith("__c"):  # Is Custom Object
-            customObject = self.get_custom_object_details(sObject["DeveloperName"])
+            customObject = self.sf_api.get_custom_object_details(
+                sObject["DeveloperName"]
+            )
 
             # Table Created, LastModified is available for Custom Object
             yield from self.get_operation_workunit(customObject, datasetUrn)
@@ -411,49 +548,6 @@ class SalesforceSource(StatefulIngestionSourceBase):
             sObjectName
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
-
-    def describe_object(self, sObjectName: str) -> dict:
-        logger.debug(f"Querying Salesforce {sObjectName} describe REST API")
-
-        describe_endpoint = f"{self.base_url}sobjects/{sObjectName}/describe/"
-        response = self.sf._call_salesforce("GET", describe_endpoint)
-
-        logger.debug(f"Received Salesforce {sObjectName} describe respone")
-        return response.json()
-
-    def get_custom_object_details(self, sObjectDeveloperName: str) -> dict:
-        customObject = {}
-        query_url = (
-            self.base_url
-            + "tooling/query/?q=SELECT Description, Language, ManageableState, "
-            + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
-            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
-        )
-        custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
-        if len(custom_objects_response["records"]) > 0:
-            logger.debug("Salesforce CustomObject query returned with details")
-            customObject = custom_objects_response["records"][0]
-        return customObject
-
-    def get_salesforce_objects(self) -> List:
-        # Using Describe Global REST API returns many more objects than required.
-        # Response does not have the attribute ("customizable") that can be used
-        # to filter out entities not on ObjectManager UI. Hence SOQL on EntityDefinition
-        # object is used instead, as suggested by salesforce support.
-
-        query_url = (
-            self.base_url
-            + "tooling/query/?q=SELECT DurableId,QualifiedApiName,DeveloperName,"
-            + "Label,PluralLabel,InternalSharingModel,ExternalSharingModel,DeploymentStatus "
-            + "FROM EntityDefinition WHERE IsCustomizable = true"
-        )
-        entities_response = self.sf._call_salesforce("GET", query_url).json()
-        logger.debug(
-            "Salesforce EntityDefinition query returned {count} sObjects".format(
-                count=len(entities_response["records"])
-            )
-        )
-        return entities_response["records"]
 
     def get_domain_workunit(
         self, dataset_name: str, datasetUrn: str
@@ -586,29 +680,16 @@ class SalesforceSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         # Here approximate record counts as returned by recordCount API are used as rowCount
         # In future, count() SOQL query may be used instead, if required, might be more expensive
-        sObject_records_count_url = (
-            f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
+        sobject_record_count = self.sf_api.get_approximate_record_count(sObjectName)
+
+        datasetProfile = DatasetProfileClass(
+            timestampMillis=int(time.time() * 1000),
+            rowCount=sobject_record_count["count"],
+            columnCount=self.fieldCounts[sObjectName],
         )
-
-        sObject_record_count_response = self.sf._call_salesforce(
-            "GET", sObject_records_count_url
-        ).json()
-
-        logger.debug(
-            "Received Salesforce {sObject} record count response".format(
-                sObject=sObjectName
-            )
-        )
-
-        for entry in sObject_record_count_response.get("sObjects", []):
-            datasetProfile = DatasetProfileClass(
-                timestampMillis=int(time.time() * 1000),
-                rowCount=entry["count"],
-                columnCount=self.fieldCounts[sObjectName],
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=datasetUrn, aspect=datasetProfile
-            ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datasetUrn, aspect=datasetProfile
+        ).as_workunit()
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(
@@ -741,68 +822,20 @@ class SalesforceSource(StatefulIngestionSourceBase):
         customObject: dict,
         datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        sObject_fields_query_url = (
-            self.base_url
-            + "tooling/query?q=SELECT "
-            + "QualifiedApiName,DeveloperName,Label, FieldDefinition.DataType, DataType,"
-            + "FieldDefinition.LastModifiedDate, FieldDefinition.LastModifiedBy.Username,"
-            + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
-            + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
-            + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText, "
-            + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
-                sObject["DurableId"]
-            )
+        all_fields = self.sf_api.get_fields_for_object(sObjectName, sObject)
+
+        customFields = self.sf_api.get_custom_fields_for_object(
+            sObjectName, sObject["DurableId"]
         )
 
-        sObject_fields_response = self.sf._call_salesforce(
-            "GET", sObject_fields_query_url
-        ).json()
-
-        logger.debug(f"Received Salesforce {sObjectName} fields response")
-
-        sObject_custom_fields_query_url = (
-            self.base_url
-            + "tooling/query?q=SELECT "
-            + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
-            + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
-                sObject["DurableId"]
-            )
-        )
-
-        customFields: Dict[str, Dict] = {}
-        try:
-            sObject_custom_fields_response = self.sf._call_salesforce(
-                "GET", sObject_custom_fields_query_url
-            ).json()
-
-            logger.debug(
-                "Received Salesforce {sObject} custom fields response".format(
-                    sObject=sObjectName
-                )
-            )
-
-        except Exception as e:
-            error = "Salesforce CustomField query failed. "
-            if "sObject type 'CustomField' is not supported." in str(e):
-                # https://github.com/afawcett/apex-toolingapi/issues/19
-                error += "Please verify if user has 'View All Data' permission."
-
-            self.report.warning(message=error, exc=e)
-        else:
-            customFields = {
-                record["DeveloperName"]: record
-                for record in sObject_custom_fields_response["records"]
-            }
-
-        describe_object_result = self.describe_object(sObjectName)
+        describe_object_result = self.sf_api.describe_object(sObjectName)
         calculated_fields = self.get_field_formulae(describe_object_result)
 
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []
         foreignKeys: List[ForeignKeyConstraintClass] = []
 
-        for field in sObject_fields_response["records"]:
+        for field in all_fields:
             customField = customFields.get(field["DeveloperName"], {})
 
             fieldName = field["QualifiedApiName"]
