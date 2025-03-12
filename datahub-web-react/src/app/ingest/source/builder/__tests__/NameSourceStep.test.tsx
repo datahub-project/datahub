@@ -18,6 +18,7 @@ describe('NameSourceStep', () => {
                 goTo={() => {}}
                 cancel={() => {}}
                 ingestionSources={[]}
+                isEditing
             />,
         );
         const nameInput = getByTestId('source-name-input') as HTMLInputElement;
