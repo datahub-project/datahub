@@ -1,4 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import React from 'react';
 import { StyledSearchBar } from './components';
 import { SearchBarProps } from './types';
@@ -22,7 +22,7 @@ export const SearchBar = ({
             placeholder={placeholder}
             onChange={(e) => onChange?.(e.target.value)}
             value={value}
-            prefix={<SearchOutlined />}
+            prefix={<MagnifyingGlass />}
             allowClear={allowClear}
             $width={width}
         />
