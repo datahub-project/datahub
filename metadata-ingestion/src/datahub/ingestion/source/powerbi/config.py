@@ -373,7 +373,7 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to ingest PBI Dataset Table columns and measures",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
