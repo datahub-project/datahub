@@ -5,7 +5,7 @@ import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined } from '@ant-design/icons';
 import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
@@ -76,25 +76,9 @@ const WarningContainer = styled.div`
     color: ${ANTD_GRAY[7]};
 `;
 
-const StyledWarningOutlined = styled(WarningOutlined)`
+const StyledWarningOutlined = styled(CheckCircleOutlined)`
     margin-right: 4px;
     margin-top: 12px;
-`;
-
-const HashmarkNotice = styled.div`
-    margin-top: 8px;
-    padding: 8px;
-    background-color: #e6f7ff;
-    border: 1px solid #91d5ff;
-    border-radius: 4px;
-    display: flex;
-    align-items: flex-start;
-`;
-
-const InfoIcon = styled(InfoCircleOutlined)`
-    color: #1890ff;
-    margin-right: 8px;
-    margin-top: 3px;
 `;
 
 const containsHashmark = (cronExpression: string): boolean => {
@@ -197,26 +181,32 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         )}
                         <AdvancedSchedule>
-                            <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
-                            <Checkbox
-                                checked={advancedCronCheck}
-                                onChange={(event) => setAdvancedCronCheck(event.target.checked)}
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                {advancedCronCheck && hasHashmark && (
+                                    <Typography.Text
+                                        style={{
+                                            color: '#1890ff',
+                                            marginRight: '8px',
+                                            fontSize: '12px',
+                                        }}
+                                    >
+                                        (Unsupported syntax detected)
+                                    </Typography.Text>
+                                )}
+                                <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
+                                <Checkbox
+                                    checked={advancedCronCheck}
+                                    onChange={(event) => {
+                                        if (hasHashmark && advancedCronCheck && !event.target.checked) {
+                                            return;
+                                        }
+                                        setAdvancedCronCheck(event.target.checked);
+                                    }}
+                                    disabled={hasHashmark && advancedCronCheck}
+                                />
+                            </div>
                         </AdvancedSchedule>
                     </Schedule>
-                    {advancedCronCheck && hasHashmark && (
-                        <HashmarkNotice>
-                            <InfoIcon />
-                            <div>
-                                <Typography.Text strong>Special schedule syntax detected</Typography.Text>
-                                <Typography.Paragraph style={{ marginBottom: 0 }}>
-                                    Your schedule uses special syntax (# character) to run on a specific occurrence of a day each month.
-                                    Please combine the day of the month with the day of the week to achieve this schedule.
-                                    For example use '0 0 8-14 0 1' instead of '0 0 0 0 1#2' for the 2nd Monday of the month 
-                                </Typography.Paragraph>
-                            </div>
-                        </HashmarkNotice>
-                    )}
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
                         {!cronAsText.text && (
@@ -244,7 +234,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <div>
                     <Button
                         data-testid="ingestion-schedule-next-button"
-                        disabled={!interval || interval.length === 0 || cronAsText.error}
+                        disabled={!scheduleCronInterval || scheduleCronInterval.length === 0 || cronAsText.error}
                         onClick={onClickNext}
                     >
                         Next
