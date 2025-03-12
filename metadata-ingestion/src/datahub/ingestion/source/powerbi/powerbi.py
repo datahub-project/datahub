@@ -1306,7 +1306,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = []
         for workspace in all_workspaces:
-            if not self.source_config.workspace_id_pattern.allowed(workspace.id):
+            if (not self.source_config.workspace_id_pattern.allowed(workspace.id)
+                    or not self.source_config.workspace_name_pattern.allowed(workspace.name)):
                 self.reporter.filtered_workspace_names.append(
                     f"{workspace.id} - {workspace.name}"
                 )

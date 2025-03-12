@@ -300,6 +300,12 @@ class PowerBiDashboardSourceConfig(
         description="Regex patterns to filter PowerBI workspaces in ingestion."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
+    # PowerBi workspace name
+    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion."
+                    " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
+    )
 
     # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
     # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
