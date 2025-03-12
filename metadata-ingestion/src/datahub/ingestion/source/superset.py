@@ -774,6 +774,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                 ]
                 if cll_info.downstream
+                and cll_info.downstream.table
+                and cll_info.downstream.column
                 else []
             )
             upstreams = [
