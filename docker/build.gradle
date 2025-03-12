@@ -152,13 +152,13 @@ quickstart_configs.each { taskName, config ->
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
-    tasks.register("${taskName}BuildImages")
+    tasks.register("${taskName}PrepareAll")
 }
 
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
-        tasks.getByName("${taskName}BuildImages").dependsOn(
-            config.modules.collect { it + ":${config.isDebug ? 'dockerTagDebug' : 'dockerTag'}" }
+        tasks.getByName("${taskName}PrepareAll").dependsOn(
+            config.modules.collect { it + ':dockerPrepare' }
         )
     }
 }
@@ -187,13 +187,38 @@ tasks.withType(ComposeUp).configureEach {
 }
 
 task debugReload(type: Exec) {
-    //TODO: Make these a set of tasks that depend on its dependency, making it a no-op if its dependency is up-to-date
-    def cmd = ['docker compose -p datahub --profile debug'] + ['-f', compose_base] + [
-            'restart',
-            'datahub-gms-debug',
-            'system-update-debug',
-            'frontend-debug'
+    //TODO: Generate *reloadTasks for all quickStart configs. Need to move the moduleToContainer to ext and define mappings for all containers.   
+    // Map of module paths to their corresponding container names
+    def moduleToContainer = [
+        ':metadata-service:war': 'datahub-gms-debug',
+        ':datahub-upgrade': 'system-update-debug',
+        ':datahub-frontend': 'frontend-debug'
     ]
-    commandLine 'bash', '-c', cmd.join(" ")
-    dependsOn project.tasks.named("quickstartDebugBuildImages")
+    
+    doFirst {
+        // Get all tasks that were executed as part of this build
+        def executedTasks = project.gradle.taskGraph.allTasks.findAll { it.state.executed }
+        
+        // Find which modules actually had work done
+        def containersToRestart = []
+        moduleToContainer.each { modulePath, containerName ->
+            def moduleProject = project.project(modulePath)
+            def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
+            
+            if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
+                containersToRestart << containerName
+            }
+        }
+        
+        // Only restart containers that had their modules rebuilt
+        if (containersToRestart) {
+            def cmd = ['docker compose -p datahub --profile debug'] + ['-f', compose_base] + ['restart'] + containersToRestart
+            commandLine 'bash', '-c', cmd.join(" ")
+        } else {
+            // If no containers need restart, make this a no-op
+            commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
+        }
+    }
+    
+    dependsOn tasks.named("quickstartDebugPrepareAll")
 }
