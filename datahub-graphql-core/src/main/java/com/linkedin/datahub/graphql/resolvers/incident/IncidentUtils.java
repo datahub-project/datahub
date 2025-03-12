@@ -99,6 +99,7 @@ public class IncidentUtils {
     if (input.getMessage() != null) {
       status.setMessage(input.getMessage());
     }
+    status.setLastUpdated(auditStamp);
     return status;
   }
 

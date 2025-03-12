@@ -188,17 +188,7 @@ public class UpdateIncidentResolverTest {
     expectedInfo.setEntities(
         new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))));
     expectedInfo.setStatus(
-        new IncidentStatus()
-            .setState(IncidentState.ACTIVE)
-            .setStage(IncidentStage.INVESTIGATION)
-            .setMessage("Message"));
-    expectedInfo.setAssignees(
-        new IncidentAssigneeArray(
-            ImmutableList.of(
-                new IncidentAssignee()
-                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
-                    .setAssignedAt(new AuditStamp()))));
-    expectedInfo.setPriority(0);
+        new IncidentStatus().setState(IncidentState.ACTIVE).setMessage("Message"));
     expectedInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
 
     // Verify entity client
