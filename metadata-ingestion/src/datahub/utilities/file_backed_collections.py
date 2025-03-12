@@ -10,13 +10,11 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from types import TracebackType
 from typing import (
     Any,
     Callable,
     Dict,
-    Final,
     Generic,
     Iterator,
     List,
@@ -31,6 +29,7 @@ from typing import (
 )
 
 from datahub.ingestion.api.closeable import Closeable
+from datahub.utilities.sentinels import Unset, unset
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -57,16 +56,6 @@ _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
-
-
-class Unset(Enum):
-    token = 0
-
-
-# It's pretty annoying to create a true sentinel that works with typing.
-# https://peps.python.org/pep-0484/#support-for-singleton-types-in-unions
-# Can't wait for https://peps.python.org/pep-0661/
-_unset: Final = Unset.token
 
 
 class ConnectionWrapper:
@@ -224,9 +213,9 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
     def __post_init__(self) -> None:
-        assert (
-            self.cache_eviction_batch_size > 0
-        ), "cache_eviction_batch_size must be positive"
+        assert self.cache_eviction_batch_size > 0, (
+            "cache_eviction_batch_size must be positive"
+        )
 
         for reserved_column in ("key", "value", "rowid"):
             if reserved_column in self.extra_columns:
@@ -243,7 +232,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             # This was added in 3.24.0 from 2018-06-04.
             # See https://www.sqlite.org/lang_conflict.html
             if OVERRIDE_SQLITE_VERSION_REQUIREMENT:
-                self.use_sqlite_on_conflict = False
+                self._use_sqlite_on_conflict = False
             else:
                 raise RuntimeError("SQLite version 3.24.0 or later is required")
 
@@ -261,7 +250,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 rowid INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE,
                 value BLOB
-                {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
+                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns.keys())}
             )"""
         )
 
@@ -316,12 +305,12 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 f"""INSERT INTO {self.tablename} (
                     key,
                     value
-                    {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
                 )
-                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})
+                VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})
                 ON CONFLICT (key) DO UPDATE SET
                     value = excluded.value
-                    {''.join(f', {column_name} = excluded.{column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name} = excluded.{column_name}" for column_name in self.extra_columns.keys())}
                 """,
                 items_to_write,
             )
@@ -332,16 +321,16 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                         f"""INSERT INTO {self.tablename} (
                             key,
                             value
-                            {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
                         )
-                        VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                        VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})""",
                         item,
                     )
                 except sqlite3.IntegrityError:
                     self._conn.execute(
                         f"""UPDATE {self.tablename} SET
                             value = ?
-                            {''.join(f', {column_name} = ?' for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name} = ?" for column_name in self.extra_columns.keys())}
                         WHERE key = ?""",
                         (*item[1:], item[0]),
                     )
@@ -372,7 +361,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self,
         /,
         key: str,
-        default: Union[_VT, Unset] = _unset,
+        default: Union[_VT, Unset] = unset,
     ) -> _VT:
         # If key is in the dictionary, this is similar to __getitem__ + mark_dirty.
         # If key is not in the dictionary, this is similar to __setitem__.
@@ -383,7 +372,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self.mark_dirty(key)
             return value
         except KeyError:
-            if default is _unset:
+            if default is unset:
                 raise
 
             self[key] = default

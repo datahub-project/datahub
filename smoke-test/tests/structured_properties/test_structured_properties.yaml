@@ -31,3 +31,22 @@
     - dataFlow
     - dataJob
     - schemaField
+- id: io.acryl.smoketest.dm.retentionTime
+  type: NUMBER
+  display_name: Retention Time
+  entity_types:
+    - dataset
+  description: 'Retention Time is used to figure out how long to retain records in a dataset'
+  allowed_values:
+    - value: 30
+      description: 30 days, usually reserved for datasets that are ephemeral and contain pii
+    - value: 90
+      description: Use this for datasets that drive monthly reporting but contain pii
+    - value: 365
+      description: Use this for non-sensitive data that can be retained for longer
+- id: io.acryl.smoketest.dm.certifier
+  type: URN
+  display_name: Person Certifying the asset
+  entity_types:
+    - dataset
+    - schemaField

@@ -56,10 +56,7 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
 def is_dialect_instance(
     dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
 ) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
+    platforms = [platforms] if isinstance(platforms, str) else list(platforms)
 
     dialects = [get_dialect(platform) for platform in platforms]
 
@@ -404,7 +401,7 @@ def detach_ctes(
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
                 )
             break
         statement = new_statement

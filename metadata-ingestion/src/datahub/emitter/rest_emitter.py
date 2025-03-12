@@ -1,19 +1,42 @@
+from __future__ import annotations
+
 import functools
 import json
 import logging
 import os
+from collections import defaultdict
+from dataclasses import dataclass
+from enum import auto
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
+import pydantic
 import requests
 from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub import nice_version_name
+from datahub._version import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
-from datahub.configuration.common import ConfigurationError, OperationalError
+from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
+from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.common import (
+    ConfigEnum,
+    ConfigModel,
+    ConfigurationError,
+    OperationalError,
+)
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -30,10 +53,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
-_DEFAULT_READ_TIMEOUT_SEC = (
-    30  # Any ingest call taking longer than 30 seconds should be abandoned
-)
+_DEFAULT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
+_TIMEOUT_LOWER_BOUND_SEC = 1  # if below this, we log a warning
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
     500,
@@ -45,6 +66,8 @@ _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TR
 _DEFAULT_RETRY_MAX_TIMES = int(
     os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
+
+_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
 
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
@@ -60,15 +83,108 @@ BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
 )
 
 
+class RestSinkEndpoint(ConfigEnum):
+    RESTLI = auto()
+    OPENAPI = auto()
+
+
+DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+    RestSinkEndpoint,
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+)
+
+
+class RequestsSessionConfig(ConfigModel):
+    timeout: Union[float, Tuple[float, float], None] = _DEFAULT_TIMEOUT_SEC
+
+    retry_status_codes: List[int] = _DEFAULT_RETRY_STATUS_CODES
+    retry_methods: List[str] = _DEFAULT_RETRY_METHODS
+    retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
+
+    extra_headers: Dict[str, str] = {}
+
+    ca_certificate_path: Optional[str] = None
+    client_certificate_path: Optional[str] = None
+    disable_ssl_verification: bool = False
+
+    def build_session(self) -> requests.Session:
+        session = requests.Session()
+
+        if self.extra_headers:
+            session.headers.update(self.extra_headers)
+
+        if self.client_certificate_path:
+            session.cert = self.client_certificate_path
+
+        if self.ca_certificate_path:
+            session.verify = self.ca_certificate_path
+
+        if self.disable_ssl_verification:
+            session.verify = False
+
+        try:
+            # Set raise_on_status to False to propagate errors:
+            # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
+            # Must call `raise_for_status` after making a request, which we do
+            retry_strategy = Retry(
+                total=self.retry_max_times,
+                status_forcelist=self.retry_status_codes,
+                backoff_factor=2,
+                allowed_methods=self.retry_methods,
+                raise_on_status=False,
+            )
+        except TypeError:
+            # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
+            retry_strategy = Retry(
+                total=self.retry_max_times,
+                status_forcelist=self.retry_status_codes,
+                backoff_factor=2,
+                method_whitelist=self.retry_methods,
+                raise_on_status=False,
+            )
+
+        adapter = HTTPAdapter(
+            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        if self.timeout is not None:
+            # Shim session.request to apply default timeout values.
+            # Via https://stackoverflow.com/a/59317604.
+            session.request = functools.partial(  # type: ignore
+                session.request,
+                timeout=self.timeout,
+            )
+
+        return session
+
+
+@dataclass
+class _Chunk:
+    items: List[str]
+    total_bytes: int = 0
+
+    def add_item(self, item: str) -> bool:
+        item_bytes = len(item.encode())
+        if not self.items:  # Always add at least one item even if over byte limit
+            self.items.append(item)
+            self.total_bytes += item_bytes
+            return True
+        self.items.append(item)
+        self.total_bytes += item_bytes
+        return True
+
+    @staticmethod
+    def join(chunk: "_Chunk") -> str:
+        return "[" + ",".join(chunk.items) + "]"
+
+
 class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
-    _connect_timeout_sec: float = _DEFAULT_CONNECT_TIMEOUT_SEC
-    _read_timeout_sec: float = _DEFAULT_READ_TIMEOUT_SEC
-    _retry_status_codes: List[int] = _DEFAULT_RETRY_STATUS_CODES
-    _retry_methods: List[str] = _DEFAULT_RETRY_METHODS
-    _retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
+    _openapi_ingestion: bool
 
     def __init__(
         self,
@@ -84,6 +200,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
+        openapi_ingestion: bool = False,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -96,18 +213,20 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
-
+        self._openapi_ingestion = openapi_ingestion
         self._session = requests.Session()
 
-        self._session.headers.update(
-            {
-                "X-RestLi-Protocol-Version": "2.0.0",
-                "X-DataHub-Py-Cli-Version": nice_version_name(),
-                "Content-Type": "application/json",
-            }
+        logger.debug(
+            f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
+
+        headers = {
+            "X-RestLi-Protocol-Version": "2.0.0",
+            "X-DataHub-Py-Cli-Version": nice_version_name(),
+            "Content-Type": "application/json",
+        }
         if token:
-            self._session.headers.update({"Authorization": f"Bearer {token}"})
+            headers["Authorization"] = f"Bearer {token}"
         else:
             # HACK: When no token is provided but system auth env variables are set, we use them.
             # Ideally this should simply get passed in as config, instead of being sneakily injected
@@ -116,74 +235,42 @@ class DataHubRestEmitter(Closeable, Emitter):
             # rest emitter, and the rest sink uses the rest emitter under the hood.
             system_auth = config_utils.get_system_auth()
             if system_auth is not None:
-                self._session.headers.update({"Authorization": system_auth})
+                headers["Authorization"] = system_auth
 
-        if extra_headers:
-            self._session.headers.update(extra_headers)
-
-        if client_certificate_path:
-            self._session.cert = client_certificate_path
-
-        if ca_certificate_path:
-            self._session.verify = ca_certificate_path
-
-        if disable_ssl_verification:
-            self._session.verify = False
-
-        self._connect_timeout_sec = (
-            connect_timeout_sec or timeout_sec or _DEFAULT_CONNECT_TIMEOUT_SEC
-        )
-        self._read_timeout_sec = (
-            read_timeout_sec or timeout_sec or _DEFAULT_READ_TIMEOUT_SEC
-        )
-
-        if self._connect_timeout_sec < 1 or self._read_timeout_sec < 1:
-            logger.warning(
-                f"Setting timeout values lower than 1 second is not recommended. Your configuration is connect_timeout:{self._connect_timeout_sec}s, read_timeout:{self._read_timeout_sec}s"
+        timeout: float | tuple[float, float]
+        if connect_timeout_sec is not None or read_timeout_sec is not None:
+            timeout = (
+                connect_timeout_sec or timeout_sec or _DEFAULT_TIMEOUT_SEC,
+                read_timeout_sec or timeout_sec or _DEFAULT_TIMEOUT_SEC,
             )
+            if (
+                timeout[0] < _TIMEOUT_LOWER_BOUND_SEC
+                or timeout[1] < _TIMEOUT_LOWER_BOUND_SEC
+            ):
+                logger.warning(
+                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is (connect_timeout, read_timeout) = {timeout} seconds"
+                )
+        else:
+            timeout = get_or_else(timeout_sec, _DEFAULT_TIMEOUT_SEC)
+            if timeout < _TIMEOUT_LOWER_BOUND_SEC:
+                logger.warning(
+                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is timeout = {timeout} seconds"
+                )
 
-        if retry_status_codes is not None:  # Only if missing. Empty list is allowed
-            self._retry_status_codes = retry_status_codes
-
-        if retry_methods is not None:
-            self._retry_methods = retry_methods
-
-        if retry_max_times:
-            self._retry_max_times = retry_max_times
-
-        try:
-            # Set raise_on_status to False to propagate errors:
-            # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
-            # Must call `raise_for_status` after making a request, which we do
-            retry_strategy = Retry(
-                total=self._retry_max_times,
-                status_forcelist=self._retry_status_codes,
-                backoff_factor=2,
-                allowed_methods=self._retry_methods,
-                raise_on_status=False,
-            )
-        except TypeError:
-            # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
-            retry_strategy = Retry(
-                total=self._retry_max_times,
-                status_forcelist=self._retry_status_codes,
-                backoff_factor=2,
-                method_whitelist=self._retry_methods,
-                raise_on_status=False,
-            )
-
-        adapter = HTTPAdapter(
-            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+        self._session_config = RequestsSessionConfig(
+            timeout=timeout,
+            retry_status_codes=get_or_else(
+                retry_status_codes, _DEFAULT_RETRY_STATUS_CODES
+            ),
+            retry_methods=get_or_else(retry_methods, _DEFAULT_RETRY_METHODS),
+            retry_max_times=get_or_else(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
+            extra_headers={**headers, **(extra_headers or {})},
+            ca_certificate_path=ca_certificate_path,
+            client_certificate_path=client_certificate_path,
+            disable_ssl_verification=disable_ssl_verification,
         )
-        self._session.mount("http://", adapter)
-        self._session.mount("https://", adapter)
 
-        # Shim session.request to apply default timeout values.
-        # Via https://stackoverflow.com/a/59317604.
-        self._session.request = functools.partial(  # type: ignore
-            self._session.request,
-            timeout=(self._connect_timeout_sec, self._read_timeout_sec),
-        )
+        self._session = self._session_config.build_session()
 
     def test_connection(self) -> None:
         url = f"{self._gms_server}/config"
@@ -219,6 +306,43 @@ class DataHubRestEmitter(Closeable, Emitter):
         from datahub.ingestion.graph.client import DataHubGraph
 
         return DataHubGraph.from_emitter(self)
+
+    def _to_openapi_request(
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        async_flag: Optional[bool] = None,
+        async_default: bool = False,
+    ) -> Optional[Tuple[str, List[Dict[str, Any]]]]:
+        if mcp.aspect and mcp.aspectName:
+            resolved_async_flag = (
+                async_flag if async_flag is not None else async_default
+            )
+            url = f"{self._gms_server}/openapi/v3/entity/{mcp.entityType}?async={'true' if resolved_async_flag else 'false'}"
+
+            if isinstance(mcp, MetadataChangeProposalWrapper):
+                aspect_value = pre_json_transform(
+                    mcp.to_obj(simplified_structure=True)
+                )["aspect"]["json"]
+            else:
+                obj = mcp.aspect.to_obj()
+                if obj.get("value") and obj.get("contentType") == JSON_CONTENT_TYPE:
+                    obj = json.loads(obj["value"])
+                aspect_value = pre_json_transform(obj)
+            return (
+                url,
+                [
+                    {
+                        "urn": mcp.entityUrn,
+                        mcp.aspectName: {
+                            "value": aspect_value,
+                            "systemMetadata": mcp.systemMetadata.to_obj()
+                            if mcp.systemMetadata
+                            else None,
+                        },
+                    }
+                ],
+            )
+        return None
 
     def emit(
         self,
@@ -273,28 +397,100 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
     ) -> None:
-        url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
 
-        mcp_obj = pre_json_transform(mcp.to_obj())
-        payload_dict = {"proposal": mcp_obj}
+        if self._openapi_ingestion:
+            request = self._to_openapi_request(mcp, async_flag, async_default=False)
+            if request:
+                self._emit_generic(request[0], payload=request[1])
+        else:
+            url = f"{self._gms_server}/aspects?action=ingestProposal"
 
-        if async_flag is not None:
-            payload_dict["async"] = "true" if async_flag else "false"
+            mcp_obj = pre_json_transform(mcp.to_obj())
+            payload_dict = {"proposal": mcp_obj}
 
-        payload = json.dumps(payload_dict)
+            if async_flag is not None:
+                payload_dict["async"] = "true" if async_flag else "false"
 
-        self._emit_generic(url, payload)
+            payload = json.dumps(payload_dict)
+
+            self._emit_generic(url, payload)
 
     def emit_mcps(
         self,
-        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
-        logger.debug("Attempting to emit batch mcps")
-        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+        if _DATAHUB_EMITTER_TRACE:
+            logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
+
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
+
+        if self._openapi_ingestion:
+            return self._emit_openapi_mcps(mcps, async_flag)
+        else:
+            return self._emit_restli_mcps(mcps, async_flag)
+
+    def _emit_openapi_mcps(
+        self,
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        async_flag: Optional[bool] = None,
+    ) -> int:
+        """
+        1. Grouping MCPs by their entity URL
+        2. Breaking down large batches into smaller chunks based on both:
+         * Total byte size (INGEST_MAX_PAYLOAD_BYTES)
+         * Maximum number of items (BATCH_INGEST_MAX_PAYLOAD_LENGTH)
+
+        The Chunk class encapsulates both the items and their byte size tracking
+        Serializing the items only once with json.dumps(request[1]) and reusing that
+        The chunking logic handles edge cases (always accepting at least one item per chunk)
+        The joining logic is efficient with a simple string concatenation
+
+        :param mcps: metadata change proposals to transmit
+        :param async_flag: the mode
+        :return: number of requests
+        """
+        # group by entity url
+        batches: Dict[str, List[_Chunk]] = defaultdict(
+            lambda: [_Chunk(items=[])]
+        )  # Initialize with one empty Chunk
+
+        for mcp in mcps:
+            request = self._to_openapi_request(mcp, async_flag, async_default=True)
+            if request:
+                current_chunk = batches[request[0]][-1]  # Get the last chunk
+                # Only serialize once
+                serialized_item = json.dumps(request[1][0])
+                item_bytes = len(serialized_item.encode())
+
+                # If adding this item would exceed max_bytes, create a new chunk
+                # Unless the chunk is empty (always add at least one item)
+                if current_chunk.items and (
+                    current_chunk.total_bytes + item_bytes > INGEST_MAX_PAYLOAD_BYTES
+                    or len(current_chunk.items) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
+                ):
+                    new_chunk = _Chunk(items=[])
+                    batches[request[0]].append(new_chunk)
+                    current_chunk = new_chunk
+
+                current_chunk.add_item(serialized_item)
+
+        responses = []
+        for url, chunks in batches.items():
+            for chunk in chunks:
+                response = self._emit_generic(url, payload=_Chunk.join(chunk))
+                responses.append(response)
+
+        return len(responses)
+
+    def _emit_restli_mcps(
+        self,
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        async_flag: Optional[bool] = None,
+    ) -> int:
+        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
 
@@ -304,29 +500,32 @@ class DataHubRestEmitter(Closeable, Emitter):
         current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
-            logger.debug(
-                f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
-            )
+            if _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                )
 
             if (
                 mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
                 or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
             ):
-                logger.debug("Decided to create new chunk")
+                if _DATAHUB_EMITTER_TRACE:
+                    logger.debug("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
-        logger.debug(
-            f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)} chunks"
-        )
+        if len(mcp_obj_chunks) > 0:
+            logger.debug(
+                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+            )
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {"proposals": mcp_obj_chunk}
             if async_flag is not None:
-                payload_dict["async"] = True if async_flag else False
+                payload_dict["async"] = "true" if async_flag else "false"
 
             payload = json.dumps(payload_dict)
             self._emit_generic(url, payload)
@@ -344,7 +543,10 @@ class DataHubRestEmitter(Closeable, Emitter):
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 
-    def _emit_generic(self, url: str, payload: str) -> None:
+    def _emit_generic(self, url: str, payload: Union[str, Any]) -> requests.Response:
+        if not isinstance(payload, str):
+            payload = json.dumps(payload)
+
         curl_command = make_curl_command(self._session, "POST", url, payload)
         payload_size = len(payload)
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
@@ -360,6 +562,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         try:
             response = self._session.post(url, data=payload)
             response.raise_for_status()
+            return response
         except HTTPError as e:
             try:
                 info: Dict = response.json()

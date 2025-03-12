@@ -72,7 +72,7 @@ def test_nifi_ingest_standalone(
             status = next(s for s in statuses if s["name"] == "FetchS3Object")
 
             if status["aggregateSnapshot"]["flowFilesOut"] >= 1:
-                logging.info(f"Waited for time {i*5} seconds")
+                logging.info(f"Waited for time {i * 5} seconds")
                 break
 
     # Run the metadata ingestion pipeline.
@@ -124,7 +124,7 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
             statuses = [pg["status"] for pg in pgs]
             status = next(s for s in statuses if s["name"] == "Cluster_Site_S3_to_S3")
             if status["aggregateSnapshot"]["flowFilesSent"] >= 1:
-                logging.info(f"Waited for time {i*5} seconds")
+                logging.info(f"Waited for time {i * 5} seconds")
                 break
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
     # Run the metadata ingestion pipeline.

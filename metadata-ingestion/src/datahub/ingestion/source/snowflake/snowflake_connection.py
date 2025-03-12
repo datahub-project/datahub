@@ -125,7 +125,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values):
-        if v not in _VALID_AUTH_TYPES.keys():
+        if v not in _VALID_AUTH_TYPES:
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(_VALID_AUTH_TYPES.keys())}"
@@ -250,9 +250,9 @@ class SnowflakeConnectionConfig(ConfigModel):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
-                assert (
-                    self.private_key_path
-                ), "missing required private key path to read key from"
+                assert self.private_key_path, (
+                    "missing required private key path to read key from"
+                )
                 with open(self.private_key_path, "rb") as key:
                     pkey_bytes = key.read()
 
@@ -284,9 +284,9 @@ class SnowflakeConnectionConfig(ConfigModel):
         return self.options
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
-        assert (
-            self.oauth_config
-        ), "oauth_config should be provided if using oauth based authentication"
+        assert self.oauth_config, (
+            "oauth_config should be provided if using oauth based authentication"
+        )
         generator = OAuthTokenGenerator(
             client_id=self.oauth_config.client_id,
             authority_url=self.oauth_config.authority_url,
@@ -312,7 +312,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             raise ValueError(
                 f"access_token not found in response {response}. "
                 "Please check your OAuth configuration."
-            )
+            ) from None
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
             user=self.username,

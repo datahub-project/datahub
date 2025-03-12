@@ -17,16 +17,15 @@ import pytest
 import requests
 import tenacity
 from airflow.models.connection import Connection
+
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
-
 from datahub_airflow_plugin._airflow_shims import (
     AIRFLOW_VERSION,
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
     HAS_AIRFLOW_STANDALONE_CMD,
 )
-from tests.utils import PytestConfig
 
 pytestmark = pytest.mark.integration
 
@@ -50,6 +49,7 @@ class AirflowInstance:
     password: str
 
     metadata_file: pathlib.Path
+    metadata_file2: pathlib.Path
 
     @property
     def airflow_url(self) -> str:
@@ -178,6 +178,7 @@ def _run_airflow(
     tmp_path: pathlib.Path,
     dags_folder: pathlib.Path,
     is_v1: bool,
+    multiple_connections: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -189,7 +190,9 @@ def _run_airflow(
     print(f"Using airflow port: {airflow_port}")
 
     datahub_connection_name = "datahub_file_default"
+    datahub_connection_name_2 = "datahub_file_default_2"
     meta_file = tmp_path / "datahub_metadata.json"
+    meta_file2 = tmp_path / "datahub_metadata_2.json"
 
     environment = {
         **os.environ,
@@ -204,7 +207,9 @@ def _run_airflow(
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
-        "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
+        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
+        if multiple_connections
+        else datahub_connection_name,
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
@@ -251,6 +256,13 @@ def _run_airflow(
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
+    if multiple_connections:
+        environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
+            conn_id="datahub_file_default2",
+            conn_type="datahub-file",
+            host=str(meta_file2),
+        ).get_uri()
+
     if not HAS_AIRFLOW_STANDALONE_CMD:
         raise pytest.skip("Airflow standalone command is not available")
 
@@ -273,13 +285,21 @@ def _run_airflow(
             subprocess.check_call(
                 [
                     # fmt: off
-                    "airflow", "users", "create",
-                    "--username", "airflow",
-                    "--password", "airflow",
-                    "--firstname", "admin",
-                    "--lastname", "admin",
-                    "--role", "Admin",
-                    "--email", "airflow@example.com",
+                    "airflow",
+                    "users",
+                    "create",
+                    "--username",
+                    "airflow",
+                    "--password",
+                    "airflow",
+                    "--firstname",
+                    "admin",
+                    "--lastname",
+                    "admin",
+                    "--role",
+                    "Admin",
+                    "--email",
+                    "airflow@example.com",
                     # fmt: on
                 ],
                 env=environment,
@@ -307,6 +327,7 @@ def _run_airflow(
             username=airflow_username,
             password=airflow_password,
             metadata_file=meta_file,
+            metadata_file2=meta_file2,
         )
 
         yield airflow_instance
@@ -324,18 +345,13 @@ def _run_airflow(
 
 
 def check_golden_file(
-    pytestconfig: PytestConfig,
     output_path: pathlib.Path,
     golden_path: pathlib.Path,
     ignore_paths: Sequence[str] = (),
 ) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
-
     assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
-        update_golden=update_golden,
-        copy_output=False,
         ignore_paths=ignore_paths,
         ignore_order=True,
     )
@@ -347,10 +363,11 @@ class DagTestCase:
     success: bool = True
 
     v2_only: bool = False
+    multiple_connections: bool = False
 
 
 test_cases = [
-    DagTestCase("simple_dag"),
+    DagTestCase("simple_dag", multiple_connections=True),
     DagTestCase("basic_iolets"),
     DagTestCase("dag_to_skip", v2_only=True),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
@@ -411,7 +428,6 @@ test_cases = [
     ],
 )
 def test_airflow_plugin(
-    pytestconfig: PytestConfig,
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,
@@ -433,7 +449,10 @@ def test_airflow_plugin(
     dag_id = test_case.dag_id
 
     with _run_airflow(
-        tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
+        tmp_path,
+        dags_folder=DAGS_FOLDER,
+        is_v1=is_v1,
+        multiple_connections=test_case.multiple_connections,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -471,7 +490,6 @@ def test_airflow_plugin(
         _sanitize_output_file(airflow_instance.metadata_file)
 
         check_golden_file(
-            pytestconfig=pytestconfig,
             output_path=airflow_instance.metadata_file,
             golden_path=golden_path,
             ignore_paths=[
@@ -482,6 +500,20 @@ def test_airflow_plugin(
                 r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
             ],
         )
+
+        if test_case.multiple_connections:
+            _sanitize_output_file(airflow_instance.metadata_file2)
+            check_golden_file(
+                output_path=airflow_instance.metadata_file2,
+                golden_path=golden_path,
+                ignore_paths=[
+                    # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
+                ],
+            )
 
 
 def _sanitize_output_file(output_path: pathlib.Path) -> None:
@@ -526,6 +558,7 @@ if __name__ == "__main__":
         tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
         dags_folder=DAGS_FOLDER,
         is_v1=not HAS_AIRFLOW_LISTENER_API,
+        multiple_connections=False,
     ) as airflow_instance:
         # input("Press enter to exit...")
         breakpoint()

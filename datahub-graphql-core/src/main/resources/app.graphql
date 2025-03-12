@@ -231,6 +231,11 @@ type AppConfig {
   Feature flags telling the UI whether a feature is enabled or not
   """
   featureFlags: FeatureFlagsConfig!
+
+  """
+  Configuration related to the DataHub Chrome Extension
+  """
+  chromeExtensionConfig: ChromeExtensionConfig!
 }
 
 """
@@ -271,6 +276,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
@@ -488,6 +498,11 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
+  Whether to show the new lineage visualization.
+  """
+  lineageGraphV2: Boolean!
+
+  """
   Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
   """
   showAcrylInfo: Boolean!
@@ -523,6 +538,30 @@ type FeatureFlagsConfig {
   editableDatasetNameEnabled: Boolean!
 
   """
+  Allows the V2 theme to be turned on.
+  Includes new UX for home page, search, entity profiles, and lineage.
+  If false, then the V2 experience will be unavailable even if themeV2Default or themeV2Toggleable are true.
+  """
+  themeV2Enabled: Boolean!
+
+  """
+  Sets the default theme to V2.
+  If `themeV2Toggleable` is set, then users can toggle between V1 and V2.
+  If not, then the default is the only option.
+  """
+  themeV2Default: Boolean!
+
+  """
+  Allows the V2 theme to be toggled by users.
+  """
+  themeV2Toggleable: Boolean!
+
+  """
+  Enables links to schema field-level lineage on lineage explorer.
+  """
+  schemaFieldCLLEnabled: Boolean!
+
+  """
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!
@@ -531,6 +570,39 @@ type FeatureFlagsConfig {
   If turned on, show the manage structured properties tab in the govern dropdown
   """
   showManageStructuredProperties: Boolean!
+
+  """
+  If turned on, hides DBT Sources from lineage by:
+  i) Hiding the source in the lineage graph, if it has no downstreams
+  ii) Swapping to the source's sibling urn on V2 lineage graph
+  iii) Representing source sibling as a merged node, with both icons on graph and combined version in sidebar
+  """
+  hideDbtSourceInLineage: Boolean!
+
+  """
+  If turned on, schema field lineage will always fetch ghost entities and present them as real
+  """
+  schemaFieldLineageIgnoreStatus: Boolean!
+
+  """
+  If turned on, show the newly designed nav bar in the V2 experience
+  """
+  showNavBarRedesign: Boolean!
+
+  """
+  If turned on, we display auto complete results. Otherwise, do not.
+  """
+  showAutoCompleteResults: Boolean!
+
+  """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
 }
 
 """
@@ -574,3 +646,18 @@ type DocPropagationSettings {
   """
   docColumnPropagation: Boolean
 }
+"""
+Configurations related to DataHub Chrome extension
+"""
+type ChromeExtensionConfig {
+  """
+  Whether the Chrome Extension is enabled
+  """
+  enabled: Boolean!
+
+  """
+  Whether lineage is enabled
+  """
+  lineageEnabled: Boolean!
+}
+

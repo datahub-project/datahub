@@ -1,3 +1,4 @@
+import copy
 import html
 import json
 import logging
@@ -35,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -512,7 +514,8 @@ FIELD_TYPE_MAPPING = {
 }
 
 
-def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
+def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
+    params = params or []
     tags = [
         TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
         for tag in params
@@ -640,8 +643,11 @@ class TableauUpstreamReference:
 
     @classmethod
     def create(
-        cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
+        cls, d: Dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
+        if d is None:
+            raise ValueError("TableauUpstreamReference.create: d is None")
+
         # Values directly from `table` object from Tableau
         database_dict = (
             d.get(c.DATABASE) or {}
@@ -715,7 +721,7 @@ class TableauUpstreamReference:
         #  schema
 
         # TODO: Validate the startswith check. Currently required for our integration tests
-        if full_name is None or not full_name.startswith("["):
+        if full_name is None:
             return None
 
         return full_name.replace("[", "").replace("]", "").split(".")
@@ -756,7 +762,7 @@ class TableauUpstreamReference:
 
 
 def get_overridden_info(
-    connection_type: Optional[str],
+    connection_type: str,
     upstream_db: Optional[str],
     upstream_db_id: Optional[str],
     platform_instance_map: Optional[Dict[str, str]],
@@ -896,7 +902,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             "name": custom_sql.get("name"),
             # We assume that this is unsupported custom sql if "actual tables that this query references"
             # are missing from api result.
-            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
+            "isUnsupportedCustomSql": not custom_sql.get("tables"),
             "query": custom_sql.get("query"),
             "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
@@ -1000,3 +1006,19 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
         ]
 
     return filter_pages
+
+
+def optimize_query_filter(query_filter: dict) -> dict:
+    """
+    Duplicates in the filter cause duplicates in the result,
+    leading to entities/aspects being emitted multiple times unnecessarily
+    """
+    optimized_query = copy.deepcopy(query_filter)
+
+    if query_filter.get(c.ID_WITH_IN):
+        optimized_query[c.ID_WITH_IN] = list(OrderedSet(query_filter[c.ID_WITH_IN]))
+    if query_filter.get(c.PROJECT_NAME_WITH_IN):
+        optimized_query[c.PROJECT_NAME_WITH_IN] = list(
+            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
+        )
+    return optimized_query

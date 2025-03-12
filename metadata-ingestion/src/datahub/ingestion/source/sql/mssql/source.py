@@ -11,6 +11,7 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
+import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -49,21 +50,15 @@ from datahub.ingestion.source.sql.sql_config import (
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    UnionTypeClass,
-)
 from datahub.utilities.file_backed_collections import FileBackedList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, models.NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, models.UnionTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTypeClass)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -112,6 +107,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_lineage: bool = Field(
         default=True,
         description="Enable lineage extraction for stored procedures",
+    )
+    include_containers_for_pipelines: bool = Field(
+        default=False,
+        description="Enable the container aspects ingestion for both pipelines and tasks. Note that this feature requires the corresponding model support in the backend, which was introduced in version 0.15.0.1.",
     )
 
     @pydantic.validator("uri_args")
@@ -402,7 +401,7 @@ class SQLServerSource(SQLAlchemySource):
                 data_job.add_property(name=data_name, value=str(data_value))
             yield from self.construct_job_workunits(data_job)
 
-    def loop_stored_procedures(  # noqa: C901
+    def loop_stored_procedures(
         self,
         inspector: Inspector,
         schema: str,
@@ -639,6 +638,11 @@ class SQLServerSource(SQLAlchemySource):
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_job.urn,
+            aspect=data_job.as_subtypes_aspect,
+        ).as_workunit()
+
         data_platform_instance_aspect = data_job.as_maybe_platform_instance_aspect
         if data_platform_instance_aspect:
             yield MetadataChangeProposalWrapper(
@@ -646,12 +650,36 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
 
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_job.as_container_aspect,
+            ).as_workunit()
+
         if include_lineage:
             yield MetadataChangeProposalWrapper(
                 entityUrn=data_job.urn,
                 aspect=data_job.as_datajob_input_output_aspect,
             ).as_workunit()
-        # TODO: Add SubType when it appear
+
+        if (
+            self.config.include_stored_procedures_code
+            and isinstance(data_job.entity, StoredProcedure)
+            and data_job.entity.code is not None
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=models.DataTransformLogicClass(
+                    transforms=[
+                        models.DataTransformClass(
+                            queryStatement=models.QueryStatementClass(
+                                value=data_job.entity.code,
+                                language=models.QueryLanguageClass.SQL,
+                            ),
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def construct_flow_workunits(
         self,
@@ -662,13 +690,23 @@ class SQLServerSource(SQLAlchemySource):
             aspect=data_flow.as_dataflow_info_aspect,
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_flow.urn,
+            aspect=data_flow.as_subtypes_aspect,
+        ).as_workunit()
+
         data_platform_instance_aspect = data_flow.as_maybe_platform_instance_aspect
         if data_platform_instance_aspect:
             yield MetadataChangeProposalWrapper(
                 entityUrn=data_flow.urn,
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
-        # TODO: Add SubType when it appear
+
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_flow.urn,
+                aspect=data_flow.as_container_aspect,
+            ).as_workunit()
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -724,7 +762,7 @@ class SQLServerSource(SQLAlchemySource):
             ):
                 yield from auto_workunit(
                     generate_procedure_lineage(
-                        schema_resolver=self.schema_resolver,
+                        schema_resolver=self.get_schema_resolver(),
                         procedure=procedure,
                         procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
                         is_temp_table=self.is_temp_table,

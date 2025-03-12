@@ -2,9 +2,7 @@ package com.linkedin.gms.servlet;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
-@EnableWebMvc
-@ComponentScan(basePackages = {"com.datahub.auth.authentication"})
+@ComponentScan(basePackages = {"com.datahub.auth.authentication", "com.datahub.authorization"})
 @Configuration
 public class AuthServletConfig {}

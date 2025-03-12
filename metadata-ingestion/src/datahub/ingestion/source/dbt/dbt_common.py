@@ -1,4 +1,3 @@
-import itertools
 import logging
 import re
 from abc import abstractmethod
@@ -111,6 +110,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statements_and_pick,
     try_format_query,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
@@ -357,6 +357,11 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
+    include_database_name: bool = Field(
+        default=True,
+        description="Whether to add database name to the table urn. "
+        "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -506,16 +511,18 @@ class DBTNode:
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
-    missing_from_catalog: bool  # indicates if the node was missing from the catalog.json
+    missing_from_catalog: (
+        bool  # indicates if the node was missing from the catalog.json
+    )
 
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
-    raw_sql_parsing_result: Optional[
-        SqlParsingResult
-    ] = None  # only set for nodes that don't depend on ephemeral models
+    raw_sql_parsing_result: Optional[SqlParsingResult] = (
+        None  # only set for nodes that don't depend on ephemeral models
+    )
     cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -869,10 +876,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 "platform": DBT_PLATFORM,
                                 "name": node.dbt_name,
                                 "instance": self.config.platform_instance,
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
                                 **(
-                                    # Ideally we'd include the env unconditionally. However, we started out
-                                    # not including env in the guid, so we need to maintain backwards compatibility
-                                    # with existing PROD assertions.
                                     {"env": self.config.env}
                                     if self.config.env != mce_builder.DEFAULT_ENV
                                     and self.config.include_env_in_assertion_guid
@@ -1026,7 +1033,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             cll_nodes.add(dbt_name)
             schema_nodes.add(dbt_name)
 
-        for dbt_name in all_nodes_map.keys():
+        for dbt_name in all_nodes_map:
             if self._is_allowed_node(dbt_name):
                 add_node_to_cll_list(dbt_name)
 
@@ -1767,10 +1774,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
                     )
-            if isinstance(owner, list):
-                owners = owner
-            else:
-                owners = [owner]
+            owners = owner if isinstance(owner, list) else [owner]
+
             for owner in owners:
                 if self.config.strip_user_ids_from_email:
                     owner = owner.split("@")[0]
@@ -1927,7 +1932,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             else None
                         ),
                     )
-                    for downstream, upstreams in itertools.groupby(
+                    for downstream, upstreams in groupby_unsorted(
                         node.upstream_cll, lambda x: x.downstream_col
                     )
                 ]

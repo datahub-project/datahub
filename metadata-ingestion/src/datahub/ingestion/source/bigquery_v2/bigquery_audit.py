@@ -37,9 +37,9 @@ class BigqueryTableIdentifier:
 
     # Note: this regex may get overwritten by the sharded_table_pattern config.
     # The class-level constant, however, will not be overwritten.
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[
-        str
-    ] = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = (
+        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+    )
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
@@ -165,7 +165,7 @@ class BigQueryTableRef:
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
         for key in ["projectId", "datasetId", "tableId"]:
-            if key not in spec.keys():
+            if key not in spec:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(

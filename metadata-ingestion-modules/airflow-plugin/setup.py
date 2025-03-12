@@ -5,7 +5,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_airflow_plugin/__init__.py") as fp:
+with open("./src/datahub_airflow_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -71,11 +71,8 @@ mypy_stubs = {
 dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=3.8.3",
-    "flake8-tidy-imports>=4.3.0",
-    "isort>=5.7.0",
+    "ruff==0.9.7",
     "mypy==1.10.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
@@ -119,6 +116,7 @@ per_version_test_requirements = {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
         "connexion<3.0",
+        "marshmallow<3.24.0",
     },
 }
 
@@ -148,10 +146,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

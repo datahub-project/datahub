@@ -821,12 +821,8 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         try:
             view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
+            # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
+            view_definition = str(view_definition) if view_definition else ""
         except NotImplementedError:
             view_definition = ""
 
@@ -838,3 +834,18 @@ class HiveSource(TwoTierSQLAlchemySource):
                 entityUrn=dataset_urn,
                 aspect=view_properties_aspect,
             ).as_workunit()
+
+        if view_definition and self.config.include_view_lineage:
+            default_db = None
+            default_schema = None
+            try:
+                default_db, default_schema = self.get_db_schema(dataset_name)
+            except ValueError:
+                logger.warning(f"Invalid view identifier: {dataset_name}")
+
+            self.aggregator.add_view_definition(
+                view_urn=dataset_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )

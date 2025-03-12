@@ -18,6 +18,7 @@ on:
       - "metadata-models/**"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -26,14 +27,14 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.8", "3.11"]
         command:
           [
             "testQuick",
@@ -41,9 +42,6 @@ jobs:
             "testIntegrationBatch1",
             "testIntegrationBatch2",
           ]
-        include:
-          - python-version: "3.8"
-          - python-version: "3.10"
       fail-fast: false
     steps:
       - name: Free up disk space
@@ -56,7 +54,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
@@ -91,16 +89,21 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
-      - name: Upload coverage to Codecov
-        if: ${{ always() && matrix.python-version == '3.10' }}
+      - name: Upload coverage to Codecov with ingestion flag
+        if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion/
           fail_ci_if_error: false
-          flags: pytest-${{ matrix.command }}
+          flags: ingestion
           name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest

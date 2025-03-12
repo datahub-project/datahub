@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional, Union
 
 import yaml
 from pydantic import validator
@@ -38,7 +38,7 @@ class AllowedTypes(Enum):
 
 
 class AllowedValue(ConfigModel):
-    value: str
+    value: Union[int, float, str]
     description: Optional[str] = None
 
 
@@ -118,9 +118,9 @@ class StructuredProperties(ConfigModel):
         id = StructuredPropertyUrn.from_string(self.urn).id
         if self.qualified_name is not None:
             # ensure that qualified name and ID match
-            assert (
-                self.qualified_name == id
-            ), "ID in the urn and the qualified_name must match"
+            assert self.qualified_name == id, (
+                "ID in the urn and the qualified_name must match"
+            )
         return id
 
     @validator("urn", pre=True, always=True)
@@ -184,9 +184,9 @@ class StructuredProperties(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-        structured_property: Optional[
-            StructuredPropertyDefinitionClass
-        ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
+        structured_property: Optional[StructuredPropertyDefinitionClass] = (
+            graph.get_aspect(urn, StructuredPropertyDefinitionClass)
+        )
         if structured_property is None:
             raise Exception(
                 "StructuredPropertyDefinition aspect is None. Unable to create structured property."
@@ -226,3 +226,14 @@ class StructuredProperties(ConfigModel):
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
             yaml.dump(self.dict(), fp)
+
+    @staticmethod
+    def list_urns(graph: DataHubGraph) -> Iterable[str]:
+        return graph.get_urns_by_filter(
+            entity_types=["structuredProperty"],
+        )
+
+    @staticmethod
+    def list(graph: DataHubGraph) -> Iterable["StructuredProperties"]:
+        for urn in StructuredProperties.list_urns(graph):
+            yield StructuredProperties.from_datahub(graph, urn)
