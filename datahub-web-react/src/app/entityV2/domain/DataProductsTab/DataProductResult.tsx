@@ -7,7 +7,6 @@ import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
 import { REDESIGN_COLORS } from '../../shared/constants';
-import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.RED_ERROR};
@@ -62,10 +61,8 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
         setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
-
     function onDeleteDataProduct() {
-        onDeleteEntity();
+        deleteDataProduct();
         setTimeout(() => refetch(), 3000);
     }
 
