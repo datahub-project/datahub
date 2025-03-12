@@ -5,7 +5,7 @@ import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
@@ -81,6 +81,26 @@ const StyledWarningOutlined = styled(WarningOutlined)`
     margin-top: 12px;
 `;
 
+const HashmarkNotice = styled.div`
+    margin-top: 8px;
+    padding: 8px;
+    background-color: #e6f7ff;
+    border: 1px solid #91d5ff;
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-start;
+`;
+
+const InfoIcon = styled(InfoCircleOutlined)`
+    color: #1890ff;
+    margin-right: 8px;
+    margin-top: 3px;
+`;
+
+const containsHashmark = (cronExpression: string): boolean => {
+    return cronExpression.includes('#');
+};
+
 const ItemDescriptionText = styled(Typography.Paragraph)``;
 
 const DAILY_MIDNIGHT_CRON_INTERVAL = '0 0 * * *';
@@ -93,6 +113,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
+    const hasHashmark = useMemo(() => containsHashmark(scheduleCronInterval), [scheduleCronInterval]);
 
     const cronAsText = useMemo(() => {
         if (scheduleCronInterval) {
@@ -183,6 +204,19 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         </AdvancedSchedule>
                     </Schedule>
+                    {advancedCronCheck && hasHashmark && (
+                        <HashmarkNotice>
+                            <InfoIcon />
+                            <div>
+                                <Typography.Text strong>Special schedule syntax detected</Typography.Text>
+                                <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                    Your schedule uses special syntax (# character) to run on a specific occurrence of a day each month.
+                                    Please combine the day of the month with the day of the week to achieve this schedule.
+                                    For example use '0 0 8-14 0 1' instead of '0 0 0 0 1#2' for the 2nd Monday of the month 
+                                </Typography.Paragraph>
+                            </div>
+                        </HashmarkNotice>
+                    )}
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
                         {!cronAsText.text && (
