@@ -60,8 +60,15 @@ class ExecutionRequestManager:
             self.scheduled_execution_requests[fetcher.config.id] = {}
             self.prev_scheduled_execution_requests[fetcher.config.id] = {}
 
-            # run the refresh now on startup so we don't wait the entire cycle
-            self.refresh_execution_requests(fetcher.config.id)
+            # Schedule a one-time job to refresh fetchers immediately, and asynchronously,
+            # such that we don't block uvicorn startup and initial health check can pass if
+            # fetchers taking long to load.
+            self.bg_scheduler.add_job(
+                self.refresh_execution_requests,
+                args=[fetcher.config.id],
+                trigger="date",
+                max_instances=1,
+            )
 
             # then also schedule the job for the next run.
             self.bg_scheduler.add_job(
