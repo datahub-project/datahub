@@ -51,6 +51,7 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
     DateTypeClass,
@@ -69,6 +70,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
@@ -151,7 +154,8 @@ class SalesforceConfig(
         description="Regex patterns for profiles to filter in ingestion, allowed by the `object_pattern`.",
     )
 
-    set_referenced_entities_as_upstream: bool = Field(
+    # Given lack of ERD visual graph view support, this alternate is useful.
+    use_referenced_entities_as_upstreams: bool = Field(
         default=False,
         description="If enabled, referenced entities will be treated as upstream entities.",
     )
@@ -169,6 +173,10 @@ class SalesforceConfig(
 @dataclass
 class SalesforceSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
+
+    objects_with_calculated_field: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -343,7 +351,7 @@ class SalesforceApi:
             customObject = custom_objects_response["records"][0]
         return customObject
 
-    def get_fields_for_object(self, sObjectName, sObject):
+    def get_fields_for_object(self, sObjectName: str, sObjectDurableId: str) -> list:
         sObject_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
@@ -353,7 +361,7 @@ class SalesforceApi:
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText, "
             + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
-                sObject["DurableId"]
+                sObjectDurableId
             )
         )
 
@@ -532,9 +540,32 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         yield self.get_properties_workunit(sObject, customObject, datasetUrn)
 
-        yield from self.get_schema_metadata_workunit(
-            sObjectName, sObject, customObject, datasetUrn
+        allFields = self.sf_api.get_fields_for_object(sObjectName, sObject["DurableId"])
+
+        customFields = self.sf_api.get_custom_fields_for_object(
+            sObjectName, sObject["DurableId"]
         )
+
+        if any(field["IsCalculated"] for field in allFields):
+            # Although formula is present in Metadata column of CustomField entity,
+            # we can not use it as it allows querying only for one field at a time
+            # and that would not be performant
+            self.report.objects_with_calculated_field.append(sObjectName)
+            calculated_field_formulae = self.get_calculated_field_formulae(sObjectName)
+        else:
+            calculated_field_formulae = {}
+
+        yield from self.get_schema_metadata_workunit(
+            sObjectName,
+            allFields,
+            customFields,
+            customObject,
+            datasetUrn,
+            calculated_field_formulae,
+        )
+
+        if self.config.use_referenced_entities_as_upstreams:
+            yield from self.get_upstream_workunit(datasetUrn, allFields)
 
         yield self.get_subtypes_workunit(sObjectName, datasetUrn)
 
@@ -548,6 +579,30 @@ class SalesforceSource(StatefulIngestionSourceBase):
             sObjectName
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
+
+    def get_upstream_workunit(
+        self, datasetUrn: str, allFields: List[dict]
+    ) -> Iterable[MetadataWorkUnit]:
+        upstreams: List[UpstreamClass] = []
+        for field in allFields:
+            if field["DataType"] == "reference" and field["ReferenceTo"]["referenceTo"]:
+                for referenced_sObjectName in field["ReferenceTo"]["referenceTo"]:
+                    upstreams.append(
+                        UpstreamClass(
+                            dataset=builder.make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                referenced_sObjectName,
+                                self.config.platform_instance,
+                                self.config.env,
+                            ),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
+
+        if upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datasetUrn, aspect=UpstreamLineageClass(upstreams=upstreams)
+            ).as_workunit()
 
     def get_domain_workunit(
         self, dataset_name: str, datasetUrn: str
@@ -806,37 +861,39 @@ class SalesforceSource(StatefulIngestionSourceBase):
             actor=builder.make_user_urn(username),
         )
 
-    def get_field_formulae(self, describe_object_result: dict) -> Dict[str, str]:
+    def get_calculated_field_formulae(self, sObjectName: str) -> Dict[str, str]:
         # extract field wise formula and return response
-        calculated_fields = {}
-        for field in describe_object_result["fields"]:
-            if field["calculatedFormula"]:
-                calculated_fields[field["name"]] = field["calculatedFormula"]
+        # Includes entries for calculated fields only
 
+        calculated_fields = {}
+        try:
+            describe_object_result = self.sf_api.describe_object(sObjectName)
+            for field in describe_object_result["fields"]:
+                if field["calculatedFormula"]:
+                    calculated_fields[field["name"]] = field["calculatedFormula"]
+        except Exception as e:
+            self.report.warning(
+                message="Failed to get calculated field formulae",
+                context=sObjectName,
+                exc=e,
+            )
         return calculated_fields
 
     def get_schema_metadata_workunit(
         self,
         sObjectName: str,
-        sObject: dict,
+        all_fields: List[dict],
+        custom_fields: dict,
         customObject: dict,
         datasetUrn: str,
+        calculated_field_formulae: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
-        all_fields = self.sf_api.get_fields_for_object(sObjectName, sObject)
-
-        customFields = self.sf_api.get_custom_fields_for_object(
-            sObjectName, sObject["DurableId"]
-        )
-
-        describe_object_result = self.sf_api.describe_object(sObjectName)
-        calculated_fields = self.get_field_formulae(describe_object_result)
-
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []
         foreignKeys: List[ForeignKeyConstraintClass] = []
 
         for field in all_fields:
-            customField = customFields.get(field["DeveloperName"], {})
+            customField = custom_fields.get(field["DeveloperName"], {})
 
             fieldName = field["QualifiedApiName"]
             fieldType = field["DataType"]
@@ -851,7 +908,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
                 fieldType,
                 field,
                 customField,
-                calculated_fields.get(fieldName),
+                calculated_field_formulae.get(fieldName),
             )
             fields.append(schemaField)
 

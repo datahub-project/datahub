@@ -190,6 +190,7 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
                                 "^Property__c$",
                             ]
                         },
+                        "use_referenced_entities_as_upstreams": False,
                     },
                 },
                 "sink": {
@@ -207,5 +208,59 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
             pytestconfig,
             output_path=f"{tmp_path}/salesforce_mces.json",
             golden_path=test_resources_dir / "salesforce_mces_golden.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_salesforce_ingest_with_lineage(pytestconfig, tmp_path):
+    with mock.patch("datahub.ingestion.source.salesforce.Salesforce") as mock_sdk:
+        mock_sf = mock.Mock()
+        mocked_call = mock.Mock()
+        mocked_call.side_effect = side_effect_call_salesforce
+        mock_sf._call_salesforce = mocked_call
+        mock_sdk.return_value = mock_sf
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "salesforce-test",
+                "source": {
+                    "type": "salesforce",
+                    "config": {
+                        "auth": "DIRECT_ACCESS_TOKEN",
+                        "instance_url": "https://mydomain.my.salesforce.com/",
+                        "access_token": "access_token`",
+                        "ingest_tags": True,
+                        "object_pattern": {
+                            "allow": [
+                                "^Account$",
+                                "^Property__c$",
+                            ],
+                        },
+                        "domain": {"sales": {"allow": {"^Property__c$"}}},
+                        "profiling": {"enabled": True},
+                        "profile_pattern": {
+                            "allow": [
+                                "^Property__c$",
+                            ]
+                        },
+                        "use_referenced_entities_as_upstreams": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/salesforce_mces_with_lineage.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/salesforce_mces_with_lineage.json",
+            golden_path=test_resources_dir / "salesforce_mces_with_lineage_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
