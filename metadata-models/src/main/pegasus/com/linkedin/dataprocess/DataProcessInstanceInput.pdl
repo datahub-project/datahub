@@ -47,5 +47,5 @@ record DataProcessInstanceInput {
       "properties": "inputEdges/*/properties"
     }
   }
-  inputEdges: array[Edge] = []
+  inputEdges: optional array[Edge]
 }

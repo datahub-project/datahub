@@ -47,5 +47,5 @@ record DataProcessInstanceOutput {
       "properties": "outputEdges/*/properties"
     }
   }
-  outputEdges: array[Edge] = []
+  outputEdges: optional array[Edge]
 }
