@@ -457,7 +457,9 @@ class DataHubRestEmitter(Closeable, Emitter):
             response = self._emit_generic(url, payload)
 
             if self._should_trace(async_flag, trace_flag):
-                trace_data = extract_trace_data_from_mcps(response, [mcp]) if response else None
+                trace_data = (
+                    extract_trace_data_from_mcps(response, [mcp]) if response else None
+                )
 
         if trace_data:
             self._await_status(
