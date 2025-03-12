@@ -32,24 +32,26 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
 
     return (
         <div>
-            <span id={ENTITY_PROFILE_TAGS_ID}>
-                <SidebarHeader title="Tags" />
-                <TagTermGroup
-                    editableTags={
-                        properties?.customTagPath
-                            ? getNestedValue(entityData, properties?.customTagPath)
-                            : entityData?.globalTags
-                    }
-                    canAddTag={canAddTag}
-                    canRemove
-                    showEmptyMessage
-                    entityUrn={mutationUrn}
-                    entityType={entityType}
-                    refetch={refetch}
-                    readOnly={readOnly}
-                    fontSize={12}
-                />
-            </span>
+            {canAddTag && (
+                <span id={ENTITY_PROFILE_TAGS_ID}>
+                    <SidebarHeader title="Tags" />
+                    <TagTermGroup
+                        editableTags={
+                            properties?.customTagPath
+                                ? getNestedValue(entityData, properties?.customTagPath)
+                                : entityData?.globalTags
+                        }
+                        canAddTag={canAddTag}
+                        canRemove
+                        showEmptyMessage
+                        entityUrn={mutationUrn}
+                        entityType={entityType}
+                        refetch={refetch}
+                        readOnly={readOnly}
+                        fontSize={12}
+                    />
+                </span>
+            )}
             {canAddTerm && (
                 <>
                     <StyledDivider />

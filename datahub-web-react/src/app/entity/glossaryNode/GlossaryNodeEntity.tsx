@@ -136,7 +136,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
-                globalTags={data.globalTags}
+                tags={data.tags ?? undefined}
             />
         );
     };

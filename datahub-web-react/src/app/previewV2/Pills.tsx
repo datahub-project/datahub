@@ -6,7 +6,14 @@ import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
 import styled from 'styled-components';
 import { BookmarkSimple } from '@phosphor-icons/react';
 import { useMatchedFieldsForList } from '../search/context/SearchResultContext';
-import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '../../types.generated';
+import {
+    EntityPath,
+    EntityType,
+    GlossaryTermAssociation,
+    LineageDirection,
+    Owner,
+    TagAssociation,
+} from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
 import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
 import SearchPill from './SearchPill';
@@ -22,9 +29,9 @@ const PillsContainer = styled.div`
 `;
 
 interface Props {
-    glossaryTerms?: GlossaryTerms;
-    tags?: GlobalTags;
-    owners?: Array<Owner> | null;
+    glossaryTerms: GlossaryTermAssociation[];
+    tags: TagAssociation[];
+    owners: Owner[];
     entityCapabilities: Set<EntityCapabilityType>;
     paths?: EntityPath[];
     entityType: EntityType;
@@ -49,34 +56,34 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
 
     return (
         <PillsContainer>
-            {showGlossaryTermsBadge && glossaryTerms && (
+            {showGlossaryTermsBadge && !!glossaryTerms.length && (
                 <SearchPill
                     icon={<BookmarkSimple />}
-                    count={glossaryTerms.terms?.length || 0}
-                    enabled={!!glossaryTerms.terms?.length}
+                    count={glossaryTerms.length || 0}
+                    enabled={!!glossaryTerms.length}
                     active={expandedSection === PreviewSection.GLOSSARY_TERMS}
                     label=""
                     countLabel="term"
-                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
-                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0]?.term?.properties?.name : ''}
+                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms)}
+                    highlightedText={glossaryTerms.length ? glossaryTerms[0]?.term?.properties?.name : ''}
                 />
             )}
-            {showTagsBadge && tags && (
+            {showTagsBadge && !!tags.length && (
                 <SearchPill
                     icon={<SellOutlinedIcon />}
-                    count={tags.tags?.length || 0}
-                    enabled={!!tags.tags?.length}
+                    count={tags.length}
+                    enabled={!!tags.length}
                     active={expandedSection === PreviewSection.TAGS}
                     label=""
                     countLabel="tag"
-                    onClick={handlePillClick(PreviewSection.TAGS, tags.tags)}
+                    onClick={handlePillClick(PreviewSection.TAGS, tags)}
                     highlightedText={highlightedTag}
                 />
             )}
-            {showOwnersBadge && owners && (
+            {showOwnersBadge && !!owners.length && (
                 <SearchPill
                     icon={<AccountCircleOutlinedIcon />}
-                    count={owners.length || 0}
+                    count={owners.length}
                     enabled={!!owners.length}
                     active={expandedSection === PreviewSection.OWNERS}
                     label=""

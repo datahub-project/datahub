@@ -179,27 +179,27 @@ export default function DefaultPreviewCard({
     name,
     urn,
     data,
-    logoUrl, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    logoComponent,
+    logoUrl,
+    logoComponent, // eslint-disable-line @typescript-eslint/no-unused-vars
     url,
     entityType,
     type,
     typeIcon,
     platform,
     platformInstanceId,
-    tags,
-    owners, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    topUsers,
-    glossaryTerms,
-    paths, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    subHeader,
+    tags, // eslint-disable-line @typescript-eslint/no-unused-vars
+    owners, // eslint-disable-line @typescript-eslint/no-unused-vars
+    topUsers, // eslint-disable-line @typescript-eslint/no-unused-vars
+    glossaryTerms, // eslint-disable-line @typescript-eslint/no-unused-vars
+    paths,
+    subHeader, // eslint-disable-line @typescript-eslint/no-unused-vars
     snippet,
-    insights, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    domain, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataProduct,
+    insights,
+    domain, // eslint-disable-line @typescript-eslint/no-unused-vars
+    dataProduct, // eslint-disable-line @typescript-eslint/no-unused-vars
     container,
-    deprecation, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    entityCount,
+    deprecation,
+    entityCount, // eslint-disable-line @typescript-eslint/no-unused-vars
     titleSizePx,
     dataTestID,
     entityTitleSuffix,
@@ -356,9 +356,9 @@ export default function DefaultPreviewCard({
                 />
             )}
             <DefaultPreviewCardFooter
-                glossaryTerms={glossaryTerms}
-                tags={tags}
-                owners={owners}
+                glossaryTerms={data?.glossaryTerms?.terms || []}
+                tags={data?.globalTags?.tags ?? []}
+                owners={data?.ownership?.owners || []}
                 entityCapabilities={supportedCapabilities}
                 tier={tier}
                 previewType={previewType}

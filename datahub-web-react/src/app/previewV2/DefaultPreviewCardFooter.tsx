@@ -8,10 +8,10 @@ import {
     DatasetStatsSummary,
     EntityPath,
     EntityType,
-    GlobalTags,
-    GlossaryTerms,
+    GlossaryTermAssociation,
     Maybe,
     Owner,
+    TagAssociation,
 } from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
 import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
@@ -21,9 +21,9 @@ import { entityHasCapability } from './utils';
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 
 interface DefaultPreviewCardFooterProps {
-    glossaryTerms?: GlossaryTerms;
-    tags?: GlobalTags;
-    owners?: Array<Owner> | null;
+    glossaryTerms: GlossaryTermAssociation[];
+    tags: TagAssociation[];
+    owners: Owner[];
     entityCapabilities: Set<EntityCapabilityType>;
     tier?: PopularityTier;
     entityTitleSuffix?: React.ReactNode;
@@ -43,6 +43,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     .ant-btn-link {
         padding: inherit;
     }
@@ -103,7 +104,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
-    const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
+    const shouldRenderPillsRow = [glossaryTerms.length, tags.length, owners.length].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
         tier !== undefined ||

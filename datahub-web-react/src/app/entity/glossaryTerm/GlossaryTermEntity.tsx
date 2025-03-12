@@ -164,7 +164,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
                 domain={data.domain?.domain}
-                globalTags={data.globalTags}
+                tags={data.tags ?? undefined}
             />
         );
     };

@@ -63,7 +63,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         domain {
             ...entityDomain
         }
-        globalTags {
+        tags {
             ...globalTagsFields
         }
         institutionalMemory {
