@@ -356,9 +356,9 @@ export default function DefaultPreviewCard({
                 />
             )}
             <DefaultPreviewCardFooter
-                glossaryTerms={data?.glossaryTerms?.terms || []}
-                tags={data?.globalTags?.tags ?? []}
-                owners={data?.ownership?.owners || []}
+                glossaryTerms={previewData?.glossaryTerms?.terms || []}
+                tags={previewData?.globalTags?.tags ?? []}
+                owners={previewData?.ownership?.owners || []}
                 entityCapabilities={supportedCapabilities}
                 tier={tier}
                 previewType={previewType}
