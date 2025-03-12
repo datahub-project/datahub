@@ -334,6 +334,8 @@ class AmazonRedshiftLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -341,7 +343,7 @@ class AmazonRedshiftLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage
         )
 
 
@@ -399,6 +401,8 @@ class OracleLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -406,7 +410,7 @@ class OracleLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage
         )
 
 
@@ -484,6 +488,8 @@ class DatabricksLineage(AbstractLineage):
                 qualified_table_name=qualified_table_name,
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
             return Lineage(
                 upstreams=[
                     DataPlatformTable(
@@ -491,7 +497,7 @@ class DatabricksLineage(AbstractLineage):
                         urn=urn,
                     )
                 ],
-                column_lineage=[],
+                column_lineage=column_lineage
             )
 
         return Lineage.empty()
@@ -544,6 +550,9 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             server=server,
             qualified_table_name=qualified_table_name,
         )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -551,7 +560,7 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage
         )
 
 
@@ -715,7 +724,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=column_lineage,
+            column_lineage=column_lineage
         )
 
 
@@ -763,6 +772,7 @@ class NativeQueryLineage(AbstractLineage):
 
         tables: List[str] = native_sql_parser.get_tables(query)
 
+        column_lineage = []
         for qualified_table_name in tables:
             if len(qualified_table_name.split(".")) != 3:
                 logger.debug(
@@ -785,11 +795,13 @@ class NativeQueryLineage(AbstractLineage):
                 )
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
         logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=[],
+            column_lineage=column_lineage
         )
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
