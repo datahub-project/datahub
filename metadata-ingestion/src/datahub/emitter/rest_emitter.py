@@ -113,6 +113,7 @@ DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
 )
 
 
+# Supported with v1.0
 DEFAULT_REST_TRACE_MODE = pydantic.parse_obj_as(
     RestTraceMode,
     os.getenv("DATAHUB_REST_TRACE_MODE", RestTraceMode.DISABLED),
@@ -456,7 +457,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             response = self._emit_generic(url, payload)
 
             if self._should_trace(async_flag, trace_flag):
-                trace_data = extract_trace_data_from_mcps(response, [mcp])
+                trace_data = extract_trace_data_from_mcps(response, [mcp]) if response else None
 
         if trace_data:
             self._await_status(
