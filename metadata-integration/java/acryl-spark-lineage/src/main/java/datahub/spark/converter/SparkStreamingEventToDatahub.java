@@ -17,6 +17,7 @@ import com.linkedin.datajob.DataJobInputOutput;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.spark.conf.SparkLineageConf;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
+import io.datahubproject.openlineage.dataset.PathSpec;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -150,6 +151,7 @@ public class SparkStreamingEventToDatahub {
       log.debug("Streaming description Platform: {}, Path: {}", platform, path);
       if (platform.equals(KAFKA_PLATFORM)) {
         path = getKafkaTopicFromPath(m.group(2));
+        path = appendPlatformInstance(path, platform, sparkLineageConf);
       } else if (platform.equals(FILE_PLATFORM) || platform.equals(DELTA_LAKE_PLATFORM)) {
         try {
           DatasetUrn urn =
@@ -190,5 +192,52 @@ public class SparkStreamingEventToDatahub {
 
   public static String getKafkaTopicFromPath(String path) {
     return StringUtils.substringBetween(path, "[", "]");
+  }
+
+  /**
+   * 플랫폼 인스턴스를 경로에 추가
+   *
+   * @param path 원본 경로
+   * @param platform 플랫폼 이름
+   * @param sparkLineageConf 설정 정보
+   * @return 플랫폼 인스턴스가 포함된 경로
+   */
+  private static String appendPlatformInstance(
+      String path, String platform, SparkLineageConf sparkLineageConf) {
+    log.debug("Original path: {}", path);
+
+    // 해당 플랫폼에 대한 platformInstance 획득
+    String platformInstance = getPlatformInstance(platform, sparkLineageConf);
+
+    // platformInstance가 존재하는 경우 경로에 추가
+    if (platformInstance != null && !platformInstance.isEmpty()) {
+      String updatedPath = platformInstance + "." + path;
+      log.debug("Updated path with platform instance: {}", updatedPath);
+      return updatedPath;
+    }
+
+    return path;
+  }
+
+  /**
+   * 플랫폼에 대한 인스턴스 정보 획득
+   *
+   * @param platform 플랫폼 이름
+   * @param sparkLineageConf 설정 정보
+   * @return 플랫폼 인스턴스 명
+   */
+  private static String getPlatformInstance(String platform, SparkLineageConf sparkLineageConf) {
+    try {
+      List<PathSpec> pathSpecs =
+          sparkLineageConf.getOpenLineageConf().getPathSpecsForPlatform(platform);
+      return pathSpecs.stream()
+          .filter(spec -> spec.getPlatformInstance().isPresent())
+          .findFirst()
+          .flatMap(PathSpec::getPlatformInstance)
+          .orElse("");
+    } catch (Exception e) {
+      log.warn("Failed to get platform instance for {}", platform);
+      return "";
+    }
   }
 }
