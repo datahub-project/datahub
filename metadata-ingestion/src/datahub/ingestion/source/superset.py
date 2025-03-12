@@ -750,7 +750,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             cll.append(
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
-                        table=None,
+                        table=datasource_urn,
                         column=column.get("column_name", ""),
                         native_column_type=column.get("type", ""),
                     ),
@@ -768,8 +768,12 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         for cll_info in cll:
             downstream = (
-                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
-                if cll_info.downstream and cll_info.downstream.column
+                [
+                    make_schema_field_urn(
+                        cll_info.downstream.table, cll_info.downstream.column
+                    )
+                ]
+                if cll_info.downstream
                 else []
             )
             upstreams = [
