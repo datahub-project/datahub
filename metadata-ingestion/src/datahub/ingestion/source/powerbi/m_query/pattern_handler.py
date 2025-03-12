@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, cast
+from typing import Dict, List, Optional, Tuple, Type, cast, Any
 
 from lark import Tree
 
@@ -30,7 +30,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    ColumnLineageInfo,
+    DownstreamColumnRef,
+    ColumnRef
+)
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +267,35 @@ class AbstractLineage(ABC):
                 else []
             ),
         )
+
+    def create_table_column_lineage(
+            self, urn: str
+    ) -> List[ColumnLineageInfo]:
+        column_lineage = []
+
+        for column in self.table.columns:
+            downstream = DownstreamColumnRef(
+                table=self.table.name,
+                column=column.name,
+                column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
+                native_column_type=column.dataType or "UNKNOWN"
+            )
+
+            upstreams = [
+                ColumnRef(
+                    table=urn,
+                    column=column.name.lower(),
+                )
+            ]
+
+            column_lineage_info = ColumnLineageInfo(
+                downstream=downstream,
+                upstreams=upstreams
+            )
+
+            column_lineage.append(column_lineage_info)
+
+        return column_lineage
 
 
 class AmazonRedshiftLineage(AbstractLineage):
@@ -671,6 +706,8 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -678,7 +715,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 

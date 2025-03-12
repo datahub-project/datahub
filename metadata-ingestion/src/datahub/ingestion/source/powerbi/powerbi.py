@@ -238,6 +238,10 @@ class Mapper:
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
 
+        logger.debug(
+            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name}"
+        )
+
         upstream_lineage: List[
             datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
         ] = parser.get_upstream_tables(
