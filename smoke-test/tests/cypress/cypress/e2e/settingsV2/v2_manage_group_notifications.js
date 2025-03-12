@@ -1,9 +1,23 @@
 const test_group_urn = "urn:li:corpGroup:bfoo";
 
 describe("group notifications test", () => {
-  beforeEach(() => {
+
+  before(() => {
     cy.on("uncaught:exception", () => false);
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      aliasQuery(req, "appConfig");
+    });
   });
+
+  const setEmailNotificationsEnabled = (isOn) => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.reply((res) => {
+          res.body.data.appConfig.featureFlags.emailNotificationsEnabled = true;
+        });
+      }
+    });
+  };
 
   it("sanity check: enable email notifications and toggle the scenario settings", () => {
     cy.loginWithCredentials();
