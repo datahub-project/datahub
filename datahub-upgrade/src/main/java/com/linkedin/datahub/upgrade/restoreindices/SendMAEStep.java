@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.restoreindices;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -80,9 +81,11 @@ public class SendMAEStep implements UpgradeStep {
       if (future.isDone()) {
         try {
           result.add(future.get());
-          futures.remove(future);
         } catch (InterruptedException | ExecutionException e) {
           log.error("Error iterating futures", e);
+          result.add(null); // add null to indicate failure
+        } finally {
+          futures.remove(future);
         }
       }
     }
@@ -152,7 +155,8 @@ public class SendMAEStep implements UpgradeStep {
     return result;
   }
 
-  private int getRowCount(RestoreIndicesArgs args) {
+  @VisibleForTesting
+  int getRowCount(RestoreIndicesArgs args) {
     ExpressionList<EbeanAspectV2> countExp =
         _server
             .find(EbeanAspectV2.class)
@@ -234,6 +238,10 @@ public class SendMAEStep implements UpgradeStep {
         while (futures.size() > 0) {
           List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
           for (RestoreIndicesResult tmpResult : tmpResults) {
+            if (tmpResult == null) {
+              // return error if there was an error processing a future
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
             reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
           }
         }

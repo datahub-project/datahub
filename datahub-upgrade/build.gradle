@@ -88,6 +88,9 @@ dependencies {
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
 
+  testImplementation externalDependency.h2
+  testImplementation testFixtures(project(':metadata-io'))
+
   constraints {
     implementation(implementation externalDependency.parquetHadoop) {
       because("CVE-2022-42003")
