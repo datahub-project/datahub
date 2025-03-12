@@ -1,30 +1,28 @@
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
 import { Badge as BadgeAntd, Tabs } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+import { ActionRequest } from '@src/types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useUrlQueryParam } from '../shared/useUrlQueryParam';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
+import CompactContext from '../shared/CompactContext';
+import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
+import { EntityAndType } from '../entity/shared/types';
 import { Requests } from './requests/Requests';
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
     display: flex;
     flex-direction: column;
-
-    ${(props) =>
-        !props.$isShowNavBarRedesign &&
-        `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
-        height: calc(100% - 20px);
-
-    `}
+    flex: 1;
 
     border-radius: ${(props) => {
         if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
@@ -104,6 +102,31 @@ const StyledBadge = styled(BadgeAntd)`
     }
 `;
 
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+    display: flex;
+    height: calc(100% - 20px);
+    gap: 12px;
+    border-radius: ${(props) => {
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return props.isV2 ? '8px' : '0';
+    }};
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '12px' : '0'};
+    `}
+`;
+
+const SidebarContainer = styled.div<{ height: string }>`
+    max-height: ${(props) => props.height};
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    border-radius: 10px;
+    overflow: hidden;
+`;
+
 const TabContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -131,28 +154,60 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
+    const entityRegistry = useEntityRegistryV2();
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
-
+    const [targetEntity, setTargetEntity] = useState<EntityAndType | null>(null);
+    const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    const width = useSidebarWidth();
     const { value: activeTab, setValue: setActiveTab } = useUrlQueryParam('tab', 'requests');
+
+    // TODO: Review this UX
+    const onProposalClick = (e: ActionRequest) => {
+        if (!e?.entity) {
+            setTargetEntity(null);
+        } else if (!targetEntity || e.entity.urn !== targetEntity?.urn) {
+            setIsSidebarClosed(false);
+            setTargetEntity({ type: e.entity.type, urn: e.entity.urn });
+        }
+    };
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <PageHeaderContainer>
-                <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
-            </PageHeaderContainer>
-            <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
-                <Tab
-                    key="requests"
-                    tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
-                />
-                <Tab
-                    key="proposals"
-                    tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
-                />
-            </StyledTabs>
-            {activeTab === 'requests' && <Requests />}
-            {activeTab === 'proposals' && <Proposals />}
+            <ProposalsContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <PageHeaderContainer>
+                    <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
+                </PageHeaderContainer>
+                <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
+                    <Tab
+                        key="requests"
+                        tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
+                    />
+                    <Tab
+                        key="proposals"
+                        tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
+                    />
+                </StyledTabs>
+                {activeTab === 'requests' && <Requests />}
+                {activeTab === 'proposals' && <Proposals onProposalClick={onProposalClick} />}
+            </ProposalsContainer>
+            {targetEntity && (
+                <EntitySidebarContext.Provider
+                    value={{ width, isClosed: isSidebarClosed, setSidebarClosed: setIsSidebarClosed }}
+                >
+                    <SidebarContainer
+                        key={targetEntity?.urn || ''}
+                        data-testid="taskcenter-enity-sidebar"
+                        height="100%"
+                    >
+                        {targetEntity && (
+                            <CompactContext.Provider value>
+                                {entityRegistry.renderProfile(targetEntity.type, targetEntity.urn)}
+                            </CompactContext.Provider>
+                        )}
+                    </SidebarContainer>
+                </EntitySidebarContext.Provider>
+            )}
         </PageContainer>
     );
 };

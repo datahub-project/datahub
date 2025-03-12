@@ -2,7 +2,7 @@ import { colors, Button as TabButton } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { AssigneeType, CorpGroup } from '../../../types.generated';
+import { ActionRequest, AssigneeType, CorpGroup } from '../../../types.generated';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ProposalList } from './ProposalList';
 import { ActionRequestGroup, MY_PROPOSALS_GROUP_NAME, PERSONAL_ACTION_REQUESTS_GROUP_NAME } from './utils';
@@ -23,7 +23,11 @@ const StyledTabButton = styled(TabButton)<{ $isSelected: boolean }>`
     }
 `;
 
-export const Proposals = () => {
+type Props = {
+    onProposalClick?: (record: ActionRequest) => void;
+};
+
+export const Proposals = ({ onProposalClick }: Props) => {
     /**
      * Determines which view should be visible: pending or completed requests.
      */
@@ -81,6 +85,7 @@ export const Proposals = () => {
             assignee={activeActionRequestGroup.assignee}
             groupName={activeActionRequestGroup.name}
             userUrn={authenticatedUser?.corpUser.urn}
+            onProposalClick={onProposalClick}
         />
     );
 

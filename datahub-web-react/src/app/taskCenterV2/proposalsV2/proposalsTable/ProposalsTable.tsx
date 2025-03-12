@@ -17,9 +17,17 @@ interface Props {
     onActionRequestUpdate: () => void;
     selectedKeys: string[];
     setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
+    onRowClick?: (record: ActionRequest) => void;
 }
 
-const ProposalsTable = ({ actionRequests, isLoading, onActionRequestUpdate, selectedKeys, setSelectedKeys }: Props) => {
+const ProposalsTable = ({
+    actionRequests,
+    isLoading,
+    onActionRequestUpdate,
+    selectedKeys,
+    setSelectedKeys,
+    onRowClick,
+}: Props) => {
     const columns = useGetColumns({ onActionRequestUpdate });
 
     if (!isLoading && actionRequests.length === 0) {
@@ -38,6 +46,7 @@ const ProposalsTable = ({ actionRequests, isLoading, onActionRequestUpdate, sele
                     selectedRowKeys: selectedKeys,
                     onChange: (keys) => setSelectedKeys(keys),
                 }}
+                onRowClick={onRowClick}
             />
         </TableContainer>
     );
