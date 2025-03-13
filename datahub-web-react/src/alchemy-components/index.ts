@@ -12,6 +12,7 @@ export * from './components/Card';
 export * from './components/Checkbox';
 export * from './components/DatePicker';
 export * from './components/Drawer';
+export * from './components/Dropdown';
 export * from './components/GraphCard';
 export * from './components/Heading';
 export * from './components/Icon';
