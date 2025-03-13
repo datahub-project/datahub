@@ -358,12 +358,15 @@ class VertexAISource(Source):
         return ProjectIdKey(project_id=self.config.project_id, platform=self.platform)
 
     def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
-        return (
-            isinstance(job, AutoMLTabularTrainingJob)
-            or isinstance(job, AutoMLTextTrainingJob)
-            or isinstance(job, AutoMLImageTrainingJob)
-            or isinstance(job, AutoMLVideoTrainingJob)
-            or isinstance(job, AutoMLForecastingTrainingJob)
+        return isinstance(
+            job,
+            (
+                AutoMLTabularTrainingJob,
+                AutoMLTextTrainingJob,
+                AutoMLImageTrainingJob,
+                AutoMLVideoTrainingJob,
+                AutoMLForecastingTrainingJob,
+            ),
         )
 
     def _search_model_version(
@@ -618,11 +621,7 @@ class VertexAISource(Source):
                     endpoint_dict[resource.model].append(endpoint)
             self.endpoints = endpoint_dict
 
-        endpoints = (
-            self.endpoints[model.resource_name]
-            if model.resource_name in self.endpoints
-            else []
-        )
+        endpoints = self.endpoints.get(model.resource_name, [])
         return endpoints
 
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
