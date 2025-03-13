@@ -178,6 +178,8 @@ class SalesforceSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyList
     )
 
+    num_objects_missing_formula: int = 0
+
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
@@ -636,8 +638,14 @@ class SalesforceSource(StatefulIngestionSourceBase):
             # Although formula is present in Metadata column of CustomField entity,
             # we can not use it as it allows querying only for one field at a time
             # and that would not be performant
-            self.report.objects_with_calculated_field.append(sObjectName)
             calculated_field_formulae = self.get_calculated_field_formulae(sObjectName)
+            if calculated_field_formulae:
+                self.report.objects_with_calculated_field.append(sObjectName)
+            else:
+                # For some objects, although some fields are calculated, formula is absent
+                # These are typically salesforce system calculated fields whose formula
+                # is not exposed
+                self.report.num_objects_missing_formula += 1
         else:
             calculated_field_formulae = {}
 
@@ -851,26 +859,27 @@ class SalesforceSource(StatefulIngestionSourceBase):
         customField: Optional[CustomField],
         formula: Optional[str],
     ) -> str:
-        if "Label" not in field or field["Label"] is None:
-            desc = ""
-        elif field["Label"].startswith("#"):
-            desc = "\\" + field["Label"]
-        else:
-            desc = field["Label"]
+        description_parts: List[str] = []
+
+        if field.get("Label") and field["Label"].startswith("#"):
+            description_parts.append("\\" + field["Label"])
+        elif field.get("Label"):
+            description_parts.append(field["Label"])
 
         text = field.get("FieldDefinition", {}).get("Description", None)
         if text:
             prefix = "\\" if text.startswith("#") else ""
-            desc += f"\n\n{prefix}{text}"
+            description_parts.append(f"{prefix}{text}")
 
         text = field.get("InlineHelpText")
         if text:
             prefix = "\\" if text.startswith("#") else ""
-            desc += f"\n\n{prefix}{text}"
+            description_parts.append(f"{prefix}{text}")
 
         if formula:
-            desc += f"\n\nFormula: {formula}"
-        return desc
+            description_parts.append(f"Formula: {formula}")
+
+        return "\n\n".join(description_parts)
 
     # Here jsonProps is used to add additional salesforce field level properties.
     def _get_field_json_props(
@@ -880,6 +889,9 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         if field.get("IsUnique"):
             jsonProps["IsUnique"] = True
+
+        if field.get("IsCalculated"):
+            jsonProps["IsCalculated"] = True
 
         return json.dumps(jsonProps)
 

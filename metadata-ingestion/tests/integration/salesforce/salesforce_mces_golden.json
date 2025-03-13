@@ -1205,7 +1205,7 @@
                         ]
                     },
                     "isPartOfKey": false,
-                    "jsonProps": "{}"
+                    "jsonProps": "{\"IsCalculated\": true}"
                 },
                 {
                     "fieldPath": "Active__c",
@@ -1372,7 +1372,7 @@
                 {
                     "fieldPath": "Blank_Label",
                     "nullable": true,
-                    "description": "\n\nThis is the # description\n\n\\# Help Text",
+                    "description": "This is the # description\n\n\\# Help Text",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
