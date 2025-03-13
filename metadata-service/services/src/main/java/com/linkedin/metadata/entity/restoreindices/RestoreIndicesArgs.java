@@ -78,8 +78,8 @@ public class RestoreIndicesArgs implements Cloneable {
     return this;
   }
 
-  public RestoreIndicesArgs createDefaultAspects(@Nullable Boolean readOnly) {
-    this.createDefaultAspects = readOnly != null ? readOnly : false;
+  public RestoreIndicesArgs createDefaultAspects(@Nullable Boolean createDefaultAspects) {
+    this.createDefaultAspects = createDefaultAspects != null ? createDefaultAspects : false;
     return this;
   }
 }

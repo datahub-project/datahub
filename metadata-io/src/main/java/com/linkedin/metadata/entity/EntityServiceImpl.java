@@ -1672,23 +1672,32 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               batch -> {
                 long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-                List<SystemAspect> systemAspects =
-                    EntityUtils.toSystemAspectFromEbeanAspects(
-                        opContext.getRetrieverContext(), batch.collect(Collectors.toList()), false);
-
-                RestoreIndicesResult result =
-                    restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
-                result.timeSqlQueryMs = timeSqlQueryMs;
-
-                logger.accept("Batch completed.");
                 try {
-                  TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-                } catch (InterruptedException e) {
-                  throw new RuntimeException(
-                      "Thread interrupted while sleeping after successful batch migration.");
+                  List<SystemAspect> systemAspects =
+                      EntityUtils.toSystemAspectFromEbeanAspects(
+                          opContext.getRetrieverContext(),
+                          batch.collect(Collectors.toList()),
+                          false);
+
+                  RestoreIndicesResult result =
+                      restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
+                  result.timeSqlQueryMs = timeSqlQueryMs;
+
+                  logger.accept("Batch completed.");
+                  try {
+                    TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+                  } catch (InterruptedException e) {
+                    throw new RuntimeException(
+                        "Thread interrupted while sleeping after successful batch migration.");
+                  }
+
+                  return result;
+                } catch (Exception e) {
+                  log.error("Error processing aspect for restore indices.", e);
+                  return null;
                 }
-                return result;
               })
+          .filter(Objects::nonNull)
           .collect(Collectors.toList());
     }
   }
