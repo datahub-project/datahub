@@ -2,13 +2,14 @@ import logging
 import time
 import warnings
 from abc import ABC
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -33,8 +34,6 @@ from datahub.ingestion.source.openapi_parser import (
     set_metadata,
     try_guessing,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
@@ -224,8 +223,9 @@ class APISource(Source, ABC):
 
     def init_dataset(
         self, endpoint_k: str, endpoint_dets: dict
-    ) -> Tuple[DatasetSnapshot, str]:
+    ) -> Tuple[str, str, List[MetadataWorkUnit]]:
         config = self.config
+        workunits = []
 
         dataset_name = endpoint_k[1:].replace("/", ".")
 
@@ -235,22 +235,27 @@ class APISource(Source, ABC):
         else:
             dataset_name = "root"
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)",
-            aspects=[],
-        )
+        dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)"
 
-        # adding description
-        dataset_properties = DatasetPropertiesClass(
+        # Create dataset properties aspect
+        properties = DatasetPropertiesClass(
             description=endpoint_dets["description"], customProperties={}
         )
-        dataset_snapshot.aspects.append(dataset_properties)
+        wu = MetadataWorkUnit(
+            id=dataset_name,
+            mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=properties),
+        )
+        workunits.append(wu)
 
-        # adding tags
+        # Create tags aspect
         tags_str = [make_tag_urn(t) for t in endpoint_dets["tags"]]
         tags_tac = [TagAssociationClass(t) for t in tags_str]
         gtc = GlobalTagsClass(tags_tac)
-        dataset_snapshot.aspects.append(gtc)
+        wu = MetadataWorkUnit(
+            id=f"{dataset_name}-tags",
+            mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=gtc),
+        )
+        workunits.append(wu)
 
         # the link will appear in the "documentation"
         link_url = clean_url(config.url + self.url_basepath + endpoint_k)
@@ -262,19 +267,23 @@ class APISource(Source, ABC):
             url=link_url, description=link_description, createStamp=creation
         )
         inst_memory = InstitutionalMemoryClass([link_metadata])
-        dataset_snapshot.aspects.append(inst_memory)
+        wu = MetadataWorkUnit(
+            id=f"{dataset_name}-docs",
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=inst_memory
+            ),
+        )
+        workunits.append(wu)
 
-        # Add API endpoint subtype
+        # Create subtype aspect
         sub_types = SubTypesClass(typeNames=[DatasetSubTypes.API_ENDPOINT])
-        dataset_snapshot.aspects.append(sub_types)
+        wu = MetadataWorkUnit(
+            id=f"{dataset_name}-subtype",
+            mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=sub_types),
+        )
+        workunits.append(wu)
 
-        return dataset_snapshot, dataset_name
-
-    def build_wu(
-        self, dataset_snapshot: DatasetSnapshot, dataset_name: str
-    ) -> ApiWorkUnit:
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return ApiWorkUnit(id=dataset_name, mce=mce)
+        return dataset_name, dataset_urn, workunits
 
     def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:
         config = self.config
@@ -300,16 +309,24 @@ class APISource(Source, ABC):
             if endpoint_k in config.ignore_endpoints:
                 continue
 
-            dataset_snapshot, dataset_name = self.init_dataset(
+            # Initialize dataset and get common aspects
+            dataset_name, dataset_urn, workunits = self.init_dataset(
                 endpoint_k, endpoint_dets
             )
+            for wu in workunits:
+                yield wu
 
-            # adding dataset fields
+            # Handle schema metadata if available
             if "data" in endpoint_dets.keys():
                 # we are lucky! data is defined in the swagger for this endpoint
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
-                dataset_snapshot.aspects.append(schema_metadata)
-                yield self.build_wu(dataset_snapshot, dataset_name)
+                wu = MetadataWorkUnit(
+                    id=f"{dataset_name}-schema",
+                    mcp=MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=schema_metadata
+                    ),
+                )
+                yield wu
             elif endpoint_dets["method"] != "get":
                 self.report.report_warning(
                     title="Failed to Extract Endpoint Metadata",
@@ -344,9 +361,13 @@ class APISource(Source, ABC):
                             context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                         )
                     schema_metadata = set_metadata(dataset_name, fields2add)
-                    dataset_snapshot.aspects.append(schema_metadata)
-
-                    yield self.build_wu(dataset_snapshot, dataset_name)
+                    wu = MetadataWorkUnit(
+                        id=f"{dataset_name}-schema",
+                        mcp=MetadataChangeProposalWrapper(
+                            entityUrn=dataset_urn, aspect=schema_metadata
+                        ),
+                    )
+                    yield wu
                 else:
                     self.report_bad_responses(response.status_code, type=endpoint_k)
             else:
@@ -375,9 +396,13 @@ class APISource(Source, ABC):
                                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                             )
                         schema_metadata = set_metadata(dataset_name, fields2add)
-                        dataset_snapshot.aspects.append(schema_metadata)
-
-                        yield self.build_wu(dataset_snapshot, dataset_name)
+                        wu = MetadataWorkUnit(
+                            id=f"{dataset_name}-schema",
+                            mcp=MetadataChangeProposalWrapper(
+                                entityUrn=dataset_urn, aspect=schema_metadata
+                            ),
+                        )
+                        yield wu
                     else:
                         self.report_bad_responses(response.status_code, type=endpoint_k)
                 else:
@@ -406,9 +431,13 @@ class APISource(Source, ABC):
                                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                             )
                         schema_metadata = set_metadata(dataset_name, fields2add)
-                        dataset_snapshot.aspects.append(schema_metadata)
-
-                        yield self.build_wu(dataset_snapshot, dataset_name)
+                        wu = MetadataWorkUnit(
+                            id=f"{dataset_name}-schema",
+                            mcp=MetadataChangeProposalWrapper(
+                                entityUrn=dataset_urn, aspect=schema_metadata
+                            ),
+                        )
+                        yield wu
                     else:
                         self.report_bad_responses(response.status_code, type=endpoint_k)
 
