@@ -271,26 +271,27 @@ class AbstractLineage(ABC):
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
         column_lineage = []
 
-        for column in self.table.columns:
-            downstream = DownstreamColumnRef(
-                table=self.table.name,
-                column=column.name,
-                column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
-                native_column_type=column.dataType or "UNKNOWN",
-            )
-
-            upstreams = [
-                ColumnRef(
-                    table=urn,
-                    column=column.name.lower(),
+        if self.table.columns is not None:
+            for column in self.table.columns:
+                downstream = DownstreamColumnRef(
+                    table=self.table.name,
+                    column=column.name,
+                    column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
+                    native_column_type=column.dataType or "UNKNOWN",
                 )
-            ]
 
-            column_lineage_info = ColumnLineageInfo(
-                downstream=downstream, upstreams=upstreams
-            )
+                upstreams = [
+                    ColumnRef(
+                        table=urn,
+                        column=column.name.lower(),
+                    )
+                ]
 
-            column_lineage.append(column_lineage_info)
+                column_lineage_info = ColumnLineageInfo(
+                    downstream=downstream, upstreams=upstreams
+                )
+
+                column_lineage.append(column_lineage_info)
 
         return column_lineage
 

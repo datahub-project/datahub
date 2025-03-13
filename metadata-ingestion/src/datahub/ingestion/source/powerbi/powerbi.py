@@ -239,7 +239,7 @@ class Mapper:
         cll_lineage: List[FineGrainedLineage] = []
 
         logger.debug(
-            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name}"
+            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
         )
 
         upstream_lineage: List[
