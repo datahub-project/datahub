@@ -361,6 +361,7 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM"
@@ -4424,6 +4425,10 @@
         }, {
           "name" : "lePitEpochMs",
           "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "createDefaultAspects",
+          "type" : "boolean",
           "optional" : true
         } ],
         "returns" : "string"

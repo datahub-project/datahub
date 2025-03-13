@@ -24,11 +24,6 @@ PROJECT_ID = "test-project-id"
 REGION = "us-west2"
 
 
-@pytest.fixture
-def sink_file_path(tmp_path: Path) -> str:
-    return str(tmp_path / "vertexai_source_mcps.json")
-
-
 def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     source_type = "vertexai"
     return {
@@ -49,7 +44,7 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     }
 
 
-def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) -> None:
+def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
     with contextlib.ExitStack() as exit_stack:
         # Mock the Vertex API with empty list
         for func_to_mock in [
@@ -111,6 +106,7 @@ def test_vertexai_source_ingestion(pytestconfig: Config, sink_file_path: str) ->
             / "tests/integration/vertexai/vertexai_mcps_golden.json"
         )
 
+        sink_file_path = str(tmp_path / "vertexai_source_mcps.json")
         print(f"Output mcps file path: {str(sink_file_path)}")
         print(f"Golden file path: {str(golden_file_path)}")
 

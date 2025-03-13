@@ -2,6 +2,7 @@ plugins {
   id 'java-library'
   id 'pegasus'
   id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
+  id 'java-test-fixtures'
 }
 
 apply from: '../gradle/coverage/java-coverage.gradle'
@@ -159,5 +160,7 @@ tasks.withType(Test) {
 }
 
 clean {
-  project.delete("$projectDir/generated")
+  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
+  delete "$projectDir/generated"
 }
+

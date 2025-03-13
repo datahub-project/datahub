@@ -15,6 +15,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1741674022216,
+        "lastObserved": 1741674022216,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -782,6 +783,79 @@
     },
     "systemMetadata": {
         "lastObserved": 1741674022233,
+        "lastObserved": 1741674022216,
+        "lastObserved": 1741674022217,
+        "lastObserved": 1741674022217,
+        "lastObserved": 1741674022217,
+        "lastObserved": 1741674022218,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741674022219,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741674022219,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1741674022219,
+                "time": 1741674022220,
+        "lastObserved": 1741674022222,
+        "lastObserved": 1741674022223,
+        "lastObserved": 1741674022223,
+        "lastObserved": 1741674022223,
+                "time": 1741674022222,
+        "lastObserved": 1741674022224,
+        "lastObserved": 1741674022224,
+        "lastObserved": 1741674022224,
+        "lastObserved": 1741674022225,
+        "lastObserved": 1741674022225,
+        "lastObserved": 1741674022225,
+        "lastObserved": 1741674022226,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -43,6 +43,7 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_version,
+    gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
 )
