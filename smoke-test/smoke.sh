@@ -49,7 +49,9 @@ if [[ "${TEST_STRATEGY}" == "pytests" ]]; then
 elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
   # run only cypress tests. The test inspects BATCH_COUNT and BATCH_NUMBER and runs only a subset of tests in that batch.
   # github workflow test matrix will invoke this in multiple runners for each batch.
-  pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke-cypress${BATCH_NUMBER}.xml tests/cypress/integration_test.py
+  # Skipping the junit at the pytest level since cypress itself generates junits on a per-test basis. The pytest is a single test for all cypress
+  # tests and isnt very helpful.
+  pytest -rP --durations=20 -vv --continue-on-collection-errors tests/cypress/integration_test.py
 else
   pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke-all.xml
 fi
