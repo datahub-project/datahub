@@ -20,7 +20,6 @@ from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub._codegen.aspect import _Aspect
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
@@ -275,44 +274,43 @@ class VertexAISource(Source):
         )
         created_actor = "urn:li:corpuser:datahub"
 
-        aspects: List[_Aspect] = list()
-        aspects.append(
-            DataProcessInstancePropertiesClass(
-                name=job_id,
-                created=AuditStampClass(
-                    time=created_time,
-                    actor=created_actor,
-                ),
-                externalUrl=self._make_job_external_url(job),
-                customProperties={
-                    "displayName": job.display_name,
-                    "jobType": job.__class__.__name__,
-                },
-            )
-        )
-        aspects.append(
-            MLTrainingRunProperties(
-                externalUrl=self._make_job_external_url(job), id=job.name
-            )
-        )
-        aspects.append(SubTypesClass(typeNames=[MLTypes.TRAINING_JOB]))
-        aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
-
         # If Training job has Input Dataset
-        if job_meta.input_dataset:
-            dataset_urn = builder.make_dataset_urn(
+        dataset_urn = (
+            builder.make_dataset_urn(
                 platform=self.platform,
                 name=self._make_vertexai_dataset_name(
                     entity_id=job_meta.input_dataset.name
                 ),
                 env=self.config.env,
             )
-            aspects.append(
-                DataProcessInstanceInputClass(inputs=[dataset_urn]),
-            )
+            if job_meta.input_dataset
+            else None
+        )
 
         yield from MetadataChangeProposalWrapper.construct_many(
-            job_urn, aspects=aspects
+            job_urn,
+            aspects=[
+                DataProcessInstancePropertiesClass(
+                    name=job_id,
+                    created=AuditStampClass(
+                        time=created_time,
+                        actor=created_actor,
+                    ),
+                    externalUrl=self._make_job_external_url(job),
+                    customProperties={
+                        "displayName": job.display_name,
+                        "jobType": job.__class__.__name__,
+                    },
+                ),
+                MLTrainingRunProperties(
+                    externalUrl=self._make_job_external_url(job), id=job.name
+                ),
+                SubTypesClass(typeNames=[MLTypes.TRAINING_JOB]),
+                ContainerClass(container=self._get_project_container().as_urn()),
+                DataProcessInstanceInputClass(inputs=[dataset_urn])
+                if dataset_urn
+                else None,
+            ],
         )
 
     def _gen_ml_group_mcps(
@@ -324,31 +322,28 @@ class VertexAISource(Source):
         """
         ml_model_group_urn = self._make_ml_model_group_urn(model)
 
-        aspects: List[_Aspect] = list()
-        aspects.append(
-            MLModelGroupPropertiesClass(
-                name=self._make_vertexai_model_group_name(model.name),
-                description=model.description,
-                created=(
-                    TimeStampClass(time=datetime_to_ts_millis(model.create_time))
-                    if model.create_time
-                    else None
-                ),
-                lastModified=(
-                    TimeStampClass(time=datetime_to_ts_millis(model.update_time))
-                    if model.update_time
-                    else None
-                ),
-                customProperties={"displayName": model.display_name},
-            )
-        )
-
-        # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
-        # aspects.append(SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]))
-        # aspects.append(ContainerClass(container=self._get_project_container().as_urn()))
-
         yield from MetadataChangeProposalWrapper.construct_many(
-            ml_model_group_urn, aspects=aspects
+            ml_model_group_urn,
+            aspects=[
+                MLModelGroupPropertiesClass(
+                    name=self._make_vertexai_model_group_name(model.name),
+                    description=model.description,
+                    created=(
+                        TimeStampClass(time=datetime_to_ts_millis(model.create_time))
+                        if model.create_time
+                        else None
+                    ),
+                    lastModified=(
+                        TimeStampClass(time=datetime_to_ts_millis(model.update_time))
+                        if model.update_time
+                        else None
+                    ),
+                    customProperties={"displayName": model.display_name},
+                ),
+                # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
+                # SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]),
+                # ContainerClass(container=self._get_project_container().as_urn())
+            ],
         )
 
     def _make_ml_model_group_urn(self, model: Model) -> str:
@@ -421,32 +416,26 @@ class VertexAISource(Source):
                 env=self.config.env,
             )
 
-            # Create aspects for the dataset
-            aspects: List[_Aspect] = list()
-            aspects.append(
-                DatasetPropertiesClass(
-                    name=self._make_vertexai_dataset_name(ds.name),
-                    created=(
-                        TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
-                        if ds.create_time
-                        else None
-                    ),
-                    description=f"Dataset: {ds.display_name}",
-                    customProperties={
-                        "displayName": ds.display_name,
-                        "resourceName": ds.resource_name,
-                    },
-                    qualifiedName=ds.resource_name,
-                )
-            )
-
-            aspects.append(SubTypesClass(typeNames=[MLTypes.DATASET]))
-            # Create a container for Project as parent of the dataset
-            aspects.append(
-                ContainerClass(container=self._get_project_container().as_urn())
-            )
             yield from MetadataChangeProposalWrapper.construct_many(
-                dataset_urn, aspects=aspects
+                dataset_urn,
+                aspects=[
+                    DatasetPropertiesClass(
+                        name=self._make_vertexai_dataset_name(ds.name),
+                        created=(
+                            TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
+                            if ds.create_time
+                            else None
+                        ),
+                        description=f"Dataset: {ds.display_name}",
+                        customProperties={
+                            "displayName": ds.display_name,
+                            "resourceName": ds.resource_name,
+                        },
+                        qualifiedName=ds.resource_name,
+                    ),
+                    SubTypesClass(typeNames=[MLTypes.DATASET]),
+                    ContainerClass(container=self._get_project_container().as_urn()),
+                ],
             )
 
     def _get_training_job_metadata(
@@ -521,26 +510,21 @@ class VertexAISource(Source):
                     env=self.config.env,
                 )
 
-                aspects: List[_Aspect] = list()
-                aspects.append(
-                    MLModelDeploymentPropertiesClass(
-                        description=model.description,
-                        createdAt=datetime_to_ts_millis(endpoint.create_time),
-                        version=VersionTagClass(
-                            versionTag=str(model_version.version_id)
-                        ),
-                        customProperties={"displayName": endpoint.display_name},
-                    )
-                )
-
-                # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
-                # aspects.append(
-                #     ContainerClass(container=self._get_project_container().as_urn())
-                # )
-                # aspects.append(SubTypesClass(typeNames=[MLTypes.ENDPOINT]))
-
                 yield from MetadataChangeProposalWrapper.construct_many(
-                    endpoint_urn, aspects=aspects
+                    endpoint_urn,
+                    aspects=[
+                        MLModelDeploymentPropertiesClass(
+                            description=model.description,
+                            createdAt=datetime_to_ts_millis(endpoint.create_time),
+                            version=VersionTagClass(
+                                versionTag=str(model_version.version_id)
+                            ),
+                            customProperties={"displayName": endpoint.display_name},
+                        ),
+                        # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
+                        # ContainerClass(container=self._get_project_container().as_urn()),
+                        # SubTypesClass(typeNames=[MLTypes.ENDPOINT])
+                    ],
                 )
 
     def _gen_ml_model_mcps(
@@ -580,52 +564,45 @@ class VertexAISource(Source):
         model_version_name = f"{model_name}_{model_version.version_id}"
         model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
-        # Create aspects for ML Model
-        aspects: List[_Aspect] = list()
-
-        aspects.append(
-            MLModelPropertiesClass(
-                name=model_version_name,
-                description=model_version.version_description,
-                customProperties={
-                    "displayName": f"{model_version.model_display_name}",
-                    "versionId": f"{model_version.version_id}",
-                    "resourceName": model.resource_name,
-                },
-                created=(
-                    TimeStampClass(
-                        datetime_to_ts_millis(model_version.version_create_time)
-                    )
-                    if model_version.version_create_time
-                    else None
-                ),
-                lastModified=(
-                    TimeStampClass(
-                        datetime_to_ts_millis(model_version.version_update_time)
-                    )
-                    if model_version.version_update_time
-                    else None
-                ),
-                version=VersionTagClass(versionTag=str(model_version.version_id)),
-                groups=[model_group_urn],  # link model version to model group
-                trainingJobs=(
-                    [training_job_urn] if training_job_urn else None
-                ),  # link to training job
-                deployments=endpoint_urns,
-                externalUrl=self._make_model_version_external_url(model),
-                type="ML Model",
-            )
-        )
-
-        # TODO Add a container for Project as parent of the dataset
-        # aspects.append(
-        #     ContainerClass(
-        #             container=self._get_project_container().as_urn(),
-        #     )
-        # )
-
         yield from MetadataChangeProposalWrapper.construct_many(
-            entityUrn=model_urn, aspects=aspects
+            entityUrn=model_urn,
+            aspects=[
+                MLModelPropertiesClass(
+                    name=model_version_name,
+                    description=model_version.version_description,
+                    customProperties={
+                        "displayName": f"{model_version.model_display_name}",
+                        "versionId": f"{model_version.version_id}",
+                        "resourceName": model.resource_name,
+                    },
+                    created=(
+                        TimeStampClass(
+                            datetime_to_ts_millis(model_version.version_create_time)
+                        )
+                        if model_version.version_create_time
+                        else None
+                    ),
+                    lastModified=(
+                        TimeStampClass(
+                            datetime_to_ts_millis(model_version.version_update_time)
+                        )
+                        if model_version.version_update_time
+                        else None
+                    ),
+                    version=VersionTagClass(versionTag=str(model_version.version_id)),
+                    groups=[model_group_urn],  # link model version to model group
+                    trainingJobs=(
+                        [training_job_urn] if training_job_urn else None
+                    ),  # link to training job
+                    deployments=endpoint_urns,
+                    externalUrl=self._make_model_version_external_url(model),
+                    type="ML Model",
+                ),
+                # TODO Add a container for Project as parent of the dataset
+                # ContainerClass(
+                #     container=self._get_project_container().as_urn(),
+                # )
+            ],
         )
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
