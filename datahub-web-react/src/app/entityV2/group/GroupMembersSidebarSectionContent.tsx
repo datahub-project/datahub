@@ -10,7 +10,7 @@ import { GroupMemberLink } from './GroupMemberLink';
 import { TabType } from './types';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
 };
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
@@ -21,7 +21,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
 
     const entityRegistry = useEntityRegistry();
     const relationshipsTotal = groupMemberRelationships?.total || 0;
-    const relationshipsAvailableCount = groupMemberRelationships.relationships?.length || 0;
+    const relationshipsAvailableCount = groupMemberRelationships?.relationships?.length || 0;
 
     const hasHiddenEntities = relationshipsTotal > relationshipsAvailableCount;
     const isShowingMaxEntities = entityCount >= relationshipsAvailableCount;
@@ -34,7 +34,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
                     <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
                 )}
                 {relationshipsTotal > 0 &&
-                    groupMemberRelationships.relationships.map((item, index) => {
+                    groupMemberRelationships?.relationships.map((item, index) => {
                         const user = item.entity as CorpUser;
                         return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
                     })}

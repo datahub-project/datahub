@@ -24,7 +24,7 @@ export type SidebarData = {
     email: string | undefined;
     slack: string | undefined;
     aboutText: string | undefined;
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships: EntityRelationshipsResult | undefined;
     groupOwnership: Ownership;
     isExternalGroup: boolean;
     externalGroupType: string | undefined;

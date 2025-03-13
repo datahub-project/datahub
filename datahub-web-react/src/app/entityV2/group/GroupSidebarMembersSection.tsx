@@ -4,7 +4,7 @@ import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSect
 import { EntityRelationshipsResult } from '../../../types.generated';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
 };
 
 export const GroupSidebarMembersSection = ({ groupMemberRelationships }: Props) => {

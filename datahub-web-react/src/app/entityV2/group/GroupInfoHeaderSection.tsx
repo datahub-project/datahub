@@ -31,7 +31,7 @@ const GroupName = styled(Typography.Title)`
 `;
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
     isExternalGroup: boolean;
     externalGroupType: string | undefined;
     groupName: string | undefined;
