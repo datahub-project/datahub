@@ -389,4 +389,30 @@ public class SendMAEStepTest {
     // Verify report lines are added
     verify(mockReport, atLeastOnce()).addLine(anyString());
   }
+
+  @Test
+  public void testExecutableWithCreateDefaultAspects() {
+    // Setup
+    parsedArgs.put(RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME, Optional.of("true"));
+
+    // Insert test data
+    insertTestRows(3, null);
+
+    // Execute
+    UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
+
+    // Verify result
+    assertTrue(result instanceof DefaultUpgradeStepResult);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(result.stepId(), sendMAEStep.id());
+    assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
+
+    // Verify createDefaultAspects parameter
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(mockEntityService).restoreIndices(eq(mockOpContext), argsCaptor.capture(), any());
+
+    RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
+    assertTrue(capturedArgs.createDefaultAspects);
+  }
 }
