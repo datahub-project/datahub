@@ -43,7 +43,6 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_version,
-    gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
 )
@@ -447,8 +446,9 @@ def test_get_experiment_mcps(
     actual_urns = [
         wu.metadata.entityUrn
         for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalClass)
-        or isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        if isinstance(
+            wu.metadata, (MetadataChangeProposalClass, MetadataChangeProposalWrapper)
+        )
     ]
     assert [expected_urn] * 5 == actual_urns
 
@@ -463,8 +463,10 @@ def test_get_experiment_mcps(
         [
             wu.metadata.aspect.__class__
             for wu in workunits
-            if isinstance(wu.metadata, MetadataChangeProposalClass)
-            or isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            if isinstance(
+                wu.metadata,
+                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
+            )
         ]
     )
     assert expected_classes == instances

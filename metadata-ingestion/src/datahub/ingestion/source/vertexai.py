@@ -25,7 +25,7 @@ import datahub.emitter.mce_builder as builder
 from datahub._codegen.aspect import _Aspect
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
+from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -47,21 +47,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
+    DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRunEventClass,
+    DataProcessInstanceRunResultClass,
+    DataProcessRunStatusClass,
     DatasetPropertiesClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
+    MLTrainingRunPropertiesClass,
+    RunResultTypeClass,
     SubTypesClass,
     TimeStampClass,
     VersionTagClass,
-    MLTrainingRunPropertiesClass,
-    RunResultTypeClass,
-    DataProcessInstanceRunEventClass,
-    DataProcessRunStatusClass,
-    DataProcessInstanceRunResultClass,
-    DataPlatformInstanceClass
 )
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.time import datetime_to_ts_millis
@@ -502,7 +502,7 @@ class VertexAISource(Source):
                     customProperties={"displayName": model.display_name},
                 ),
                 SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]),
-                ContainerClass(container=self._get_project_container().as_urn())
+                ContainerClass(container=self._get_project_container().as_urn()),
             ],
         )
 
@@ -518,12 +518,15 @@ class VertexAISource(Source):
         return ProjectIdKey(project_id=self.config.project_id, platform=self.platform)
 
     def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
-        return (
-            isinstance(job, AutoMLTabularTrainingJob)
-            or isinstance(job, AutoMLTextTrainingJob)
-            or isinstance(job, AutoMLImageTrainingJob)
-            or isinstance(job, AutoMLVideoTrainingJob)
-            or isinstance(job, AutoMLForecastingTrainingJob)
+        return isinstance(
+            job,
+            (
+                AutoMLTabularTrainingJob,
+                AutoMLTextTrainingJob,
+                AutoMLImageTrainingJob,
+                AutoMLVideoTrainingJob,
+                AutoMLForecastingTrainingJob,
+            ),
         )
 
     def _search_model_version(
@@ -682,7 +685,9 @@ class VertexAISource(Source):
                             customProperties={"displayName": endpoint.display_name},
                         ),
                         # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
-                        ContainerClass(container=self._get_project_container().as_urn()),
+                        ContainerClass(
+                            container=self._get_project_container().as_urn()
+                        ),
                         # SubTypesClass(typeNames=[MLTypes.ENDPOINT])
                     ],
                 )
@@ -762,7 +767,7 @@ class VertexAISource(Source):
                 ContainerClass(
                     container=self._get_project_container().as_urn(),
                 ),
-                SubTypesClass(typeNames=[MLTypes.MODEL])
+                SubTypesClass(typeNames=[MLTypes.MODEL]),
             ],
         )
 
@@ -779,11 +784,7 @@ class VertexAISource(Source):
                     endpoint_dict[resource.model].append(endpoint)
             self.endpoints = endpoint_dict
 
-        endpoints = (
-            self.endpoints[model.resource_name]
-            if model.resource_name in self.endpoints
-            else []
-        )
+        endpoints = self.endpoints.get(model.resource_name, [])
         return endpoints
 
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:

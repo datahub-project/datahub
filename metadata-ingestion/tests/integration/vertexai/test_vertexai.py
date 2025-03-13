@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Dict, TypeVar
 from unittest.mock import patch
 
-import pytest
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
