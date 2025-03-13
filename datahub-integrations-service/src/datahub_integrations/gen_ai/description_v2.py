@@ -4,20 +4,20 @@ import re
 from typing import Any, Dict, List, Tuple
 
 import datahub.metadata.schema_classes as models
-import pydantic
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AspectBag
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
-
-DESCRIPTION_GENERATION_MODEL: BedrockModel = pydantic.parse_obj_as(
+from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    os.getenv(
-        "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU.value
-    ),
+    call_bedrock_llm,
+    get_bedrock_model_env_variable,
+)
+
+DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
+    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
 )
 _MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 100))
 

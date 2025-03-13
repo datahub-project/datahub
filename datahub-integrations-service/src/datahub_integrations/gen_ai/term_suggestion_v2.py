@@ -9,9 +9,12 @@ import asyncer
 import more_itertools
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationError, parse_obj_as
+from pydantic import BaseModel, Field, ValidationError
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel
+from datahub_integrations.gen_ai.bedrock import (
+    BedrockModel,
+    get_bedrock_model_env_variable,
+)
 from datahub_integrations.gen_ai.description_v2 import (
     call_bedrock_llm,
     extract_metadata_for_urn,
@@ -19,11 +22,8 @@ from datahub_integrations.gen_ai.description_v2 import (
 )
 from datahub_integrations.gen_ai.term_suggestion_v2_context import GlossaryInfo
 
-TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
-    BedrockModel,
-    os.getenv(
-        "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU.value
-    ),
+TERM_SUGGESTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
+    "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
 )
 
 # The AWS quota is 1000 requests per minute for Haiku 3 and

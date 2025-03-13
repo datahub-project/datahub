@@ -855,7 +855,7 @@ pycparser==2.22
     # via
     #   -r requirements.txt
     #   cffi
-pydantic==1.10.15
+pydantic==1.10.21
     # via
     #   -r requirements.txt
     #   acryl-datahub

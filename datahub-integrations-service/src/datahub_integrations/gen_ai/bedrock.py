@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import boto3
 import botocore.config
+import pydantic
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
@@ -25,6 +26,17 @@ class BedrockModel(enum.Enum):
 
     CLAUDE_35_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
     CLAUDE_35_SONNET_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+    CLAUDE_37_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+
+
+def get_bedrock_model_env_variable(
+    env_var: str, default_model: BedrockModel
+) -> BedrockModel | str:
+    return pydantic.parse_obj_as(
+        BedrockModel | str,  # type: ignore
+        os.getenv(env_var, default_model.value),
+    )
 
 
 @serialized
@@ -60,7 +72,7 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
 
 
 def call_bedrock_llm(
-    prompt: str, max_tokens: int, model: BedrockModel, temperature: float = 0.3
+    prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
 ) -> str:
     start_time = time.time()
     body = {
@@ -79,13 +91,12 @@ def call_bedrock_llm(
 
     boto3_bedrock = get_bedrock_client()
 
+    modelId = model.value if isinstance(model, BedrockModel) else model
     if _LLM_TRACE:
-        logger.info(
-            f"Calling Bedrock LLM with model {model.value} and prompt:\n{prompt}"
-        )
+        logger.info(f"Calling Bedrock LLM with model {modelId} and prompt:\n{prompt}")
     response = boto3_bedrock.invoke_model(
         body=json.dumps(body),
-        modelId=model.value,
+        modelId=modelId,
         accept=accept,
         contentType=contentType,
     )
