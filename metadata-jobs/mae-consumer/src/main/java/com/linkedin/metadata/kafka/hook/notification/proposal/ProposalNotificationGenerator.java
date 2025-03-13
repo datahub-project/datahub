@@ -7,6 +7,7 @@ import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestStatus;
@@ -173,7 +174,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         .collect(Collectors.toList());
   }
 
-  private List<Urn> getActorsWithRoles(final OperationContext opContext, final List<Urn> roles) {
+  @VisibleForTesting
+  List<Urn> getActorsWithRoles(final OperationContext opContext, final List<Urn> roles) {
     final Set<Urn> allActorsWithAnyRoles = new HashSet<>();
     for (final Urn role : roles) {
       try {
@@ -189,7 +191,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     return new ArrayList<>(allActorsWithAnyRoles);
   }
 
-  private List<Urn> getActorsWithRole(final OperationContext opContext, final Urn role) {
+  @VisibleForTesting
+  List<Urn> getActorsWithRole(final OperationContext opContext, final Urn role) {
     int start = 0;
     int total = Integer.MAX_VALUE; // Start with a large value to enter the loop.
     final List<Urn> resolvedActors = new ArrayList<>();

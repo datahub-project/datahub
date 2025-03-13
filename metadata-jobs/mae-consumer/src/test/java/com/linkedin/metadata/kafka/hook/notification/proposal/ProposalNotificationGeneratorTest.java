@@ -31,6 +31,9 @@ import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationshipArray;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.OwnershipSource;
@@ -60,6 +63,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.NotificationRecipientsGeneratorExtraContext;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -2302,6 +2306,131 @@ public class ProposalNotificationGeneratorTest {
         templateParams.get("context"),
         "{\"owners\":[{\"owner\":\"urn:li:corpuser:testUser\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"TECHNICAL_OWNER\"},{\"owner\":\"urn:li:corpGroup:testGroup\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"BUSINESS_OWNER\"}]}");
     assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
+  }
+
+  @Test
+  public void testGetActorsWithRolesException() throws Exception {
+    Urn role1 = Urn.createFromString("urn:li:role:1");
+    Urn role2 = Urn.createFromString("urn:li:role:2");
+
+    when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role1.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenThrow(new RuntimeException());
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role2.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenThrow(new RuntimeException());
+
+    List<Urn> result =
+        proposalNotificationGenerator.getActorsWithRoles(
+            mockSystemOpContext, Arrays.asList(role1, role2));
+    assertEquals(result.size(), 0);
+  }
+
+  @Test
+  public void testGetActorsWithRolesSuccess() throws Exception {
+    Urn role1 = Urn.createFromString("urn:li:role:1");
+    Urn role2 = Urn.createFromString("urn:li:role:2");
+
+    Urn actor1 = Urn.createFromString("urn:li:user:100");
+    Urn actor2 = Urn.createFromString("urn:li:user:101");
+
+    when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role1.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        Arrays.asList(
+                            new EntityRelationship().setEntity(actor1),
+                            new EntityRelationship().setEntity(actor2)))));
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role2.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        Arrays.asList(
+                            new EntityRelationship().setEntity(actor1),
+                            new EntityRelationship().setEntity(actor2)))));
+
+    List<Urn> result =
+        proposalNotificationGenerator.getActorsWithRoles(
+            mockSystemOpContext, Arrays.asList(role1, role2));
+
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(actor1));
+    assertTrue(result.contains(actor2));
+  }
+
+  @Test
+  public void testGetActorsWithRolesEmptyResponse() throws Exception {
+    Urn role1 = Urn.createFromString("urn:li:role:1");
+    Urn role2 = Urn.createFromString("urn:li:role:2");
+
+    when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role1.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setCount(0)
+                .setRelationships(new EntityRelationshipArray(Collections.emptyList())));
+    when(mockGraphClient.getRelatedEntities(
+            Mockito.eq(role2.toString()),
+            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(RelationshipDirection.INCOMING),
+            Mockito.eq(0),
+            Mockito.eq(1000), // Default page size.
+            Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setCount(2)
+                .setRelationships(new EntityRelationshipArray(Collections.emptyList())));
+
+    List<Urn> result =
+        proposalNotificationGenerator.getActorsWithRoles(
+            mockSystemOpContext, Arrays.asList(role1, role2));
+
+    assertEquals(result.size(), 0);
+  }
+
+  @Test
+  public void testGetActorsWithEmptyRolesSuccess() throws Exception {
+    when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
+    List<Urn> result =
+        proposalNotificationGenerator.getActorsWithRoles(
+            mockSystemOpContext, Collections.emptyList());
+    assertEquals(result.size(), 0);
   }
 
   private void initMockEntityClient() throws Exception {
