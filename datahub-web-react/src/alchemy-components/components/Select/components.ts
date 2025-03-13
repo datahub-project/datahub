@@ -107,7 +107,7 @@ export const PortalDropdownContainer = styled.div({
     gap: '8px',
     marginTop: '4px',
     overflow: 'auto',
-    width: 'fit-content',
+    width: '100%',
     minWidth: '250px',
 });
 
