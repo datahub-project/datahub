@@ -105,6 +105,8 @@ class MLTypes(StrEnum):
     ENDPOINT = "Endpoint"
     DATASET = "Dataset"
     PROJECT = "Project"
+    EXPERIMENT = "Experiment"
+    EXPERIMENT_RUN = "Experiment Run"
 
 
 @dataclasses.dataclass
