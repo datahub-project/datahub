@@ -95,5 +95,11 @@ class BIAssetSubTypes(StrEnum):
 
 
 class MLAssetSubTypes(StrEnum):
-    MLFLOW_TRAINING_RUN = "ML Training Run"
-    MLFLOW_EXPERIMENT = "ML Experiment"
+    TRAINING_RUN = "ML Training Run"
+    EXPERIMENT = "ML Experiment"
+    MODEL = "ML Model"
+    TRAINING_JOB = "Training Job"
+    MODEL_GROUP = "ML Model Group"
+    ENDPOINT = "Endpoint"
+    DATASET = "Dataset"
+    PROJECT = "Project"

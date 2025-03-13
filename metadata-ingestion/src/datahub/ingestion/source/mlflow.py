@@ -228,7 +228,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 platform=str(DataPlatformUrn(platform_name=self.platform)),
                 id=experiment.name,
             ),
-            subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
+            subtype=MLAssetSubTypes.EXPERIMENT,
             display_name=experiment.name,
             description=experiment.tags.get("mlflow.note.content"),
             extra_properties=self._get_experiment_custom_properties(experiment),
@@ -358,7 +358,7 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=str(data_process_instance.urn),
-            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.MLFLOW_TRAINING_RUN]),
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.TRAINING_RUN]),
         ).as_workunit()
 
     def _get_mlflow_registered_models(self) -> Iterable[RegisteredModel]:
