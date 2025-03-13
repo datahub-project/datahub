@@ -59,6 +59,19 @@ const meta: Meta = {
                 defaultValue: { summary: selectDefaults.showSearch?.toString() },
             },
         },
+        onSearch: {
+            description: 'Called when text in the search bar changed',
+        },
+        filteringPredicate: {
+            description:
+                'A function to replace default filtering predicate. The default predicate supports only string labels.',
+            table: {
+                type: {
+                    summary: 'FilteringPredicate',
+                    detail: '(option: Option, query: string) => boolean',
+                },
+            },
+        },
         isDisabled: {
             description: 'Whether the Select component is disabled.',
             control: {

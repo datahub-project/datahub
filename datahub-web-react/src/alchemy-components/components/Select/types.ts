@@ -32,9 +32,7 @@ export interface SelectProps<Option extends SelectOption = SelectOption> {
     icon?: IconNames;
     showSearch?: boolean;
     onSearch?: (query: string) => void;
-    // searchFilter?: (query: string, options: Option[]) => Option[];
     filteringPredicate?: FilteringPredicate<Option>;
-    // onSearchQueryChanged?: (query: string) => void;
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
@@ -49,7 +47,6 @@ export interface SelectProps<Option extends SelectOption = SelectOption> {
     optionListTestId?: string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
-    className?: string;
 }
 
 export interface SelectStyleProps {

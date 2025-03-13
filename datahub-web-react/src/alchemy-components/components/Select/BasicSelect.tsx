@@ -66,7 +66,6 @@ export const BasicSelect = <OptionType extends SelectOption>({
     onSearch,
     filteringPredicate,
     selectLabelProps,
-    className,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -164,7 +163,7 @@ export const BasicSelect = <OptionType extends SelectOption>({
     };
 
     return (
-        <Container size={size || 'md'} width={props.width} className={className}>
+        <Container size={size || 'md'} width={props.width}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <Dropdown
                 open={isOpen}

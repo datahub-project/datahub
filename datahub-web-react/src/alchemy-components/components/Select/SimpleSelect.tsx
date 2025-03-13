@@ -66,7 +66,6 @@ export const SimpleSelect = <OptionType extends SelectOption>({
     optionSwitchable,
     selectLabelProps,
     filteringPredicate,
-    className,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -141,7 +140,6 @@ export const SimpleSelect = <OptionType extends SelectOption>({
             width={props.width || 255}
             $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
-            className={className}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <Dropdown
