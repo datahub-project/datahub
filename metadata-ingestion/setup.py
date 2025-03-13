@@ -527,7 +527,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
+    "fivetran": snowflake_common | bigquery_common | sqlglot_lib | {"requests"},
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
