@@ -101,6 +101,7 @@ export default function useQueryTableColumns({
         title: 'Created By',
         dataIndex: 'createdBy',
         key: 'createdBy',
+        width: 85,
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {
