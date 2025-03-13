@@ -1,4 +1,6 @@
-import React from 'react';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import Pills from './Pills';
@@ -104,7 +106,23 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
-    const shouldRenderPillsRow = [glossaryTerms.length, tags.length, owners.length].some(Boolean);
+    const groupedMatches = useMatchedFieldsForList('fieldLabels');
+    const { lineageDirection, isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
+
+    const showGlossaryTerms = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
+    const showTags = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
+    const showOwners = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
+
+    // Only show the column paths pill on datasets who actually have columns to show
+    const shouldShowPaths =
+        !!paths?.length && entityType === EntityType.Dataset && isColumnLevelLineage && selectedColumn;
+    const shouldRenderPillsRow = [
+        showGlossaryTerms && glossaryTerms.length,
+        showTags && tags.length,
+        showOwners && owners.length,
+        groupedMatches.length,
+        shouldShowPaths,
+    ].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
         tier !== undefined ||
@@ -119,12 +137,12 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
             <Container>
                 {isFullViewCard && (
                     <Pills
-                        glossaryTerms={glossaryTerms}
-                        tags={tags}
-                        owners={owners}
-                        entityCapabilities={entityCapabilities}
-                        paths={paths}
-                        entityType={entityType}
+                        glossaryTerms={showGlossaryTerms ? glossaryTerms : []}
+                        tags={showTags ? tags : []}
+                        owners={showOwners ? owners : []}
+                        groupedMatches={groupedMatches}
+                        paths={shouldRenderPillsRow ? paths : []}
+                        lineageDirection={lineageDirection}
                     />
                 )}
                 <RightSection isFullViewCard={isFullViewCard}>
