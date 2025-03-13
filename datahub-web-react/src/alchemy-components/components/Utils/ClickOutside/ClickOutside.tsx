@@ -18,7 +18,6 @@ export default function ClickOutside({
             const target = event.target as HTMLElement;
 
             const isInsideOfWrapper = (wrapperRef.current as HTMLDivElement).contains((event.target as Node) || null);
-            console.log(event.target, wrapperRef.current);
 
             // Ignore clicks on elements matching `ignoreSelector`
             if (ignoreSelector && target.closest(ignoreSelector)) {
