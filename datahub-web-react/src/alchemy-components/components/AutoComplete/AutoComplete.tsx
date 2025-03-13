@@ -17,7 +17,7 @@ export default function AutoComplete({
     ...props
 }: React.PropsWithChildren<AutoCompleteProps>) {
     const [internalValue, setInternalValue] = useState<string>(value || '');
-    const [internalOpen, setInternalOpen] = useState<boolean>(true);
+    const [internalOpen, setInternalOpen] = useState<boolean>(false);
 
     useEffect(() => {
         onDropdownVisibleChange?.(internalOpen);
