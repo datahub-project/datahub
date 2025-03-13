@@ -1,7 +1,6 @@
 const test_group_urn = "urn:li:corpGroup:bfoo";
 
 describe("group notifications test", () => {
-
   before(() => {
     cy.on("uncaught:exception", () => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {

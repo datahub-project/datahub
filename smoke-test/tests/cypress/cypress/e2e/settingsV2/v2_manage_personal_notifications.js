@@ -1,5 +1,4 @@
 describe("personal notifications test", () => {
-
   before(() => {
     cy.on("uncaught:exception", () => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {

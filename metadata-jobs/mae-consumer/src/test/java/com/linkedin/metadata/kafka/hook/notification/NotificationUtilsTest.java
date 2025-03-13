@@ -120,8 +120,15 @@ public class NotificationUtilsTest {
     final Urn containerUrn = UrnUtils.getUrn("urn:li:container:test");
     final Urn domainUrn = UrnUtils.getUrn("urn:li:domain:test");
     Assert.assertEquals(
-        NotificationUtils.generateEntityPaths(List.of(datasetUrn, dashboardUrn, structuredPropertyUrn, corpUserUrn,
-            corpGroupUrn, containerUrn, domainUrn)),
+        NotificationUtils.generateEntityPaths(
+            List.of(
+                datasetUrn,
+                dashboardUrn,
+                structuredPropertyUrn,
+                corpUserUrn,
+                corpGroupUrn,
+                containerUrn,
+                domainUrn)),
         ImmutableList.of(
             "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29",
             "/dashboard/urn%3Ali%3Adashboard%3A%28airflow%2Ctest%29",
