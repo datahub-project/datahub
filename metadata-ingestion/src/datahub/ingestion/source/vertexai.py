@@ -273,7 +273,7 @@ class VertexAISource(Source):
             if job.create_time
             else datetime_to_ts_millis(datetime.now())
         )
-        created_actor = f"urn:li:platformResource:{self.platform}"
+        created_actor = "urn:li:corpuser:datahub"
 
         aspects: List[_Aspect] = list()
         aspects.append(
@@ -402,7 +402,7 @@ class VertexAISource(Source):
                 for ds in dataset_class.list():
                     self.datasets[ds.name] = ds
 
-        return self.datasets[dataset_id] if dataset_id in self.datasets else None
+        return self.datasets.get(dataset_id)
 
     def _get_input_dataset_mcps(
         self, job_meta: TrainingJobMetadata
