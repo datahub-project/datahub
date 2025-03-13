@@ -252,7 +252,7 @@ class BigqueryProfiler(GenericProfiler):
         timeout: int,
     ) -> Dict[str, Any]:
         """Get values for time hierarchy columns."""
-        result = {}
+        result: Dict[str, Any] = {}
         current_time = datetime.now(timezone.utc)
 
         # Set defaults from current time
@@ -323,7 +323,7 @@ class BigqueryProfiler(GenericProfiler):
         timeout: int,
     ) -> Dict[str, Any]:
         """Get values for date columns."""
-        result = {}
+        result: Dict[str, Any] = {}
 
         if not date_columns:
             return result
@@ -418,7 +418,7 @@ class BigqueryProfiler(GenericProfiler):
         timeout: int,
     ) -> Dict[str, Any]:
         """Get values for remaining partition columns."""
-        result = {}
+        result: Dict[str, Any] = {}
 
         if not remaining_columns:
             return result
@@ -563,7 +563,7 @@ class BigqueryProfiler(GenericProfiler):
         ddl_norm = ddl.replace("\n", " ").replace("\t", " ")  # Preserve case
 
         # Track found partition cols
-        found_partition_cols = set()
+        found_partition_cols: Set[str] = set()
 
         # Case 1: Standard PARTITION BY column
         if "PARTITION BY" in ddl_upper:
@@ -606,7 +606,7 @@ class BigqueryProfiler(GenericProfiler):
             metadata["partition_columns"]["_PARTITIONTIME"] = "TIMESTAMP"
 
     def _extract_partition_by_clause(
-        self, upper_clause: str, original_clause: str, found_partition_cols: set
+        self, upper_clause: str, original_clause: str, found_partition_cols: Set[str]
     ) -> None:
         """Extract partition columns from a PARTITION BY clause in DDL."""
         try:
@@ -1184,7 +1184,7 @@ class BigqueryProfiler(GenericProfiler):
                 "day",
             ):
                 # Try today, yesterday, last week, last month, etc.
-                test_dates = [
+                test_dates_datetime = [
                     time_now,
                     time_now - timedelta(days=1),
                     time_now - timedelta(days=7),
@@ -1194,7 +1194,7 @@ class BigqueryProfiler(GenericProfiler):
                     datetime(time_now.year, 1, 1),  # First of year
                 ]
 
-                for test_date in test_dates:
+                for test_date in test_dates_datetime:
                     if col_type == "DATE":
                         date_str = test_date.strftime("%Y-%m-%d")
                         filter_value = f"DATE '{date_str}'"
@@ -1344,7 +1344,7 @@ class BigqueryProfiler(GenericProfiler):
 
     def _fetch_basic_table_metadata(self, table: BigqueryTable) -> Dict[str, Any]:
         """Get basic metadata from table object."""
-        metadata = {
+        metadata: Dict[str, Any] = {
             "partition_columns": {},
             "clustering_columns": {},
             "row_count": table.rows_count,
@@ -1493,7 +1493,7 @@ class BigqueryProfiler(GenericProfiler):
         """Helper method to try time hierarchy partitioning approach"""
         # Time hierarchy columns in order of precedence
         time_hierarchy_cols = ["year", "month", "day", "hour"]
-        hierarchy_filters = []
+        hierarchy_filters: List[str] = []
 
         # Build a filter using time hierarchy
         time_now = datetime.now(timezone.utc)
@@ -2129,12 +2129,15 @@ class BigqueryProfiler(GenericProfiler):
                 f"Using extended timeouts for very large table {profile_request.pretty_name}"
             )
             # Add extended query timeouts for very large tables
-            profile_request.profiler_config.update(
-                {
-                    "query_timeout": 300,  # 5 minutes
-                    "chunk_size": 5000,
-                }
-            )
+            if hasattr(profile_request, "profiler_config"):
+                profile_request.profiler_config.update(
+                    {
+                        "query_timeout": 300,  # 5 minutes
+                        "chunk_size": 5000,
+                    }
+                )
+            else:
+                logger.debug("profiler_config not available on TableProfilerRequest")
 
         return profile_request
 
