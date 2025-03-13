@@ -319,7 +319,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             || ChangeType.CREATE.equals(event.getChangeType()));
   }
 
-  private boolean isEligibleForProcessingActionRequestInfo(final ActionRequestInfo info) {
+  @VisibleForTesting
+  boolean isEligibleForProcessingActionRequestInfo(final ActionRequestInfo info) {
     return AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL.equals((info.getType()))
         || AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL.equals((info.getType()))

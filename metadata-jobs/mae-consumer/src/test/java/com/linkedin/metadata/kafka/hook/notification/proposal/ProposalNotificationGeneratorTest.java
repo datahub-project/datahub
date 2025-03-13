@@ -85,6 +85,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.mockito.*;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class ProposalNotificationGeneratorTest {
@@ -2431,6 +2432,42 @@ public class ProposalNotificationGeneratorTest {
         proposalNotificationGenerator.getActorsWithRoles(
             mockSystemOpContext, Collections.emptyList());
     assertEquals(result.size(), 0);
+  }
+
+  @DataProvider(name = "eligibleRequestTypes")
+  public Object[][] provideEligibleRequestTypes() {
+    return new Object[][] {
+      {AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL},
+      {AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL}
+    };
+  }
+
+  @Test(dataProvider = "eligibleRequestTypes")
+  public void testIsEligibleForProcessingActionRequestInfoValidTypes(String requestType) {
+    ActionRequestInfo mockActionRequestInfo = mock(ActionRequestInfo.class);
+    when(mockActionRequestInfo.getType()).thenReturn(requestType);
+    boolean result =
+        proposalNotificationGenerator.isEligibleForProcessingActionRequestInfo(
+            mockActionRequestInfo);
+
+    assertTrue(result, "Expected request type to be eligible: " + requestType);
+  }
+
+  @Test
+  public void testIsEligibleForProcessingActionRequestInfoInvalidType() {
+    ActionRequestInfo mockActionRequestInfo = mock(ActionRequestInfo.class);
+    when(mockActionRequestInfo.getType()).thenReturn("invalid_request_type");
+    boolean result =
+        proposalNotificationGenerator.isEligibleForProcessingActionRequestInfo(
+            mockActionRequestInfo);
+
+    assertFalse(result, "Expected request type to be ineligible.");
   }
 
   private void initMockEntityClient() throws Exception {
