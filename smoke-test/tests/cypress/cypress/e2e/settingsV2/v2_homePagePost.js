@@ -27,7 +27,7 @@ const clickOnNewPost = () => {
 };
 
 const clickOnMoreOption = () => {
-  cy.get('[aria-label="more"]').first().click();
+  cy.get(`[data-testid="dropdown-menu-item"]`).first().click();
 };
 
 describe("create announcement and link post", () => {

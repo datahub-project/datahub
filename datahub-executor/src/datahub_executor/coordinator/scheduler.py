@@ -185,7 +185,9 @@ class ExecutionRequestScheduler:
                 misfire_grace_time=DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
             )
         except Exception as e:
-            logger.warning(f"Exception while creating a scheduler job: {e}")
+            logger.warning(
+                f"Exception while creating a scheduler job for {execution_request.exec_id} with schedule {cron}: {e}"
+            )
         return job.id
 
     def unschedule_execution_request(

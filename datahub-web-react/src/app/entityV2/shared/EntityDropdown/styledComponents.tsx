@@ -23,7 +23,8 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     border: 1px solid #eee;
     color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
     box-shadow: none;
-    &&:hover {
+    &&:hover,
+    &&:focus {
         background-color: ${ANTD_GRAY[3]};
         color: ${SEARCH_COLORS.TITLE_PURPLE};
         border-color: ${SEARCH_COLORS.TITLE_PURPLE};

@@ -379,7 +379,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
-      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
+      @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
     return RestliUtils.toTask(systemOperationContext,
         () -> {
 
@@ -396,7 +397,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             }
 
             return Utils.restoreIndices(systemOperationContext, getContext(),
-              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
+              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }

@@ -39,6 +39,11 @@ public class KafkaEventProducer extends EventProducer {
   private final TopicConvention _topicConvention;
   private final KafkaHealthChecker _kafkaHealthChecker;
 
+  @Override
+  public void flush() {
+    _producer.flush();
+  }
+
   /**
    * Constructor.
    *

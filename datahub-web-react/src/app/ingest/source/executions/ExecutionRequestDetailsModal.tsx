@@ -6,6 +6,7 @@ import YAML from 'yamljs';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
 import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -162,6 +163,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
         variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
     });
     const poolId = executorResult?.getRemoteExecutor?.executorPoolId;
+    const { displayExecutorPools } = useAppConfig().config.featureFlags;
     // End SaaS only //
 
     useEffect(() => {
@@ -221,24 +223,26 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {/* SaaS only */}
-                    <SubHeaderParagraph>
-                        Pool:{' '}
-                        <LinkButton
-                            disabled={!poolId}
-                            onClick={
-                                poolId
-                                    ? () => {
-                                          onClose();
-                                          saasProps?.onViewPool?.(poolId);
-                                      }
-                                    : undefined
-                            }
-                        >
-                            {poolId || 'Unknown'}
-                        </LinkButton>
-                        <br />
-                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
-                    </SubHeaderParagraph>
+                    {displayExecutorPools && (
+                        <SubHeaderParagraph>
+                            Pool:{' '}
+                            <LinkButton
+                                disabled={!poolId}
+                                onClick={
+                                    poolId
+                                        ? () => {
+                                              onClose();
+                                              saasProps?.onViewPool?.(poolId);
+                                          }
+                                        : undefined
+                                }
+                            >
+                                {poolId || 'Unknown'}
+                            </LinkButton>
+                            <br />
+                            Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
+                        </SubHeaderParagraph>
+                    )}
                     {/* End SaaS only */}
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>

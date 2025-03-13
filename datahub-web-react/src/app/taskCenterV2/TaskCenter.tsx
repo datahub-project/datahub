@@ -3,28 +3,26 @@ import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
 import { Badge as BadgeAntd } from 'antd';
 import styled from 'styled-components';
+import { ActionRequest } from '@src/types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
+import CompactContext from '../shared/CompactContext';
+import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
+import { EntityAndType } from '../entity/shared/types';
 import { Requests } from './requests/Requests';
 import { RoutedTabs } from '../shared/RoutedTabs';
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
     display: flex;
     flex-direction: column;
-
-    ${(props) =>
-        !props.$isShowNavBarRedesign &&
-        `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
-        height: calc(100% - 20px);
-
-    `}
+    flex: 1;
 
     border-radius: ${(props) => {
         if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
@@ -99,6 +97,31 @@ const StyledBadge = styled(BadgeAntd)`
     }
 `;
 
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+    display: flex;
+    height: calc(100% - 20px);
+    gap: 12px;
+    border-radius: ${(props) => {
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return props.isV2 ? '8px' : '0';
+    }};
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '12px' : '0'};
+    `}
+`;
+
+const SidebarContainer = styled.div<{ height: string }>`
+    max-height: ${(props) => props.height};
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    border-radius: 10px;
+    overflow: hidden;
+`;
+
 const TabContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -126,6 +149,7 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
+    const entityRegistry = useEntityRegistryV2();
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
@@ -150,6 +174,16 @@ export const TaskCenter = () => {
         ];
     };
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
+
+    // TODO: Review this UX
+    const onProposalClick = (e: ActionRequest) => {
+        if (!e?.entity) {
+            setTargetEntity(null);
+        } else if (!targetEntity || e.entity.urn !== targetEntity?.urn) {
+            setIsSidebarClosed(false);
+            setTargetEntity({ type: e.entity.type, urn: e.entity.urn });
+        }
+    };
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>

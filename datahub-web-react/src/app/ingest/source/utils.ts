@@ -45,8 +45,8 @@ export const removeEmptyArrays = (obj) => {
                 delete cleanedObj.conditions;
             }
         }
-        // Filter out undefined properties
-        return Object.fromEntries(Object.entries(cleanedObj).filter(([_, v]) => v !== undefined && v !== null));
+        // Filter out undefined properties but leave nulls
+        return Object.fromEntries(Object.entries(cleanedObj).filter(([_, v]) => v !== undefined));
     }
     // Return non-array, non-object values as it is
     return obj;

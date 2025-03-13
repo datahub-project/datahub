@@ -29,6 +29,7 @@ const Container = styled.div`
 
 const FooterContainer = styled.div`
     margin-top: 15px;
+    position: relative;
 `;
 
 const ActionRequestsTitle = styled(Typography.Title)`
@@ -47,11 +48,12 @@ const ProposalsTableHeader = styled.div`
 type Props = {
     title?: string;
     assignee?: ActionRequestAssignee;
+    onProposalClick?: (record: ActionRequest) => void;
     groupName?: string;
     userUrn?: string;
 };
 
-export const ProposalList = ({ title, assignee, groupName, userUrn }: Props) => {
+export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalClick }: Props) => {
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { page, orFilters, filters } = useGetActionRequestsQueryInputs();
@@ -133,6 +135,7 @@ export const ProposalList = ({ title, assignee, groupName, userUrn }: Props) => 
                     />
                 </ProposalsTableHeader>
                 <ProposalsTable
+                    onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
                     isLoading={loading}
                     onActionRequestUpdate={onActionRequestUpdate}

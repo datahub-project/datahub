@@ -64,7 +64,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                 </Menu>
             }
         >
-            <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
+            <MenuIcon data-testid="dropdown-menu-item" fontSize={20} />
         </Dropdown>
     );
 }
