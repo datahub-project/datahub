@@ -34,7 +34,7 @@ const meta: Meta = {
         label: {
             description: 'Label for the Pill.',
             table: {
-                defaultValue: { summary: defaults.label },
+                defaultValue: { summary: defaults.label as string },
             },
             control: {
                 type: 'text',

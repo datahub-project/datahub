@@ -9,7 +9,7 @@ export interface PillPropsDefaults {
 }
 
 export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
-    label: string;
+    label: React.ReactNode;
     color?: ColorOptions;
     rightIcon?: string;
     leftIcon?: string;
