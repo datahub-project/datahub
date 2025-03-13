@@ -1,5 +1,7 @@
 namespace com.linkedin.common
 
+import com.linkedin.versionset.VersioningScheme
+
 /**
  * Properties about a versioned asset i.e. dataset, ML Model, etc.
  */
@@ -55,6 +57,12 @@ record VersionProperties {
     "fieldName": "versionSortId"
   }
   sortId: string
+
+  /**
+   * What versioning scheme `sortId` belongs to.
+   * Defaults to a plain string that is lexicographically sorted.
+   */
+  versioningScheme: VersioningScheme = "LEXICOGRAPHIC_STRING"
 
   /**
    * Timestamp reflecting when this asset version was created in the source system.

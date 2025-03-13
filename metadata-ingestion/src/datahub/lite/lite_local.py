@@ -90,7 +90,7 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
         self,
         query: str,
         flavor: SearchFlavor,
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         snippet: bool = True,
     ) -> Iterable[Searchable]:
         pass

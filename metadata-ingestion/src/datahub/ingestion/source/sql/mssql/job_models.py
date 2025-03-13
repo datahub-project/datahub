@@ -11,12 +11,17 @@ from datahub.emitter.mcp_builder import (
     DatabaseKey,
     SchemaKey,
 )
+from datahub.ingestion.source.common.subtypes import (
+    FlowContainerSubTypes,
+    JobContainerSubTypes,
+)
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    SubTypesClass,
 )
 
 
@@ -212,6 +217,18 @@ class MSSQLDataJob:
         )
 
     @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (JobStep, StoredProcedure))
+        type = (
+            JobContainerSubTypes.MSSQL_JOBSTEP
+            if isinstance(self.entity, JobStep)
+            else JobContainerSubTypes.MSSQL_STORED_PROCEDURE
+        )
+        return SubTypesClass(
+            typeNames=[type],
+        )
+
+    @property
     def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
         if self.entity.flow.platform_instance:
             return DataPlatformInstanceClass(
@@ -274,6 +291,18 @@ class MSSQLDataFlow:
             name=self.entity.formatted_name,
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
+        )
+
+    @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (MSSQLJob, MSSQLProceduresContainer))
+        type = (
+            FlowContainerSubTypes.MSSQL_JOB
+            if isinstance(self.entity, MSSQLJob)
+            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+        )
+        return SubTypesClass(
+            typeNames=[type],
         )
 
     @property
