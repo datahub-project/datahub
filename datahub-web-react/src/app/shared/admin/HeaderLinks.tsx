@@ -180,22 +180,6 @@ export function HeaderLinks(props: Props) {
                   },
               ]
             : []),
-        ...(showStructuredProperties
-            ? [
-                  {
-                      key: 5,
-                      label: (
-                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
-                              <NavSubItemTitleContainer>
-                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                  <NavTitleText>Structured Properties</NavTitleText>
-                              </NavSubItemTitleContainer>
-                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
-                          </Link>
-                      ),
-                  },
-              ]
-            : []),
         ...(showTests
             ? [
                   {
