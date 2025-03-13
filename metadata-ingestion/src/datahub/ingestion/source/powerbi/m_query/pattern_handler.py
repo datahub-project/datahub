@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, cast, Any
+from typing import Dict, List, Optional, Tuple, Type, cast
 
 from lark import Tree
 
@@ -30,13 +30,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    ColumnLineageInfo,
-    DownstreamColumnRef,
-    ColumnRef
-)
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -268,9 +268,7 @@ class AbstractLineage(ABC):
             ),
         )
 
-    def create_table_column_lineage(
-            self, urn: str
-    ) -> List[ColumnLineageInfo]:
+    def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
         column_lineage = []
 
         for column in self.table.columns:
@@ -278,7 +276,7 @@ class AbstractLineage(ABC):
                 table=self.table.name,
                 column=column.name,
                 column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
-                native_column_type=column.dataType or "UNKNOWN"
+                native_column_type=column.dataType or "UNKNOWN",
             )
 
             upstreams = [
@@ -289,8 +287,7 @@ class AbstractLineage(ABC):
             ]
 
             column_lineage_info = ColumnLineageInfo(
-                downstream=downstream,
-                upstreams=upstreams
+                downstream=downstream, upstreams=upstreams
             )
 
             column_lineage.append(column_lineage_info)
@@ -343,7 +340,7 @@ class AmazonRedshiftLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=column_lineage
+            column_lineage=column_lineage,
         )
 
 
@@ -410,7 +407,7 @@ class OracleLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=column_lineage
+            column_lineage=column_lineage,
         )
 
 
@@ -497,7 +494,7 @@ class DatabricksLineage(AbstractLineage):
                         urn=urn,
                     )
                 ],
-                column_lineage=column_lineage
+                column_lineage=column_lineage,
             )
 
         return Lineage.empty()
@@ -560,7 +557,7 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=column_lineage
+            column_lineage=column_lineage,
         )
 
 
@@ -724,7 +721,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=column_lineage
+            column_lineage=column_lineage,
         )
 
 
@@ -799,10 +796,7 @@ class NativeQueryLineage(AbstractLineage):
 
         logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
 
-        return Lineage(
-            upstreams=dataplatform_tables,
-            column_lineage=column_lineage
-        )
+        return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
