@@ -491,7 +491,8 @@ public class ElasticsearchController {
       @RequestParam(required = false, name = "gePitEpochMs", defaultValue = "0") @Nullable
           Long gePitEpochMs,
       @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs,
-      @RequestParam(value = "readOnly", defaultValue = "false") Boolean readOnly) {
+      @RequestParam(value = "createDefaultAspects", defaultValue = "false")
+          Boolean createDefaultAspects) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -521,7 +522,7 @@ public class ElasticsearchController {
             .limit(limit)
             .gePitEpochMs(gePitEpochMs)
             .lePitEpochMs(lePitEpochMs)
-            .readOnly(readOnly);
+            .createDefaultAspects(createDefaultAspects);
 
     return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
@@ -534,7 +535,8 @@ public class ElasticsearchController {
       @RequestParam(required = false, name = "aspectNames") @Nullable Set<String> aspectNames,
       @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
           Integer batchSize,
-      @RequestParam(value = "readOnly", defaultValue = "false") Boolean readOnly,
+      @RequestParam(value = "createDefaultAspects", defaultValue = "false")
+          Boolean createDefaultAspects,
       @RequestBody @Nonnull Set<String> urns)
       throws RemoteInvocationException, URISyntaxException {
 
@@ -560,6 +562,6 @@ public class ElasticsearchController {
                 urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
                 aspectNames,
                 batchSize,
-                readOnly)));
+                createDefaultAspects)));
   }
 }

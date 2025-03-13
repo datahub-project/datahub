@@ -140,7 +140,7 @@ task runRestoreIndices(type: Exec) {
           "-jar",
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "readOnly=true"
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "createDefaultAspects=true"
 }
 
 task runRestoreIndicesUrn(type: Exec) {

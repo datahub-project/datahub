@@ -4044,7 +4044,7 @@
           "type" : "long",
           "optional" : true
         }, {
-          "name" : "readOnly",
+          "name" : "createDefaultAspects",
           "type" : "boolean",
           "optional" : true
         } ],

@@ -1677,7 +1677,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         opContext.getRetrieverContext(), batch.collect(Collectors.toList()), false);
 
                 RestoreIndicesResult result =
-                    restoreIndices(opContext, systemAspects, logger, args.readOnly());
+                    restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
                 result.timeSqlQueryMs = timeSqlQueryMs;
 
                 logger.accept("Batch completed.");
@@ -1700,7 +1700,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
       @Nullable Integer inputBatchSize,
-      boolean readOnly)
+      boolean createDefaultAspects)
       throws RemoteInvocationException, URISyntaxException {
     int batchSize = inputBatchSize != null ? inputBatchSize : 100;
 
@@ -1725,7 +1725,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 false);
         long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-        RestoreIndicesResult result = restoreIndices(opContext, systemAspects, s -> {}, readOnly);
+        RestoreIndicesResult result =
+            restoreIndices(opContext, systemAspects, s -> {}, createDefaultAspects);
         result.timeSqlQueryMs = timeSqlQueryMs;
         results.add(result);
       }
@@ -1745,7 +1746,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       List<SystemAspect> systemAspects,
       @Nonnull Consumer<String> logger,
-      boolean readOnly) {
+      boolean createDefaultAspects) {
     RestoreIndicesResult result = new RestoreIndicesResult();
     long startTime = System.currentTimeMillis();
     int ignored = 0;
@@ -1847,7 +1848,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               .getFirst());
 
       // 6. Ensure default aspects are in existence in SQL
-      if (!readOnly) {
+      if (createDefaultAspects) {
         List<MCPItem> keyAspect =
             List.of(
                 ChangeItemImpl.builder()

@@ -40,11 +40,11 @@ The following configurations are available:
 * `urnLike`: SQL LIKE pattern to filter URNs (e.g., "urn:li:dataset%")
 
 
-### Elasticsearch Only
+### Default Aspects
 
-* `readOnly`: Enable SQL read-only mode
+* `createDefaultAspects`: Create default aspects in both SQL and ES if missing.
 
-During the restore indices process, it will create missing default aspects in SQL by default. While this may be
+During the restore indices process, it will create default aspects in SQL. While this may be
 desired in some situations, disabling this feature is required when using a read-only SQL replica.
 
 ### Nuclear option
@@ -272,8 +272,8 @@ Remember to reset this after restoration completes!
 
 #### SQL/Primary Storage
 
-Consider using a read replica as the source of the job's data. If you enable configure a read-only replica
-you must also provide the parameter `readOnly=true`.
+Consider using a read replica as the source of the job's data. If you configure a read-only replica
+you must also provide the parameter `createDefaultAspects=false`.
 
 #### Kafka & Consumers
 

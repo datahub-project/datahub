@@ -104,7 +104,7 @@ public class SendMAEStep implements UpgradeStep {
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
     result.start = getStartingOffset(context.parsedArgs());
     result.urnBasedPagination = getUrnBasedPagination(context.parsedArgs());
-    result.readOnly = getReadOnly(context.parsedArgs());
+    result.createDefaultAspects = getCreateDefaultAspects(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
       context.report().addLine(String.format("aspect is %s", result.aspectName));
@@ -324,12 +324,14 @@ public class SendMAEStep implements UpgradeStep {
     return resolvedBatchDelayMs;
   }
 
-  private boolean getReadOnly(final Map<String, Optional<String>> parsedArgs) {
-    Boolean readOnly = null;
-    if (containsKey(parsedArgs, RestoreIndices.READ_ONLY_ARG_NAME)) {
-      readOnly = Boolean.parseBoolean(parsedArgs.get(RestoreIndices.READ_ONLY_ARG_NAME).get());
+  private boolean getCreateDefaultAspects(final Map<String, Optional<String>> parsedArgs) {
+    Boolean createDefaultAspects = null;
+    if (containsKey(parsedArgs, RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME)) {
+      createDefaultAspects =
+          Boolean.parseBoolean(
+              parsedArgs.get(RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME).get());
     }
-    return readOnly != null ? readOnly : false;
+    return createDefaultAspects != null ? createDefaultAspects : false;
   }
 
   private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {

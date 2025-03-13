@@ -14,7 +14,7 @@ public class RestoreIndicesArgs implements Cloneable {
   public static final int DEFAULT_NUM_THREADS = 1;
   public static final int DEFAULT_BATCH_DELAY_MS = 1000;
   public static final long DEFAULT_GE_PIT_EPOCH_MS = 0;
-  public static final boolean DEFAULT_READ_ONLY = false;
+  public static final boolean DEFAULT_CREATE_DEFAULT_ASPECTS = false;
 
   public int start = 0;
   public int batchSize = DEFAULT_BATCH_SIZE;
@@ -23,7 +23,7 @@ public class RestoreIndicesArgs implements Cloneable {
   public long batchDelayMs = DEFAULT_BATCH_DELAY_MS;
   public long gePitEpochMs = DEFAULT_GE_PIT_EPOCH_MS;
   public long lePitEpochMs;
-  public boolean readOnly = DEFAULT_READ_ONLY;
+  public boolean createDefaultAspects = DEFAULT_CREATE_DEFAULT_ASPECTS;
   public String aspectName;
   public List<String> aspectNames = Collections.emptyList();
   public String urn;
@@ -78,8 +78,8 @@ public class RestoreIndicesArgs implements Cloneable {
     return this;
   }
 
-  public RestoreIndicesArgs readOnly(@Nullable Boolean readOnly) {
-    this.readOnly = readOnly != null ? readOnly : false;
+  public RestoreIndicesArgs createDefaultAspects(@Nullable Boolean readOnly) {
+    this.createDefaultAspects = readOnly != null ? readOnly : false;
     return this;
   }
 }

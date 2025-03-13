@@ -45,7 +45,7 @@ public class Utils {
       @Nullable Long lePitEpochMs,
       @Nonnull Authorizer authorizer,
       @Nonnull EntityService<?> entityService,
-     boolean readOnly) {
+     boolean createDefaultAspects) {
 
     EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
@@ -75,7 +75,7 @@ public class Utils {
             .limit(limit)
             .gePitEpochMs(gePitEpochMs)
             .lePitEpochMs(lePitEpochMs)
-            .readOnly(readOnly);
+            .createDefaultAspects(createDefaultAspects);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
     result.put("result", entityService

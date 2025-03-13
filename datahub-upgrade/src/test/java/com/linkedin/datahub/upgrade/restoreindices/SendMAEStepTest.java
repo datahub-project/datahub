@@ -148,7 +148,7 @@ public class SendMAEStepTest {
     assertEquals(capturedArgs.batchDelayMs, 250);
     assertEquals(capturedArgs.start, 0);
     assertFalse(capturedArgs.urnBasedPagination);
-    assertFalse(capturedArgs.readOnly);
+    assertFalse(capturedArgs.createDefaultAspects);
   }
 
   @Test
@@ -159,7 +159,7 @@ public class SendMAEStepTest {
     parsedArgs.put(RestoreIndices.BATCH_DELAY_MS_ARG_NAME, Optional.of("100"));
     parsedArgs.put(RestoreIndices.STARTING_OFFSET_ARG_NAME, Optional.of("100"));
     parsedArgs.put(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME, Optional.of("true"));
-    parsedArgs.put(RestoreIndices.READ_ONLY_ARG_NAME, Optional.of("true"));
+    parsedArgs.put(RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME, Optional.of("true"));
     parsedArgs.put(RestoreIndices.ASPECT_NAME_ARG_NAME, Optional.of("testAspect"));
     parsedArgs.put(RestoreIndices.URN_ARG_NAME, Optional.of("testUrn"));
 
@@ -187,7 +187,7 @@ public class SendMAEStepTest {
     assertEquals(capturedArgs.batchDelayMs, 100);
     assertEquals(capturedArgs.start, 100);
     assertTrue(capturedArgs.urnBasedPagination);
-    assertTrue(capturedArgs.readOnly);
+    assertTrue(capturedArgs.createDefaultAspects);
     assertEquals(capturedArgs.aspectName, "testAspect");
     assertEquals(capturedArgs.urn, "testUrn");
   }
