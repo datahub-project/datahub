@@ -10,9 +10,8 @@ import { EntityAndType, GenericEntityProperties } from '../types';
 
 import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo/utils';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useGetEntityQuery } from '../../../../graphql/entity.generated';
 import { useEntityFormTasks } from './useEntityFormTasks';
+import useEntityDataForForm from './useEntityDataForForm';
 
 interface Props {
     children: React.ReactNode;
@@ -23,7 +22,6 @@ interface Props {
 export default function EntityFormContextProvider({ children, formUrn, defaultFormView }: Props) {
     // Import external contexts
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
-    const entityRegistry = useEntityRegistry();
 
     /*
      * State setup
@@ -86,24 +84,10 @@ export default function EntityFormContextProvider({ children, formUrn, defaultFo
         entitiesForForm?.unshift(entityData as Entity);
     }
 
-    // Grab the datasets data
-    const query = selectedEntity ? entityRegistry.getEntityQuery(selectedEntity.type) : null;
-    const entityQuery = query || useGetEntityQuery;
-    const {
-        data: fetchedData,
-        refetch: entityRefetch,
-        loading: entityLoading,
-    } = entityQuery({
-        variables: { urn: selectedEntity?.urn || '' },
-        skip: !selectedEntity,
+    // Grab the asset's data
+    const { selectedEntityData, isOnEntityProfilePage, entityRefetch, entityLoading } = useEntityDataForForm({
+        selectedEntity,
     });
-
-    // Entity related utility consts
-    const isOnEntityProfilePage = selectedEntity && selectedEntity.urn === entityData?.urn;
-    const selectedEntityGraphName = selectedEntity ? entityRegistry.getGraphNameFromType(selectedEntity.type) : '';
-    const selectedEntityData = isOnEntityProfilePage
-        ? entityData
-        : (fetchedData?.[selectedEntityGraphName || 'dataset'] as GenericEntityProperties);
 
     /*
      * Loading conslidation

@@ -60,6 +60,7 @@ import {
     SchemaFieldDataType,
     SearchResult,
 } from './types.generated';
+import { GetContainerDocument } from './graphql/container.generated';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
@@ -2091,6 +2092,28 @@ export const mocks = [
             data: {
                 dataset: {
                     ...dataset3,
+                },
+            },
+        }),
+    },
+    {
+        request: {
+            query: GetContainerDocument,
+            variables: {
+                urn: 'urn:li:container:DATABASE',
+            },
+        },
+        result: {
+            data: {
+                container: {
+                    ...container1,
+                },
+            },
+        },
+        newData: () => ({
+            data: {
+                container: {
+                    ...container1,
                 },
             },
         }),
