@@ -36,6 +36,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Known Issues
 
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
+- #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
 
 ### Potential Downtime
 
