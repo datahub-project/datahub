@@ -2,7 +2,6 @@ import React from 'react';
 import { IconNames } from '../Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
-
 export interface SelectOption {
     value: string;
     label: string;
@@ -10,7 +9,9 @@ export interface SelectOption {
     icon?: React.ReactNode;
 }
 
-export type SelectLabelVariants = 'default' | 'labeled';
+export type SelectLabelVariants = 'default' | 'labeled' | 'custom';
+
+type OptionPosition = 'start' | 'end' | 'center';
 
 export interface SelectProps {
     options: SelectOption[];
@@ -33,12 +34,21 @@ export interface SelectProps {
     showSelectAll?: boolean;
     selectAllLabel?: string;
     showDescriptions?: boolean;
+    renderCustomOptionText?: (option: SelectOption) => void;
+    renderCustomSelectedValue?: (selectedOptions: SelectOption) => void;
+    filterResultsByQuery?: boolean;
+    onSearchChange?: (searchText: string) => void;
+    combinedSelectedAndSearchOptions?: SelectOption[];
+    optionListStyle?: React.CSSProperties;
     optionListTestId?: string;
     optionSwitchable?: boolean;
     selectLabelProps?: {
         variant: SelectLabelVariants;
-        label: string;
+        label?: string;
     };
+    position?: OptionPosition;
+    applyHoverWidth?: boolean;
+    ignoreMaxHeight?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -48,6 +58,7 @@ export interface SelectStyleProps {
     isRequired?: boolean;
     isOpen?: boolean;
     width?: number | 'full';
+    position?: OptionPosition;
 }
 
 export interface ActionButtonsProps {
@@ -67,6 +78,8 @@ export interface SelectLabelDisplayProps {
     removeOption?: (option: SelectOption) => void;
     disabledValues?: string[];
     showDescriptions?: boolean;
+    isCustomisedLabel?: boolean;
+    renderCustomSelectedValue?: (selectedOptions: SelectOption) => void;
     variant?: SelectLabelVariants;
     label?: string;
 }

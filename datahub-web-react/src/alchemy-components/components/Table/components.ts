@@ -10,6 +10,7 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
         overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
+        scrollbarWidth: 'none',
 
         '& .selected-row': {
             background: `${colors.gray[100]} !important`,
@@ -24,20 +25,21 @@ export const BaseTable = styled.table({
 
 export const TableHeader = styled.thead({
     backgroundColor: colors.gray[1500],
-    borderRadius: radius.lg,
+    boxShadow: '0px 1px 1px rgba(0, 0, 0, 0.1)',
     position: 'sticky',
     top: 0,
     zIndex: 100,
 });
 
-export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?: boolean }>(
-    ({ width, shouldAddRightBorder }) => ({
+export const TableHeaderCell = styled.th<{ width?: string; maxWidth?: string; shouldAddRightBorder?: boolean }>(
+    ({ width, maxWidth, shouldAddRightBorder }) => ({
         padding: `${spacing.sm} ${spacing.md}`,
-        color: colors.gray[600],
+        color: colors.gray[1700],
         fontSize: typography.fontSizes.sm,
         fontWeight: typography.fontWeights.medium,
         textAlign: 'start',
         width: width || 'auto',
+        maxWidth,
         borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,
     }),
 );
@@ -62,8 +64,9 @@ export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolea
         },
 
         '& td:first-child': {
-            fontWeight: typography.fontWeights.medium,
+            fontWeight: typography.fontWeights.bold,
             color: colors.gray[600],
+            fontSize: '12px',
         },
     }),
 );
@@ -72,11 +75,12 @@ export const TableCell = styled.td<{
     width?: string;
     alignment?: AlignmentOptions;
     isGroupHeader?: boolean;
-}>(({ width, alignment, isGroupHeader }) => ({
+    isExpanded?: boolean;
+}>(({ width, alignment, isGroupHeader, isExpanded }) => ({
     padding: isGroupHeader
         ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
-    borderBottom: isGroupHeader ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
+    borderBottom: isGroupHeader && !isExpanded ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
     color: colors.gray[1700],
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,
@@ -84,7 +88,7 @@ export const TableCell = styled.td<{
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     maxWidth: width || 'unset',
-    textAlign: alignment || 'left',
+    textAlign: (alignment as AlignmentOptions) || 'left',
 }));
 
 export const SortIconsContainer = styled.div({
@@ -111,4 +115,9 @@ export const LoadingContainer = styled.div({
     gap: spacing.sm,
     color: colors.violet[700],
     fontSize: typography.fontSizes['3xl'],
+});
+
+export const CheckboxWrapper = styled.div({
+    display: 'flex',
+    alignItems: 'center',
 });

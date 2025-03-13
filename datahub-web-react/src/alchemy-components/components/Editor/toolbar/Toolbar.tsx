@@ -43,7 +43,7 @@ export const Toolbar = () => {
     return (
         <Container>
             <HeadingMenu />
-            <Divider type="vertical" style={{ height: '100%' }} />
+            <Divider type="vertical" style={{ height: '100%', margin: '0 6px' }} />
             <CommandButton
                 icon={<TextB size={24} color={colors.gray[1800]} />}
                 style={{ marginRight: 2 }}

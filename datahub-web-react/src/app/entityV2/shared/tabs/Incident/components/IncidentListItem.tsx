@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dropdown, List, Menu, message, Tag, Typography } from 'antd';
-import { Tooltip, Popover, Button } from '@components';
+import { Button, Dropdown, List, Menu, message, Tag, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
@@ -120,6 +120,18 @@ const IncidentResolvedContainer = styled.div`
     display: flex;
     align-items: center;
     margin-right: 30px;
+`;
+
+const IncidentResolvedButton = styled(Button)`
+    background: #ffffff;
+    border: 1px solid #d9d9d9;
+    box-sizing: border-box;
+    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    color: #262626;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 20px;
 `;
 
 const MenuIcon = styled(MoreOutlined)`
@@ -294,10 +306,13 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                         </IncidentResolvedTextContainer>
                     ) : (
                         <IncidentResolvedContainer>
-                            <Button onClick={() => handleResolved()} data-testid="resolve-incident">
-                                <CheckOutlined />
+                            <IncidentResolvedButton
+                                icon={<CheckOutlined />}
+                                onClick={() => handleResolved()}
+                                data-testid="resolve-incident"
+                            >
                                 Resolve
-                            </Button>
+                            </IncidentResolvedButton>
                             <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
                         </IncidentResolvedContainer>
                     )}

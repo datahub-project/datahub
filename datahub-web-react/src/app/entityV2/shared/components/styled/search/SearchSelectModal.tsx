@@ -1,8 +1,6 @@
-import { Modal } from 'antd';
 import React, { useState } from 'react';
+import { Button, Modal } from 'antd';
 import styled from 'styled-components';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { EntityAndType } from '../../../../../entity/shared/types';
@@ -14,9 +12,11 @@ const StyledModal = styled(Modal)`
 
 const MODAL_WIDTH_PX = 800;
 
+const UI_Z_INDEX = 1000;
+
 const MODAL_BODY_STYLE = { padding: 0, height: '70vh' };
 
-type Props = {
+type SearchSelectModalProps = {
     fixedEntityTypes?: Array<EntityType> | null;
     placeholderText?: string | null;
     titleText?: string | null;
@@ -40,7 +40,7 @@ export const SearchSelectModal = ({
     onContinue,
     onCancel,
     limit,
-}: Props) => {
+}: SearchSelectModalProps) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
     const onCancelSelect = () => {
@@ -68,23 +68,23 @@ export const SearchSelectModal = ({
                 bodyStyle={MODAL_BODY_STYLE}
                 title={titleText || 'Select entities'}
                 width={MODAL_WIDTH_PX}
-                zIndex={999}
+                zIndex={UI_Z_INDEX}
                 visible
                 onCancel={onCancelSelect}
                 footer={
-                    <ModalButtonContainer>
-                        <Button variant="text" onClick={onCancel}>
+                    <>
+                        <Button onClick={onCancel} type="text">
                             Cancel
                         </Button>
                         <Button
+                            type="primary"
                             id="continueButton"
-                            data-testid="search-select-continue-button"
                             onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
                             disabled={selectedEntities.length === 0}
                         >
                             {continueText || 'Done'}
                         </Button>
-                    </ModalButtonContainer>
+                    </>
                 }
             >
                 <SearchSelect

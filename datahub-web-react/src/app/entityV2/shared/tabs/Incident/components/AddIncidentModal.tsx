@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { message, Modal, Form, Input, Typography, Select } from 'antd';
+import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components';
 import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { Button } from '@src/alchemy-components';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
+import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, updateActiveIncidentInCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { useUserContext } from '../../../../../context/useUserContext';
@@ -98,7 +96,7 @@ export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }:
                     entityUrn: urn,
                     actionType: EntityActionType.AddIncident,
                 });
-                addActiveIncidentToCache(client, urn, newIncident, PAGE_SIZE);
+                updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
                 handleClose();
                 setTimeout(() => {
                     refetch?.();
@@ -116,91 +114,87 @@ export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }:
     };
 
     return (
-        <>
-            <Modal
-                title="Raise Incident"
-                visible={visible}
-                destroyOnClose
-                onCancel={handleClose}
-                width={600}
-                footer={[
-                    <ModalButtonContainer>
-                        <Button variant="text" onClick={handleClose}>
-                            Cancel
-                        </Button>
-                        <Button form="addIncidentForm" key="submit">
-                            Raise
-                        </Button>
-                    </ModalButtonContainer>,
-                ]}
-            >
-                <Form form={form} name="addIncidentForm" onFinish={handleAddIncident} layout="vertical">
-                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
-                        <Form.Item name="type" style={{ marginBottom: '0px' }}>
-                            <Select
-                                value={selectedIncidentType}
-                                onChange={onSelectIncidentType}
-                                defaultValue={IncidentType.Operational}
-                                autoFocus
-                            >
-                                {incidentTypes.map((incidentType) => (
-                                    <Select.Option key={incidentType.type} value={incidentType.type}>
-                                        <Typography.Text>{incidentType.name}</Typography.Text>
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-                    </Form.Item>
-                    {isOtherTypeSelected && (
-                        <Form.Item
-                            name="customType"
-                            label="Custom Type"
-                            rules={[
-                                {
-                                    required: selectedIncidentType === IncidentType.Custom,
-                                    message: 'A custom type is required.',
-                                },
-                            ]}
+        <Modal
+            title="Raise Incident"
+            visible={visible}
+            destroyOnClose
+            onCancel={handleClose}
+            width={600}
+            footer={[
+                <Button type="text" onClick={handleClose}>
+                    Cancel
+                </Button>,
+                <Button type="primary" form="addIncidentForm" key="submit" htmlType="submit">
+                    Raise
+                </Button>,
+            ]}
+        >
+            <Form form={form} name="addIncidentForm" onFinish={handleAddIncident} layout="vertical">
+                <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
+                    <Form.Item name="type" style={{ marginBottom: '0px' }}>
+                        <Select
+                            value={selectedIncidentType}
+                            onChange={onSelectIncidentType}
+                            defaultValue={IncidentType.Operational}
+                            autoFocus
                         >
-                            <Input placeholder="Freshness" />
-                        </Form.Item>
-                    )}
+                            {incidentTypes.map((incidentType) => (
+                                <Select.Option key={incidentType.type} value={incidentType.type}>
+                                    <Typography.Text>{incidentType.name}</Typography.Text>
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                </Form.Item>
+                {isOtherTypeSelected && (
                     <Form.Item
-                        name="title"
-                        label="Title"
+                        name="customType"
+                        label="Custom Type"
                         rules={[
                             {
-                                required: true,
-                                message: 'A title is required.',
+                                required: selectedIncidentType === IncidentType.Custom,
+                                message: 'A custom type is required.',
                             },
                         ]}
                     >
-                        <Input placeholder="What went wrong?" />
+                        <Input placeholder="Freshness" />
                     </Form.Item>
-                    <Form.Item
-                        name="description"
-                        label="Description"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'A description is required.',
-                            },
-                        ]}
-                    >
-                        <StyledEditor
-                            doNotFocus
-                            className="add-incident-description"
-                            onKeyDown={(e) => {
-                                // Preventing the modal from closing when the Enter key is pressed
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }
-                            }}
-                        />
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </>
+                )}
+                <Form.Item
+                    name="title"
+                    label="Title"
+                    rules={[
+                        {
+                            required: true,
+                            message: 'A title is required.',
+                        },
+                    ]}
+                >
+                    <Input placeholder="What went wrong?" />
+                </Form.Item>
+                <Form.Item
+                    name="description"
+                    label="Description"
+                    rules={[
+                        {
+                            required: true,
+                            message: 'A description is required.',
+                        },
+                    ]}
+                >
+                    <StyledEditor
+                        doNotFocus
+                        className="add-incident-description"
+                        onKeyDown={(e) => {
+                            // Preventing the modal from closing when the Enter key is pressed
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }
+                        }}
+                    />
+                </Form.Item>
+            </Form>
+        </Modal>
     );
 };

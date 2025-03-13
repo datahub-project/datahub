@@ -1,6 +1,6 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text } from '@components';
 import { isEqual } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
@@ -20,8 +20,8 @@ import {
     StyledClearButton,
     StyledIcon,
 } from './components';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
+import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -56,6 +56,8 @@ export const selectDefaults: SelectProps = {
     showSelectAll: false,
     selectAllLabel: 'Select All',
     showDescriptions: false,
+    filterResultsByQuery: true,
+    ignoreMaxHeight: false,
 };
 
 export const SimpleSelect = ({
@@ -78,8 +80,17 @@ export const SimpleSelect = ({
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     optionListTestId,
+    renderCustomOptionText,
+    renderCustomSelectedValue,
+    filterResultsByQuery = selectDefaults.filterResultsByQuery,
+    onSearchChange,
+    combinedSelectedAndSearchOptions,
+    optionListStyle,
     optionSwitchable,
     selectLabelProps,
+    position,
+    applyHoverWidth,
+    ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -99,8 +110,11 @@ export const SimpleSelect = ({
     }, [options, selectedValues]);
 
     const filteredOptions = useMemo(
-        () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
-        [options, searchQuery],
+        () =>
+            filterResultsByQuery
+                ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+                : options,
+        [options, searchQuery, filterResultsByQuery],
     );
 
     const handleDocumentClick = useCallback((e: MouseEvent) => {
@@ -158,6 +172,13 @@ export const SimpleSelect = ({
         setAreAllSelected(!areAllSelected);
     };
 
+    const handleSearchChange = (value: string) => {
+        onSearchChange?.(value);
+        setSearchQuery(value);
+    };
+
+    const finalOptions = combinedSelectedAndSearchOptions?.length ? combinedSelectedAndSearchOptions : options;
+
     return (
         <Container
             ref={selectRef}
@@ -175,17 +196,19 @@ export const SimpleSelect = ({
                 onClick={handleSelectClick}
                 fontSize={size}
                 {...props}
+                position={position}
             >
                 <SelectLabelContainer>
                     {icon && <StyledIcon icon={icon} size="lg" />}
                     <SelectLabelRenderer
                         selectedValues={selectedValues}
-                        options={options}
+                        options={finalOptions}
                         placeholder={placeholder || 'Select an option'}
                         isMultiSelect={isMultiSelect}
                         removeOption={handleOptionChange}
                         disabledValues={disabledValues}
                         showDescriptions={showDescriptions}
+                        renderCustomSelectedValue={renderCustomSelectedValue}
                         {...(selectLabelProps || {})}
                     />
                 </SelectLabelContainer>
@@ -199,20 +222,20 @@ export const SimpleSelect = ({
                 />
             </SelectBase>
             {isOpen && (
-                <Dropdown>
+                <Dropdown ignoreMaxHeight={ignoreMaxHeight}>
                     {showSearch && (
                         <SearchInputContainer>
                             <SearchInput
                                 type="text"
                                 placeholder="Search…"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => handleSearchChange(e.target.value)}
                                 style={{ fontSize: size || 'md' }}
                             />
                             <SearchIcon icon="Search" size={size} color="gray" />
                         </SearchInputContainer>
                     )}
-                    <OptionList data-testid={optionListTestId}>
+                    <OptionList style={optionListStyle} data-testid={optionListTestId}>
                         {showSelectAll && isMultiSelect && (
                             <SelectAllOption
                                 isSelected={areAllSelected}
@@ -243,10 +266,15 @@ export const SimpleSelect = ({
                                 isSelected={selectedValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
                                 isDisabled={disabledValues?.includes(option.value)}
+                                applyHoverWidth={applyHoverWidth}
                             >
                                 {isMultiSelect ? (
                                     <LabelContainer>
-                                        <span>{option.label}</span>
+                                        {renderCustomOptionText ? (
+                                            renderCustomOptionText(option)
+                                        ) : (
+                                            <span>{option.label}</span>
+                                        )}
                                         <StyledCheckbox
                                             onClick={() => handleOptionChange(option)}
                                             checked={selectedValues.includes(option.value)}
@@ -255,16 +283,21 @@ export const SimpleSelect = ({
                                     </LabelContainer>
                                 ) : (
                                     <OptionContainer>
-                                        <ActionButtonsContainer>
-                                            {option.icon}
-                                            <Text
-                                                weight="semiBold"
-                                                size="md"
-                                                color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
-                                            >
-                                                {option.label}
-                                            </Text>
-                                        </ActionButtonsContainer>
+                                        {renderCustomOptionText ? (
+                                            renderCustomOptionText(option)
+                                        ) : (
+                                            <ActionButtonsContainer>
+                                                {option.icon}
+                                                <Text
+                                                    weight="semiBold"
+                                                    size="md"
+                                                    color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
+                                                >
+                                                    {option.label}
+                                                </Text>
+                                            </ActionButtonsContainer>
+                                        )}
+
                                         {!!option.description && (
                                             <Text color="gray" weight="normal" size="sm">
                                                 {option.description}
