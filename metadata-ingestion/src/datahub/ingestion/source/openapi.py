@@ -20,6 +20,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
     compose_url_attr,
@@ -40,6 +41,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
+    SubTypesClass,
     TagAssociationClass,
 )
 
@@ -261,6 +263,10 @@ class APISource(Source, ABC):
         )
         inst_memory = InstitutionalMemoryClass([link_metadata])
         dataset_snapshot.aspects.append(inst_memory)
+
+        # Add API endpoint subtype
+        sub_types = SubTypesClass(typeNames=[DatasetSubTypes.API_ENDPOINT])
+        dataset_snapshot.aspects.append(sub_types)
 
         return dataset_snapshot, dataset_name
 
