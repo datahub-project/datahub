@@ -1,7 +1,7 @@
 import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
 
-import { SelectStyleProps } from './types';
+import { BaseSelectOption, SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => {
     const color = isSelected ? colors.gray[600] : colors.gray[500];
@@ -128,3 +128,10 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...paddingStyles,
     };
 };
+
+export function defaultFilteringPredicate(option: BaseSelectOption, query: string) {
+    if (typeof option.label !== 'string') return true; // just show all options as we don't know how to filter options
+
+    const label = option.label.toLowerCase();
+    return label.includes(query.toLowerCase());
+}

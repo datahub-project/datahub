@@ -43,24 +43,31 @@ export const SelectLabelContainer = styled.div({
 // Container for the Basic Select component
 interface ContainerProps {
     size: SelectSizeOptions;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     $selectLabelVariant?: SelectLabelVariants;
     isSelected?: boolean;
 }
 
 export const Container = styled.div<ContainerProps>(({ size, width, $selectLabelVariant, isSelected }) => {
     const getMinWidth = () => {
+        if (width === 'fit-content') return undefined;
         if ($selectLabelVariant === 'labeled') {
             return isSelected ? '145px' : '103px';
         }
         return '175px';
     };
 
+    const getWidth = () => {
+        if (width === 'full') return '100%';
+        if (width === 'fit-content') return width;
+        return `${width}px`;
+    };
+
     return {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        width: width === 'full' ? '100%' : `${width}px`,
+        width: getWidth(),
         gap: '4px',
         transition: sharedTransition,
         minWidth: getMinWidth(),
@@ -69,7 +76,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
     };
 });
 
-export const Dropdown = styled.div({
+export const DropdownContainer = styled.div({
     position: 'absolute',
     top: '100%',
     left: 0,
@@ -86,6 +93,22 @@ export const Dropdown = styled.div({
     marginTop: '4px',
     maxHeight: '360px',
     overflow: 'auto',
+});
+
+export const PortalDropdownContainer = styled.div({
+    borderRadius: radius.md,
+    background: colors.white,
+    zIndex: 950,
+    transition: sharedTransition,
+    boxShadow: shadows.dropdown,
+    padding: spacing.xsm,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '4px',
+    overflow: 'auto',
+    width: 'fit-content',
+    minWidth: '250px',
 });
 
 export const SearchInputContainer = styled.div({
@@ -152,11 +175,15 @@ export const FooterBase = styled.div({
 export const OptionList = styled.div({
     display: 'flex',
     flexDirection: 'column' as const,
+    maxHeight: '300px',
+    overflow: 'auto',
 });
 
 export const LabelContainer = styled.div({
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '8px',
     width: '100%',
 });
 
@@ -207,17 +234,6 @@ export const SelectLabel = styled.label({
     ...formLabelTextStyles,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
-
-export const StyledCancelButton = styled(Button)({
-    backgroundColor: colors.violet[100],
-    color: colors.violet[500],
-    borderColor: colors.violet[100],
-
-    '&:hover': {
-        backgroundColor: colors.violet[200],
-        borderColor: colors.violet[200],
-    },
 });
 
 export const StyledIcon = styled(Icon)({
