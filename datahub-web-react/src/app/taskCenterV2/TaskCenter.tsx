@@ -1,28 +1,30 @@
-import React from 'react';
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
-import { Badge as BadgeAntd } from 'antd';
+import { Badge as BadgeAntd, Tabs } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { ActionRequest } from '@src/types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
-import CompactContext from '../shared/CompactContext';
-import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { EntityAndType } from '../entity/shared/types';
 import { Requests } from './requests/Requests';
-import { RoutedTabs } from '../shared/RoutedTabs';
 
-const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
     display: flex;
     flex-direction: column;
-    flex: 1;
+
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '24px' : '0'};
+        margin-bottom: ${props.isV2 ? '24px' : '0'};
+        height: calc(100% - 20px);
+
+    `}
 
     border-radius: ${(props) => {
         if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
@@ -47,7 +49,7 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const StyledTabs = styled(RoutedTabs)`
+const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-nav {
         margin-bottom: 0;
         padding-left: 28px;
@@ -67,6 +69,11 @@ const StyledTabs = styled(RoutedTabs)`
     &&& .ant-tabs-tab + .ant-tabs-tab {
         margin: 0px;
     }
+`;
+
+const Tab = styled(Tabs.TabPane)`
+    font-size: 14px;
+    line-height: 22px;
 `;
 
 interface TabTitleProps {
@@ -97,31 +104,6 @@ const StyledBadge = styled(BadgeAntd)`
     }
 `;
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    display: flex;
-    height: calc(100% - 20px);
-    gap: 12px;
-    border-radius: ${(props) => {
-        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
-        return props.isV2 ? '8px' : '0';
-    }};
-    ${(props) =>
-        !props.$isShowNavBarRedesign &&
-        `
-        margin-right: ${props.isV2 ? '12px' : '0'};
-    `}
-`;
-
-const SidebarContainer = styled.div<{ height: string }>`
-    max-height: ${(props) => props.height};
-    display: flex;
-    flex-direction: column;
-    position: sticky;
-    top: 0;
-    border-radius: 10px;
-    overflow: hidden;
-`;
-
 const TabContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -149,48 +131,40 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
-    const entityRegistry = useEntityRegistryV2();
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const location = useLocation();
+    const history = useHistory();
 
-    const getTabs = () => {
-        return [
-            {
-                name: <TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />,
-                path: 'requests',
-                content: <Requests />,
-                display: {
-                    enabled: () => true,
-                },
-            },
-            {
-                name: <TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />,
-                path: 'proposals',
-                content: <Proposals />,
-                display: {
-                    enabled: () => true,
-                },
-            },
-        ];
-    };
-    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
+    const searchParams = new URLSearchParams(location.search);
 
-    // TODO: Review this UX
-    const onProposalClick = (e: ActionRequest) => {
-        if (!e?.entity) {
-            setTargetEntity(null);
-        } else if (!targetEntity || e.entity.urn !== targetEntity?.urn) {
-            setIsSidebarClosed(false);
-            setTargetEntity({ type: e.entity.type, urn: e.entity.urn });
-        }
-    };
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'requests');
+
+    useEffect(() => {
+        const newSearchParams = new URLSearchParams(location.search);
+        newSearchParams.set('tab', activeTab);
+
+        // Update the URL without reloading the page
+        history.replace({ pathname: location.pathname, search: newSearchParams.toString() });
+    }, [activeTab, history, location.pathname, location.search]);
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <PageHeaderContainer>
                 <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
             </PageHeaderContainer>
-            <StyledTabs tabs={getTabs()} defaultPath={defaultTabPath} />
+            <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
+                <Tab
+                    key="requests"
+                    tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
+                />
+                <Tab
+                    key="proposals"
+                    tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
+                />
+            </StyledTabs>
+            {activeTab === 'requests' && <Requests />}
+            {activeTab === 'proposals' && <Proposals />}
         </PageContainer>
     );
 };
