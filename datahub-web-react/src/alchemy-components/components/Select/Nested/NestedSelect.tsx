@@ -288,7 +288,7 @@ export const NestedSelect = ({
     const rootOptions = parentValueToOptions[NO_PARENT_VALUE] || [];
 
     return (
-        <Container size={size || 'md'} width={props.width || 255}>
+        <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <SelectBase
                 isDisabled={isDisabled}
@@ -300,7 +300,6 @@ export const NestedSelect = ({
                 data-testid="nested-options-dropdown-container"
                 width={props.width}
                 {...props}
-                ref={selectRef}
             >
                 <SelectLabelDisplay
                     selectedOptions={selectedOptions}

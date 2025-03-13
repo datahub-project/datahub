@@ -439,7 +439,7 @@ export const getAssigneeNamesWithAvatarUrl = (assignees) => {
     return assignees?.map((assignee) => {
         return {
             urn: assignee.urn,
-            name: assignee.properties?.displayName,
+            name: assignee.properties?.displayName || assignee.username,
             imageUrl: '',
         };
     });
