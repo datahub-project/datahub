@@ -179,9 +179,9 @@ class VertexAISource(Source):
         # Fetch and Ingest Training Jobs
         yield from auto_workunit(self._get_training_jobs_mcps())
         # Fetch and Ingest Experiments
-        # yield from self._get_experiments_workunits()
+        yield from self._get_experiments_workunits()
         # Fetch and Ingest Experiment Runs
-        # yield from auto_workunit(self._get_experiment_runs_mcps())
+        yield from auto_workunit(self._get_experiment_runs_mcps())
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
         # List all experiments
