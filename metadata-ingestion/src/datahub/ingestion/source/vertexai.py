@@ -25,7 +25,7 @@ import datahub.emitter.mce_builder as builder
 from datahub._codegen.aspect import _Aspect
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -41,6 +41,8 @@ from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.mlflow import ContainerKeyWithId
 from datahub.metadata._schema_classes import MLHyperParamClass, MLMetricClass
 from datahub.metadata._urns.urn_defs import DataPlatformUrn
+from datahub.metadata._schema_classes import VersionPropertiesClass, MetadataAttributionClass
+from datahub.metadata.urns import VersionSetUrn,MlModelUrn
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLTrainingRunProperties,
 )
@@ -54,6 +56,8 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DatasetPropertiesClass,
+    MLHyperParamClass,
+    MLMetricClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
@@ -63,6 +67,7 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionTagClass,
 )
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -155,6 +160,7 @@ class VertexAISource(Source):
         self.client = aiplatform
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
+        self.experiments: Optional[List[Experiment]] = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -173,9 +179,9 @@ class VertexAISource(Source):
         # Fetch and Ingest Training Jobs
         yield from auto_workunit(self._get_training_jobs_mcps())
         # Fetch and Ingest Experiments
-        yield from self._get_experiments_workunits()
+        # yield from self._get_experiments_workunits()
         # Fetch and Ingest Experiment Runs
-        yield from auto_workunit(self._get_experiment_runs_mcps())
+        # yield from auto_workunit(self._get_experiment_runs_mcps())
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
         # List all experiments
@@ -225,12 +231,22 @@ class VertexAISource(Source):
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
-    def _get_create_time_from_run(self, run: ExperimentRun) -> Optional[int]:
+    def _get_run_create_time_duration(self, run: ExperimentRun) -> (Optional[int], Optional[int]):
+        executions = run.get_executions()
+        if len(executions) == 0:
+            return None, None
+        min_create_time = min([exec.create_time for exec in executions])
+        max_upload_time = max([exec.update_time for exec in executions])
+        create_time_millis =  int(min_create_time.timestamp() * 1000)
+        duration = max_upload_time.timestamp() * 1000 - create_time_millis
+        return create_time_millis, duration
+
+    def _get_run_duration_millis(self, run: ExperimentRun) -> Optional[int]:
         executions = run.get_executions()
         if len(executions) == 0:
             return None
-        min_create_time = min([exec.create_time for exec in executions])
-        return int(min_create_time.timestamp() * 1000)
+        max_upload_time = max([exec.update_time for exec in executions])
+
 
     def _get_run_result_status(self, status: str) -> Union[str, RunResultTypeClass]:
         if status == "COMPLETE":
@@ -268,7 +284,7 @@ class VertexAISource(Source):
         )
         run_urn = builder.make_data_process_instance_urn(run_name)
 
-        created_time = self._get_create_time_from_run(run)
+        created_time, duration = self._get_run_create_time_duration(run)
         created_actor = f"urn:li:platformResource:{self.platform}"
 
         aspects: List[_Aspect] = list()
@@ -298,8 +314,10 @@ class VertexAISource(Source):
             )
         )
 
+        state = run.get_state()
         run_result_type = self._get_run_result_status(run.get_state())
         if isinstance(run_result_type, RunResultTypeClass) and created_time is not None:
+
             aspects.append(
                 DataProcessInstanceRunEventClass(
                     status=DataProcessRunStatusClass.STARTED,
@@ -308,6 +326,7 @@ class VertexAISource(Source):
                         type=self._get_run_result_status(run.get_state()),
                         nativeResultType=self.platform,
                     ),
+                    durationMillis=duration,
                 )
             )
 
@@ -729,6 +748,7 @@ class VertexAISource(Source):
         model_version_name = f"{model_name}_{model_version.version_id}"
         model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
+
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=model_urn,
             aspects=[
@@ -768,8 +788,30 @@ class VertexAISource(Source):
                     container=self._get_project_container().as_urn(),
                 ),
                 SubTypesClass(typeNames=[MLTypes.MODEL]),
+                VersionPropertiesClass(
+                    version=VersionTagClass(
+                        versionTag=str(model_version.version_id),
+                        metadataAttribution=MetadataAttributionClass(
+                            time=int(model_version.version_create_time.timestamp() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    ),
+                    versionSet=str(self._get_version_set_urn(model)),
+                    sortId=str(model_version.version_id).zfill(10),
+                    # aliases=[
+                    #     VersionTagClass(versionTag=alias) for alias in model_version.aliases
+                    # ],
+                )
             ],
         )
+
+    def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
+        guid_dict = {"platform": self.platform, "name": model.name}
+        version_set_urn = VersionSetUrn(
+            id=builder.datahub_guid(guid_dict),
+            entity_type=MlModelUrn.ENTITY_TYPE,
+        )
+        return version_set_urn
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
         """

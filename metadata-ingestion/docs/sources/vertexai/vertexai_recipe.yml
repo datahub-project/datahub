@@ -14,3 +14,4 @@ sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
+    token: "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6ImQ1ZWU0NzY4LWI1MDMtNGVhNy04MjEwLWY1MGFkYTFlMTc3YiIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NDQ0MDYxMjYsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.J1rdDCF4mGHzkWm5s6I8YxbbC0DA6LTXHyokB0pSqQU"
