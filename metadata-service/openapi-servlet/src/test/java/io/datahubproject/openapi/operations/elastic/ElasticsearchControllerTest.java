@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.operations.elastic;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -308,7 +309,8 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     when(restoreResult.getLastAspect()).thenReturn("");
     restoreResults.add(restoreResult);
 
-    when(mockEntityService.restoreIndices(any(OperationContext.class), any(), any(), anyInt()))
+    when(mockEntityService.restoreIndices(
+            any(OperationContext.class), any(), any(), anyInt(), anyBoolean()))
         .thenReturn(restoreResults);
 
     // Prepare request body

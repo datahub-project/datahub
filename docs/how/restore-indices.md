@@ -36,6 +36,14 @@ The following configurations are available:
 * `aspectNames`: Comma-separated list of aspects to restore (e.g., "ownership,status")
 * `urnLike`: SQL LIKE pattern to filter URNs (e.g., "urn:li:dataset%")
 
+
+### Default Aspects
+
+* `createDefaultAspects`: Create default aspects in both SQL and ES if missing.
+
+During the restore indices process, it will create default aspects in SQL. While this may be
+desired in some situations, disabling this feature is required when using a read-only SQL replica.
+
 ### Nuclear option
 * `clean`: This option wipes out the current indices by running deletes of all the documents to guarantee a consistent state with SQL. This is generally not recommended unless there is significant data corruption on the instance.
 
@@ -122,4 +130,68 @@ datahubUpgrade:
 
 ## Through API
 
-See [Restore Indices API](../api/restli/restore-indices.md).
+:::caution
+Avoid Conflicts: Ensure that concurrent jobs:
+
+Never specify the --clean argument in concurrent jobs
+:::
+
+### Temporary Workload Reduction
+
+* Pause scheduled ingestion jobs during restoration
+* Temporarily disable or reduce frequency of the datahub-gc job to prevent conflicting deletes
+* Consider pausing automated workflows or integrations that generate metadata events
+
+### Infrastructure Tuning
+Implementing these expanded best practices should help ensure a smoother, more efficient restoration process while 
+minimizing impact on your DataHub environment.
+
+This operation can be I/O intensive from the read-side from SQL and on the Elasticsearch write side. If you're able to leverage
+provisioned I/O. or throughput, you might want to monitor your infrastructure for a possible.
+
+#### Elasticsearch/Opensearch Optimization
+To improve write performance during restoration:
+
+##### Refresh Interval Adjustment:
+
+Temporarily increase the refresh_interval setting from the default (typically 1s) to something like 30s or 60s.
+Run the system update job with the following environment variable `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`
+
+:::caution
+Remember to reset this after restoration completes!
+:::caution
+
+##### Bulk Processing Improvements:
+
+* Adjust the Elasticsearch batching parameters to optimize bulk request size (try values between 2000-5000)
+  * Run your GMS or `mae-consumer` with environment variables
+    * `ES_BULK_REQUESTS_LIMIT=3000`
+    * `ES_BULK_FLUSH_PERIOD=60`
+* Configure `batchDelayMs` on restoreIndices to add breathing room between batches if your cluster is struggling
+
+##### Shard Management:
+
+* Ensure your indices have an appropriate number of shards for your cluster size.
+* Consider temporarily adding nodes to your search cluster during massive restorations.
+
+#### SQL/Primary Storage
+
+Consider using a read replica as the source of the job's data. If you configure a read-only replica
+you must also provide the parameter `createDefaultAspects=false`.
+
+#### Kafka & Consumers
+
+##### Partition Strategy:
+
+* Verify that the Kafka Metadata Change Log (MCL) topic have enough partitions to allow for parallel processing.
+* Recommended: At least 10-20 partitions for the MCL topic in production environments.
+
+##### Consumer Scaling:
+
+* Temporarily increase the number of `mae-consumer` pods to process the higher event volume.
+* Scale GMS instances if they're handling consumer duties.
+
+##### Monitoring:
+
+* Watch consumer lag metrics closely during restoration.
+* Be prepared to adjust scaling or batch parameters if consumers fall behind.

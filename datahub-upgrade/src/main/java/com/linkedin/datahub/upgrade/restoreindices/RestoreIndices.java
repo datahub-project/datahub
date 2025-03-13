@@ -28,6 +28,7 @@ public class RestoreIndices implements Upgrade {
   public static final String URN_ARG_NAME = "urn";
   public static final String URN_LIKE_ARG_NAME = "urnLike";
   public static final String URN_BASED_PAGINATION_ARG_NAME = "urnBasedPagination";
+  public static final String CREATE_DEFAULT_ASPECTS_ARG_NAME = "createDefaultAspects";
   public static final String RESTORE_FROM_PARQUET = "RESTORE_FROM_PARQUET";
   public static final String DRY_RUN = "DRY_RUN";
 

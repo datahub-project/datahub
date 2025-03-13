@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
+import static com.linkedin.datahub.upgrade.restoreindices.RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableBiMap;
@@ -237,9 +238,17 @@ public class RestoreFromParquetStep implements UpgradeStep {
       // 4. Create record from json aspect
       final SystemAspect systemAspectRecord;
       try {
+        boolean createDefaultAspects =
+            context
+                .parsedArgs()
+                .get(CREATE_DEFAULT_ASPECTS_ARG_NAME)
+                .map(Boolean::parseBoolean)
+                .orElse(false);
         systemAspectRecord =
             EntityUtils.toSystemAspectFromEbeanAspects(
-                    systemOperationContext.getRetrieverContext(), List.of(aspect))
+                    systemOperationContext.getRetrieverContext(),
+                    List.of(aspect),
+                    createDefaultAspects)
                 .get(0);
       } catch (Exception e) {
         context

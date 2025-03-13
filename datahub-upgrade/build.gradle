@@ -100,6 +100,9 @@ dependencies {
   implementation externalDependency.sentry
   implementation externalDependency.sentryLogback
 
+  testImplementation externalDependency.h2
+  testImplementation project(':metadata-test-util:java')
+
   constraints {
     implementation(implementation externalDependency.parquetHadoop) {
       because("CVE-2022-42003")
@@ -151,7 +154,7 @@ task runRestoreIndices(type: Exec) {
           "-jar",
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "createDefaultAspects=true"
 }
 
 task runRestoreIndicesUrn(type: Exec) {

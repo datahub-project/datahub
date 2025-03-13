@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.restoreaspect;
 
+import static com.linkedin.datahub.upgrade.restoreindices.RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -74,6 +76,12 @@ public class RestoreAspectStep implements UpgradeStep {
       Optional<String> aspectToRestore = context.parsedArgs().get("ASPECT_NAME");
       Optional<String> bucket = context.parsedArgs().get("BACKUP_S3_BUCKET");
       Optional<String> path = context.parsedArgs().get("BACKUP_S3_PATH");
+      boolean createDefaultAspects =
+          context
+              .parsedArgs()
+              .get(CREATE_DEFAULT_ASPECTS_ARG_NAME)
+              .map(Boolean::parseBoolean)
+              .orElse(false);
 
       if (!urnToRestore.isPresent()
           || !aspectToRestore.isPresent()
@@ -101,7 +109,8 @@ public class RestoreAspectStep implements UpgradeStep {
                         readerRef,
                         context,
                         urnToRestore,
-                        aspectToRestore)));
+                        aspectToRestore,
+                        createDefaultAspects)));
       }
 
       for (Future<UpgradeStepResult> future : futureList) {
@@ -127,7 +136,8 @@ public class RestoreAspectStep implements UpgradeStep {
       ParquetReaderWrapper reader,
       UpgradeContext context,
       Optional<String> urnToRestore,
-      Optional<String> aspectToRestore) {
+      Optional<String> aspectToRestore,
+      boolean createDefaultAspects) {
     EbeanAspectV2 aspect;
     while ((aspect = reader.next()) != null) {
 
@@ -166,7 +176,7 @@ public class RestoreAspectStep implements UpgradeStep {
         // 3. Create record from json aspect
         final SystemAspect systemAspectRecord =
             EntityUtils.toSystemAspectFromEbeanAspects(
-                    opContext.getRetrieverContext(), List.of(aspect))
+                    opContext.getRetrieverContext(), List.of(aspect), createDefaultAspects)
                 .get(0);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
