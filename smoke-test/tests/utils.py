@@ -98,7 +98,9 @@ def check_endpoint(auth_session, url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
-def ingest_file_via_rest(auth_session, filename: str) -> Pipeline:
+def ingest_file_via_rest(
+    auth_session, filename: str, mode: str = "ASYNC_BATCH"
+) -> Pipeline:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -110,6 +112,7 @@ def ingest_file_via_rest(auth_session, filename: str) -> Pipeline:
                 "config": {
                     "server": auth_session.gms_url(),
                     "token": auth_session.gms_token(),
+                    "mode": mode,
                 },
             },
         }
