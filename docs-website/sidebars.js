@@ -907,6 +907,7 @@ module.exports = {
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/environment-vars",
+        "docs/deploy/environment-vars-saas",
         "docs/how/extract-container-logs",
       ],
     },
