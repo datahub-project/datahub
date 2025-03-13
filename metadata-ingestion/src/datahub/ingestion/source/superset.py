@@ -85,9 +85,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    ColumnRef,
-    DownstreamColumnRef,
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
@@ -744,44 +741,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         # To generate column level lineage, we can manually decode the metadata
         # to produce the ColumnLineageInfo
         columns = dataset_response.get("result", {}).get("columns", [])
-        cll: List[ColumnLineageInfo] = []
-
-        for column in columns:
-            cll.append(
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=datasource_urn,
-                        column=column.get("column_name", ""),
-                        native_column_type=column.get("type", ""),
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=upstream_dataset,
-                            column=column.get("column_name", ""),
-                        )
-                    ],
-                    logic=None,
-                )
-            )
-
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
-        for cll_info in cll:
-            downstream = (
-                [
-                    make_schema_field_urn(
-                        cll_info.downstream.table, cll_info.downstream.column
-                    )
-                ]
-                if cll_info.downstream
-                and cll_info.downstream.table
-                and cll_info.downstream.column
-                else []
-            )
-            upstreams = [
-                make_schema_field_urn(column_ref.table, column_ref.column)
-                for column_ref in cll_info.upstreams
-            ]
+        for column in columns:
+            column_name = column.get("column_name", "")
+            if not column_name:
+                continue
+
+            downstream = [make_schema_field_urn(datasource_urn, column_name)]
+            upstreams = [make_schema_field_urn(upstream_dataset, column_name)]
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
