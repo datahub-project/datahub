@@ -562,6 +562,58 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
         )
 
 
+class MySQLLineage(AbstractLineage):
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
+        )
+
+        server, db_name = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if server is None or db_name is None:
+            return Lineage.empty()  # Return an empty list
+
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Schema"]
+
+        table_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Item"]
+
+        qualified_table_name: str = f"{schema_name}.{table_name}"
+
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) qualified_table_name= {qualified_table_name}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MYSQL.value
+
+
 class PostgresLineage(TwoStepDataAccessPattern):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -927,6 +979,11 @@ class SupportedPattern(Enum):
     AMAZON_REDSHIFT = (
         AmazonRedshiftLineage,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
+    )
+
+    MYSQL = (
+        MySQLLineage,
+        FunctionName.MYSQL_DATA_ACCESS,
     )
 
     NATIVE_QUERY = (

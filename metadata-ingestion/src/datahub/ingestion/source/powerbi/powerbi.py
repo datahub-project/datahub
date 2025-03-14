@@ -3,6 +3,7 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
+import functools
 import logging
 from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
@@ -24,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
+    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source import (
@@ -1524,6 +1526,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return [
                 *super().get_workunit_processors(),
+                functools.partial(
+                    auto_incremental_lineage, self.source_config.incremental_lineage
+                ),
                 self.stale_entity_removal_handler.workunit_processor,
             ]
 

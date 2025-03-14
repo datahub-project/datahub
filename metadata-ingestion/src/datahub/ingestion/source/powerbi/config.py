@@ -11,6 +11,9 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -183,6 +186,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="databricks",
     )
 
+    MYSQL = DataPlatformPair(
+        powerbi_data_platform_name="MySQL",
+        datahub_data_platform_name="mysql",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -275,7 +283,7 @@ class PowerBiProfilingConfig(ConfigModel):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
