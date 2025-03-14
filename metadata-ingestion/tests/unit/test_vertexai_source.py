@@ -27,15 +27,17 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
+    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
+    EdgeClass,
     MetadataChangeProposalClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLTrainingRunPropertiesClass,
     StatusClass,
     SubTypesClass,
-    VersionPropertiesClass
+    VersionPropertiesClass,
 )
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
@@ -80,7 +82,12 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
         assert actual_urns == expected_urns
 
         # assert expected aspect classes
-        expected_classes = [MLModelGroupPropertiesClass, ContainerClass, SubTypesClass, DataPlatformInstanceClass]
+        expected_classes = [
+            MLModelGroupPropertiesClass,
+            ContainerClass,
+            SubTypesClass,
+            DataPlatformInstanceClass,
+        ]
         actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
 
         assert set(expected_classes) == set(actual_classes)
@@ -93,7 +100,6 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
                 assert aspect.description == mock_model.description
             elif isinstance(aspect, SubTypesClass):
                 assert aspect.typeNames == [MLAssetSubTypes.VERTEX_MODEL_GROUP]
-
             elif isinstance(aspect, ContainerClass):
                 assert aspect.container == source._get_project_container().as_urn()
 
@@ -116,7 +122,13 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     assert actual_urns == expected_urns
 
     # assert expected aspect classes
-    expected_classes = [MLModelProperties, ContainerClass, SubTypesClass, VersionPropertiesClass, DataPlatformInstanceClass]
+    expected_classes = [
+        MLModelProperties,
+        ContainerClass,
+        SubTypesClass,
+        VersionPropertiesClass,
+        DataPlatformInstanceClass,
+    ]
     actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
 
     assert set(expected_classes) == set(actual_classes)
@@ -125,10 +137,7 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
         assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
         if isinstance(aspect, MLModelProperties):
-            assert (
-                aspect.name
-                == f"{mock_model.display_name}_{mock_model.version_id}"
-            )
+            assert aspect.name == f"{mock_model.display_name}_{mock_model.version_id}"
             assert aspect.description == model_version.version_description
             assert aspect.date == model_version.version_create_time
             assert aspect.hyperParams is None
@@ -230,7 +239,7 @@ def test_get_training_jobs_mcps(
             MLTrainingRunPropertiesClass,
             SubTypesClass,
             ContainerClass,
-            DataPlatformInstanceClass
+            DataPlatformInstanceClass,
         ]
         actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
         assert set(expected_classes) == set(actual_classes)
@@ -296,10 +305,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
         assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
-            assert (
-                aspect.name
-                == mock_training_job.display_name
-            )
+            assert aspect.name == mock_training_job.display_name
         if isinstance(aspect, MLTrainingRunPropertiesClass):
             assert aspect.id == mock_training_job.name
             assert aspect.externalUrl == source._make_job_external_url(
@@ -313,7 +319,11 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             assert aspect.container == source._get_project_container().as_urn()
 
         if isinstance(aspect, DataProcessInstanceInputClass):
-            assert aspect.inputs == [dataset_urn]
+            edges = aspect.inputEdges
+            assert edges is not None
+            assert len(edges) == 1
+            assert isinstance(edges[0], EdgeClass)
+            assert edges[0].destinationUrn == dataset_urn
 
 
 def test_vertexai_config_init():
@@ -404,7 +414,12 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
 
     # Assert Aspect Classes
     actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-    expected_classes = [DatasetPropertiesClass, ContainerClass, SubTypesClass, DataPlatformInstanceClass]
+    expected_classes = [
+        DatasetPropertiesClass,
+        ContainerClass,
+        SubTypesClass,
+        DataPlatformInstanceClass,
+    ]
     assert set(expected_classes) == set(actual_classes)
 
     # Run _get_input_dataset_mcps
@@ -493,7 +508,9 @@ def test_gen_experiment_run_mcps(
         id=source._make_vertexai_experiment_name(mock_exp.name),
     ).as_urn()
 
-    mcps: List[MetadataChangeProposalWrapper] = list(source._get_experiment_runs_mcps())
+    actual_mcps: List[MetadataChangeProposalWrapper] = list(
+        source._get_experiment_runs_mcps()
+    )
 
     run_name = source._make_vertexai_experiment_run_name(
         entity_id=f"{mock_exp.name}-{mock_exp_run.name}"
@@ -501,18 +518,19 @@ def test_gen_experiment_run_mcps(
 
     expected_urn = builder.make_data_process_instance_urn(run_name)
 
-    assert [expected_urn] * 5 == [mcp.entityUrn for mcp in mcps]
+    assert [expected_urn] * 6 == [mcp.entityUrn for mcp in actual_mcps]
     expected_classes = {
         DataProcessInstancePropertiesClass,
         ContainerClass,
         MLTrainingRunPropertiesClass,
         DataPlatformInstanceClass,
         SubTypesClass,
+        DataProcessInstanceOutputClass,
     }
-    actual_classes = set([mcp.aspect.__class__ for mcp in mcps])
+    actual_classes = set([mcp.aspect.__class__ for mcp in actual_mcps])
     assert expected_classes == actual_classes
 
-    for mcp in mcps:
+    for mcp in actual_mcps:
         aspect = mcp.aspect
         if isinstance(aspect, DataProcessInstancePropertiesClass):
             assert aspect.name == mock_exp_run.name

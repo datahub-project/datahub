@@ -47,11 +47,13 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
+    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DatasetPropertiesClass,
+    EdgeClass,
     MetadataAttributionClass,
     MLHyperParamClass,
     MLMetricClass,
@@ -306,6 +308,12 @@ class VertexAISource(Source):
                 if isinstance(run_result_type, RunResultTypeClass)
                 and created_time is not None
                 else None,
+                DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=[
+                        EdgeClass(destinationUrn=experiment_key.as_urn()),
+                    ],
+                ),
             ],
         )
 
@@ -434,6 +442,17 @@ class VertexAISource(Source):
             if job_meta.input_dataset
             else None
         )
+        # If Training Job has Output Model
+        model_urn = (
+            self._make_ml_model_urn(
+                model_version=job_meta.output_model_version,
+                model_name=self._make_vertexai_model_name(
+                    entity_id=job_meta.output_model.name
+                ),
+            )
+            if job_meta.output_model and job_meta.output_model_version
+            else None
+        )
 
         yield from MetadataChangeProposalWrapper.construct_many(
             job_urn,
@@ -455,8 +474,21 @@ class VertexAISource(Source):
                 SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_TRAINING_JOB]),
                 ContainerClass(container=self._get_project_container().as_urn()),
                 DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
-                DataProcessInstanceInputClass(inputs=[dataset_urn])
+                DataProcessInstanceInputClass(
+                    inputs=[],
+                    inputEdges=[
+                        EdgeClass(destinationUrn=dataset_urn),
+                    ],
+                )
                 if dataset_urn
+                else None,
+                DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=[
+                        EdgeClass(destinationUrn=model_urn),
+                    ],
+                )
+                if model_urn
                 else None,
             ],
         )
@@ -593,7 +625,7 @@ class VertexAISource(Source):
                     ContainerClass(container=self._get_project_container().as_urn()),
                     DataPlatformInstanceClass(
                         platform=str(DataPlatformUrn(self.platform))
-                    ),
+                    )
                 ],
             )
 
@@ -770,7 +802,9 @@ class VertexAISource(Source):
                         versionTag=str(model_version.version_id),
                         metadataAttribution=(
                             MetadataAttributionClass(
-                                time=int(model_version.version_create_time.timestamp() * 1000),
+                                time=int(
+                                    model_version.version_create_time.timestamp() * 1000
+                                ),
                                 actor="urn:li:corpuser:datahub",
                             )
                             if model_version.version_create_time
