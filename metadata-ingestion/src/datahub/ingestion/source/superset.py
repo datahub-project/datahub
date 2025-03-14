@@ -189,7 +189,9 @@ class SupersetConfig(
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
 
-    timeout: int = Field(default=10, description="Timeout of single API call to superset.")
+    timeout: int = Field(
+        default=10, description="Timeout of single API call to superset."
+    )
 
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -302,7 +304,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         if test_response.status_code == 200:
             # throw an error and terminate ingestion,
             # cannot proceed without access token
-            logger.error(f"Failed to log in to Superset with status: {test_response.status_code}")
+            logger.error(
+                f"Failed to log in to Superset with status: {test_response.status_code}"
+            )
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
