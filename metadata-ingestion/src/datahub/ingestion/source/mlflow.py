@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
+    EdgeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
     MLHyperParamClass,
