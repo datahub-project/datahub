@@ -64,12 +64,18 @@ class BigqueryProfiler(GenericProfiler):
 
         while retries <= max_retries:
             try:
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(
-                        lambda: list(
-                            self.config.get_bigquery_client().query(query).result()
-                        )
+                # Apply query modifier to adjust column names based on BigQuery version
+                modified_query = self._adjust_query_for_bq_version(query)
+
+                def execute_query(query_to_execute=modified_query):
+                    return list(
+                        self.config.get_bigquery_client()
+                        .query(query_to_execute)
+                        .result()
                     )
+
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(execute_query)
                     try:
                         # Use a slightly longer timeout for the future to account for overhead
                         results = future.result(timeout=timeout + 10)
@@ -82,7 +88,9 @@ class BigqueryProfiler(GenericProfiler):
                         )
                         retries += 1
                         if retries > max_retries:
-                            logger.warning(f"Final timeout for query: {query[:200]}...")
+                            logger.warning(
+                                f"Final timeout for query: {modified_query[:200]}..."
+                            )
                             return []
                         # Increase timeout for retries
                         timeout = min(timeout * 2, 300)  # Max 5 minutes
@@ -103,6 +111,80 @@ class BigqueryProfiler(GenericProfiler):
                 f"Query execution error after retries: {str(last_exception)}"
             )
         return []
+
+    def _adjust_query_for_bq_version(self, query: str) -> str:
+        """
+        Adjust column names in INFORMATION_SCHEMA queries based on BigQuery version.
+        This handles differences between older and newer versions of BigQuery.
+        """
+        # Initialize with the original query
+        modified_query = query
+
+        # If we haven't determined BQ version yet, try to do so
+        if not hasattr(self, "_bq_uses_new_schema"):
+            self._detect_bq_schema_version()
+
+        # Make column name replacements based on detected version
+        if hasattr(self, "_bq_uses_new_schema") and self._bq_uses_new_schema:
+            # For newer versions (total_rows/total_logical_bytes)
+            if (
+                "row_count" in modified_query
+                and "total_rows as row_count" not in modified_query
+            ):
+                modified_query = modified_query.replace(
+                    "row_count", "total_rows as row_count"
+                )
+            if (
+                "size_bytes" in modified_query
+                and "total_logical_bytes as size_bytes" not in modified_query
+            ):
+                modified_query = modified_query.replace(
+                    "size_bytes", "total_logical_bytes as size_bytes"
+                )
+        else:
+            # For older versions (row_count/size_bytes)
+            if "total_rows as row_count" in modified_query:
+                modified_query = modified_query.replace(
+                    "total_rows as row_count", "row_count"
+                )
+            if "total_logical_bytes as size_bytes" in modified_query:
+                modified_query = modified_query.replace(
+                    "total_logical_bytes as size_bytes", "size_bytes"
+                )
+
+        return modified_query
+
+    def _detect_bq_schema_version(self):
+        """
+        Detect which version of INFORMATION_SCHEMA we're working with.
+        Set self._bq_uses_new_schema to True if we have the newer schema version.
+        """
+        try:
+            # Try to execute a simple query to detect the schema version
+            detect_query = """
+            SELECT column_name 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE table_name = 'TABLES' 
+            AND table_schema = 'INFORMATION_SCHEMA'
+            """
+
+            results = list(
+                self.config.get_bigquery_client().query(detect_query).result()
+            )
+
+            # Look for the new column names in the results
+            column_names = [row.column_name for row in results]
+            self._bq_uses_new_schema = "total_rows" in column_names
+
+            logger.info(
+                f"Detected BigQuery INFORMATION_SCHEMA version. Uses new schema: {self._bq_uses_new_schema}"
+            )
+        except Exception as e:
+            # If detection fails, default to the new schema (safer option)
+            logger.warning(
+                f"Could not detect BigQuery schema version: {e}. Defaulting to new schema."
+            )
+            self._bq_uses_new_schema = True
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -808,97 +890,139 @@ class BigqueryProfiler(GenericProfiler):
                 else ""
             )
 
-            # Special handling for NULL values (unlikely but safe)
-            if value is None:
-                filters.append(f"`{col_name}` IS NULL")
-                continue
-
-            # Handle string types with proper escaping
-            if data_type in ("STRING", "VARCHAR", "BIGNUMERIC", "JSON"):
-                if isinstance(value, str):
-                    # Escape any single quotes in the string value
-                    escaped_value = value.replace("'", "\\'")
-                    filters.append(f"`{col_name}` = '{escaped_value}'")
-                else:
-                    # Handle non-string values for string columns (cast them)
-                    filters.append(f"`{col_name}` = CAST('{value}' AS {data_type})")
-
-            # Handle date type
-            elif data_type == "DATE":
-                if isinstance(value, datetime):
-                    filters.append(
-                        f"`{col_name}` = DATE '{value.strftime('%Y-%m-%d')}'"
-                    )
-                elif isinstance(value, str):
-                    # Try to ensure the string is properly formatted
-                    if "-" in value and len(value) >= 10:
-                        # Likely YYYY-MM-DD format
-                        filters.append(f"`{col_name}` = DATE '{value}'")
-                    else:
-                        # Try to interpret other formats
-                        filters.append(f"`{col_name}` = '{value}'")
-                else:
-                    # For other types, try simple equality
-                    filters.append(f"`{col_name}` = '{value}'")
-
-            # Handle timestamp and datetime
-            elif data_type in ("TIMESTAMP", "DATETIME"):
-                if isinstance(value, datetime):
-                    filters.append(
-                        f"`{col_name}` = TIMESTAMP '{value.strftime('%Y-%m-%d %H:%M:%S')}'"
-                    )
-                elif isinstance(value, str):
-                    # Try to handle different string formats
-                    if "T" in value or " " in value:
-                        # Likely ISO format or space-separated format
-                        filters.append(f"`{col_name}` = TIMESTAMP '{value}'")
-                    elif len(value) == 10 and "-" in value:
-                        # Likely date only, add time component
-                        filters.append(f"`{col_name}` = TIMESTAMP '{value} 00:00:00'")
-                    else:
-                        # Last resort, try simple equality
-                        filters.append(f"`{col_name}` = TIMESTAMP '{value}'")
-                else:
-                    # For other types, try simple equality with conversion
-                    filters.append(f"`{col_name}` = '{value}'")
-
-            # Handle numeric types
-            elif data_type in (
-                "INT64",
-                "INTEGER",
-                "INT",
-                "SMALLINT",
-                "BIGINT",
-                "TINYINT",
-                "FLOAT64",
-                "FLOAT",
-                "NUMERIC",
-                "DECIMAL",
-            ):
-                filters.append(f"`{col_name}` = {value}")
-
-            # Handle boolean
-            elif data_type == "BOOL" or data_type == "BOOLEAN":
-                # Convert Python boolean to SQL boolean
-                bool_val = str(value).lower()
-                if bool_val in ("true", "false"):
-                    filters.append(f"`{col_name}` = {bool_val}")
-                else:
-                    # Try to handle non-boolean values that might represent booleans
-                    filters.append(f"`{col_name}` = {bool_val}")
-
-            # Default case for any other type
-            else:
-                # For test compatibility, prefer string format when data type is unknown or unhandled
-                if isinstance(value, (int, float)) and data_type:
-                    filters.append(f"`{col_name}` = {value}")
-                else:
-                    # Escape any single quotes in string values
-                    if isinstance(value, str):
-                        value = value.replace("'", "\\'")
-                    filters.append(f"`{col_name}` = '{value}'")
+            # Handle each type with a specific helper method to reduce complexity
+            filter_str = self._create_filter_for_column(col_name, value, data_type)
+            if filter_str:
+                filters.append(filter_str)
 
         return filters
+
+    def _create_filter_for_column(
+        self, col_name: str, value: Any, data_type: str
+    ) -> Optional[str]:
+        """
+        Create a filter string for a single column based on its data type.
+
+        Args:
+            col_name: Column name
+            value: Column value
+            data_type: Column data type
+
+        Returns:
+            Filter string or None if no filter could be created
+        """
+        # Handle NULL values
+        if value is None:
+            return f"`{col_name}` IS NULL"
+
+        # Group data types into categories for easier handling
+        string_types = {"STRING", "VARCHAR", "BIGNUMERIC", "JSON"}
+        date_types = {"DATE"}
+        timestamp_types = {"TIMESTAMP", "DATETIME"}
+        numeric_types = {
+            "INT64",
+            "INTEGER",
+            "INT",
+            "SMALLINT",
+            "BIGINT",
+            "TINYINT",
+            "FLOAT64",
+            "FLOAT",
+            "NUMERIC",
+            "DECIMAL",
+        }
+        boolean_types = {"BOOL", "BOOLEAN"}
+
+        # Dispatch to type-specific handlers
+        if data_type in string_types:
+            return self._create_string_filter(col_name, value, data_type)
+        elif data_type in date_types:
+            return self._create_date_filter(col_name, value)
+        elif data_type in timestamp_types:
+            return self._create_timestamp_filter(col_name, value)
+        elif data_type in numeric_types:
+            return self._create_numeric_filter(col_name, value)
+        elif data_type in boolean_types:
+            return self._create_boolean_filter(col_name, value)
+        else:
+            return self._create_default_filter(col_name, value, data_type)
+
+    def _create_string_filter(self, col_name: str, value: Any, data_type: str) -> str:
+        """Create filter for string type columns."""
+        if isinstance(value, str):
+            # Escape any single quotes in the string value
+            escaped_value = value.replace("'", "\\'")
+            return f"`{col_name}` = '{escaped_value}'"
+        else:
+            # Handle non-string values for string columns (cast them)
+            return f"`{col_name}` = CAST('{value}' AS {data_type})"
+
+    def _create_date_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for date type columns."""
+        if isinstance(value, datetime):
+            return f"`{col_name}` = DATE '{value.strftime('%Y-%m-%d')}'"
+        elif isinstance(value, str):
+            # Try to ensure the string is properly formatted
+            if "-" in value and len(value) >= 10:
+                # Likely YYYY-MM-DD format
+                return f"`{col_name}` = DATE '{value}'"
+            else:
+                # Try to interpret other formats
+                return f"`{col_name}` = '{value}'"
+        else:
+            # For other types, try simple equality
+            return f"`{col_name}` = '{value}'"
+
+    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for timestamp and datetime columns."""
+        if isinstance(value, datetime):
+            # Fix: Ensure timestamp format has the time part properly enclosed in quotes
+            timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
+            return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
+        elif isinstance(value, str):
+            # Fix: Ensure proper formatting for string timestamps
+            if "T" in value:
+                # Replace T with space for BigQuery compatibility
+                value = value.replace("T", " ")
+
+            # Make sure there's no trailing time component outside the quotes
+            if " " in value:
+                # Contains time part, use as is but ensure proper quoting
+                return f"`{col_name}` = TIMESTAMP '{value}'"
+            elif len(value) == 10 and "-" in value:
+                # Date only (YYYY-MM-DD), add zeros for time
+                return f"`{col_name}` = TIMESTAMP '{value} 00:00:00'"
+            else:
+                # Last resort, try simple equality
+                return f"`{col_name}` = TIMESTAMP '{value}'"
+        else:
+            # Convert to string first to ensure proper formatting
+            return f"`{col_name}` = TIMESTAMP '{str(value)}'"
+
+    def _create_numeric_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for numeric type columns."""
+        return f"`{col_name}` = {value}"
+
+    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for boolean type columns."""
+        # Convert Python boolean to SQL boolean
+        bool_val = str(value).lower()
+        if bool_val in ("true", "false"):
+            return f"`{col_name}` = {bool_val}"
+        else:
+            # Try to handle non-boolean values that might represent booleans
+            return f"`{col_name}` = {bool_val}"
+
+    def _create_default_filter(self, col_name: str, value: Any, data_type: str) -> str:
+        """Create default filter for any other column types."""
+        # Prefer string format when data type is unknown or unhandled
+        if isinstance(value, (int, float)) and data_type:
+            return f"`{col_name}` = {value}"
+        else:
+            # Escape any single quotes in string values
+            if isinstance(value, str):
+                value = value.replace("'", "\\'")
+            return f"`{col_name}` = '{value}'"
 
     def _verify_partition_has_data(
         self,
@@ -998,7 +1122,11 @@ class BigqueryProfiler(GenericProfiler):
         try:
             count_results = self._execute_cached_query(count_query, count_key, timeout)
 
-            if count_results and count_results[0].cnt > 0:
+            if (
+                count_results
+                and hasattr(count_results[0], "cnt")
+                and count_results[0].cnt > 0
+            ):
                 logger.info(
                     f"Verified partition filters return {count_results[0].cnt} rows"
                 )
@@ -1371,6 +1499,7 @@ class BigqueryProfiler(GenericProfiler):
         self, table: BigqueryTable, project: str, schema: str, metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fetch schema information from INFORMATION_SCHEMA."""
+        # Use column aliases to handle both schema versions
         combined_query = f"""
         SELECT 
             c.column_name,
@@ -1378,7 +1507,7 @@ class BigqueryProfiler(GenericProfiler):
             c.is_partitioning_column,
             c.clustering_ordinal_position,
             t.row_count,
-            t.size_bytes,
+            t.size_bytes, 
             t.ddl,
             t.creation_time,
             t.last_modified_time,
@@ -1415,22 +1544,39 @@ class BigqueryProfiler(GenericProfiler):
                     }
 
                 # Update table metadata from first row (all rows have same values)
-                if row.row_count and not metadata["row_count"]:
+                # Use getattr with default values to handle missing attributes safely
+                if (
+                    hasattr(row, "row_count")
+                    and row.row_count
+                    and not metadata["row_count"]
+                ):
                     metadata["row_count"] = row.row_count
 
-                if row.size_bytes and not metadata["size_bytes"]:
+                if (
+                    hasattr(row, "size_bytes")
+                    and row.size_bytes
+                    and not metadata["size_bytes"]
+                ):
                     metadata["size_bytes"] = row.size_bytes
 
-                if row.ddl and not metadata["ddl"]:
+                if hasattr(row, "ddl") and row.ddl and not metadata["ddl"]:
                     metadata["ddl"] = row.ddl
 
-                if row.creation_time and not metadata.get("creation_time"):
+                if (
+                    hasattr(row, "creation_time")
+                    and row.creation_time
+                    and not metadata.get("creation_time")
+                ):
                     metadata["creation_time"] = row.creation_time
 
-                if row.last_modified_time and not metadata.get("last_modified_time"):
+                if (
+                    hasattr(row, "last_modified_time")
+                    and row.last_modified_time
+                    and not metadata.get("last_modified_time")
+                ):
                     metadata["last_modified_time"] = row.last_modified_time
 
-                if row.table_type:
+                if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
         except Exception as e:
             logger.warning(f"Error fetching schema information: {e}")
@@ -1442,6 +1588,7 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Dict[str, Any]:
         """Fetch additional table stats if needed."""
         if not metadata.get("row_count") or not metadata.get("size_bytes"):
+            # Use basic column names - our _adjust_query_for_bq_version function will handle the conversion
             stats_query = f"""
             SELECT 
                 row_count,
@@ -1461,13 +1608,13 @@ class BigqueryProfiler(GenericProfiler):
 
                 if stats_results:
                     row = stats_results[0]
-                    if row.row_count:
+                    if hasattr(row, "row_count") and row.row_count:
                         metadata["row_count"] = row.row_count
-                    if row.size_bytes:
+                    if hasattr(row, "size_bytes") and row.size_bytes:
                         metadata["size_bytes"] = row.size_bytes
-                    if row.creation_time:
+                    if hasattr(row, "creation_time") and row.creation_time:
                         metadata["creation_time"] = row.creation_time
-                    if row.last_modified_time:
+                    if hasattr(row, "last_modified_time") and row.last_modified_time:
                         metadata["last_modified_time"] = row.last_modified_time
             except Exception as e:
                 logger.warning(
