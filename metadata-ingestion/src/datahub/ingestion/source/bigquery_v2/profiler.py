@@ -96,6 +96,15 @@ class BigqueryProfiler(GenericProfiler):
             except Exception as e:
                 retries += 1
                 last_exception = e
+
+                # Check for specific error indicating TABLE_STORAGE does not exist
+                if "TABLE_STORAGE was not found" in str(e):
+                    logger.info(
+                        f"TABLE_STORAGE view not found: {str(e)}. This view might not be available in this region or project."
+                    )
+                    # Return empty results for this specific case
+                    return []
+
                 logger.debug(
                     f"Query execution error (attempt {retries}/{max_retries + 1}): {str(e)}"
                 )
@@ -1011,116 +1020,6 @@ class BigqueryProfiler(GenericProfiler):
             else:
                 return f"`{col_name}` = '{str(value)}'"
 
-    def _create_string_filter(self, col_name: str, value: Any, data_type: str) -> str:
-        """Create filter for string type columns."""
-        if isinstance(value, str):
-            # Escape any single quotes in the string value
-            escaped_value = value.replace("'", "\\'")
-            return f"`{col_name}` = '{escaped_value}'"
-        else:
-            # Handle non-string values for string columns (cast them)
-            return f"`{col_name}` = CAST('{value}' AS {data_type})"
-
-    def _create_date_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for date type columns."""
-        if isinstance(value, datetime):
-            return f"`{col_name}` = DATE '{value.strftime('%Y-%m-%d')}'"
-        elif isinstance(value, str):
-            # Try to ensure the string is properly formatted
-            if "-" in value and len(value) >= 10:
-                # Likely YYYY-MM-DD format
-                return f"`{col_name}` = DATE '{value}'"
-            else:
-                # Try to interpret other formats
-                return f"`{col_name}` = '{value}'"
-        else:
-            # For other types, try simple equality
-            return f"`{col_name}` = '{value}'"
-
-    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for timestamp and datetime columns."""
-        if isinstance(value, datetime):
-            # Format datetime properly without microseconds to match test expectations
-            # and comply with BigQuery's TIMESTAMP literal syntax
-            timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
-            return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
-        elif isinstance(value, (int, float)):
-            # For numeric values, explicitly use TIMESTAMP_SECONDS
-            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
-        elif isinstance(value, str):
-            # Clean up string and ensure proper format
-            value = value.replace("T", " ")
-            # Remove microseconds and timezone info to match test expectations
-            if "." in value:
-                value = value.split(".")[0]
-            if "+" in value:
-                value = value.split("+")[0]
-            # Force the TIMESTAMP keyword for string values
-            return f"`{col_name}` = TIMESTAMP '{value}'"
-        else:
-            # For any other type, use TIMESTAMP keyword
-            return f"`{col_name}` = TIMESTAMP '{str(value)}'"
-
-    def _create_numeric_filter(self, col_name: str, value: Any) -> str:
-        """
-        Create filter for numeric type columns with enhanced type safety.
-        """
-        if isinstance(value, (int, float)):
-            return f"`{col_name}` = {value}"
-        elif isinstance(value, datetime):
-            # Handle datetime value for a numeric column by converting to unix timestamp
-            unix_timestamp = int(value.timestamp())
-            return f"`{col_name}` = {unix_timestamp}"
-        elif isinstance(value, str):
-            # If it's a string that contains timestamp indications, convert appropriately
-            if ":" in value or "-" in value or "T" in value:
-                try:
-                    # Try to parse as datetime and then to unix timestamp
-                    dt = datetime.fromisoformat(
-                        value.replace("Z", "+00:00").replace("T", " ")
-                    )
-                    unix_timestamp = int(dt.timestamp())
-                    return f"`{col_name}` = {unix_timestamp}"
-                except ValueError:
-                    pass
-
-            # If string can be converted to numeric, use that value
-            try:
-                numeric_value = float(value)
-                return f"`{col_name}` = {numeric_value}"
-            except ValueError:
-                # If all else fails, use a placeholder filter that will evaluate to false
-                logger.warning(
-                    f"Could not convert value '{value}' to numeric for column '{col_name}'"
-                )
-                return f"`{col_name}` = -1 AND FALSE /* Placeholder for incompatible filter */"
-        else:
-            # For any other type, use a placeholder
-            return (
-                f"`{col_name}` = -1 AND FALSE /* Placeholder for incompatible filter */"
-            )
-
-    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for boolean type columns."""
-        # Convert Python boolean to SQL boolean
-        bool_val = str(value).lower()
-        if bool_val in ("true", "false"):
-            return f"`{col_name}` = {bool_val}"
-        else:
-            # Try to handle non-boolean values that might represent booleans
-            return f"`{col_name}` = {bool_val}"
-
-    def _create_default_filter(self, col_name: str, value: Any, data_type: str) -> str:
-        """Create default filter for any other column types."""
-        # Prefer string format when data type is unknown or unhandled
-        if isinstance(value, (int, float)) and data_type:
-            return f"`{col_name}` = {value}"
-        else:
-            # Escape any single quotes in string values
-            if isinstance(value, str):
-                value = value.replace("'", "\\'")
-            return f"`{col_name}` = '{value}'"
-
     def _verify_partition_has_data(
         self,
         table: BigqueryTable,
@@ -1358,7 +1257,7 @@ class BigqueryProfiler(GenericProfiler):
                     )
 
                     # Extract problematic filter
-                    match = re.search(r"at \[(\d+):(\d+)\]", error_str)
+                    match = re.search(r"at \[(\d+):(\d+)]", error_str)
                     if match and len(filters) > int(match.group(1)) - 1:
                         problem_index = int(match.group(1)) - 1
                         problematic_filter = filters[problem_index]
@@ -1467,193 +1366,6 @@ class BigqueryProfiler(GenericProfiler):
 
             logger.warning(
                 "Using syntactically valid filters without data verification"
-            )
-            self._successful_filters_cache[cache_key] = filters
-            return True
-        except Exception as e:
-            logger.debug(f"Filter syntax check failed: {e}")
-
-        return False
-
-    def _verify_with_existence_check(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        max_retries: int,
-        cache_key: str,
-    ) -> bool:
-        """Verify filters using a simple existence check."""
-        existence_query = f"""
-        SELECT 1 
-        FROM `{project}.{schema}.{table.name}`
-        WHERE {where_clause}
-        LIMIT 1
-        """
-
-        query_cache_key = (
-            f"verify_exists_{project}_{schema}_{table.name}_{hash(where_clause)}"
-        )
-
-        # Try the existence check with retry logic
-        for attempt in range(max_retries + 1):
-            try:
-                # Use a shorter timeout for the first attempt
-                current_timeout = max(5, timeout // 2) if attempt == 0 else timeout
-
-                existence_results = self._execute_cached_query(
-                    existence_query, query_cache_key, current_timeout
-                )
-
-                if existence_results:
-                    logger.info(
-                        f"Verified filters return data (existence check, attempt {attempt + 1})"
-                    )
-                    self._successful_filters_cache[cache_key] = filters
-                    return True
-
-                # If empty but didn't error, no need to retry
-                if attempt == 0:
-                    logger.debug(
-                        "Existence check returned no data, trying count approach"
-                    )
-                    break
-
-            except Exception as e:
-                error_str = str(e)
-
-                # Try to fix type mismatch errors
-                fixed_filters = self._fix_type_mismatch_filters(filters, error_str)
-
-                # Retry with fixed filters if we made changes
-                if fixed_filters != filters and attempt < max_retries:
-                    logger.info(f"Attempting with fixed filters: {fixed_filters}")
-                    return self._verify_partition_has_data(
-                        table, project, schema, fixed_filters, timeout, max_retries - 1
-                    )
-
-                if attempt < max_retries:
-                    logger.debug(
-                        f"Existence check attempt {attempt + 1} failed: {e}, retrying..."
-                    )
-                    time.sleep(1)  # Brief pause before retry
-                else:
-                    logger.debug(f"All existence check attempts failed: {e}")
-                    break
-
-        return False
-
-    def _verify_with_count_query(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        cache_key: str,
-    ) -> bool:
-        """Verify filters using a COUNT query."""
-        count_query = f"""
-        SELECT COUNT(*) as cnt
-        FROM `{project}.{schema}.{table.name}`
-        WHERE {where_clause}
-        LIMIT 1000
-        """
-
-        count_key = f"verify_count_{project}_{schema}_{table.name}_{hash(where_clause)}"
-
-        try:
-            count_results = self._execute_cached_query(count_query, count_key, timeout)
-
-            if (
-                count_results
-                and hasattr(count_results[0], "cnt")
-                and count_results[0].cnt > 0
-            ):
-                logger.info(f"Verified filters return {count_results[0].cnt} rows")
-                self._successful_filters_cache[cache_key] = filters
-                return True
-        except Exception as e:
-            logger.debug(f"Count verification failed: {e}")
-
-        return False
-
-    def _verify_with_sample_query(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        cache_key: str,
-    ) -> bool:
-        """Verify filters using TABLESAMPLE for large or external tables."""
-        # Only use for large or external tables
-        if not (
-            table.external
-            or (table.size_in_bytes and table.size_in_bytes > 1_000_000_000)
-        ):
-            return False
-
-        try:
-            # Use a very small sampling rate
-            sample_rate = (
-                0.01 if table.external else 0.1
-            )  # 0.01% for external, 0.1% for internal
-
-            sample_query = f"""
-            SELECT 1 
-            FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)
-            WHERE {where_clause}
-            LIMIT 1
-            """
-
-            sample_key = (
-                f"verify_sample_{project}_{schema}_{table.name}_{hash(where_clause)}"
-            )
-            sample_results = self._execute_cached_query(
-                sample_query, sample_key, timeout
-            )
-
-            if sample_results:
-                logger.info(f"Verified filters using {sample_rate}% sample")
-                self._successful_filters_cache[cache_key] = filters
-                return True
-        except Exception as e:
-            logger.debug(f"Sample verification failed: {e}")
-
-        return False
-
-    def _verify_syntax_only(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        cache_key: str,
-    ) -> bool:
-        """Verify filter syntax without checking for data (last resort)."""
-        # Skip for external or very large tables
-        if table.external or (
-            table.size_in_bytes and table.size_in_bytes > 10_000_000_000
-        ):
-            return False
-
-        try:
-            dummy_query = f"""SELECT 1 WHERE {where_clause} LIMIT 0"""
-
-            dummy_key = f"verify_dummy_{hash(where_clause)}"
-            self._execute_cached_query(dummy_query, dummy_key, 5)  # Very short timeout
-
-            # If we get here, the where clause is at least syntactically valid
-            logger.warning(
-                f"Using syntactically valid filters without data verification: {where_clause}"
             )
             self._successful_filters_cache[cache_key] = filters
             return True
@@ -1969,7 +1681,7 @@ class BigqueryProfiler(GenericProfiler):
                 is_partitioning_column,
                 clustering_ordinal_position
             FROM 
-                `{project}.INFORMATION_SCHEMA.COLUMNS`
+                `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
             WHERE 
                 table_name = '{table.name}'
                 AND (is_partitioning_column = 'YES' OR clustering_ordinal_position IS NOT NULL)
@@ -2001,7 +1713,7 @@ class BigqueryProfiler(GenericProfiler):
                 creation_time,
                 table_type
             FROM
-                `{project}.INFORMATION_SCHEMA.TABLES`
+                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
             WHERE
                 table_name = '{table.name}'
             """
@@ -2021,72 +1733,27 @@ class BigqueryProfiler(GenericProfiler):
                 if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
 
-            # Get storage statistics and modified time from TABLE_STORAGE
-            storage_query = f"""
-            SELECT
-                total_rows,
-                total_logical_bytes,
-                storage_last_modified_time
-            FROM
-                `{project}.INFORMATION_SCHEMA.TABLE_STORAGE`
-            WHERE
-                table_name = '{table.name}'
-            """
-
-            storage_results = self._execute_cached_query(
-                storage_query,
-                f"storage_info_{project}_{schema}_{table.name}",
-                timeout=30,
-            )
-
-            if storage_results and len(storage_results) > 0:
-                row = storage_results[0]
-                if hasattr(row, "total_rows") and row.total_rows is not None:
-                    metadata["row_count"] = row.total_rows
-                if (
-                    hasattr(row, "total_logical_bytes")
-                    and row.total_logical_bytes is not None
-                ):
-                    metadata["size_bytes"] = row.total_logical_bytes
-                if (
-                    hasattr(row, "storage_last_modified_time")
-                    and row.storage_last_modified_time is not None
-                ):
-                    metadata["last_modified_time"] = row.storage_last_modified_time
-
-        except Exception as e:
-            logger.warning(f"Error fetching schema information: {e}")
-
-        return metadata
-
-    def _fetch_table_stats(
-        self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Get additional stats for tables that don't already have them."""
-        if (
-            not metadata.get("row_count")
-            or not metadata.get("size_bytes")
-            or not metadata.get("last_modified_time")
-        ):
+            # Try to get storage statistics - this might fail if TABLE_STORAGE doesn't exist
             try:
-                # Use TABLE_STORAGE for row count, size, and modified time
-                stats_query = f"""
-                SELECT 
+                storage_query = f"""
+                SELECT
                     total_rows,
                     total_logical_bytes,
                     storage_last_modified_time
-                FROM 
+                FROM
                     `{project}.INFORMATION_SCHEMA.TABLE_STORAGE`
-                WHERE 
-                    table_name = '{table_name}'
+                WHERE
+                    table_name = '{table.name}'
                 """
 
-                stats_results = self._execute_cached_query(
-                    stats_query, f"table_stats_{project}_{schema}_{table_name}"
+                storage_results = self._execute_cached_query(
+                    storage_query,
+                    f"storage_info_{project}_{schema}_{table.name}",
+                    timeout=30,
                 )
 
-                if stats_results and len(stats_results) > 0:
-                    row = stats_results[0]
+                if storage_results and len(storage_results) > 0:
+                    row = storage_results[0]
                     if hasattr(row, "total_rows") and row.total_rows is not None:
                         metadata["row_count"] = row.total_rows
                     if (
@@ -2099,36 +1766,375 @@ class BigqueryProfiler(GenericProfiler):
                         and row.storage_last_modified_time is not None
                     ):
                         metadata["last_modified_time"] = row.storage_last_modified_time
-
-                # Get creation time from TABLES view if needed
-                if not metadata.get("creation_time"):
-                    time_query = f"""
-                    SELECT
-                        creation_time
-                    FROM
-                        `{project}.INFORMATION_SCHEMA.TABLES`
-                    WHERE
-                        table_name = '{table_name}'
-                    """
-
-                    time_results = self._execute_cached_query(
-                        time_query, f"table_time_{project}_{schema}_{table_name}"
-                    )
-
-                    if time_results and len(time_results) > 0:
-                        row = time_results[0]
-                        if (
-                            hasattr(row, "creation_time")
-                            and row.creation_time is not None
-                        ):
-                            metadata["creation_time"] = row.creation_time
-
             except Exception as e:
-                logger.warning(
-                    f"Error fetching table stats: {e}, continuing with available metadata"
+                logger.info(
+                    f"TABLE_STORAGE not available, getting table info from alternative source: {e}"
                 )
 
+                # Try to get basic table info from INFORMATION_SCHEMA.TABLES
+                try:
+                    basic_info_query = f"""
+                    SELECT
+                        row_count,
+                        size_bytes,
+                        last_modified_time
+                    FROM
+                        `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                    WHERE
+                        table_name = '{table.name}'
+                    """
+
+                    basic_info_results = self._execute_cached_query(
+                        basic_info_query,
+                        f"basic_info_{project}_{schema}_{table.name}",
+                        timeout=30,
+                    )
+
+                    if basic_info_results and len(basic_info_results) > 0:
+                        row = basic_info_results[0]
+                        if hasattr(row, "row_count") and row.row_count is not None:
+                            metadata["row_count"] = row.row_count
+                        if hasattr(row, "size_bytes") and row.size_bytes is not None:
+                            metadata["size_bytes"] = row.size_bytes
+                        if (
+                            hasattr(row, "last_modified_time")
+                            and row.last_modified_time is not None
+                        ):
+                            metadata["last_modified_time"] = row.last_modified_time
+                except Exception as inner_e:
+                    logger.warning(f"Failed to get alternative table info: {inner_e}")
+
+        except Exception as e:
+            logger.warning(f"Error fetching schema information: {e}")
+
         return metadata
+
+    def _fetch_table_stats(
+        self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Get additional statistics for tables using region-aware queries.
+
+        Args:
+            project: Project ID
+            schema: Dataset name
+            table_name: Table name
+            metadata: Existing metadata dictionary
+
+        Returns:
+            Updated metadata dictionary
+        """
+        if (
+            metadata.get("row_count") is not None
+            and metadata.get("size_bytes") is not None
+            and metadata.get("last_modified_time") is not None
+        ):
+            return metadata  # Already have all the stats
+
+        # Get the correct INFORMATION_SCHEMA path
+        info_schema_path = self._get_information_schema_path(project)
+
+        try:
+            # Try using TABLE_STORAGE for detailed stats with region handling
+            storage_query = f"""
+            SELECT 
+                total_rows as row_count,
+                total_logical_bytes as size_bytes,
+                storage_last_modified_time as last_modified_time
+            FROM 
+                `{info_schema_path}.TABLE_STORAGE`
+            WHERE 
+                table_name = '{table_name}'
+            """
+
+            storage_results = self._execute_cached_query(
+                storage_query, f"table_stats_{project}_{schema}_{table_name}"
+            )
+
+            if storage_results and len(storage_results) > 0:
+                row = storage_results[0]
+                if hasattr(row, "row_count") and row.row_count is not None:
+                    metadata["row_count"] = row.row_count
+                if hasattr(row, "size_bytes") and row.size_bytes is not None:
+                    metadata["size_bytes"] = row.size_bytes
+                if (
+                    hasattr(row, "last_modified_time")
+                    and row.last_modified_time is not None
+                ):
+                    metadata["last_modified_time"] = row.last_modified_time
+        except Exception as e:
+            logger.info(f"TABLE_STORAGE query failed: {e}, trying alternative source")
+
+            # Fall back to TABLES view
+            try:
+                basic_info_query = f"""
+                SELECT
+                    row_count,
+                    size_bytes,
+                    last_modified_time
+                FROM
+                    `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                WHERE
+                    table_name = '{table_name}'
+                """
+
+                basic_info_results = self._execute_cached_query(
+                    basic_info_query,
+                    f"basic_info_{project}_{schema}_{table_name}",
+                    timeout=30,
+                )
+
+                if basic_info_results and len(basic_info_results) > 0:
+                    row = basic_info_results[0]
+                    if hasattr(row, "row_count") and row.row_count is not None:
+                        metadata["row_count"] = row.row_count
+                    if hasattr(row, "size_bytes") and row.size_bytes is not None:
+                        metadata["size_bytes"] = row.size_bytes
+                    if (
+                        hasattr(row, "last_modified_time")
+                        and row.last_modified_time is not None
+                    ):
+                        metadata["last_modified_time"] = row.last_modified_time
+            except Exception as inner_e:
+                logger.warning(f"Failed to get alternative table info: {inner_e}")
+
+        return metadata
+
+    def _get_information_schema_path(
+        self, project_id: str, dataset_name: Optional[str] = None
+    ) -> str:
+        """
+        Get the correct path for INFORMATION_SCHEMA based on the project's region.
+
+        Args:
+            project_id: BigQuery project ID
+            dataset_name: Optional dataset name for dataset-specific schemas
+
+        Returns:
+            Fully qualified path to INFORMATION_SCHEMA
+        """
+        # First check if we have a cached version for this project
+        cache_key = f"info_schema_path_{project_id}"
+        if cache_key in self._query_cache:
+            return self._query_cache[cache_key]
+
+        # Try regions in order - US, EU, etc.
+        regions = ["region-us", "region-eu", "region-asia"]
+
+        for region in regions:
+            try:
+                # Try a simple test query with this region
+                test_query = f"""
+                SELECT 1 
+                FROM `{region}.INFORMATION_SCHEMA.TABLES`
+                LIMIT 1
+                """
+                results = self.config.get_bigquery_client().query(test_query).result()
+                if list(results):
+                    # Region works, cache and return it
+                    path = f"{region}.INFORMATION_SCHEMA"
+                    self._query_cache[cache_key] = path
+                    logger.info(f"Using {path} for project {project_id}")
+                    return path
+            except Exception as e:
+                logger.debug(f"Region {region} not accessible: {e}")
+
+        # If no region-specific path works, fall back to project-level
+        fallback_path = f"{project_id}.INFORMATION_SCHEMA"
+        self._query_cache[cache_key] = fallback_path
+        logger.info(f"Using fallback path {fallback_path} for project {project_id}")
+        return fallback_path
+
+    def _build_external_table_query(
+        self, table: BigqueryTable, project: str, schema: str, approach: str
+    ) -> str:
+        """
+        Build an appropriate query for an external table based on the determined approach.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            approach: Query approach from _get_external_table_query_approach
+
+        Returns:
+            SQL query string with appropriate sampling or filtering
+        """
+        table_path = f"`{project}.{schema}.{table.name}`"
+
+        if approach == "sample":
+            # Use sampling for compatible sources
+            sample_rate = 0.1  # Conservative default
+
+            # Try to extract sample rate from DDL if specified
+            if table.ddl and "SAMPLE_RATE" in table.ddl.upper():
+                try:
+                    rate_match = re.search(r"SAMPLE_RATE\s*=\s*(\d+)", table.ddl)
+                    if rate_match:
+                        extracted_rate = float(rate_match.group(1)) / 100
+                        if 0.001 <= extracted_rate <= 0.1:  # Between 0.1% and 10%
+                            sample_rate = extracted_rate
+                except Exception:
+                    pass  # Use default if extraction fails
+
+            return f"SELECT * FROM {table_path} TABLESAMPLE SYSTEM ({sample_rate * 100:.2f} PERCENT)"
+
+        elif approach == "filter":
+            # Try to get partition filters
+            filters = self._get_required_partition_filters(table, project, schema)
+            if filters:
+                filter_clause = " AND ".join(filters)
+                return f"SELECT * FROM {table_path} WHERE {filter_clause}"
+
+            # If no partition filters, try a reasonable date range limit
+            return f"""
+            SELECT * FROM {table_path} 
+            WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+            """
+
+        elif approach == "direct":
+            # Direct approach with no sampling or filtering
+            # Add a LIMIT to avoid scanning the entire table
+            return f"SELECT * FROM {table_path} LIMIT 10000"
+
+        # Default fallback
+        return f"SELECT * FROM {table_path} LIMIT 1000"
+
+    def _check_external_table_capabilities(
+        self, table: BigqueryTable
+    ) -> Dict[str, bool]:
+        """
+        Determine capabilities of an external table based on its type.
+
+        Args:
+            table: BigqueryTable instance
+
+        Returns:
+            Dictionary of capabilities (supports_sampling, supports_partitioning, etc.)
+        """
+        if not table.external or not table.ddl:
+            return {
+                "supports_sampling": True,
+                "supports_partitioning": True,
+                "supports_filtering": True,
+            }
+
+        ddl_upper = table.ddl.upper()
+        capabilities = {
+            "supports_sampling": False,
+            "supports_partitioning": False,
+            "supports_filtering": False,
+        }
+
+        # File-based sources generally support all features
+        if any(
+            fmt in ddl_upper
+            for fmt in [
+                "FORMAT = 'CSV'",
+                "FORMAT = 'AVRO'",
+                "FORMAT = 'PARQUET'",
+                "FORMAT = 'ORC'",
+                "FORMAT = 'NEWLINE_DELIMITED_JSON'",
+            ]
+        ):
+            capabilities.update(
+                {
+                    "supports_sampling": True,
+                    "supports_partitioning": True,
+                    "supports_filtering": True,
+                }
+            )
+
+        # Iceberg tables support partitioning and filtering
+        elif (
+            "ICEBERG" in ddl_upper
+            or "DELTA" in ddl_upper
+            or "DELTA LAKE" in ddl_upper
+            or "HIVE" in ddl_upper
+        ):
+            capabilities.update(
+                {
+                    "supports_sampling": False,
+                    "supports_partitioning": True,
+                    "supports_filtering": True,
+                }
+            )
+
+        # External DBMS sources
+        elif any(
+            src in ddl_upper
+            for src in [
+                "BIGTABLE",
+                "SPANNER",
+                "GOOGLE_SHEETS",
+                "BIGQUERY_VIEW",
+                "CLOUD_SQL",
+                "ALLOYDB",
+                "JDBC",
+                "ODBC",
+            ]
+        ):
+            capabilities.update(
+                {
+                    "supports_sampling": False,
+                    "supports_partitioning": False,
+                    "supports_filtering": True,
+                }
+            )
+
+        # Cloud storage
+        elif any(src in ddl_upper for src in ["GCS", "GCS_PATH", "S3", "AZURE_BLOB"]):
+            capabilities.update(
+                {
+                    "supports_sampling": True,
+                    "supports_partitioning": True,
+                    "supports_filtering": True,
+                }
+            )
+
+        return capabilities
+
+    def _get_external_table_query_approach(
+        self, table: BigqueryTable, project: str, schema: str
+    ) -> str:
+        """
+        Determine the best query approach for an external table based on its source type.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+
+        Returns:
+            Query approach: "sample", "filter", "direct", or "custom"
+        """
+        if not table.external:
+            return "direct"
+
+        # Check table capabilities to determine the best approach
+        capabilities = self._check_external_table_capabilities(table)
+
+        # If sampling is supported and we have SAMPLE_RATE in DDL, prioritize that
+        if (
+            capabilities["supports_sampling"]
+            and table.ddl
+            and "SAMPLE_RATE" in table.ddl.upper()
+        ):
+            return "sample"
+
+        # If we support partitioning, try filters first - safest for most external sources
+        if capabilities["supports_partitioning"]:
+            # Check if we have partition columns
+            metadata = self._get_table_metadata(table, project, schema)
+            if metadata["partition_columns"]:
+                return "filter"
+
+        # If sampling is supported, use that as fallback
+        if capabilities["supports_sampling"]:
+            return "sample"
+
+        # Last resort - direct approach with limits
+        return "direct"
 
     def _try_time_hierarchy_approach(
         self,
@@ -2718,7 +2724,24 @@ class BigqueryProfiler(GenericProfiler):
 
         self._queried_tables.add(table_key)
 
-        # Get partition filters
+        # For external tables, determine the best approach based on table type
+        if bq_table.external:
+            approach = self._get_external_table_query_approach(
+                bq_table, db_name, schema_name
+            )
+            custom_sql = self._build_external_table_query(
+                bq_table, db_name, schema_name, approach
+            )
+
+            logger.info(
+                f"Using {approach} approach for external table {table_key} "
+                f"(took {time.time() - start_time:.2f}s)"
+            )
+
+            base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
+            return base_kwargs
+
+        # For regular tables, get partition filters
         partition_filters = self._get_required_partition_filters(
             bq_table, db_name, schema_name
         )
@@ -2736,18 +2759,6 @@ class BigqueryProfiler(GenericProfiler):
                 f"Empty partition filters for {table_key} "
                 f"(took {time.time() - start_time:.2f}s)"
             )
-
-            # For external tables, add TABLESAMPLE hint for safe profiling if empty filters
-            if bq_table.external:
-                # Use a very small sample rate (0.1%) to avoid OOM errors
-                sample_rate = 0.1
-                custom_sql = f"""SELECT * 
-        FROM `{db_name}.{schema_name}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)"""
-
-                base_kwargs.update(
-                    {"custom_sql": custom_sql, "partition_handling": "true"}
-                )
-
             return base_kwargs
 
         # Construct query with partition filters and appropriate optimization hints
@@ -2760,11 +2771,10 @@ class BigqueryProfiler(GenericProfiler):
             and bq_table.size_in_bytes > 5_000_000_000
             or bq_table.rows_count
             and bq_table.rows_count > 50_000_000
-            or bq_table.external  # IMPORTANT: Always add hints for external tables
             or bq_table.rows_count == 0  # IMPORTANT: Be careful with 0 row tables
             or bq_table.rows_count
             is None  # IMPORTANT: Be careful with unknown row counts
-        ):  # > 5GB or external
+        ):  # > 5GB or has many rows
             needs_optimization_hints = True
 
         if needs_optimization_hints:
