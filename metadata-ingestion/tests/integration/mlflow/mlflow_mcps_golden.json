@@ -289,15 +289,10 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "outputs": [],
-            "outputEdges": [
-                {
-                    "destinationUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
-                }
-            ]
+            "container": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815"
         }
     },
     "systemMetadata": {
@@ -310,10 +305,15 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815"
+            "outputs": [],
+            "outputEdges": [
+                {
+                    "destinationUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
