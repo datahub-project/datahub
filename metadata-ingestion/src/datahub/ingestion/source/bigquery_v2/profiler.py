@@ -1529,46 +1529,29 @@ class BigqueryProfiler(GenericProfiler):
         self, table: BigqueryTable, project: str, schema: str, metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fetch schema information from INFORMATION_SCHEMA."""
-        if not hasattr(self, "_column_name_mapping"):
-            self._detect_bq_schema_version()
-
-        # Get column name mappings
-        row_count_col = self._column_name_mapping.get("row_count", "row_count")
-        size_bytes_col = self._column_name_mapping.get("size_bytes", "size_bytes")
-
-        # Use explicit column selection and aliases to avoid issues
-        combined_query = f"""
-        SELECT 
-            c.column_name,
-            c.data_type,
-            c.is_partitioning_column,
-            c.clustering_ordinal_position,
-            t.{row_count_col} as row_count,
-            t.{size_bytes_col} as size_bytes,
-            t.ddl,
-            t.creation_time,
-            t.last_modified_time,
-            t.table_type
-        FROM 
-            `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS` c
-        JOIN
-            `{project}.{schema}.INFORMATION_SCHEMA.TABLES` t
-        ON
-            c.table_name = t.table_name
-        WHERE 
-            c.table_name = '{table.name}'
-            AND (c.is_partitioning_column = 'YES' OR c.clustering_ordinal_position IS NOT NULL)
-        """
-
         try:
-            schema_results = self._execute_cached_query(
-                combined_query,
-                f"schema_info_{project}_{schema}_{table.name}",
+            # Get partition and clustering info from COLUMNS
+            columns_query = f"""
+            SELECT 
+                column_name,
+                data_type,
+                is_partitioning_column,
+                clustering_ordinal_position
+            FROM 
+                `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+            WHERE 
+                table_name = '{table.name}'
+                AND (is_partitioning_column = 'YES' OR clustering_ordinal_position IS NOT NULL)
+            """
+
+            columns_results = self._execute_cached_query(
+                columns_query,
+                f"columns_info_{project}_{schema}_{table.name}",
                 timeout=45,
             )
 
-            # Process results for partition and clustering columns
-            for row in schema_results:
+            # Process partition and clustering columns
+            for row in columns_results:
                 # Update partition columns
                 if row.is_partitioning_column == "YES":
                     metadata["partition_columns"][row.column_name] = row.data_type
@@ -1580,41 +1563,63 @@ class BigqueryProfiler(GenericProfiler):
                         "data_type": row.data_type,
                     }
 
-                # Update table metadata from first row (all rows have same values)
-                # Use hasattr with default values to handle missing attributes safely
-                if (
-                    hasattr(row, "row_count")
-                    and row.row_count
-                    and not metadata["row_count"]
-                ):
-                    metadata["row_count"] = row.row_count
+            # Get table metadata from TABLES
+            table_query = f"""
+            SELECT
+                ddl,
+                creation_time,
+                last_modified_time,
+                table_type
+            FROM
+                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+            WHERE
+                table_name = '{table.name}'
+            """
 
-                if (
-                    hasattr(row, "size_bytes")
-                    and row.size_bytes
-                    and not metadata["size_bytes"]
-                ):
-                    metadata["size_bytes"] = row.size_bytes
+            table_results = self._execute_cached_query(
+                table_query,
+                f"table_info_{project}_{schema}_{table.name}",
+                timeout=30,
+            )
 
-                if hasattr(row, "ddl") and row.ddl and not metadata["ddl"]:
+            if table_results and len(table_results) > 0:
+                row = table_results[0]
+                if hasattr(row, "ddl") and row.ddl:
                     metadata["ddl"] = row.ddl
-
-                if (
-                    hasattr(row, "creation_time")
-                    and row.creation_time
-                    and not metadata.get("creation_time")
-                ):
+                if hasattr(row, "creation_time") and row.creation_time:
                     metadata["creation_time"] = row.creation_time
-
-                if (
-                    hasattr(row, "last_modified_time")
-                    and row.last_modified_time
-                    and not metadata.get("last_modified_time")
-                ):
+                if hasattr(row, "last_modified_time") and row.last_modified_time:
                     metadata["last_modified_time"] = row.last_modified_time
-
                 if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
+
+            # Get storage statistics separately
+            storage_query = f"""
+            SELECT
+                total_rows,
+                total_logical_bytes
+            FROM
+                `{project}.{schema}.INFORMATION_SCHEMA.TABLE_STORAGE`
+            WHERE
+                table_name = '{table.name}'
+            """
+
+            storage_results = self._execute_cached_query(
+                storage_query,
+                f"storage_info_{project}_{schema}_{table.name}",
+                timeout=30,
+            )
+
+            if storage_results and len(storage_results) > 0:
+                row = storage_results[0]
+                if hasattr(row, "total_rows") and row.total_rows is not None:
+                    metadata["row_count"] = row.total_rows
+                if (
+                    hasattr(row, "total_logical_bytes")
+                    and row.total_logical_bytes is not None
+                ):
+                    metadata["size_bytes"] = row.total_logical_bytes
+
         except Exception as e:
             logger.warning(f"Error fetching schema information: {e}")
 
@@ -1623,39 +1628,52 @@ class BigqueryProfiler(GenericProfiler):
     def _fetch_table_stats(
         self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Fetch additional table stats if needed."""
+        """Fetch additional table stats from the correct INFORMATION_SCHEMA view."""
         if not metadata.get("row_count") or not metadata.get("size_bytes"):
-            if not hasattr(self, "_column_name_mapping"):
-                self._detect_bq_schema_version()
-
-            # Get column name mappings
-            row_count_col = self._column_name_mapping.get("row_count", "row_count")
-            size_bytes_col = self._column_name_mapping.get("size_bytes", "size_bytes")
-
-            # Use explicit column selection with aliases
-            stats_query = f"""
-            SELECT 
-                {row_count_col} as row_count,
-                {size_bytes_col} as size_bytes,
-                creation_time,
-                last_modified_time
-            FROM 
-                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-            WHERE 
-                table_name = '{table_name}'
-            """
-
             try:
+                # Use TABLE_STORAGE which has the row count and size information
+                stats_query = f"""
+                SELECT 
+                    total_rows,
+                    total_logical_bytes,
+                    total_physical_bytes
+                FROM 
+                    `{project}.{schema}.INFORMATION_SCHEMA.TABLE_STORAGE`
+                WHERE 
+                    table_name = '{table_name}'
+                """
+
                 stats_results = self._execute_cached_query(
                     stats_query, f"table_stats_{project}_{schema}_{table_name}"
                 )
 
-                if stats_results:
+                if stats_results and len(stats_results) > 0:
                     row = stats_results[0]
-                    if hasattr(row, "row_count") and row.row_count is not None:
-                        metadata["row_count"] = row.row_count
-                    if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                        metadata["size_bytes"] = row.size_bytes
+                    if hasattr(row, "total_rows") and row.total_rows is not None:
+                        metadata["row_count"] = row.total_rows
+                    if (
+                        hasattr(row, "total_logical_bytes")
+                        and row.total_logical_bytes is not None
+                    ):
+                        metadata["size_bytes"] = row.total_logical_bytes
+
+                # Get creation time and last modified time from TABLES view
+                time_query = f"""
+                SELECT
+                    creation_time,
+                    last_modified_time
+                FROM
+                    `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                WHERE
+                    table_name = '{table_name}'
+                """
+
+                time_results = self._execute_cached_query(
+                    time_query, f"table_time_{project}_{schema}_{table_name}"
+                )
+
+                if time_results and len(time_results) > 0:
+                    row = time_results[0]
                     if hasattr(row, "creation_time") and row.creation_time is not None:
                         metadata["creation_time"] = row.creation_time
                     if (
@@ -1663,6 +1681,7 @@ class BigqueryProfiler(GenericProfiler):
                         and row.last_modified_time is not None
                     ):
                         metadata["last_modified_time"] = row.last_modified_time
+
             except Exception as e:
                 logger.warning(
                     f"Error fetching table stats: {e}, continuing with available metadata"
