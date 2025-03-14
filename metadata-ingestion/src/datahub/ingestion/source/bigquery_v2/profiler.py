@@ -931,11 +931,31 @@ class BigqueryProfiler(GenericProfiler):
         self, col_name: str, value: Any, data_type: str
     ) -> Optional[str]:
         """
-        Create a filter string for a single column based on its data type.
+        Create a filter string for a single column based on its data type with improved
+        type handling to prevent INT64/TIMESTAMP mismatches.
         """
         # Handle NULL values
         if value is None:
             return f"`{col_name}` IS NULL"
+
+        # Convert data_type to uppercase for consistent comparisons
+        data_type = data_type.upper()
+
+        # Special case 1: datetime value for an INT64 column
+        if isinstance(value, datetime) and data_type in (
+            "INT64",
+            "INTEGER",
+            "INT",
+            "BIGINT",
+        ):
+            # Convert datetime to unix timestamp (seconds since epoch)
+            unix_timestamp = int(value.timestamp())
+            return f"`{col_name}` = {unix_timestamp}"
+
+        # Special case 2: integer value for a TIMESTAMP column
+        if isinstance(value, (int, float)) and data_type in ("TIMESTAMP", "DATETIME"):
+            # Treat integer as unix seconds
+            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
 
         # Group data types into categories for easier handling
         string_types = {"STRING", "VARCHAR", "BIGNUMERIC", "JSON"}
@@ -955,18 +975,7 @@ class BigqueryProfiler(GenericProfiler):
         }
         boolean_types = {"BOOL", "BOOLEAN"}
 
-        # Special case: Detect type mismatch between datetime and numeric types
-        if isinstance(value, datetime) and data_type.upper() in numeric_types:
-            # Convert datetime to unix timestamp (seconds since epoch)
-            unix_timestamp = int(value.timestamp())
-            return f"`{col_name}` = {unix_timestamp}"
-
-        # Special case: Numeric value for timestamp column
-        if isinstance(value, (int, float)) and data_type.upper() in timestamp_types:
-            # Interpret as unix timestamp
-            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
-
-        # Dispatch to type-specific handlers with additional safety checks
+        # Dispatch to type-specific handlers
         if data_type in string_types:
             return self._create_string_filter(col_name, value, data_type)
         elif data_type in date_types:
@@ -1007,48 +1016,68 @@ class BigqueryProfiler(GenericProfiler):
             return f"`{col_name}` = '{value}'"
 
     def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for timestamp and datetime columns."""
+        """
+        Create filter for timestamp and datetime columns with enhanced type safety.
+        """
         if isinstance(value, datetime):
-            # Use proper format for timestamp literals
+            # Format datetime as string in BigQuery-compatible format
             timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
             return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
         elif isinstance(value, (int, float)):
-            # Interpret numeric values as unix timestamps
+            # For numeric values, explicitly use TIMESTAMP_SECONDS
             return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
         elif isinstance(value, str):
-            # Safely try to interpret string as timestamp
-            try:
-                # Try to parse as datetime to validate
-                if "T" in value:
-                    # ISO format, convert to BigQuery timestamp format
-                    value = value.replace("T", " ")
-                return f"`{col_name}` = TIMESTAMP '{value}'"
-            except ValueError:
-                # If parsing fails, wrap in CAST to let BigQuery handle it
-                return f"`{col_name}` = CAST('{value}' AS TIMESTAMP)"
+            # For string values, try to use appropriate casting based on format
+            if "T" in value:
+                # Looks like ISO format, normalize for BigQuery
+                value = value.replace("T", " ")
+                if value.endswith("Z"):
+                    value = value[:-1]  # Remove Z suffix
+
+            # Use safe casting that works regardless of string format
+            return f"`{col_name}` = CAST('{value}' AS TIMESTAMP)"
         else:
-            # Convert to string first to ensure proper formatting
+            # For any other type, convert to string and use CAST
             return f"`{col_name}` = CAST('{str(value)}' AS TIMESTAMP)"
 
     def _create_numeric_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for numeric type columns."""
+        """
+        Create filter for numeric type columns with enhanced type safety.
+        """
         if isinstance(value, (int, float)):
             return f"`{col_name}` = {value}"
         elif isinstance(value, datetime):
-            # Handle edge case: datetime value for a numeric column
+            # Handle datetime value for a numeric column by converting to unix timestamp
             unix_timestamp = int(value.timestamp())
             return f"`{col_name}` = {unix_timestamp}"
-        else:
-            # Try to convert to numeric safely
+        elif isinstance(value, str):
+            # If it's a string that contains timestamp indications, convert appropriately
+            if ":" in value or "-" in value or "T" in value:
+                try:
+                    # Try to parse as datetime and then to unix timestamp
+                    dt = datetime.fromisoformat(
+                        value.replace("Z", "+00:00").replace("T", " ")
+                    )
+                    unix_timestamp = int(dt.timestamp())
+                    return f"`{col_name}` = {unix_timestamp}"
+                except ValueError:
+                    pass
+
+            # If string can be converted to numeric, use that value
             try:
                 numeric_value = float(value)
                 return f"`{col_name}` = {numeric_value}"
-            except (ValueError, TypeError):
-                # If conversion fails, use a safe default that won't break the query
+            except ValueError:
+                # If all else fails, use a placeholder filter that will evaluate to false
                 logger.warning(
                     f"Could not convert value '{value}' to numeric for column '{col_name}'"
                 )
-                return f"`{col_name}` = 0"  # Safe fallback
+                return f"`{col_name}` = -1 AND FALSE /* Placeholder for incompatible filter */"
+        else:
+            # For any other type, use a placeholder
+            return (
+                f"`{col_name}` = -1 AND FALSE /* Placeholder for incompatible filter */"
+            )
 
     def _create_boolean_filter(self, col_name: str, value: Any) -> str:
         """Create filter for boolean type columns."""
@@ -1131,7 +1160,9 @@ class BigqueryProfiler(GenericProfiler):
     def _fix_type_mismatch_filters(
         self, filters: List[str], error_str: str
     ) -> List[str]:
-        """Fix filters with type mismatches."""
+        """
+        Fix type mismatch errors in filters with improved detection and conversion.
+        """
         logger.warning(f"Type mismatch error in filter: {error_str}")
 
         fixed_filters = []
@@ -1143,17 +1174,35 @@ class BigqueryProfiler(GenericProfiler):
                     col = col.strip()
                     val = val.strip()
 
-                    if "TIMESTAMP" in val and (
-                        "INT" in error_str or "INT64" in error_str
-                    ):
-                        fixed_filter = f"{col} = UNIX_SECONDS({val})"
-                        fixed_filters.append(fixed_filter)
-                        continue
-                    elif val.isdigit() and "TIMESTAMP" in error_str:
-                        fixed_filter = f"{col} = TIMESTAMP_SECONDS({val})"
-                        fixed_filters.append(fixed_filter)
-                        continue
+                    # INT64 column with TIMESTAMP value
+                    if "INT64" in error_str and "TIMESTAMP" in error_str:
+                        if "TIMESTAMP" in val:
+                            # Convert TIMESTAMP to unix seconds
+                            fixed_filter = f"{col} = UNIX_SECONDS({val})"
+                            fixed_filters.append(fixed_filter)
+                            continue
+                        elif val.isdigit():
+                            # Convert numeric to TIMESTAMP
+                            fixed_filter = f"{col} = TIMESTAMP_SECONDS({val})"
+                            fixed_filters.append(fixed_filter)
+                            continue
+                    # Special case for other type mismatches
+                    elif "INT64" in error_str and "'" in val:
+                        # String value being compared to INT64
+                        try:
+                            # Try to convert string to int
+                            cleaned_val = val.strip("'")
+                            int_val = int(float(cleaned_val))
+                            fixed_filter = f"{col} = {int_val}"
+                            fixed_filters.append(fixed_filter)
+                            continue
+                        except (ValueError, TypeError):
+                            # If conversion fails, use a safe filter that will evaluate to false
+                            fixed_filter = f"{col} = -1 AND FALSE /* Placeholder for incompatible filter */"
+                            fixed_filters.append(fixed_filter)
+                            continue
 
+            # Keep unchanged filters
             fixed_filters.append(filter_str)
 
         return fixed_filters
@@ -1248,7 +1297,7 @@ class BigqueryProfiler(GenericProfiler):
         max_retries: int,
         cache_key: str,
     ) -> bool:
-        """Try a simple existence check."""
+        """Try a simple existence check with improved error handling."""
         existence_query = f"""
         SELECT 1 
         FROM `{project}.{schema}.{table.name}`
@@ -1278,7 +1327,12 @@ class BigqueryProfiler(GenericProfiler):
 
             except Exception as e:
                 error_str = str(e)
-                if self._is_type_mismatch_error(error_str):
+
+                # Handle type mismatch errors
+                if "No matching signature for operator =" in error_str and (
+                    "TIMESTAMP" in error_str or "INT64" in error_str
+                ):
+                    # Try fixing the filters
                     fixed_filters = self._fix_type_mismatch_filters(filters, error_str)
                     if fixed_filters != filters:
                         logger.info(f"Attempting with fixed filters: {fixed_filters}")
@@ -1290,6 +1344,39 @@ class BigqueryProfiler(GenericProfiler):
                             timeout,
                             max_retries - 1,
                         )
+
+                    # If fixing didn't work, try to identify the problematic filter
+                    if attempt == max_retries:
+                        logger.warning(
+                            "Could not fix type mismatch, trying individual filters"
+                        )
+                        # Try each filter individually to find ones that work
+                        working_filters = []
+                        for single_filter in filters:
+                            try:
+                                # Skip filters that contain timestamp/date literals if comparing to INT64
+                                if "INT64" in error_str and (
+                                    "TIMESTAMP" in single_filter
+                                    or "DATE" in single_filter
+                                ):
+                                    continue
+                                # Test if this individual filter works
+                                single_query = f"""
+                                SELECT 1 FROM `{project}.{schema}.{table.name}`
+                                WHERE {single_filter} LIMIT 1
+                                """
+                                self._execute_cached_query(single_query, None, 5)
+                                working_filters.append(single_filter)
+                            except Exception:
+                                pass
+
+                        if working_filters:
+                            logger.info(
+                                f"Found {len(working_filters)} working filters out of {len(filters)}"
+                            )
+                            return self._verify_partition_has_data(
+                                table, project, schema, working_filters, timeout, 1
+                            )
 
                 if attempt < max_retries:
                     logger.debug(f"Existence check failed: {e}, retrying...")
@@ -2431,72 +2518,113 @@ class BigqueryProfiler(GenericProfiler):
                 f"Table {table.name} is small ({table.size_in_bytes / 1_000_000:.2f} MB, {table.rows_count:,} rows)"
             )
 
-        # Get table metadata including partition columns
-        metadata = self._get_table_metadata(table, project, schema)
-        partition_columns = metadata["partition_columns"]
+        try:
+            # Get table metadata including partition columns
+            metadata = self._get_table_metadata(table, project, schema)
+            partition_columns = metadata["partition_columns"]
 
-        # If no partition columns found, this table doesn't require partition filters
-        if not partition_columns:
-            logger.debug(f"No partition columns found for table {table.name}")
+            # If no partition columns found, this table doesn't require partition filters
+            if not partition_columns:
+                logger.debug(f"No partition columns found for table {table.name}")
+                return None
+
+            logger.info(
+                f"Found partition columns for {table.name}: {partition_columns}"
+            )
+
+            # For small tables with partitioning, we can try without filters first
+            # But NOT for external tables - they should be handled cautiously
+            if is_small_table and not table.external:
+                logger.info(
+                    "Small table with partitioning, checking if full scan is viable"
+                )
+                try:
+                    count_query = f"""
+                            SELECT COUNT(*) 
+                            FROM `{project}.{schema}.{table.name}`
+                            LIMIT 10
+                            """
+                    results = self._execute_cached_query(
+                        count_query,
+                        f"small_table_check_{project}_{schema}_{table.name}",
+                        timeout=15,
+                    )
+                    if results:
+                        logger.info(
+                            "Small partitioned table can be scanned without filters"
+                        )
+                        self._successful_filters_cache[table_key] = []
+                        return []
+                except Exception as e:
+                    logger.debug(f"Small table scan check failed: {e}")
+
+            # Handle external tables specially
+            if table.external:
+                filters = self._get_external_table_partition_filters(
+                    table, project, schema, timeout=60
+                )
+                if filters is not None:  # Could be empty list []
+                    self._successful_filters_cache[table_key] = filters
+                    return filters
+
+            # Handle different partitioning approaches
+            # First, try time-based partitioning
+            time_filters = self._process_time_partitioning(
+                table, project, schema, metadata, timeout=45
+            )
+            if time_filters is not None:
+                self._successful_filters_cache[table_key] = time_filters
+                return time_filters
+
+            # Then try standard partitioning approach
+            standard_filters = self._process_standard_partitioning(
+                table, project, schema, metadata, timeout=60
+            )
+            if standard_filters is not None:
+                self._successful_filters_cache[table_key] = standard_filters
+                return standard_filters
+
+            # If we reach here, we couldn't find any working filters
+            logger.warning(f"No partition filters could be determined for {table.name}")
+
+            # Emergency fallback for external tables
+            if table.external:
+                logger.warning("Using empty filter list for external table as fallback")
+                return []
+
+            # Emergency fallback for regular tables with partitioning
+            if partition_columns:
+                emergency_filter = self._get_emergency_partition_filter(
+                    table, project, schema
+                )
+                if emergency_filter:
+                    logger.info(f"Using emergency partition filter: {emergency_filter}")
+                    self._successful_filters_cache[table_key] = [emergency_filter]
+                    return [emergency_filter]
+
             return None
 
-        logger.info(f"Found partition columns for {table.name}: {partition_columns}")
+        except Exception as e:
+            logger.warning(f"Error determining partition filters: {e}")
 
-        # For small tables with partitioning, we can try without filters first
-        # But NOT for external tables - they should be handled cautiously
-        if is_small_table and not table.external:
-            logger.info(
-                "Small table with partitioning, checking if full scan is viable"
-            )
+            # Handle error cases gracefully
+            if table.external:
+                # For external tables, use TABLESAMPLE as fallback
+                logger.info("Using empty filter list for external table due to error")
+                return []
+
+            # Try emergency filter for regular tables
             try:
-                count_query = f"""
-                        SELECT COUNT(*) 
-                        FROM `{project}.{schema}.{table.name}`
-                        LIMIT 10
-                        """
-                results = self._execute_cached_query(
-                    count_query,
-                    f"small_table_check_{project}_{schema}_{table.name}",
-                    timeout=15,
+                emergency_filter = self._get_emergency_partition_filter(
+                    table, project, schema
                 )
-                if results:
-                    logger.info(
-                        "Small partitioned table can be scanned without filters"
-                    )
-                    self._successful_filters_cache[table_key] = []
-                    return []
-            except Exception as e:
-                logger.debug(f"Small table scan check failed: {e}")
+                if emergency_filter:
+                    logger.info(f"Using emergency partition filter: {emergency_filter}")
+                    return [emergency_filter]
+            except Exception:
+                pass
 
-        # Handle external tables specially
-        if table.external:
-            filters = self._get_external_table_partition_filters(
-                table, project, schema, timeout=60
-            )
-            if filters is not None:  # Could be empty list []
-                self._successful_filters_cache[table_key] = filters
-                return filters
-
-        # Handle different partitioning approaches
-        # First, try time-based partitioning
-        time_filters = self._process_time_partitioning(
-            table, project, schema, metadata, timeout=45
-        )
-        if time_filters is not None:
-            self._successful_filters_cache[table_key] = time_filters
-            return time_filters
-
-        # Then try standard partitioning approach
-        standard_filters = self._process_standard_partitioning(
-            table, project, schema, metadata, timeout=60
-        )
-        if standard_filters is not None:
-            self._successful_filters_cache[table_key] = standard_filters
-            return standard_filters
-
-        # If we reach here, we couldn't find any working filters
-        logger.warning(f"No partition filters could be determined for {table.name}")
-        return None
+            return None
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -2600,6 +2728,51 @@ class BigqueryProfiler(GenericProfiler):
 
         base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
         return base_kwargs
+
+    def _get_emergency_partition_filter(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Optional[str]:
+        """Get an emergency partition filter that will work with minimal data."""
+        try:
+            # Check for date/time columns with simple filters
+            # that won't trigger type conversion issues
+            query = f"""
+            SELECT column_name 
+            FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+            WHERE table_name = '{table.name}'
+            AND data_type IN ('DATE', 'TIMESTAMP', 'DATETIME')
+            LIMIT 5
+            """
+
+            results = self._execute_cached_query(query, timeout=10)
+            for row in results:
+                col_name = row.column_name
+
+                # Try a simple date comparison that worked in the last week
+                filter_str = f"`{col_name}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+
+                # Check if filter works
+                test_query = f"""
+                SELECT 1 FROM `{project}.{schema}.{table.name}`
+                WHERE {filter_str}
+                LIMIT 1
+                """
+
+                try:
+                    test_results = self._execute_cached_query(test_query, timeout=10)
+                    if test_results:
+                        return filter_str
+                except Exception:
+                    pass
+
+            # If no date/time columns work, try other simple filters
+            return None
+        except Exception as e:
+            logger.warning(f"Emergency filter generation failed: {e}")
+            return None
 
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
