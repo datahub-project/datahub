@@ -932,14 +932,6 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Optional[str]:
         """
         Create a filter string for a single column based on its data type.
-
-        Args:
-            col_name: Column name
-            value: Column value
-            data_type: Column data type
-
-        Returns:
-            Filter string or None if no filter could be created
         """
         # Handle NULL values
         if value is None:
@@ -963,7 +955,18 @@ class BigqueryProfiler(GenericProfiler):
         }
         boolean_types = {"BOOL", "BOOLEAN"}
 
-        # Dispatch to type-specific handlers
+        # Special case: Detect type mismatch between datetime and numeric types
+        if isinstance(value, datetime) and data_type.upper() in numeric_types:
+            # Convert datetime to unix timestamp (seconds since epoch)
+            unix_timestamp = int(value.timestamp())
+            return f"`{col_name}` = {unix_timestamp}"
+
+        # Special case: Numeric value for timestamp column
+        if isinstance(value, (int, float)) and data_type.upper() in timestamp_types:
+            # Interpret as unix timestamp
+            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
+
+        # Dispatch to type-specific handlers with additional safety checks
         if data_type in string_types:
             return self._create_string_filter(col_name, value, data_type)
         elif data_type in date_types:
@@ -1006,32 +1009,46 @@ class BigqueryProfiler(GenericProfiler):
     def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
         """Create filter for timestamp and datetime columns."""
         if isinstance(value, datetime):
-            # Fix: Ensure timestamp format has the time part properly enclosed in quotes
+            # Use proper format for timestamp literals
             timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
             return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
+        elif isinstance(value, (int, float)):
+            # Interpret numeric values as unix timestamps
+            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
         elif isinstance(value, str):
-            # Fix: Ensure proper formatting for string timestamps
-            if "T" in value:
-                # Replace T with space for BigQuery compatibility
-                value = value.replace("T", " ")
-
-            # Make sure there's no trailing time component outside the quotes
-            if " " in value:
-                # Contains time part, use as is but ensure proper quoting
+            # Safely try to interpret string as timestamp
+            try:
+                # Try to parse as datetime to validate
+                if "T" in value:
+                    # ISO format, convert to BigQuery timestamp format
+                    value = value.replace("T", " ")
                 return f"`{col_name}` = TIMESTAMP '{value}'"
-            elif len(value) == 10 and "-" in value:
-                # Date only (YYYY-MM-DD), add zeros for time
-                return f"`{col_name}` = TIMESTAMP '{value} 00:00:00'"
-            else:
-                # Last resort, try simple equality
-                return f"`{col_name}` = TIMESTAMP '{value}'"
+            except ValueError:
+                # If parsing fails, wrap in CAST to let BigQuery handle it
+                return f"`{col_name}` = CAST('{value}' AS TIMESTAMP)"
         else:
             # Convert to string first to ensure proper formatting
-            return f"`{col_name}` = TIMESTAMP '{str(value)}'"
+            return f"`{col_name}` = CAST('{str(value)}' AS TIMESTAMP)"
 
     def _create_numeric_filter(self, col_name: str, value: Any) -> str:
         """Create filter for numeric type columns."""
-        return f"`{col_name}` = {value}"
+        if isinstance(value, (int, float)):
+            return f"`{col_name}` = {value}"
+        elif isinstance(value, datetime):
+            # Handle edge case: datetime value for a numeric column
+            unix_timestamp = int(value.timestamp())
+            return f"`{col_name}` = {unix_timestamp}"
+        else:
+            # Try to convert to numeric safely
+            try:
+                numeric_value = float(value)
+                return f"`{col_name}` = {numeric_value}"
+            except (ValueError, TypeError):
+                # If conversion fails, use a safe default that won't break the query
+                logger.warning(
+                    f"Could not convert value '{value}' to numeric for column '{col_name}'"
+                )
+                return f"`{col_name}` = 0"  # Safe fallback
 
     def _create_boolean_filter(self, col_name: str, value: Any) -> str:
         """Create filter for boolean type columns."""
@@ -1064,24 +1081,12 @@ class BigqueryProfiler(GenericProfiler):
         max_retries: int = 2,
     ) -> bool:
         """
-        Verify that the partition filters actually return data with improved efficiency,
-        retry logic, and progressive fallback strategies.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-            filters: List of partition filter strings
-            timeout: Query timeout in seconds
-            max_retries: Maximum number of retry attempts
-
-        Returns:
-            True if data exists, False otherwise
+        Verify that partition filters return data.
         """
         if not filters:
             return False
 
-        # Check if we've already verified these filters for this table
+        # Check cache first
         cache_key = f"{project}.{schema}.{table.name}.{hash(tuple(sorted(filters)))}"
         if cache_key in self._successful_filters_cache:
             logger.debug(f"Using cached filter verification result for {cache_key}")
@@ -1090,8 +1095,254 @@ class BigqueryProfiler(GenericProfiler):
         # Build WHERE clause from filters
         where_clause = " AND ".join(filters)
 
-        # Progressive verification strategy with multiple fallbacks
-        # 1. Start with cheapest query - existence check with LIMIT 1
+        # Try each verification strategy in order
+        verification_strategies = [
+            self._try_existence_check,
+            self._try_count_query,
+            self._try_sample_query,
+            self._try_syntax_check,
+        ]
+
+        for strategy in verification_strategies:
+            result = strategy(
+                table,
+                project,
+                schema,
+                filters,
+                where_clause,
+                timeout,
+                max_retries,
+                cache_key,
+            )
+            if result:
+                return True
+
+        logger.warning(
+            f"Partition verification found no data with filters: {where_clause}"
+        )
+        return False
+
+    def _is_type_mismatch_error(self, error_str: str) -> bool:
+        """Check if the error is a type mismatch."""
+        return "No matching signature for operator =" in error_str and (
+            "TIMESTAMP" in error_str or "INT64" in error_str
+        )
+
+    def _fix_type_mismatch_filters(
+        self, filters: List[str], error_str: str
+    ) -> List[str]:
+        """Fix filters with type mismatches."""
+        logger.warning(f"Type mismatch error in filter: {error_str}")
+
+        fixed_filters = []
+        for filter_str in filters:
+            if "=" in filter_str:
+                parts = filter_str.split("=", 1)
+                if len(parts) == 2:
+                    col, val = parts
+                    col = col.strip()
+                    val = val.strip()
+
+                    if "TIMESTAMP" in val and (
+                        "INT" in error_str or "INT64" in error_str
+                    ):
+                        fixed_filter = f"{col} = UNIX_SECONDS({val})"
+                        fixed_filters.append(fixed_filter)
+                        continue
+                    elif val.isdigit() and "TIMESTAMP" in error_str:
+                        fixed_filter = f"{col} = TIMESTAMP_SECONDS({val})"
+                        fixed_filters.append(fixed_filter)
+                        continue
+
+            fixed_filters.append(filter_str)
+
+        return fixed_filters
+
+    def _try_count_query(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        max_retries: int,
+        cache_key: str,
+    ) -> bool:
+        """Try a COUNT query."""
+        count_query = f"""
+        SELECT COUNT(*) as cnt
+        FROM `{project}.{schema}.{table.name}`
+        WHERE {where_clause}
+        LIMIT 1000
+        """
+
+        count_key = f"verify_count_{project}_{schema}_{table.name}_{hash(where_clause)}"
+
+        try:
+            count_results = self._execute_cached_query(count_query, count_key, timeout)
+            if (
+                count_results
+                and hasattr(count_results[0], "cnt")
+                and count_results[0].cnt > 0
+            ):
+                logger.info(f"Verified filters return {count_results[0].cnt} rows")
+                self._successful_filters_cache[cache_key] = filters
+                return True
+        except Exception as e:
+            logger.debug(f"Count verification failed: {e}")
+
+        return False
+
+    def _try_sample_query(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        max_retries: int,
+        cache_key: str,
+    ) -> bool:
+        """Try a TABLESAMPLE query for large tables."""
+        if not (
+            table.external
+            or (table.size_in_bytes and table.size_in_bytes > 1_000_000_000)
+        ):
+            return False
+
+        try:
+            sample_rate = 0.01 if table.external else 0.1
+            sample_query = f"""
+            SELECT 1 
+            FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)
+            WHERE {where_clause}
+            LIMIT 1
+            """
+
+            sample_key = (
+                f"verify_sample_{project}_{schema}_{table.name}_{hash(where_clause)}"
+            )
+            sample_results = self._execute_cached_query(
+                sample_query, sample_key, timeout
+            )
+
+            if sample_results:
+                logger.info(f"Verified filters using {sample_rate}% sample")
+                self._successful_filters_cache[cache_key] = filters
+                return True
+        except Exception as e:
+            logger.debug(f"Sample verification failed: {e}")
+
+        return False
+
+    def _try_existence_check(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        max_retries: int,
+        cache_key: str,
+    ) -> bool:
+        """Try a simple existence check."""
+        existence_query = f"""
+        SELECT 1 
+        FROM `{project}.{schema}.{table.name}`
+        WHERE {where_clause}
+        LIMIT 1
+        """
+
+        query_cache_key = (
+            f"verify_exists_{project}_{schema}_{table.name}_{hash(where_clause)}"
+        )
+
+        for attempt in range(max_retries + 1):
+            try:
+                current_timeout = max(5, timeout // 2) if attempt == 0 else timeout
+                existence_results = self._execute_cached_query(
+                    existence_query, query_cache_key, current_timeout
+                )
+
+                if existence_results:
+                    logger.info("Verified filters return data (existence check)")
+                    self._successful_filters_cache[cache_key] = filters
+                    return True
+
+                if attempt == 0:
+                    logger.debug("Existence check returned no data")
+                    break
+
+            except Exception as e:
+                error_str = str(e)
+                if self._is_type_mismatch_error(error_str):
+                    fixed_filters = self._fix_type_mismatch_filters(filters, error_str)
+                    if fixed_filters != filters:
+                        logger.info(f"Attempting with fixed filters: {fixed_filters}")
+                        return self._verify_partition_has_data(
+                            table,
+                            project,
+                            schema,
+                            fixed_filters,
+                            timeout,
+                            max_retries - 1,
+                        )
+
+                if attempt < max_retries:
+                    logger.debug(f"Existence check failed: {e}, retrying...")
+                    time.sleep(1)
+                else:
+                    logger.debug("All existence check attempts failed")
+
+        return False
+
+    def _try_syntax_check(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        max_retries: int,
+        cache_key: str,
+    ) -> bool:
+        """Try a syntax-only verification."""
+        if table.external or (
+            table.size_in_bytes and table.size_in_bytes > 10_000_000_000
+        ):
+            return False
+
+        try:
+            dummy_query = f"""SELECT 1 WHERE {where_clause} LIMIT 0"""
+            dummy_key = f"verify_dummy_{hash(where_clause)}"
+            self._execute_cached_query(dummy_query, dummy_key, 5)
+
+            logger.warning(
+                "Using syntactically valid filters without data verification"
+            )
+            self._successful_filters_cache[cache_key] = filters
+            return True
+        except Exception as e:
+            logger.debug(f"Filter syntax check failed: {e}")
+
+        return False
+
+    def _verify_with_existence_check(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        max_retries: int,
+        cache_key: str,
+    ) -> bool:
+        """Verify filters using a simple existence check."""
         existence_query = f"""
         SELECT 1 
         FROM `{project}.{schema}.{table.name}`
@@ -1115,14 +1366,12 @@ class BigqueryProfiler(GenericProfiler):
 
                 if existence_results:
                     logger.info(
-                        f"Verified partition filters return data (existence check, attempt {attempt + 1})"
+                        f"Verified filters return data (existence check, attempt {attempt + 1})"
                     )
-                    self._successful_filters_cache[cache_key] = (
-                        filters  # Cache the successful filters
-                    )
+                    self._successful_filters_cache[cache_key] = filters
                     return True
 
-                # If the existence check returned empty but didn't error, no need to retry
+                # If empty but didn't error, no need to retry
                 if attempt == 0:
                     logger.debug(
                         "Existence check returned no data, trying count approach"
@@ -1130,6 +1379,18 @@ class BigqueryProfiler(GenericProfiler):
                     break
 
             except Exception as e:
+                error_str = str(e)
+
+                # Try to fix type mismatch errors
+                fixed_filters = self._fix_type_mismatch_filters(filters, error_str)
+
+                # Retry with fixed filters if we made changes
+                if fixed_filters != filters and attempt < max_retries:
+                    logger.info(f"Attempting with fixed filters: {fixed_filters}")
+                    return self._verify_partition_has_data(
+                        table, project, schema, fixed_filters, timeout, max_retries - 1
+                    )
+
                 if attempt < max_retries:
                     logger.debug(
                         f"Existence check attempt {attempt + 1} failed: {e}, retrying..."
@@ -1139,7 +1400,19 @@ class BigqueryProfiler(GenericProfiler):
                     logger.debug(f"All existence check attempts failed: {e}")
                     break
 
-        # 2. Try COUNT(*) approach with LIMIT to avoid full table scan
+        return False
+
+    def _verify_with_count_query(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        cache_key: str,
+    ) -> bool:
+        """Verify filters using a COUNT query."""
         count_query = f"""
         SELECT COUNT(*) as cnt
         FROM `{project}.{schema}.{table.name}`
@@ -1157,78 +1430,92 @@ class BigqueryProfiler(GenericProfiler):
                 and hasattr(count_results[0], "cnt")
                 and count_results[0].cnt > 0
             ):
-                logger.info(
-                    f"Verified partition filters return {count_results[0].cnt} rows"
-                )
-                self._successful_filters_cache[cache_key] = (
-                    filters  # Cache the successful filters
-                )
+                logger.info(f"Verified filters return {count_results[0].cnt} rows")
+                self._successful_filters_cache[cache_key] = filters
                 return True
         except Exception as e:
             logger.debug(f"Count verification failed: {e}")
 
-        # 3. For large or external tables, try TABLESAMPLE approach
-        if table.external or (
-            table.size_in_bytes and table.size_in_bytes > 1_000_000_000
+        return False
+
+    def _verify_with_sample_query(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        timeout: int,
+        cache_key: str,
+    ) -> bool:
+        """Verify filters using TABLESAMPLE for large or external tables."""
+        # Only use for large or external tables
+        if not (
+            table.external
+            or (table.size_in_bytes and table.size_in_bytes > 1_000_000_000)
         ):
-            try:
-                # Use a very small sampling rate for large tables
-                sample_rate = (
-                    0.01 if table.external else 0.1
-                )  # 0.01% for external, 0.1% for internal
+            return False
 
-                sample_query = f"""
-                SELECT 1 
-                FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)
-                WHERE {where_clause}
-                LIMIT 1
-                """
+        try:
+            # Use a very small sampling rate
+            sample_rate = (
+                0.01 if table.external else 0.1
+            )  # 0.01% for external, 0.1% for internal
 
-                sample_key = f"verify_sample_{project}_{schema}_{table.name}_{hash(where_clause)}"
-                sample_results = self._execute_cached_query(
-                    sample_query, sample_key, timeout
-                )
+            sample_query = f"""
+            SELECT 1 
+            FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)
+            WHERE {where_clause}
+            LIMIT 1
+            """
 
-                if sample_results:
-                    logger.info(
-                        f"Verified partition filters using {sample_rate}% sample"
-                    )
-                    self._successful_filters_cache[cache_key] = (
-                        filters  # Cache the successful filters
-                    )
-                    return True
-            except Exception as sample_e:
-                logger.debug(f"Sample verification failed: {sample_e}")
+            sample_key = (
+                f"verify_sample_{project}_{schema}_{table.name}_{hash(where_clause)}"
+            )
+            sample_results = self._execute_cached_query(
+                sample_query, sample_key, timeout
+            )
 
-        # 4. Last resort for non-critical cases: use a dummy query to check valid syntax
-        # This doesn't actually verify data exists but checks if filters are valid
-        if not table.external and not (
+            if sample_results:
+                logger.info(f"Verified filters using {sample_rate}% sample")
+                self._successful_filters_cache[cache_key] = filters
+                return True
+        except Exception as e:
+            logger.debug(f"Sample verification failed: {e}")
+
+        return False
+
+    def _verify_syntax_only(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        filters: List[str],
+        where_clause: str,
+        cache_key: str,
+    ) -> bool:
+        """Verify filter syntax without checking for data (last resort)."""
+        # Skip for external or very large tables
+        if table.external or (
             table.size_in_bytes and table.size_in_bytes > 10_000_000_000
         ):
-            try:
-                dummy_query = f"""
-                SELECT 1 WHERE {where_clause} LIMIT 0
-                """
+            return False
 
-                dummy_key = f"verify_dummy_{hash(where_clause)}"
-                self._execute_cached_query(
-                    dummy_query, dummy_key, 5
-                )  # Very short timeout
+        try:
+            dummy_query = f"""SELECT 1 WHERE {where_clause} LIMIT 0"""
 
-                # If we get here, the where clause is at least syntactically valid
-                logger.warning(
-                    f"Using syntactically valid filters without data verification: {where_clause}"
-                )
-                self._successful_filters_cache[cache_key] = (
-                    filters  # Cache the successful filters
-                )
-                return True
-            except Exception as dummy_e:
-                logger.debug(f"Filter syntax check failed: {dummy_e}")
+            dummy_key = f"verify_dummy_{hash(where_clause)}"
+            self._execute_cached_query(dummy_query, dummy_key, 5)  # Very short timeout
 
-        logger.warning(
-            f"Partition verification found no data with filters: {where_clause}"
-        )
+            # If we get here, the where clause is at least syntactically valid
+            logger.warning(
+                f"Using syntactically valid filters without data verification: {where_clause}"
+            )
+            self._successful_filters_cache[cache_key] = filters
+            return True
+        except Exception as e:
+            logger.debug(f"Filter syntax check failed: {e}")
+
         return False
 
     def _check_sample_rate_in_ddl(self, table: BigqueryTable) -> Optional[List[str]]:
@@ -1563,12 +1850,11 @@ class BigqueryProfiler(GenericProfiler):
                         "data_type": row.data_type,
                     }
 
-            # Get table metadata from TABLES
+            # Get tables info - schema definition, creation time, etc.
             table_query = f"""
             SELECT
                 ddl,
                 creation_time,
-                last_modified_time,
                 table_type
             FROM
                 `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
@@ -1588,16 +1874,15 @@ class BigqueryProfiler(GenericProfiler):
                     metadata["ddl"] = row.ddl
                 if hasattr(row, "creation_time") and row.creation_time:
                     metadata["creation_time"] = row.creation_time
-                if hasattr(row, "last_modified_time") and row.last_modified_time:
-                    metadata["last_modified_time"] = row.last_modified_time
                 if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
 
-            # Get storage statistics separately
+            # Get storage statistics and modified time from TABLE_STORAGE
             storage_query = f"""
             SELECT
                 total_rows,
-                total_logical_bytes
+                total_logical_bytes,
+                storage_last_modified_time
             FROM
                 `{project}.{schema}.INFORMATION_SCHEMA.TABLE_STORAGE`
             WHERE
@@ -1619,6 +1904,11 @@ class BigqueryProfiler(GenericProfiler):
                     and row.total_logical_bytes is not None
                 ):
                     metadata["size_bytes"] = row.total_logical_bytes
+                if (
+                    hasattr(row, "storage_last_modified_time")
+                    and row.storage_last_modified_time is not None
+                ):
+                    metadata["last_modified_time"] = row.storage_last_modified_time
 
         except Exception as e:
             logger.warning(f"Error fetching schema information: {e}")
@@ -1628,15 +1918,19 @@ class BigqueryProfiler(GenericProfiler):
     def _fetch_table_stats(
         self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Fetch additional table stats from the correct INFORMATION_SCHEMA view."""
-        if not metadata.get("row_count") or not metadata.get("size_bytes"):
+        """Get additional stats for tables that don't already have them."""
+        if (
+            not metadata.get("row_count")
+            or not metadata.get("size_bytes")
+            or not metadata.get("last_modified_time")
+        ):
             try:
-                # Use TABLE_STORAGE which has the row count and size information
+                # Use TABLE_STORAGE for row count, size, and modified time
                 stats_query = f"""
                 SELECT 
                     total_rows,
                     total_logical_bytes,
-                    total_physical_bytes
+                    storage_last_modified_time
                 FROM 
                     `{project}.{schema}.INFORMATION_SCHEMA.TABLE_STORAGE`
                 WHERE 
@@ -1656,31 +1950,34 @@ class BigqueryProfiler(GenericProfiler):
                         and row.total_logical_bytes is not None
                     ):
                         metadata["size_bytes"] = row.total_logical_bytes
-
-                # Get creation time and last modified time from TABLES view
-                time_query = f"""
-                SELECT
-                    creation_time,
-                    last_modified_time
-                FROM
-                    `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-                WHERE
-                    table_name = '{table_name}'
-                """
-
-                time_results = self._execute_cached_query(
-                    time_query, f"table_time_{project}_{schema}_{table_name}"
-                )
-
-                if time_results and len(time_results) > 0:
-                    row = time_results[0]
-                    if hasattr(row, "creation_time") and row.creation_time is not None:
-                        metadata["creation_time"] = row.creation_time
                     if (
-                        hasattr(row, "last_modified_time")
-                        and row.last_modified_time is not None
+                        hasattr(row, "storage_last_modified_time")
+                        and row.storage_last_modified_time is not None
                     ):
-                        metadata["last_modified_time"] = row.last_modified_time
+                        metadata["last_modified_time"] = row.storage_last_modified_time
+
+                # Get creation time from TABLES view if needed
+                if not metadata.get("creation_time"):
+                    time_query = f"""
+                    SELECT
+                        creation_time
+                    FROM
+                        `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                    WHERE
+                        table_name = '{table_name}'
+                    """
+
+                    time_results = self._execute_cached_query(
+                        time_query, f"table_time_{project}_{schema}_{table_name}"
+                    )
+
+                    if time_results and len(time_results) > 0:
+                        row = time_results[0]
+                        if (
+                            hasattr(row, "creation_time")
+                            and row.creation_time is not None
+                        ):
+                            metadata["creation_time"] = row.creation_time
 
             except Exception as e:
                 logger.warning(
