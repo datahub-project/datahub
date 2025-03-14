@@ -130,9 +130,9 @@ distZip {
 }
 
 jar {
-  dependsOn distZip
+  dependsOn yarnBuild
   into('public') {
-    from zipTree(distZip.outputs.files.first())
+    from 'dist'
   }
   archiveClassifier = 'assets'
 }

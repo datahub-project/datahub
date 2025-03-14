@@ -66,7 +66,7 @@ distributions {
   }
 }
 
-task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
+task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', distZip]) {
 
   from ("${buildDir}/distributions")
   include "datahub-frontend-${version}.zip"
@@ -75,11 +75,11 @@ task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
 }
 
 docker {
-  dependsOn(unversionZip)
+  dependsOn(stageMainDist)
   name "${docker_registry}/${docker_repo}:v${version}"
   //version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
-  files "${buildDir}/distributions/datahub-frontend.zip"
+  files "${buildDir}/stage"
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
