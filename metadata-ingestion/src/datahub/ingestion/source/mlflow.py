@@ -397,7 +397,12 @@ class MLflowSource(StatefulIngestionSourceBase):
             model_version_urn = self._make_ml_model_urn(model_versions[0])
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
-                aspect=DataProcessInstanceOutputClass(outputs=[model_version_urn]),
+                aspect=DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=[
+                        EdgeClass(destinationUrn=model_version_urn),
+                    ],
+                ),
             ).as_workunit()
 
         metrics = self._get_run_metrics(run)
