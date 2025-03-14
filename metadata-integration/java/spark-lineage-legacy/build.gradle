@@ -230,11 +230,11 @@ nexusStaging {
     password = System.getenv("NEXUS_PASSWORD")
 }
 
-task cleanExtraDirs {
+clean{
   delete "$projectDir/derby.log"
   delete "$projectDir/src/test/resources/data/hive"
   delete "$projectDir/src/test/resources/data/out.csv"
   delete "$projectDir/src/test/resources/data/out_persist.csv"
   delete "$projectDir/spark-smoke-test/venv"
 }
-clean.finalizedBy(cleanExtraDirs)
+
