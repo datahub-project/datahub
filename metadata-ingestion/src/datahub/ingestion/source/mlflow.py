@@ -279,10 +279,11 @@ class MLflowSource(StatefulIngestionSourceBase):
                 ]
             except (KeyError, TypeError):
                 return None
-
+        # If the schema is not formatted, return None
         return None
 
     def _get_dataset_platform_from_source_type(self, source_type):
+        # manually map mlflow platform to datahub platform
         if source_type == "gs":
             return "gcs"
         return source_type
@@ -301,8 +302,10 @@ class MLflowSource(StatefulIngestionSourceBase):
             platform = self._get_dataset_platform_from_source_type(source_type)
             custom_properties = dataset_tags
             formatted_schema = self._get_dataset_schema(dataset.schema)
+            # If the schema is not formatted, pass the schema as a custom property
             if formatted_schema is None:
                 custom_properties["schema"] = dataset.schema
+            # If the dataset is local or code, we create a local dataset reference
             if source_type in ("local", "code"):
                 local_dataset_reference = Dataset(
                     platform=platform,
@@ -312,7 +315,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 )
                 yield from local_dataset_reference.as_workunits()
                 dataset_reference_urns.append(str(local_dataset_reference.urn))
-
+            # Otherwise, we create a hosted dataset reference and a hosted dataset
             else:
                 hosted_dataset = Dataset(
                     platform=self._get_dataset_platform_from_source_type(source_type),
@@ -336,6 +339,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 yield from hosted_dataset.as_workunits()
                 yield from hosted_dataset_reference.as_workunits()
 
+        # add the dataset reference as upstream for the run
         if dataset_reference_urns:
             input_edges = [
                 EdgeClass(destinationUrn=dataset_referece_urn)
