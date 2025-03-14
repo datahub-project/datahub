@@ -81,6 +81,10 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
             showCount
             shouldAlwaysSyncParentValues
             hideParentCheckbox
+            selectLabelProps={{
+                variant: 'labeled',
+                label: 'Filter',
+            }}
         />
     );
 };
