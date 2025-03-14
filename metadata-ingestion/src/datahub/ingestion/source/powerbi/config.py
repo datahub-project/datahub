@@ -305,13 +305,15 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        description="Regex patterns to filter PowerBI workspaces in ingestion by ID."
+        " By default all IDs are allowed unless they are filtered by name using 'workspace_name_pattern'."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
     # PowerBi workspace name
     workspace_name_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        description="Regex patterns to filter PowerBI workspaces in ingestion by name."
+        " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
