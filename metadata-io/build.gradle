@@ -2,6 +2,7 @@ plugins {
   id 'java-library'
   id 'pegasus'
   id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
+  id 'java-test-fixtures'
 }
 
 apply from: '../gradle/coverage/java-coverage.gradle'
@@ -30,8 +31,6 @@ dependencies {
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
-  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
-  implementation 'nl.basjes.parse.useragent:yauaa:7.27.0'
 
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'

@@ -23,4 +23,12 @@ module.exports = defineConfig({
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
   },
+  reporter: "cypress-junit-reporter",
+  reporterOptions: {
+    mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
+    toConsole: true,
+    testCaseSwitchClassnameAndName: true,
+    suiteNameTemplate: "{dirpath}",
+    classNameTemplate: "{filepath}",
+  },
 });

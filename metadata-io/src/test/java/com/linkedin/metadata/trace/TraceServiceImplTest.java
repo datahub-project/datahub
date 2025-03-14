@@ -392,4 +392,51 @@ public class TraceServiceImplTest {
     assertEquals(status.getSearchStorage().getWriteStatus(), TraceWriteStatus.NO_OP);
     assertTrue(status.isSuccess());
   }
+
+  @Test
+  public void testTraceHistoricStateSearchPropagation() throws Exception {
+    // This test verifies that when primary storage has HISTORIC_STATE,
+    // the search storage is also set to HISTORIC_STATE based on this line:
+    // finalResponse.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.HISTORIC_STATE));
+
+    // Arrange - create request with one URN and one aspect
+    Map<Urn, List<String>> aspectNames =
+        Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME));
+
+    // Create a primary storage response with HISTORIC_STATE
+    Map<String, TraceStorageStatus> primaryStatus = new LinkedHashMap<>();
+    primaryStatus.put(ASPECT_NAME, TraceStorageStatus.ok(TraceWriteStatus.HISTORIC_STATE));
+
+    // Mock entityService to return empty to skip that branch
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
+
+    // Mock mcpTraceReader to return our primary status with HISTORIC_STATE
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(TEST_TRACE_ID), any(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, primaryStatus));
+
+    // Mock systemMetadataService to return empty list to ensure
+    // we don't get a pre-existing search status
+    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+        .thenReturn(Collections.emptyList());
+
+    // Act
+    Map<Urn, Map<String, TraceStatus>> result =
+        traceService.trace(operationContext, TEST_TRACE_ID, aspectNames, false, false);
+
+    // Assert
+    assertNotNull(result);
+    assertTrue(result.containsKey(TEST_URN));
+    Map<String, TraceStatus> urnStatus = result.get(TEST_URN);
+    assertTrue(urnStatus.containsKey(ASPECT_NAME));
+
+    // The key assertion - if primary is HISTORIC_STATE, search should also be HISTORIC_STATE
+    TraceStatus status = urnStatus.get(ASPECT_NAME);
+    assertEquals(status.getPrimaryStorage().getWriteStatus(), TraceWriteStatus.HISTORIC_STATE);
+    assertEquals(
+        status.getSearchStorage().getWriteStatus(),
+        TraceWriteStatus.HISTORIC_STATE,
+        "When primary storage is HISTORIC_STATE, search storage should also be HISTORIC_STATE");
+    assertTrue(status.isSuccess());
+  }
 }
