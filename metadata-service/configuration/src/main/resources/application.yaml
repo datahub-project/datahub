@@ -592,6 +592,15 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
+  migrateProcessInstanceEdges:
+    enabled: ${MIGRATE_PROCESS_INSTANCE_EDGES_ENABLED:false}
+    batchSize: ${MIGRATE_PROCESS_INSTANCE_EDGES_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${MIGRATE_PROCESS_INSTANCE_EDGES_REPROCESS:false}
+    # Comma-separated strings, e.g. `one,two,three`
+    inputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_INPUT_PLATFORMS:}
+    outputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_OUTPUT_PLATFORMS:}
+    parentPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_PARENT_PLATFORMS:}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings

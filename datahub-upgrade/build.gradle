@@ -90,6 +90,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 
+  testImplementation(testFixtures(project(":entity-registry")))
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
@@ -236,4 +237,3 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
-
