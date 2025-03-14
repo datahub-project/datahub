@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.ingestion.graph.client import SearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.metadata.schema_classes import MetadataAttributionClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
@@ -100,7 +100,7 @@ class SelectedAsset(BaseModel):
 
 class ComposablePropagator:
     @abstractmethod
-    def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
+    def asset_filters(self) -> Dict[str, Dict[str, List[RawSearchFilterRule]]]:
         """
         Returns a dictionary of asset filters that are used to filter the assets
         based on the configuration of the action.
