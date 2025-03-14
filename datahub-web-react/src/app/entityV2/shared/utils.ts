@@ -327,3 +327,13 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
     )?.description;
     return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
 };
+
+/**
+ * Type guard for entity type
+ */
+export function isItEntityType(entityType?: string): entityType is EntityType {
+    if (entityType === undefined) return false;
+
+    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
+    return possibleValues.includes(entityType);
+}
