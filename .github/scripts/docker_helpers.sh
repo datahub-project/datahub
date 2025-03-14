@@ -24,7 +24,7 @@ function get_tag_full {
 }
 
 function get_python_docker_release_v {
-    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},1!0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),1!\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g')
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},1!0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\([0-9a-zA-Z.]*\).*,1\!\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g')
 }
 
 function get_unique_tag {

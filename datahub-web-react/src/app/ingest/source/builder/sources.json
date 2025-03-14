@@ -333,5 +333,12 @@
         "description": "Import Nodes and Relationships from Neo4j.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/neo4j/",
         "recipe": "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'"
+    },
+    {
+        "urn": "urn:li:dataPlatform:vertexai",
+        "name": "vertexai",
+        "displayName": "VertexAI",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertexai/",
+        "recipe": "source:\n  type: vertexai\n  config:\n    project_id: # you GCP project ID \n     region: # region where your GCP project resides  \n   # Credentials\n        # Add GCP credentials"
     }
 ]
