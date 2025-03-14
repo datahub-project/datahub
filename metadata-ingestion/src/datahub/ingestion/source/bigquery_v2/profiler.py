@@ -904,14 +904,296 @@ class BigqueryProfiler(GenericProfiler):
             if col not in metadata["partition_columns"]:
                 metadata["partition_columns"][col] = None
 
-    def _create_partition_filters(
-        self, partition_columns: Dict[str, str], partition_values: Dict[str, Any]
-    ) -> List[str]:
+    def _get_accurate_column_types(
+        self, table: BigqueryTable, project: str, schema: str, columns: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        Create partition filter strings from column names, types and values
-        with enhanced support for various data types.
+        Get accurate column type information directly from the table.
 
         Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            columns: List of column names to check
+
+        Returns:
+            Dictionary mapping column names to detailed type information
+        """
+        if not columns:
+            return {}
+
+        # Safely quote column names for SQL
+        quoted_columns = ", ".join(f"'{col}'" for col in columns)
+
+        query = f"""
+        SELECT 
+            column_name,
+            data_type,
+            is_partitioning_column
+        FROM 
+            `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+        WHERE 
+            table_name = '{table.name}'
+            AND column_name IN ({quoted_columns})
+        """
+
+        cache_key = f"col_types_{project}_{schema}_{table.name}_{hash(quoted_columns)}"
+        results = self._execute_cached_query(query, cache_key, timeout=30)
+
+        column_info = {}
+        for row in results:
+            column_info[row.column_name] = {
+                "data_type": row.data_type,
+                "is_partition": row.is_partitioning_column == "YES",
+            }
+
+        return column_info
+
+    def _create_robust_filter(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        col_name: str,
+        value: Any,
+        col_type: Optional[str] = None,
+    ) -> str:
+        """
+        Create a filter with explicit type casting based on the actual column type.
+
+        This method handles type mismatches by explicitly casting values to the correct type.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            col_name: Column name
+            value: Column value
+            col_type: Optional column type if already known
+
+        Returns:
+            Filter string with appropriate type casting
+        """
+        # Handle NULL values
+        if value is None:
+            return f"`{col_name}` IS NULL"
+
+        # Get accurate column type if not provided
+        if not col_type:
+            col_info = self._get_accurate_column_types(
+                table, project, schema, [col_name]
+            )
+            if col_name in col_info:
+                col_type = col_info[col_name]["data_type"]
+            else:
+                # Default handling if we can't determine type
+                return self._create_safe_filter(col_name, value)
+
+        col_type_upper = col_type.upper() if col_type else ""
+
+        try:
+            # Group column types into categories and call specialized handlers
+            if col_type_upper in ("INT64", "INTEGER", "INT"):
+                return self._create_integer_filter(col_name, value)
+            elif col_type_upper == "DATE":
+                return self._create_date_filter(col_name, value)
+            elif col_type_upper in ("TIMESTAMP", "DATETIME"):
+                return self._create_timestamp_filter(col_name, value)
+            elif col_type_upper in ("STRING", "VARCHAR"):
+                return self._create_string_filter(col_name, value)
+            elif col_type_upper in ("BOOL", "BOOLEAN"):
+                return self._create_boolean_filter(col_name, value)
+            elif col_type_upper in ("FLOAT64", "FLOAT", "NUMERIC", "DECIMAL"):
+                return self._create_numeric_filter(col_name, value)
+            else:
+                # Default case for other types
+                return self._create_default_filter(col_name, value)
+
+        except Exception as e:
+            logger.debug(f"Error creating robust filter for {col_name}: {e}")
+            return self._create_safe_filter(col_name, value)
+
+    def _create_integer_filter(self, col_name: str, value: Any) -> str:
+        """Create a filter for integer columns with type conversion handling."""
+        if isinstance(value, datetime):
+            # Convert datetime to integer
+            return f"`{col_name}` = {int(value.timestamp())}"
+        elif isinstance(value, (int, float)):
+            return f"`{col_name}` = {int(value)}"
+        else:
+            # Try to convert string to int
+            try:
+                # Handle TIMESTAMP literals in string
+                if "TIMESTAMP" in str(value):
+                    ts_str = str(value).replace("TIMESTAMP", "").strip().strip("'\"")
+                    dt = datetime.fromisoformat(ts_str.replace(" ", "T"))
+                    return f"`{col_name}` = {int(dt.timestamp())}"
+                # Otherwise just convert to int
+                return f"`{col_name}` = {int(float(str(value)))}"
+            except (ValueError, TypeError):
+                # Last resort - try IS NOT NULL
+                return f"`{col_name}` IS NOT NULL"
+
+    def _create_date_filter(self, col_name: str, value: Any) -> str:
+        """Create a filter for DATE columns with type conversion handling."""
+        if isinstance(value, datetime):
+            return f"`{col_name}` = DATE '{value.strftime('%Y-%m-%d')}'"
+        else:
+            # Handle DATE, TIMESTAMP, or plain string literals
+            val_str = str(value)
+            if "DATE" in val_str or "TIMESTAMP" in val_str:
+                # Extract date part
+                date_str = (
+                    val_str.replace("DATE", "")
+                    .replace("TIMESTAMP", "")
+                    .strip()
+                    .strip("'\"")
+                )
+                # Extract just YYYY-MM-DD part if it's a timestamp
+                if " " in date_str:
+                    date_str = date_str.split(" ")[0]
+                return f"`{col_name}` = DATE '{date_str}'"
+            else:
+                # Assume it's already a date string
+                val_str = val_str.replace("'", "").strip()
+                return f"`{col_name}` = DATE '{val_str}'"
+
+    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
+        """Create a filter for TIMESTAMP columns with type conversion handling."""
+        if isinstance(value, datetime):
+            return f"`{col_name}` = TIMESTAMP '{value.strftime('%Y-%m-%d %H:%M:%S')}'"
+        elif isinstance(value, (int, float)):
+            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
+        else:
+            val_str = str(value).replace("TIMESTAMP", "").strip().strip("'\"")
+            return f"`{col_name}` = TIMESTAMP '{val_str}'"
+
+    def _create_string_filter(self, col_name: str, value: Any) -> str:
+        """Create a filter for STRING columns with type conversion handling."""
+        if isinstance(value, datetime):
+            # Format datetime for string representation
+            return f"`{col_name}` = '{value.strftime('%Y-%m-%d')}'"
+        else:
+            val_str = str(value).replace("'", "\\'")
+            # Remove type keywords if present
+            for keyword in ["TIMESTAMP", "DATE"]:
+                if keyword in val_str:
+                    val_str = val_str.replace(keyword, "").strip().strip("'\"")
+            return f"`{col_name}` = '{val_str}'"
+
+    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
+        """Create a filter for BOOLEAN columns with type conversion handling."""
+        if isinstance(value, bool):
+            bool_val = "true" if value else "false"
+        else:
+            bool_val = "true" if str(value).lower() in ("true", "1", "yes") else "false"
+        return f"`{col_name}` = {bool_val}"
+
+    def _create_safe_filter(self, col_name: str, value: Any) -> str:
+        """
+        Create a filter that's least likely to cause type mismatch errors.
+        """
+        if value is None:
+            return f"`{col_name}` IS NULL"
+
+        # IS NOT NULL is the safest filter as it doesn't involve value type matching
+        return f"`{col_name}` IS NOT NULL"
+
+    def _try_alternative_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        col_name: str,
+        timeout: int = 20,
+    ) -> Optional[str]:
+        """
+        Try alternative filters for a column when standard approaches fail.
+
+        This method attempts various common filter patterns that are likely
+        to work for different column types.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            col_name: Column name
+            timeout: Query timeout
+
+        Returns:
+            Working filter string or None if none found
+        """
+        # Get column type
+        col_info = self._get_accurate_column_types(table, project, schema, [col_name])
+        if not col_info or col_name not in col_info:
+            return None
+
+        col_type = col_info[col_name]["data_type"].upper()
+
+        # Try different filter approaches based on column type
+        filters_to_try = []
+
+        # For date/timestamp columns
+        if col_type in ("DATE", "TIMESTAMP", "DATETIME"):
+            # Try last 30 days
+            filters_to_try.extend(
+                [
+                    f"`{col_name}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)",
+                    f"`{col_name}` >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)",
+                    f"`{col_name}` >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)",
+                ]
+            )
+
+        # For integer columns
+        elif col_type in ("INT64", "INTEGER"):
+            current_year = datetime.now().year
+            # Try current year and previous year
+            filters_to_try.extend(
+                [
+                    f"`{col_name}` = {current_year}",
+                    f"`{col_name}` = {current_year - 1}",
+                    f"`{col_name}` > 0",
+                ]
+            )
+
+        # For any column type - IS NOT NULL is the most permissive filter
+        filters_to_try.append(f"`{col_name}` IS NOT NULL")
+
+        # Try each filter
+        for filter_str in filters_to_try:
+            try:
+                # Check if this filter returns data
+                test_query = f"""
+                SELECT 1 
+                FROM `{project}.{schema}.{table.name}`
+                WHERE {filter_str}
+                LIMIT 1
+                """
+
+                results = self._execute_cached_query(test_query, None, timeout=timeout)
+                if results:
+                    logger.info(f"Found working alternative filter: {filter_str}")
+                    return filter_str
+            except Exception as e:
+                logger.debug(f"Alternative filter {filter_str} failed: {e}")
+
+        return None
+
+    def _create_partition_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_columns: Dict[str, str],
+        partition_values: Dict[str, Any],
+    ) -> List[str]:
+        """
+        Create partition filter strings with robust type handling.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
             partition_columns: Dictionary mapping column names to data types
             partition_values: Dictionary mapping column names to values
 
@@ -920,20 +1202,40 @@ class BigqueryProfiler(GenericProfiler):
         """
         filters = []
 
+        # Get accurate column types first
+        col_names = list(partition_values.keys())
+        accurate_types = self._get_accurate_column_types(
+            table, project, schema, col_names
+        )
+
         for col_name, value in partition_values.items():
             if value is None:
                 continue
 
-            data_type = (
-                partition_columns.get(col_name, "").upper()
-                if partition_columns.get(col_name)
-                else ""
+            # Use accurate type if available, otherwise use provided type
+            if col_name in accurate_types:
+                col_type = accurate_types[col_name]["data_type"]
+            else:
+                col_type = partition_columns.get(col_name, "")
+
+            # Create robust filter with explicit type handling
+            filter_str = self._create_robust_filter(
+                table, project, schema, col_name, value, col_type
             )
 
-            # Handle each type with a specific helper method to reduce complexity
-            filter_str = self._create_filter_for_column(col_name, value, data_type)
             if filter_str:
                 filters.append(filter_str)
+
+        # If we couldn't create any filters, try alternative approaches
+        if not filters and col_names:
+            # Try each partition column with alternative filters
+            for col_name in col_names:
+                alt_filter = self._try_alternative_filters(
+                    table, project, schema, col_name
+                )
+                if alt_filter:
+                    filters.append(alt_filter)
+                    break
 
         return filters
 
@@ -1039,73 +1341,31 @@ class BigqueryProfiler(GenericProfiler):
                 val_str = val_str.replace("TIMESTAMP ", "").strip("'\"")
             return f"`{col_name}` = '{val_str}'"
 
-    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for TIMESTAMP/DATETIME columns."""
-        if isinstance(value, datetime):
-            timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
-            return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
-        elif isinstance(value, (int, float)):
-            # For numeric values, use TIMESTAMP_SECONDS
-            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
-        else:
-            # Try to create a valid TIMESTAMP literal
-            val_str = str(value).replace("'", "\\'").replace("TIMESTAMP ", "")
-            return f"`{col_name}` = TIMESTAMP '{val_str}'"
-
-    def _create_date_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for DATE columns."""
-        if isinstance(value, datetime):
-            date_str = value.strftime("%Y-%m-%d")
-            return f"`{col_name}` = DATE '{date_str}'"
-        else:
-            val_str = str(value).replace("'", "\\'").replace("DATE ", "")
-            return f"`{col_name}` = DATE '{val_str}'"
-
-    def _create_string_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for STRING type columns."""
-        val_str = str(value).replace("'", "\\'")
-        return f"`{col_name}` = '{val_str}'"
-
     def _create_numeric_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for numeric columns."""
+        """Create a filter for numeric columns (FLOAT64, NUMERIC, etc.)."""
         if isinstance(value, (int, float)):
             return f"`{col_name}` = {value}"
         else:
             try:
-                # Try to extract numeric value
-                val_str = str(value)
-                # Handle TIMESTAMP literals
-                if "TIMESTAMP" in val_str:
-                    # If we're trying to compare INT with TIMESTAMP,
-                    # let's convert to epoch seconds
-                    try:
-                        dt_str = val_str.replace("TIMESTAMP", "").strip().strip("'\"")
-                        dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
-                        epoch_seconds = int(dt.timestamp())
-                        return f"`{col_name}` = {epoch_seconds}"
-                    except (ValueError, TypeError):
-                        # Fallback to safer filter
-                        return f"`{col_name}` IS NOT NULL"
-
-                numeric_value = float(val_str)
+                # Try to convert to numeric
+                numeric_value = float(str(value))
                 return f"`{col_name}` = {numeric_value}"
             except (ValueError, TypeError):
-                # If conversion fails, use a safer approach
+                # Fall back to safe filter
                 return f"`{col_name}` IS NOT NULL"
 
-    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for boolean columns."""
-        if isinstance(value, bool):
-            bool_val = "true" if value else "false"
-            return f"`{col_name}` = {bool_val}"
-        else:
-            bool_val = "true" if str(value).lower() in ("true", "1", "yes") else "false"
-            return f"`{col_name}` = {bool_val}"
-
     def _create_default_filter(self, col_name: str, value: Any) -> str:
-        """Create default filter for unknown column types."""
-        val_str = str(value).replace("'", "\\'")
-        return f"`{col_name}` = '{val_str}'"
+        """Create a filter for unknown column types."""
+        if isinstance(value, (int, float)):
+            return f"`{col_name}` = {value}"
+        elif isinstance(value, str):
+            # Escape quotes for string values
+            val_str = value.replace("'", "\\'")
+            return f"`{col_name}` = '{val_str}'"
+        else:
+            # Convert to string for other types
+            val_str = str(value).replace("'", "\\'")
+            return f"`{col_name}` = '{val_str}'"
 
     def _verify_partition_has_data(
         self,
@@ -1701,8 +1961,10 @@ class BigqueryProfiler(GenericProfiler):
             logger.warning("Couldn't determine partition values, returning empty list")
             return []
 
-        # Create filter strings
-        filters = self._create_partition_filters(partition_columns, partition_values)
+        # Create filter strings using the robust method
+        filters = self._create_partition_filters(
+            table, project, schema, partition_columns, partition_values
+        )
 
         # Verify these filters return data with a shorter timeout
         if filters and self._verify_partition_has_data(
@@ -2652,8 +2914,10 @@ class BigqueryProfiler(GenericProfiler):
                 logger.warning(f"Couldn't determine partition values for {table.name}")
                 return None
 
-        # Create filter strings
-        filters = self._create_partition_filters(partition_columns, partition_values)
+        # Create filter strings using the robust method
+        filters = self._create_partition_filters(
+            table, project, schema, partition_columns, partition_values
+        )
 
         # Verify these filters together
         if filters and self._verify_partition_has_data(

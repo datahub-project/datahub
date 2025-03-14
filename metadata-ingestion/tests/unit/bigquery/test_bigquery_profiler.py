@@ -484,8 +484,25 @@ def test_create_partition_filters_with_various_types():
         "bool_col": True,
     }
 
-    # Generate the filters
-    filters = profiler._create_partition_filters(partition_columns, partition_values)
+    # Mock the table, project, and schema
+    mock_table = MagicMock(spec=BigqueryTable)
+    mock_table.name = "test_table"
+    project = "test-project"
+    schema = "test_dataset"
+
+    # Mock _get_accurate_column_types to return the same types we're testing with
+    with patch.object(
+        profiler,
+        "_get_accurate_column_types",
+        return_value={
+            col: {"data_type": type_name, "is_partition": True}
+            for col, type_name in partition_columns.items()
+        },
+    ):
+        # Generate the filters
+        filters = profiler._create_partition_filters(
+            mock_table, project, schema, partition_columns, partition_values
+        )
 
     # Verify all types are handled correctly
     assert len(filters) == 6
