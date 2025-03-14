@@ -42,10 +42,12 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     DataPlatformInstanceClass,
+    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
+    EdgeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
     MLHyperParamClass,
@@ -305,6 +307,19 @@ class MLflowSource(StatefulIngestionSourceBase):
             entityUrn=str(data_process_instance.urn),
             aspect=ContainerClass(container=experiment_key.as_urn()),
         ).as_workunit()
+
+        model_versions = self.get_mlflow_model_versions_from_run(run.info.run_id)
+        if model_versions:
+            model_version_urn = self._make_ml_model_urn(model_versions[0])
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=[
+                        EdgeClass(destinationUrn=model_version_urn),
+                    ],
+                ),
+            ).as_workunit()
 
         metrics = self._get_run_metrics(run)
         hyperparams = self._get_run_params(run)
