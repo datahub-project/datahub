@@ -1298,26 +1298,20 @@ class BigqueryProfiler(GenericProfiler):
             metadata = self._get_table_metadata(table, project, schema)
             partition_columns = metadata["partition_columns"]
 
-            # If no partition columns, try using TABLESAMPLE for safe profiling
+            # If no partition columns, use TABLESAMPLE for safe profiling
             if not partition_columns:
                 logger.info(
                     f"No partition columns found for external table {table.name}, using TABLESAMPLE"
                 )
-                # For external tables with no partitions, use a small sample - return empty list
+                # Return empty list for external tables with no partitions
+                # (TABLESAMPLE will be applied when generating SQL)
                 return []
 
-            # External table size estimation - be cautious with large tables
-            is_large_table = False
-            if metadata.get("size_bytes", 0) > 10_000_000_000:  # 10 GB
-                is_large_table = True
-                logger.warning(
-                    f"External table {table.name} is large, using aggressive filtering"
-                )
-            elif metadata.get("row_count", 0) > 10_000_000:  # 10M rows
-                is_large_table = True
-                logger.warning(
-                    f"External table {table.name} has many rows, using aggressive filtering"
-                )
+            # IMPORTANT: Always treat external tables as large tables, regardless of reported size
+            is_large_table = True
+            logger.info(
+                f"External table {table.name} is being treated as a large table for safe profiling"
+            )
 
             # For external tables, prioritize date/time-based partitioning first
             date_filters = self._try_date_based_filtering_for_external(
@@ -1903,9 +1897,15 @@ class BigqueryProfiler(GenericProfiler):
             logger.info(f"Using cached filters for {table_key}")
             return self._successful_filters_cache[table_key]
 
-        # Optimization: First check if this table has minimal data or is very small
+        # Important change - External tables should always be considered "large" for profiling
+        # This ensures we use proper strategies even if their reported size is 0
         is_small_table = False
-        if (
+        if table.external:
+            logger.info(
+                f"Table {table.name} is an external table, treating as large table for profiling"
+            )
+            is_small_table = False
+        elif (
             table.size_in_bytes is not None
             and table.size_in_bytes < 100_000_000  # Less than 100MB
             and table.rows_count is not None
@@ -1928,6 +1928,7 @@ class BigqueryProfiler(GenericProfiler):
         logger.info(f"Found partition columns for {table.name}: {partition_columns}")
 
         # For small tables with partitioning, we can try without filters first
+        # But NOT for external tables - they should be handled cautiously
         if is_small_table and not table.external:
             logger.info(
                 "Small table with partitioning, checking if full scan is viable"
@@ -2059,7 +2060,8 @@ class BigqueryProfiler(GenericProfiler):
             and bq_table.size_in_bytes > 5_000_000_000
             or bq_table.rows_count
             and bq_table.rows_count > 50_000_000
-        ):  # > 5GB
+            or bq_table.external  # IMPORTANT: Always add hints for external tables
+        ):  # > 5GB or external
             needs_optimization_hints = True
 
         if needs_optimization_hints:
