@@ -305,24 +305,6 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
-    "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
         "json": {
