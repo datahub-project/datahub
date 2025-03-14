@@ -22,9 +22,11 @@ const tagStyle = { cursor: 'pointer' };
 interface Props {
     tag: Tag;
     fontSize?: number;
+    enableTooltip?: boolean;
+    enableDrawer?: boolean;
 }
 
-export default function TagLink({ tag, fontSize }: Props) {
+export default function TagLink({ tag, fontSize, enableTooltip = true, enableDrawer = true }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
@@ -43,11 +45,12 @@ export default function TagLink({ tag, fontSize }: Props) {
 
     return (
         <>
-            <HoverEntityTooltip entity={tag}>
+            <HoverEntityTooltip entity={tag} canOpen={enableTooltip}>
                 <Container data-testid={`tag-${displayName}`}>
                     <StyledTag
                         style={tagStyle}
                         onClick={() => showTagProfileDrawer(tag.urn)}
+                        // TODO::? why urn in colorHash???
                         $colorHash={tag.urn}
                         $color={tag.properties?.colorHex}
                         closable={false}
@@ -57,7 +60,7 @@ export default function TagLink({ tag, fontSize }: Props) {
                     </StyledTag>
                 </Container>
             </HoverEntityTooltip>
-            {tagProfileDrawerVisible && (
+            {tagProfileDrawerVisible && enableDrawer && (
                 <TagProfileDrawer
                     closeTagProfileDrawer={closeTagProfileDrawer}
                     tagProfileDrawerVisible={tagProfileDrawerVisible}
