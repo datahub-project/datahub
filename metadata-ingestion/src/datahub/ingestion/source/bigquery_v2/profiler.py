@@ -47,6 +47,8 @@ class BigqueryProfiler(GenericProfiler):
         self._queried_tables: Set[str] = set()
         # Cache for successful partition filters
         self._successful_filters_cache: Dict[str, List[str]] = {}
+        # Detect BigQuery schema version and set up column mappings
+        self._detect_bq_schema_version()
 
     def _execute_cached_query(
         self,
@@ -64,10 +66,8 @@ class BigqueryProfiler(GenericProfiler):
 
         while retries <= max_retries:
             try:
-                # Apply query modifier to adjust column names based on BigQuery version
-                modified_query = self._adjust_query_for_bq_version(query)
-
-                def execute_query(query_to_execute=modified_query):
+                # Define a function to execute the query to avoid lambda binding issues
+                def execute_query(query_to_execute=query):
                     return list(
                         self.config.get_bigquery_client()
                         .query(query_to_execute)
@@ -88,9 +88,7 @@ class BigqueryProfiler(GenericProfiler):
                         )
                         retries += 1
                         if retries > max_retries:
-                            logger.warning(
-                                f"Final timeout for query: {modified_query[:200]}..."
-                            )
+                            logger.warning(f"Final timeout for query: {query[:200]}...")
                             return []
                         # Increase timeout for retries
                         timeout = min(timeout * 2, 300)  # Max 5 minutes
@@ -154,37 +152,69 @@ class BigqueryProfiler(GenericProfiler):
 
         return modified_query
 
-    def _detect_bq_schema_version(self):
+    def _detect_bq_schema_version(self) -> None:
         """
         Detect which version of INFORMATION_SCHEMA we're working with.
-        Set self._bq_uses_new_schema to True if we have the newer schema version.
+        Sets self._column_name_mapping with the appropriate column mappings.
         """
         try:
-            # Try to execute a simple query to detect the schema version
-            detect_query = """
-            SELECT column_name 
-            FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE table_name = 'TABLES' 
-            AND table_schema = 'INFORMATION_SCHEMA'
+            # Try to execute a simple test query that works on all versions
+            # This just gets us a small amount of data to check column names
+            test_query = """
+            SELECT * 
+            FROM INFORMATION_SCHEMA.TABLES
+            LIMIT 1
             """
 
-            results = list(
-                self.config.get_bigquery_client().query(detect_query).result()
-            )
+            results = list(self.config.get_bigquery_client().query(test_query).result())
+            if not results:
+                # If no results, default to old schema (safer choice)
+                self._column_name_mapping = {
+                    "row_count": "row_count",
+                    "size_bytes": "size_bytes",
+                }
+                logger.info(
+                    "No test results returned. Defaulting to old schema column names."
+                )
+                return
 
-            # Look for the new column names in the results
-            column_names = [row.column_name for row in results]
-            self._bq_uses_new_schema = "total_rows" in column_names
+            # Check what column names are available in the result
+            row = results[0]
+
+            # Initialize mapping dict
+            self._column_name_mapping = {}
+
+            # Check for row count column
+            if hasattr(row, "total_rows"):
+                self._column_name_mapping["row_count"] = "total_rows"
+            elif hasattr(row, "row_count"):
+                self._column_name_mapping["row_count"] = "row_count"
+            else:
+                # Default
+                self._column_name_mapping["row_count"] = "row_count"
+
+            # Check for size bytes column
+            if hasattr(row, "total_logical_bytes"):
+                self._column_name_mapping["size_bytes"] = "total_logical_bytes"
+            elif hasattr(row, "size_bytes"):
+                self._column_name_mapping["size_bytes"] = "size_bytes"
+            else:
+                # Default
+                self._column_name_mapping["size_bytes"] = "size_bytes"
 
             logger.info(
-                f"Detected BigQuery INFORMATION_SCHEMA version. Uses new schema: {self._bq_uses_new_schema}"
+                f"Detected BigQuery INFORMATION_SCHEMA column mapping: {self._column_name_mapping}"
             )
+
         except Exception as e:
-            # If detection fails, default to the new schema (safer option)
+            # If detection fails, default to old schema as it's more common
+            self._column_name_mapping = {
+                "row_count": "row_count",
+                "size_bytes": "size_bytes",
+            }
             logger.warning(
-                f"Could not detect BigQuery schema version: {e}. Defaulting to new schema."
+                f"Error detecting BigQuery schema version: {e}. Defaulting to old schema column names."
             )
-            self._bq_uses_new_schema = True
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -1499,15 +1529,22 @@ class BigqueryProfiler(GenericProfiler):
         self, table: BigqueryTable, project: str, schema: str, metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fetch schema information from INFORMATION_SCHEMA."""
-        # Use column aliases to handle both schema versions
+        if not hasattr(self, "_column_name_mapping"):
+            self._detect_bq_schema_version()
+
+        # Get column name mappings
+        row_count_col = self._column_name_mapping.get("row_count", "row_count")
+        size_bytes_col = self._column_name_mapping.get("size_bytes", "size_bytes")
+
+        # Use explicit column selection and aliases to avoid issues
         combined_query = f"""
         SELECT 
             c.column_name,
             c.data_type,
             c.is_partitioning_column,
             c.clustering_ordinal_position,
-            t.row_count,
-            t.size_bytes, 
+            t.{row_count_col} as row_count,
+            t.{size_bytes_col} as size_bytes,
             t.ddl,
             t.creation_time,
             t.last_modified_time,
@@ -1544,7 +1581,7 @@ class BigqueryProfiler(GenericProfiler):
                     }
 
                 # Update table metadata from first row (all rows have same values)
-                # Use getattr with default values to handle missing attributes safely
+                # Use hasattr with default values to handle missing attributes safely
                 if (
                     hasattr(row, "row_count")
                     and row.row_count
@@ -1588,11 +1625,18 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Dict[str, Any]:
         """Fetch additional table stats if needed."""
         if not metadata.get("row_count") or not metadata.get("size_bytes"):
-            # Use basic column names - our _adjust_query_for_bq_version function will handle the conversion
+            if not hasattr(self, "_column_name_mapping"):
+                self._detect_bq_schema_version()
+
+            # Get column name mappings
+            row_count_col = self._column_name_mapping.get("row_count", "row_count")
+            size_bytes_col = self._column_name_mapping.get("size_bytes", "size_bytes")
+
+            # Use explicit column selection with aliases
             stats_query = f"""
             SELECT 
-                row_count,
-                size_bytes,
+                {row_count_col} as row_count,
+                {size_bytes_col} as size_bytes,
                 creation_time,
                 last_modified_time
             FROM 
@@ -1608,13 +1652,16 @@ class BigqueryProfiler(GenericProfiler):
 
                 if stats_results:
                     row = stats_results[0]
-                    if hasattr(row, "row_count") and row.row_count:
+                    if hasattr(row, "row_count") and row.row_count is not None:
                         metadata["row_count"] = row.row_count
-                    if hasattr(row, "size_bytes") and row.size_bytes:
+                    if hasattr(row, "size_bytes") and row.size_bytes is not None:
                         metadata["size_bytes"] = row.size_bytes
-                    if hasattr(row, "creation_time") and row.creation_time:
+                    if hasattr(row, "creation_time") and row.creation_time is not None:
                         metadata["creation_time"] = row.creation_time
-                    if hasattr(row, "last_modified_time") and row.last_modified_time:
+                    if (
+                        hasattr(row, "last_modified_time")
+                        and row.last_modified_time is not None
+                    ):
                         metadata["last_modified_time"] = row.last_modified_time
             except Exception as e:
                 logger.warning(
