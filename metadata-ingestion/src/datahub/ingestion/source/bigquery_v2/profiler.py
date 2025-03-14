@@ -2099,6 +2099,11 @@ class BigqueryProfiler(GenericProfiler):
                 f"Table {table.name} is an external table, treating as large table for profiling"
             )
             is_small_table = False
+        elif table.rows_count == 0 or table.rows_count is None:
+            logger.info(
+                f"Table {table.name} reports 0 rows or unknown row count, treating more carefully"
+            )
+            is_small_table = False
         elif (
             table.size_in_bytes is not None
             and table.size_in_bytes < 100_000_000  # Less than 100MB
@@ -2255,6 +2260,9 @@ class BigqueryProfiler(GenericProfiler):
             or bq_table.rows_count
             and bq_table.rows_count > 50_000_000
             or bq_table.external  # IMPORTANT: Always add hints for external tables
+            or bq_table.rows_count == 0  # IMPORTANT: Be careful with 0 row tables
+            or bq_table.rows_count
+            is None  # IMPORTANT: Be careful with unknown row counts
         ):  # > 5GB or external
             needs_optimization_hints = True
 
