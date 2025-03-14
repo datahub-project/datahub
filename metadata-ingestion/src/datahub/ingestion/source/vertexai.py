@@ -805,8 +805,7 @@ class VertexAISource(Source):
                     endpoint_dict[resource.model].append(endpoint)
             self.endpoints = endpoint_dict
 
-        endpoints = self.endpoints.get(model.resource_name, [])
-        return endpoints
+        return self.endpoints.get(model.resource_name, [])
 
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
         urn = builder.make_ml_model_urn(
