@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     FormAssociationClass,
@@ -149,7 +149,7 @@ class DataHubFormReportingData(FormData):
             )
         )
 
-    def get_form_existence_or_filters(self) -> List[SearchFilterRule]:
+    def get_form_existence_or_filters(self) -> List[RawSearchFilterRule]:
         """
         Datasets must either have completedForms or incompleteForms assigned to
         them
