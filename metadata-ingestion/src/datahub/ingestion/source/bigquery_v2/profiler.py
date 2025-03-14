@@ -941,12 +941,13 @@ class BigqueryProfiler(GenericProfiler):
         self, col_name: str, value: Any, data_type: str
     ) -> Optional[str]:
         """
-        Create a filter string for a single column based on its data type.
+        Create a filter string for a single column based on its data type,
+        with improved handling of type mismatches.
 
         Args:
             col_name: Column name
             value: Column value
-            data_type: Column data type
+            data_type: Column data type from BigQuery
 
         Returns:
             Filter string or None if no filter could be created
@@ -958,67 +959,153 @@ class BigqueryProfiler(GenericProfiler):
         # Normalize data type for comparison
         normalized_data_type = data_type.upper() if data_type else ""
 
-        # Handle each type with a specific format that matches test expectations
-        if normalized_data_type in ("TIMESTAMP", "DATETIME"):
-            if isinstance(value, datetime):
-                # Format exactly as expected by the test
-                timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
-                return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
-            elif isinstance(value, (int, float)):
-                return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
-            else:
-                # Any other value type, force the expected format
-                return f"`{col_name}` = TIMESTAMP '{str(value)}'"
-        elif normalized_data_type == "DATE":
-            if isinstance(value, datetime):
-                date_str = value.strftime("%Y-%m-%d")
-                return f"`{col_name}` = DATE '{date_str}'"
-            else:
-                return f"`{col_name}` = DATE '{str(value)}'"
-        elif normalized_data_type in ("STRING", "VARCHAR", "BIGNUMERIC", "JSON"):
-            if isinstance(value, str):
-                escaped_value = value.replace("'", "\\'")
-                return f"`{col_name}` = '{escaped_value}'"
-            else:
-                return f"`{col_name}` = '{str(value)}'"
-        elif normalized_data_type in (
-            "INT64",
-            "INTEGER",
-            "INT",
-            "SMALLINT",
-            "BIGINT",
-            "TINYINT",
-            "FLOAT64",
-            "FLOAT",
-            "NUMERIC",
-            "DECIMAL",
-        ):
-            if isinstance(value, (int, float)):
-                return f"`{col_name}` = {value}"
-            else:
-                # Try to convert to numeric
-                try:
-                    numeric_value = float(str(value))
-                    return f"`{col_name}` = {numeric_value}"
-                except (ValueError, TypeError):
-                    # If conversion fails, use a safe value
-                    return f"`{col_name}` = 0"
-        elif normalized_data_type in ("BOOL", "BOOLEAN"):
-            if isinstance(value, bool):
-                bool_val = "true" if value else "false"
-                return f"`{col_name}` = {bool_val}"
-            else:
-                bool_val = (
-                    "true" if str(value).lower() in ("true", "1", "yes") else "false"
-                )
-                return f"`{col_name}` = {bool_val}"
+        # Check if we're dealing with a time-related column
+        is_time_related_column = self._is_time_related_column(col_name)
+
+        # Handle special cases first
+        if is_time_related_column:
+            # Time-related columns have special handling based on data type
+            if normalized_data_type in ("INT64", "INTEGER", "INT"):
+                return self._create_int_timestamp_filter(col_name, value)
+            elif normalized_data_type in ("STRING", "VARCHAR"):
+                return self._create_string_date_filter(col_name, value)
+
+        # Handle standard types
+        type_handlers = {
+            "TIMESTAMP": self._create_timestamp_filter,
+            "DATETIME": self._create_timestamp_filter,
+            "DATE": self._create_date_filter,
+            "STRING": self._create_string_filter,
+            "VARCHAR": self._create_string_filter,
+            "BIGNUMERIC": self._create_string_filter,
+            "JSON": self._create_string_filter,
+            "INT64": self._create_numeric_filter,
+            "INTEGER": self._create_numeric_filter,
+            "INT": self._create_numeric_filter,
+            "SMALLINT": self._create_numeric_filter,
+            "BIGINT": self._create_numeric_filter,
+            "TINYINT": self._create_numeric_filter,
+            "FLOAT64": self._create_numeric_filter,
+            "FLOAT": self._create_numeric_filter,
+            "NUMERIC": self._create_numeric_filter,
+            "DECIMAL": self._create_numeric_filter,
+            "BOOL": self._create_boolean_filter,
+            "BOOLEAN": self._create_boolean_filter,
+        }
+
+        # Find the right handler for this data type
+        for type_prefix, handler in type_handlers.items():
+            if normalized_data_type.startswith(type_prefix):
+                return handler(col_name, value)
+
+        # Default case for any other data type
+        return self._create_default_filter(col_name, value)
+
+    def _is_time_related_column(self, col_name: str) -> bool:
+        """Check if column name indicates time-related data."""
+        time_terms = ["date", "time", "dt", "created", "modified", "updated"]
+        return any(time_term in col_name.lower() for time_term in time_terms)
+
+    def _create_int_timestamp_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for INT64 columns with time-related names."""
+        if isinstance(value, datetime):
+            # Convert datetime to epoch seconds for INT64 columns
+            epoch_seconds = int(value.timestamp())
+            return f"`{col_name}` = {epoch_seconds}"
+        elif isinstance(value, (int, float)):
+            # Already numeric, use directly
+            return f"`{col_name}` = {int(value)}"
         else:
-            # Default case
-            if isinstance(value, str):
-                escaped_value = value.replace("'", "\\'")
-                return f"`{col_name}` = '{escaped_value}'"
-            else:
-                return f"`{col_name}` = '{str(value)}'"
+            # Try to handle string dates by converting to epoch
+            try:
+                dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                epoch_seconds = int(dt.timestamp())
+                return f"`{col_name}` = {epoch_seconds}"
+            except (ValueError, TypeError):
+                # Fallback to a safe filter
+                return f"`{col_name}` IS NOT NULL"
+
+    def _create_string_date_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for STRING columns with time-related names."""
+        if isinstance(value, datetime):
+            # For STRING date columns, convert datetime to string format
+            date_str = value.strftime("%Y-%m-%d")
+            return f"`{col_name}` = '{date_str}'"
+        else:
+            # Ensure it's a properly formatted string
+            val_str = str(value).replace("'", "\\'")
+            # Remove TIMESTAMP keyword if present
+            if val_str.startswith("TIMESTAMP "):
+                val_str = val_str.replace("TIMESTAMP ", "").strip("'\"")
+            return f"`{col_name}` = '{val_str}'"
+
+    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for TIMESTAMP/DATETIME columns."""
+        if isinstance(value, datetime):
+            timestamp_str = value.strftime("%Y-%m-%d %H:%M:%S")
+            return f"`{col_name}` = TIMESTAMP '{timestamp_str}'"
+        elif isinstance(value, (int, float)):
+            # For numeric values, use TIMESTAMP_SECONDS
+            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
+        else:
+            # Try to create a valid TIMESTAMP literal
+            val_str = str(value).replace("'", "\\'").replace("TIMESTAMP ", "")
+            return f"`{col_name}` = TIMESTAMP '{val_str}'"
+
+    def _create_date_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for DATE columns."""
+        if isinstance(value, datetime):
+            date_str = value.strftime("%Y-%m-%d")
+            return f"`{col_name}` = DATE '{date_str}'"
+        else:
+            val_str = str(value).replace("'", "\\'").replace("DATE ", "")
+            return f"`{col_name}` = DATE '{val_str}'"
+
+    def _create_string_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for STRING type columns."""
+        val_str = str(value).replace("'", "\\'")
+        return f"`{col_name}` = '{val_str}'"
+
+    def _create_numeric_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for numeric columns."""
+        if isinstance(value, (int, float)):
+            return f"`{col_name}` = {value}"
+        else:
+            try:
+                # Try to extract numeric value
+                val_str = str(value)
+                # Handle TIMESTAMP literals
+                if "TIMESTAMP" in val_str:
+                    # If we're trying to compare INT with TIMESTAMP,
+                    # let's convert to epoch seconds
+                    try:
+                        dt_str = val_str.replace("TIMESTAMP", "").strip().strip("'\"")
+                        dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
+                        epoch_seconds = int(dt.timestamp())
+                        return f"`{col_name}` = {epoch_seconds}"
+                    except (ValueError, TypeError):
+                        # Fallback to safer filter
+                        return f"`{col_name}` IS NOT NULL"
+
+                numeric_value = float(val_str)
+                return f"`{col_name}` = {numeric_value}"
+            except (ValueError, TypeError):
+                # If conversion fails, use a safer approach
+                return f"`{col_name}` IS NOT NULL"
+
+    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
+        """Create filter for boolean columns."""
+        if isinstance(value, bool):
+            bool_val = "true" if value else "false"
+            return f"`{col_name}` = {bool_val}"
+        else:
+            bool_val = "true" if str(value).lower() in ("true", "1", "yes") else "false"
+            return f"`{col_name}` = {bool_val}"
+
+    def _create_default_filter(self, col_name: str, value: Any) -> str:
+        """Create default filter for unknown column types."""
+        val_str = str(value).replace("'", "\\'")
+        return f"`{col_name}` = '{val_str}'"
 
     def _verify_partition_has_data(
         self,
@@ -1229,11 +1316,19 @@ class BigqueryProfiler(GenericProfiler):
             f"verify_exists_{project}_{schema}_{table.name}_{hash(where_clause)}"
         )
 
-        for attempt in range(max_retries + 1):
+        # First try with shorter timeout (fast path)
+        initial_timeout = max(5, timeout // 2)
+        initial_result = self._execute_existence_query(
+            existence_query, query_cache_key, initial_timeout, cache_key, filters
+        )
+        if initial_result is not None:
+            return initial_result
+
+        # If first attempt failed, try with longer timeout and retries
+        for attempt in range(max_retries):
             try:
-                current_timeout = max(5, timeout // 2) if attempt == 0 else timeout
                 existence_results = self._execute_cached_query(
-                    existence_query, query_cache_key, current_timeout
+                    existence_query, query_cache_key, timeout
                 )
 
                 if existence_results:
@@ -1241,106 +1336,170 @@ class BigqueryProfiler(GenericProfiler):
                     self._successful_filters_cache[cache_key] = filters
                     return True
 
-                if attempt == 0:
-                    logger.debug("Existence check returned no data")
-                    break
-
             except Exception as e:
                 error_str = str(e)
 
-                # Specific check for INT64/TIMESTAMP type mismatch
-                if "No matching signature for operator =" in error_str and (
-                    "INT64" in error_str and "TIMESTAMP" in error_str
-                ):
-                    logger.warning(
-                        f"INT64/TIMESTAMP type mismatch detected: {error_str}"
+                # Handle type mismatch errors
+                if "No matching signature for operator" in error_str:
+                    fixed_filters = self._handle_type_mismatch(
+                        filters,
+                        error_str,
+                        table,
+                        project,
+                        schema,
+                        timeout,
+                        max_retries - attempt - 1,
                     )
+                    if fixed_filters:
+                        return fixed_filters
 
-                    # Extract problematic filter
-                    match = re.search(r"at \[(\d+):(\d+)]", error_str)
-                    if match and len(filters) > int(match.group(1)) - 1:
-                        problem_index = int(match.group(1)) - 1
-                        problematic_filter = filters[problem_index]
-                        logger.info(
-                            f"Problematic filter identified: {problematic_filter}"
-                        )
+                logger.debug(
+                    f"Existence check attempt {attempt + 1} failed: {e}, retrying..."
+                )
+                time.sleep(1)  # Brief pause before retry
 
-                        # Replace the problematic filter with a safe alternative
-                        if "TIMESTAMP" in problematic_filter:
-                            # Convert TIMESTAMP filter to use UNIX_SECONDS
-                            parts = problematic_filter.split("=", 1)
-                            if len(parts) == 2:
-                                col = parts[0].strip()
-                                val = parts[1].strip()
+        logger.debug("All existence check attempts failed")
+        return False
 
-                                if "TIMESTAMP" in val:
-                                    # Replace with INT64-compatible filter
-                                    new_filter = f"{col} = UNIX_SECONDS({val})"
-                                    fixed_filters = list(filters)
-                                    fixed_filters[problem_index] = new_filter
+    def _execute_existence_query(
+        self,
+        query: str,
+        query_cache_key: str,
+        timeout: int,
+        filter_cache_key: str,
+        filters: List[str],
+    ) -> Optional[bool]:
+        """Execute existence query with caching and return result status."""
+        try:
+            existence_results = self._execute_cached_query(
+                query, query_cache_key, timeout
+            )
 
-                                    logger.info(f"Replaced with: {new_filter}")
-                                    return self._verify_partition_has_data(
-                                        table,
-                                        project,
-                                        schema,
-                                        fixed_filters,
-                                        timeout,
-                                        max_retries - 1,
-                                    )
+            if existence_results:
+                logger.info("Verified filters return data (existence check)")
+                self._successful_filters_cache[filter_cache_key] = filters
+                return True
+            return None
+        except Exception:
+            return None
 
-                    # If we can't identify the specific problematic filter, try each filter individually
-                    working_filters = []
-                    for filter_str in filters:
-                        try:
-                            # Skip this filter if it looks like it might cause the same issue
-                            if ("TIMESTAMP" in filter_str and "INT64" in error_str) or (
-                                filter_str.strip().isdigit()
-                                and "TIMESTAMP" in error_str
-                            ):
-                                continue
+    def _handle_type_mismatch(
+        self,
+        filters: List[str],
+        error_str: str,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        timeout: int,
+        retries_left: int,
+    ) -> bool:
+        """Handle type mismatch errors by fixing filter expressions."""
+        logger.warning(f"Type mismatch detected: {error_str}")
 
-                            # Test if this filter works on its own
-                            single_query = f"""
-                            SELECT 1 FROM `{project}.{schema}.{table.name}`
-                            WHERE {filter_str} LIMIT 1
-                            """
-                            test_results = self._execute_cached_query(
-                                single_query, None, 5
-                            )
-                            if test_results:
-                                working_filters.append(filter_str)
-                        except Exception:
-                            # Skip filters that cause errors
-                            pass
+        # Handle INT64 vs TIMESTAMP mismatch
+        if "INT64" in error_str and "TIMESTAMP" in error_str:
+            fixed_filters = self._fix_int64_timestamp_mismatch(filters)
+            if fixed_filters != filters:
+                logger.info(
+                    f"Attempting with fixed INT64/TIMESTAMP filters: {fixed_filters}"
+                )
+                return self._verify_partition_has_data(
+                    table, project, schema, fixed_filters, timeout, retries_left
+                )
 
-                    if working_filters:
-                        logger.info(
-                            f"Using subset of working filters: {working_filters}"
-                        )
-                        return self._verify_partition_has_data(
-                            table,
-                            project,
-                            schema,
-                            working_filters,
-                            timeout,
-                            max_retries - 1,
-                        )
-                    else:
-                        # If no filter works, try a completely different approach
-                        safety_filter = "TRUE /* Fallback due to type mismatch */"
-                        logger.warning(f"Using safety fallback filter: {safety_filter}")
-                        return self._verify_partition_has_data(
-                            table, project, schema, [safety_filter], timeout, 1
-                        )
+        # Handle STRING vs TIMESTAMP/DATE mismatch
+        elif "STRING" in error_str and (
+            "TIMESTAMP" in error_str or "DATE" in error_str
+        ):
+            fixed_filters = self._fix_string_date_mismatch(filters)
+            if fixed_filters != filters:
+                logger.info(
+                    f"Attempting with fixed STRING/TIMESTAMP filters: {fixed_filters}"
+                )
+                return self._verify_partition_has_data(
+                    table, project, schema, fixed_filters, timeout, retries_left
+                )
 
-                if attempt < max_retries:
-                    logger.debug(f"Existence check failed: {e}, retrying...")
-                    time.sleep(1)
-                else:
-                    logger.debug("All existence check attempts failed")
+        # For any type mismatch, try IS NOT NULL as a last resort
+        simple_filters = self._create_is_not_null_filters(filters)
+        if simple_filters != filters:
+            logger.info(f"Attempting with IS NOT NULL filters: {simple_filters}")
+            return self._verify_partition_has_data(
+                table, project, schema, simple_filters, timeout // 2, 1
+            )
 
         return False
+
+    def _fix_int64_timestamp_mismatch(self, filters: List[str]) -> List[str]:
+        """Fix filters with INT64/TIMESTAMP type mismatches."""
+        fixed_filters = []
+        for filter_str in filters:
+            if "=" in filter_str:
+                parts = filter_str.split("=", 1)
+                if len(parts) == 2:
+                    col, val = parts[0].strip(), parts[1].strip()
+
+                    # Fix INT64 column with TIMESTAMP value
+                    if "TIMESTAMP" in val:
+                        try:
+                            # Extract timestamp and convert to epoch seconds
+                            timestamp_str = (
+                                val.replace("TIMESTAMP", "").strip().strip("'\"")
+                            )
+                            dt = datetime.fromisoformat(timestamp_str.replace(" ", "T"))
+                            epoch_seconds = int(dt.timestamp())
+                            fixed_filters.append(f"{col} = {epoch_seconds}")
+                            continue
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Integer value with TIMESTAMP column - use TIMESTAMP_SECONDS
+                    if val.isdigit():
+                        fixed_filters.append(f"{col} = TIMESTAMP_SECONDS({val})")
+                        continue
+
+            # Keep unchanged filters
+            fixed_filters.append(filter_str)
+
+        return fixed_filters
+
+    def _fix_string_date_mismatch(self, filters: List[str]) -> List[str]:
+        """Fix filters with STRING/DATE type mismatches."""
+        fixed_filters = []
+        for filter_str in filters:
+            if "=" in filter_str:
+                parts = filter_str.split("=", 1)
+                if len(parts) == 2:
+                    col, val = parts[0].strip(), parts[1].strip()
+
+                    # Fix STRING column with TIMESTAMP/DATE value
+                    if "TIMESTAMP" in val or "DATE" in val:
+                        # Extract just the date/time part
+                        date_str = (
+                            val.replace("TIMESTAMP", "")
+                            .replace("DATE", "")
+                            .strip()
+                            .strip("'\"")
+                        )
+                        fixed_filters.append(f"{col} = '{date_str}'")
+                        continue
+
+            # Keep unchanged filters
+            fixed_filters.append(filter_str)
+
+        return fixed_filters
+
+    def _create_is_not_null_filters(self, filters: List[str]) -> List[str]:
+        """Create IS NOT NULL filters from equality filters."""
+        simple_filters = []
+        for filter_str in filters:
+            if "=" in filter_str:
+                col = filter_str.split("=")[0].strip()
+                simple_filters.append(f"{col} IS NOT NULL")
+            else:
+                simple_filters.append(filter_str)
+
+        return simple_filters
 
     def _try_syntax_check(
         self,
