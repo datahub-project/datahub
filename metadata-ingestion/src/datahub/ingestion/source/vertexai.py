@@ -274,18 +274,22 @@ class VertexAISource(Source):
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=str(run_urn),
             aspects=[
-                DataProcessInstancePropertiesClass(
-                    name=run.name,
-                    created=AuditStampClass(
-                        time=created_time
-                        if created_time
-                        else datetime_to_ts_millis(datetime.now()),
-                        actor=created_actor,
-                    ),
-                    externalUrl=self._make_experiment_run_external_url(experiment, run),
-                    customProperties=self._make_custom_properties_for_run(
-                        experiment, run
-                    ),
+                (
+                    DataProcessInstancePropertiesClass(
+                        name=run.name,
+                        created=AuditStampClass(
+                            time=created_time,
+                            actor=created_actor,
+                        ),
+                        externalUrl=self._make_experiment_run_external_url(
+                            experiment, run
+                        ),
+                        customProperties=self._make_custom_properties_for_run(
+                            experiment, run
+                        ),
+                    )
+                    if created_time
+                    else None
                 ),
                 ContainerClass(container=experiment_key.as_urn()),
                 MLTrainingRunPropertiesClass(
@@ -296,24 +300,26 @@ class VertexAISource(Source):
                 ),
                 DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
                 SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_EXPERIMENT_RUN]),
-                DataProcessInstanceRunEventClass(
-                    status=DataProcessRunStatusClass.STARTED,
-                    timestampMillis=created_time,
-                    result=DataProcessInstanceRunResultClass(
-                        type=self._get_run_result_status(run.get_state()),
-                        nativeResultType=self.platform,
-                    ),
-                    durationMillis=duration,
-                )
-                if isinstance(run_result_type, RunResultTypeClass)
-                and created_time is not None
-                else None,
-                DataProcessInstanceOutputClass(
-                    outputs=[],
-                    outputEdges=[
-                        EdgeClass(destinationUrn=experiment_key.as_urn()),
-                    ],
+                (
+                    DataProcessInstanceRunEventClass(
+                        status=DataProcessRunStatusClass.STARTED,
+                        timestampMillis=created_time,
+                        result=DataProcessInstanceRunResultClass(
+                            type=self._get_run_result_status(run.get_state()),
+                            nativeResultType=self.platform,
+                        ),
+                        durationMillis=duration,
+                    )
+                    if isinstance(run_result_type, RunResultTypeClass)
+                    and created_time is not None
+                    else None
                 ),
+                # DataProcessInstanceOutputClass(
+                #     outputs=[],
+                #     outputEdges=[
+                #         EdgeClass(destinationUrn=experiment_key.as_urn()),
+                #     ],
+                # ),
             ],
         )
 
@@ -625,7 +631,7 @@ class VertexAISource(Source):
                     ContainerClass(container=self._get_project_container().as_urn()),
                     DataPlatformInstanceClass(
                         platform=str(DataPlatformUrn(self.platform))
-                    )
+                    ),
                 ],
             )
 
