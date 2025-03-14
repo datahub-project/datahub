@@ -518,10 +518,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
 
-        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
-
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on", now)).timestamp() * 1000
+            dp.parse(datetime.now().strftime("%I:%M%p on %B %d, %Y")).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
 
