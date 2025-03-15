@@ -165,6 +165,311 @@ def test_nifi_s3_provenance_event():
         ]
 
 
+@typing.no_type_check
+def test_nifi_kafka_provenance_event():
+    config_dict = {"site_url": "http://localhost:8080", "incremental_lineage": False}
+    nifi_config = NifiSourceConfig.parse_obj(config_dict)
+    ctx = PipelineContext(run_id="test")
+
+    put_kafka_versions = ["2_6", "2_0"]
+    for version in put_kafka_versions:
+        with patch(
+            "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        ) as mock_provenance_events, patch(
+            "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        ) as mock_delete_provenance:
+            kafka_mocked_events(
+                mock_provenance_events, mock_delete_provenance, f"put_kafka_{version}"
+            )
+
+            nifi_source = NifiSource(nifi_config, ctx)
+
+            nifi_source.nifi_flow = NifiFlow(
+                version="1.15.0",
+                clustered=False,
+                root_process_group=NifiProcessGroup(
+                    id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                    name="Standalone Flow",
+                    parent_group_id=None,
+                ),
+                components={
+                    "aed63edf-e660-3f29-b56b-192cf6286889": NifiComponent(
+                        id="abd63edf-e660-3f29-b56b-192cf6286889",
+                        name=f"PublishKafka_{version}",
+                        type=f"org.apache.nifi.processors.kafka.pubsub.PublishKafka_{version}",
+                        parent_group_id="80404c81-017d-1000-e8e8-af7420af06c1",
+                        nifi_type=NifiType.PROCESSOR,
+                        comments="",
+                        status=None,
+                        inlets={},
+                        outlets={},
+                        config={},
+                        target_uris=None,
+                        last_event_time=None,
+                    )
+                },
+                remotely_accessible_ports={},
+                connections=BidirectionalComponentGraph(),
+                processGroups={
+                    "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
+                        id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                        name="Standalone Flow",
+                        parent_group_id=None,
+                    ),
+                    "80404c81-017d-1000-e8e8-af7420af06c1": NifiProcessGroup(
+                        id="80404c81-017d-1000-e8e8-af7420af06c1",
+                        name="putKafka",
+                        parent_group_id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                    ),
+                },
+                remoteProcessGroups={},
+                remote_ports={},
+            )
+
+            NifiSource.process_provenance_events(nifi_source)
+            workunits = list(NifiSource.construct_workunits(nifi_source))
+
+            # one aspect for dataflow and two aspects for datajob
+            # and two aspects for dataset
+            assert len(workunits) == 6
+            assert workunits[0].metadata.entityType == "dataFlow"
+
+            assert workunits[1].metadata.entityType == "dataset"
+            assert workunits[2].metadata.entityType == "dataset"
+            assert workunits[3].metadata.entityType == "dataJob"
+            assert workunits[4].metadata.entityType == "dataJob"
+            ioAspect = workunits[5].metadata.aspect
+            assert ioAspect.outputDatasets == [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_topic,PROD)"
+            ]
+            assert ioAspect.inputDatasets == []
+
+    consume_kafka_versions = ["2_6", "2_0"]
+    for version in consume_kafka_versions:
+        with patch(
+            "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        ) as mock_provenance_events, patch(
+            "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        ) as mock_delete_provenance:
+            kafka_mocked_events(
+                mock_provenance_events,
+                mock_delete_provenance,
+                f"consume_kafka_{version}",
+            )
+
+            nifi_source = NifiSource(nifi_config, ctx)
+
+            nifi_source.nifi_flow = NifiFlow(
+                version="1.15.0",
+                clustered=False,
+                root_process_group=NifiProcessGroup(
+                    id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                    name="Standalone Flow",
+                    parent_group_id=None,
+                ),
+                components={
+                    "aed63edf-e660-3f29-b56b-192cf6286889": NifiComponent(
+                        id="abd63edf-e660-3f29-b56b-192cf6286889",
+                        name=f"ConsumeKafka_{version}",
+                        type=f"org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_{version}",
+                        parent_group_id="80404c81-017d-1000-e8e8-af7420af06c1",
+                        nifi_type=NifiType.PROCESSOR,
+                        comments="",
+                        status=None,
+                        inlets={},
+                        outlets={},
+                        config={},
+                        target_uris=None,
+                        last_event_time=None,
+                    )
+                },
+                remotely_accessible_ports={},
+                connections=BidirectionalComponentGraph(),
+                processGroups={
+                    "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
+                        id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                        name="Standalone Flow",
+                        parent_group_id=None,
+                    ),
+                    "80404c81-017d-1000-e8e8-af7420af06c1": NifiProcessGroup(
+                        id="80404c81-017d-1000-e8e8-af7420af06c1",
+                        name="consumeKafka",
+                        parent_group_id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                    ),
+                },
+                remoteProcessGroups={},
+                remote_ports={},
+            )
+
+            NifiSource.process_provenance_events(nifi_source)
+            workunits = list(NifiSource.construct_workunits(nifi_source))
+
+            # one aspect for dataflow and two aspects for datajob
+            # and two aspects for dataset
+            assert len(workunits) == 6
+            assert workunits[0].metadata.entityType == "dataFlow"
+
+            assert workunits[1].metadata.entityType == "dataset"
+            assert workunits[2].metadata.entityType == "dataset"
+            assert workunits[3].metadata.entityType == "dataJob"
+            assert workunits[4].metadata.entityType == "dataJob"
+            ioAspect = workunits[5].metadata.aspect
+            assert ioAspect.inputDatasets == [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_topic,PROD)"
+            ]
+            assert ioAspect.outputDatasets == []
+
+
+@typing.no_type_check
+def test_nifi_rmq_provenance_event():
+    config_dict = {"site_url": "http://localhost:8080", "incremental_lineage": False}
+    nifi_config = NifiSourceConfig.parse_obj(config_dict)
+    ctx = PipelineContext(run_id="test")
+
+    with patch(
+        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+    ) as mock_provenance_events, patch(
+        "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+    ) as mock_delete_provenance:
+        rmq_mocked_functions(
+            mock_provenance_events, mock_delete_provenance, "ConsumeAMQP"
+        )
+
+        nifi_source = NifiSource(nifi_config, ctx)
+
+        nifi_source.nifi_flow = NifiFlow(
+            version="1.15.0",
+            clustered=False,
+            root_process_group=NifiProcessGroup(
+                id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                name="Standalone Flow",
+                parent_group_id=None,
+            ),
+            components={
+                "aed63edf-e660-3f29-b56b-192cf6286889": NifiComponent(
+                    id="abd63edf-e660-3f29-b56b-192cf6286889",
+                    name="ConsumeAMQP",
+                    type="org.apache.nifi.amqp.processors.ConsumeAMQP",
+                    parent_group_id="80404c81-017d-1000-e8e8-af7420af06c1",
+                    nifi_type=NifiType.PROCESSOR,
+                    comments="",
+                    status=None,
+                    inlets={},
+                    outlets={},
+                    config={},
+                    target_uris=None,
+                    last_event_time=None,
+                )
+            },
+            remotely_accessible_ports={},
+            connections=BidirectionalComponentGraph(),
+            processGroups={
+                "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
+                    id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                    name="Standalone Flow",
+                    parent_group_id=None,
+                ),
+                "80404c81-017d-1000-e8e8-af7420af06c1": NifiProcessGroup(
+                    id="80404c81-017d-1000-e8e8-af7420af06c1",
+                    name="ConsumeAMQP",
+                    parent_group_id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
+                ),
+            },
+            remoteProcessGroups={},
+            remote_ports={},
+        )
+
+        NifiSource.process_provenance_events(nifi_source)
+        workunits = list(NifiSource.construct_workunits(nifi_source))
+
+        # one aspect for dataflow and two aspects for datajob
+        # and two aspects for dataset
+        assert len(workunits) == 6
+        assert workunits[0].metadata.entityType == "dataFlow"
+
+        assert workunits[1].metadata.entityType == "dataset"
+        assert workunits[2].metadata.entityType == "dataset"
+        assert workunits[3].metadata.entityType == "dataJob"
+        assert workunits[4].metadata.entityType == "dataJob"
+        ioAspect = workunits[5].metadata.aspect
+        assert ioAspect.inputDatasets == [
+            "urn:li:dataset:(urn:li:dataPlatform:rmq,rabbit_topic,PROD)"
+        ]
+        assert ioAspect.outputDatasets == []
+
+
+def kafka_mocked_events(
+    mock_provenance_events, mock_delete_provenance, provenance_case
+):
+    put_kafka_send_response_2_6 = [
+        {
+            "id": "1",
+            "eventId": 2,
+            "eventTime": "12/08/2021 10:06:19.828 UTC",
+            "eventType": "SEND",
+            "groupId": "80404c81-017d-1000-e8e8-af7420af06c1",
+            "componentId": "91d59f03-1c2b-3f3f-48bc-f89296a328bd",
+            "componentType": "PublishKafka_2_6",
+            "componentName": "PublishKafka_Events",
+            "transitUri": "SASL_SSL://localhost:9092/kafka_topic",
+        }
+    ]
+
+    put_kafka_send_response_2_0 = [
+        {
+            "id": "1",
+            "eventId": 2,
+            "eventTime": "12/08/2021 10:06:19.828 UTC",
+            "eventType": "SEND",
+            "groupId": "80404c81-017d-1000-e8e8-af7420af06c1",
+            "componentId": "91d59f03-1c2b-3f3f-48bc-f89296a328bd",
+            "componentType": "PublishKafka_2_0",
+            "componentName": "PublishKafka_Events",
+            "transitUri": "SASL_SSL://localhost:9092/kafka_topic",
+        }
+    ]
+
+    consume_kafka_send_response_2_0 = [
+        {
+            "id": "1",
+            "eventId": 2,
+            "eventTime": "12/08/2021 10:06:19.828 UTC",
+            "eventType": "RECEIVE",
+            "groupId": "80404c81-017d-1000-e8e8-af7420af06c1",
+            "componentId": "91d59f03-1c2b-3f3f-48bc-f89296a328bd",
+            "componentType": "ConsumeKafka_2_0",
+            "componentName": "ConsumeKafka_Events",
+            "transitUri": "SASL_SSL://localhost:9092/kafka_topic",
+            "attributes": [{"name": "kafka.topic", "value": "kafka_topic"}],
+        }
+    ]
+
+    consume_kafka_send_response_2_6 = [
+        {
+            "id": "1",
+            "eventId": 2,
+            "eventTime": "12/08/2021 10:06:19.828 UTC",
+            "eventType": "RECEIVE",
+            "groupId": "80404c81-017d-1000-e8e8-af7420af06c1",
+            "componentId": "91d59f03-1c2b-3f3f-48bc-f89296a328bd",
+            "componentType": "ConsumeKafka_2_6",
+            "componentName": "ConsumeKafka_Events",
+            "transitUri": "SASL_SSL://localhost:9092/kafka_topic",
+            "attributes": [{"name": "kafka.topic", "value": "kafka_topic"}],
+        }
+    ]
+
+    mock_delete_provenance.return_value = None
+    if provenance_case == "put_kafka_2_6":
+        mock_provenance_events.return_value = put_kafka_send_response_2_6
+    elif provenance_case == "put_kafka_2_0":
+        mock_provenance_events.return_value = put_kafka_send_response_2_0
+    elif provenance_case == "consume_kafka_2_6":
+        mock_provenance_events.return_value = consume_kafka_send_response_2_6
+    else:
+        mock_provenance_events.return_value = consume_kafka_send_response_2_0
+
+
 def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_case):
     puts3_provenance_response = [
         {
@@ -277,6 +582,27 @@ def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_
         mock_provenance_events.return_value = fetchs3_provenance_response
     else:
         mock_provenance_events.return_value = puts3_provenance_response
+
+
+def rmq_mocked_functions(
+    mock_provenance_events, mock_delete_provenance, provenance_case
+):
+    consume_rmq_send_response = [
+        {
+            "id": "1",
+            "eventId": 1,
+            "eventTime": "12/08/2021 10:06:19.828 UTC",
+            "eventType": "RECEIVE",
+            "groupId": "80404c81-017d-1000-e8e8-af7420af06c1",
+            "componentId": "91d59f03-1c2b-3f3f-48bc-f89296a328bd",
+            "componentType": "ConsumeAMQP",
+            "componentName": "ConsumeAMQP",
+            "transitUri": "localhost:5672/rabbit_topic",
+        }
+    ]
+
+    mock_delete_provenance.return_value = None
+    mock_provenance_events.return_value = consume_rmq_send_response
 
 
 @pytest.mark.parametrize("auth", ["SINGLE_USER", "BASIC_AUTH"])

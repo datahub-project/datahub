@@ -6,9 +6,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
-from pathlib import Path
+
 import requests
 from cached_property import cached_property
 from dateutil import parser
@@ -165,7 +166,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         " When disabled, re-states lineage on each run.",
     )
 
-    remove_partition_s3: Optional[bool] = Field (
+    remove_partition_s3: Optional[bool] = Field(
         default=None, description="Whether to remove partition values from s3 path"
     )
 
@@ -367,14 +368,14 @@ class NifiProcessorProvenanceEventAnalyzer:
             NifiProcessorType.ConsumeAMQP: self.process_consumeAmqp_provenance_event,
         }
 
-    def process_putKafka_provenance_event(self,event):
-        transitUri = event.get ("transitUri")
+    def process_putKafka_provenance_event(self, event):
+        transitUri = event.get("transitUri")
         if transitUri is None:
-            transitUri='dummy'
+            transitUri = "dummy"
         else:
-            topic = transitUri.split('/')[-1]
-        platform="kafka"
-        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+            topic = transitUri.split("/")[-1]
+        platform = "kafka"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
         return ExternalDataset(
             platform,
             topic,
@@ -383,12 +384,12 @@ class NifiProcessorProvenanceEventAnalyzer:
         )
 
     def process_consumeKafka_provenance_event(self, event):
-        attributes = event.get ("attributes", [])
-        topic=get_attribute_value(attributes, "kafka.topic")
-        platform="kafka"
+        attributes = event.get("attributes", [])
+        topic = get_attribute_value(attributes, "kafka.topic")
+        platform = "kafka"
         if topic is None:
-            topic='dummy'
-        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+            topic = "dummy"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
         return ExternalDataset(
             platform,
             get_attribute_value(attributes, "kafka.topic"),
@@ -397,20 +398,19 @@ class NifiProcessorProvenanceEventAnalyzer:
         )
 
     def process_consumeAmqp_provenance_event(self, event):
-        transitUri = event.get ("transitUri")
+        transitUri = event.get("transitUri")
         if transitUri is None:
-            topic='dummy'
+            topic = "dummy"
         else:
-            topic = transitUri.split('/')[-1]
-        platform="rmq"
-        dataset_urn = builder.make_dataset_urn (platform, topic, self.env)
+            topic = transitUri.split("/")[-1]
+        platform = "rmq"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
         return ExternalDataset(
             platform,
             topic,
             dict(queue=topic),
             dataset_urn,
         )
-
 
     def process_s3_provenance_event(self, event):
         logger.debug(f"Processing s3 provenance event: {event}")
@@ -428,8 +428,8 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_path = s3_url[len("s3://") :]
         if self.remove_partition_s3:
             path = Path(s3_path)
-            filtered_parts = [part for part in path.parts if '=' not in part]
-            path = Path (*filtered_parts)
+            filtered_parts = [part for part in path.parts if "=" not in part]
+            path = Path(*filtered_parts)
             s3_path = str(path)
         dataset_name = s3_path.replace("/", ".")
         platform = "s3"
