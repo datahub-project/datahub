@@ -2353,6 +2353,17 @@ type GlossaryTerm implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Tags on the GlossaryTerm
+    """
+    tags: GlobalTags
+
+    """
+    Deprecated, use tags field instead
+    Tags associated with the field
+    """
+    globalTags: GlobalTags @deprecated
 }
 
 """
@@ -2511,6 +2522,17 @@ type GlossaryNode implements Entity {
     Display properties for the glossary node
     """
     displayProperties: DisplayProperties
+
+    """
+    Tags on the GlossaryNode
+    """
+    tags: GlobalTags
+
+    """
+    Deprecated, use tags field instead
+    Tags associated with the field
+    """
+    globalTags: GlobalTags @deprecated
 }
 
 """

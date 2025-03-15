@@ -1,7 +1,7 @@
 import { Modal, message } from 'antd';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
-import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
+import { BrowsePathV2, Owner, TagAssociation } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
 import { useEntityContext } from '../entity/shared/EntityContext';
 
@@ -15,10 +15,10 @@ export const entityHasCapability = (
     capabilityToCheck: EntityCapabilityType,
 ): boolean => capabilities.has(capabilityToCheck);
 
-export const getHighlightedTag = (tags?: GlobalTags) => {
-    if (tags && tags.tags?.length) {
-        if (tags?.tags[0].tag.properties) return tags?.tags[0]?.tag?.properties?.name;
-        return tags?.tags[0]?.tag?.name;
+export const getHighlightedTag = (tags?: TagAssociation[]) => {
+    if (tags?.length) {
+        if (tags[0].tag.properties) return tags[0]?.tag?.properties?.name;
+        return tags[0]?.tag?.name;
     }
     return '';
 };
