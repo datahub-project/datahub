@@ -99,6 +99,7 @@ class MLAssetSubTypes(StrEnum):
     MLFLOW_EXPERIMENT = "ML Experiment"
     VERTEX_EXPERIMENT = "Experiment"
     VERTEX_EXPERIMENT_RUN = "Experiment Run"
+    VERTEX_EXECUTION = "Execution"
 
     VERTEX_MODEL = "ML Model"
     VERTEX_MODEL_GROUP = "ML Model Group"

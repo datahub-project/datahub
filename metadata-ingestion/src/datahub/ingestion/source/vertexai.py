@@ -15,6 +15,7 @@ from google.cloud.aiplatform import (
     ExperimentRun,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
+from google.cloud.aiplatform.metadata.execution import Execution
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.oauth2 import service_account
@@ -160,12 +161,12 @@ class VertexAISource(Source):
         - Training Jobs
         """
 
-        # Ingest Project
-        yield from self._gen_project_workunits()
-        # Fetch and Ingest Models, Model Versions a from Model Registry
-        yield from auto_workunit(self._get_ml_models_mcps())
-        # Fetch and Ingest Training Jobs
-        yield from auto_workunit(self._get_training_jobs_mcps())
+        # # Ingest Project
+        # yield from self._gen_project_workunits()
+        # # Fetch and Ingest Models, Model Versions a from Model Registry
+        # yield from auto_workunit(self._get_ml_models_mcps())
+        # # Fetch and Ingest Training Jobs
+        # yield from auto_workunit(self._get_training_jobs_mcps())
         # Fetch and Ingest Experiments
         yield from self._get_experiments_workunits()
         # Fetch and Ingest Experiment Runs
@@ -241,6 +242,30 @@ class VertexAISource(Source):
         else:
             return RunResultTypeClass.SKIPPED
 
+    def _get_execution_result_status(self, status: int) -> Union[str, RunResultTypeClass]:
+        """
+        State of the execution.
+        STATE_UNSPECIFIED = 0
+        PENDING = 1
+        RUNNING = 2
+        SUCCEEDED = 3
+        FAILED = 4
+        """
+        if status == 3:
+            return RunResultTypeClass.SUCCESS
+        elif status == 4:
+            return RunResultTypeClass.FAILURE
+        elif status == 2:
+            return "RUNNING"
+        elif status == 1:
+            return "PENDING"
+        elif status == 0:
+            return "STATE_UNSPECIFIED"
+        else:
+            return RunResultTypeClass.SKIPPED
+
+
+
     def _make_custom_properties_for_run(
         self, experiment: Experiment, run: ExperimentRun
     ) -> dict:
@@ -254,6 +279,60 @@ class VertexAISource(Source):
             properties[f"update time ({exec_name}) "] = str(exec.update_time)
         return properties
 
+    def _make_custom_properties_for_execution(self, run: ExperimentRun, execution:Execution) -> dict:
+        properties: Dict[str, str] = dict()
+        return properties
+
+
+    def _gen_experiment_run_execution(self, execution:Execution, run:ExperimentRun, exp:Experiment) -> Iterable[MetadataChangeProposalWrapper]:
+
+        create_time = execution.create_time
+        update_time = execution.update_time
+        duration = datetime_to_ts_millis(update_time) - datetime_to_ts_millis(create_time)
+        result_state:Union[str, RunResultTypeClass] = self._get_execution_result_status(execution.state)
+        execution_urn = builder.make_data_process_instance_urn(self._make_vertexai_run_execution_name(execution.name))
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(execution_urn),
+            aspects=[
+                DataProcessInstancePropertiesClass(
+                    name=execution.name,
+                    created=AuditStampClass(
+                        time=datetime_to_ts_millis(create_time),
+                        actor= "urn:li:corpuser:datahub",
+                    ),
+                    externalUrl=self._make_artifact_external_url(experiment=exp, run=run),
+                    customProperties=self._make_custom_properties_for_execution(execution, run),
+                ),
+                # MLTrainingRunPropertiesClass(
+                #     hyperParams=self._get_experiment_run_params(run),
+                #     trainingMetrics=self._get_experiment_run_metrics(run),
+                #     externalUrl=self._make_experiment_run_external_url(experiment, run),
+                #     id=f"{experiment.name}-{run.name}",
+                # ),
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_EXECUTION]),
+                (
+                    DataProcessInstanceRunEventClass(
+                        status=DataProcessRunStatusClass.STARTED,
+                        timestampMillis=datetime_to_ts_millis(create_time),
+                        result=DataProcessInstanceRunResultClass(
+                            type=result_state,
+                            nativeResultType=self.platform,
+                        ),
+                        durationMillis=int(duration),
+                    )
+                ),
+                # DataProcessInstanceInputClass(
+                #     inputs=[],
+                #     inputEdges=[
+                #         EdgeClass(destinationUrn=self._make_experiment_run_urn(exp, run)),
+                #     ],
+                # ),
+            ],
+        )
+
+
     def _gen_experiment_run_mcps(
         self, experiment: Experiment, run: ExperimentRun
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -262,34 +341,31 @@ class VertexAISource(Source):
             id=self._make_vertexai_experiment_name(experiment.name),
         )
 
-        run_name = self._make_vertexai_experiment_run_name(
-            entity_id=f"{experiment.name}-{run.name}"
-        )
-        run_urn = builder.make_data_process_instance_urn(run_name)
-
+        run_urn = self._make_experiment_run_urn(experiment, run)
         created_time, duration = self._get_run_create_time_duration(run)
         created_actor = "urn:li:corpuser:datahub"
         run_result_type = self._get_run_result_status(run.get_state())
 
+        logger.info(f"Ingesting executions for run {run.name}")
+        for execution in run.get_executions():
+            yield from self._gen_experiment_run_execution(execution=execution, exp=experiment, run=run)
+
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=str(run_urn),
             aspects=[
-                (
-                    DataProcessInstancePropertiesClass(
-                        name=run.name,
-                        created=AuditStampClass(
-                            time=created_time,
-                            actor=created_actor,
-                        ),
-                        externalUrl=self._make_experiment_run_external_url(
-                            experiment, run
-                        ),
-                        customProperties=self._make_custom_properties_for_run(
-                            experiment, run
-                        ),
-                    )
-                    if created_time
-                    else None
+                DataProcessInstancePropertiesClass(
+                    name=run.name,
+                    created=AuditStampClass(
+                        time=created_time if created_time else 0,
+                        actor=created_actor,
+                    ),
+                    externalUrl=self._make_experiment_run_external_url(
+                        experiment, run
+                    ),
+                    customProperties=self._make_custom_properties_for_run(
+                        experiment, run
+                    ),
+
                 ),
                 ContainerClass(container=experiment_key.as_urn()),
                 MLTrainingRunPropertiesClass(
@@ -847,6 +923,13 @@ class VertexAISource(Source):
 
         return self.endpoints.get(model.resource_name, [])
 
+    def _make_experiment_run_urn(self, experiment: Experiment, run: ExperimentRun) -> str:
+        return builder.make_data_process_instance_urn(
+            self._make_vertexai_experiment_run_name(
+                entity_id=f"{experiment.name}-{run.name}"
+            )
+        )
+
     def _make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
         urn = builder.make_ml_model_urn(
             platform=self.platform,
@@ -886,6 +969,21 @@ class VertexAISource(Source):
 
     def _make_vertexai_experiment_run_name(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.experiment_run.{entity_id}"
+
+    def _make_vertexai_run_execution_name(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.execution.{entity_id}"
+
+    def _make_artifact_external_url(self, experiment:Experiment, run:ExperimentRun) -> str:
+        """
+        Model external URL in Vertex AI
+        Sample URL:
+        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/test-experiment-job-metadata/runs/test-experiment-job-metadata-run-3/artifacts?project=acryl-poc
+        """
+        external_url: str = (
+            f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}/runs/{run.name}/artifacts"
+            f"?project={self.config.project_id}"
+        )
+        return external_url
 
     def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
         """
