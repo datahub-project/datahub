@@ -241,7 +241,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
         known_lineage = KnownQueryLineageInfo(
             query_id=get_query_fingerprint(
-                query.query_text, self.identifiers.platform, fast=True
+                query.query_text,
+                self.identifiers.platform,
+                fast=True,
             ),
             query_text=query.query_text,
             downstream=downstream_table_urn,
