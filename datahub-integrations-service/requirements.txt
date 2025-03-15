@@ -759,7 +759,9 @@ starlette==0.37.2
 tabulate==0.9.0
     # via acryl-datahub
 tenacity==9.0.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-integrations
 terminado==0.18.1
     # via
     #   jupyter-server
