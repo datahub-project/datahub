@@ -16,7 +16,7 @@ record DataProcessInstanceOutput {
   @Relationship = {
     "/*": {
       "name": "Produces",
-      "entityTypes": [ "dataset", "mlModel" ]
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ]
     }
   }
   @Searchable = {
@@ -38,7 +38,7 @@ record DataProcessInstanceOutput {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProcessInstanceProduces",
-      "entityTypes": [ "dataset", "mlModel" ],
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
       "isUpstream": false,
       "isLineage": true,
       "createdOn": "outputEdges/*/created/time"
