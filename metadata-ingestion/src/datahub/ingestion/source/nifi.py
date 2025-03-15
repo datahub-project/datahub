@@ -313,6 +313,11 @@ class NifiProcessorType:
     FetchSFTP = "org.apache.nifi.processors.standard.FetchSFTP"
     GetSFTP = "org.apache.nifi.processors.standard.GetSFTP"
     PutSFTP = "org.apache.nifi.processors.standard.PutSFTP"
+    PutKafka_2_6 = "org.apache.nifi.processors.kafka.pubsub.PublishKafka_2_6"
+    ConsumeKafka_2_6 = "org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_2_6"
+    PutKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.PublishKafka_2_0"
+    ConsumeKafka_2_0 = "org.apache.nifi.processors.kafka.pubsub.ConsumeKafka_2_0"
+    ConsumeAMQP = "org.apache.nifi.amqp.processors.ConsumeAMQP"
 
 
 # To support new processor type,
@@ -330,6 +335,11 @@ class NifiProcessorProvenanceEventAnalyzer:
         NifiProcessorType.FetchSFTP: NifiEventType.FETCH,
         NifiProcessorType.GetSFTP: NifiEventType.RECEIVE,
         NifiProcessorType.PutSFTP: NifiEventType.SEND,
+        NifiProcessorType.PutKafka_2_6: NifiEventType.SEND,
+        NifiProcessorType.ConsumeKafka_2_6: NifiEventType.RECEIVE,
+        NifiProcessorType.PutKafka_2_0: NifiEventType.SEND,
+        NifiProcessorType.ConsumeKafka_2_0: NifiEventType.RECEIVE,
+        NifiProcessorType.ConsumeAMQP: NifiEventType.RECEIVE,
     }
 
     def __init__(self) -> None:
@@ -344,7 +354,50 @@ class NifiProcessorProvenanceEventAnalyzer:
             NifiProcessorType.FetchSFTP: self.process_sftp_provenance_event,
             NifiProcessorType.GetSFTP: self.process_sftp_provenance_event,
             NifiProcessorType.PutSFTP: self.process_sftp_provenance_event,
+            NifiProcessorType.PutKafka_2_6: self.process_putKafka_provenance_event,
+            NifiProcessorType.ConsumeKafka_2_6: self.process_consumeKafka_provenance_event,
+            NifiProcessorType.PutKafka_2_0: self.process_putKafka_provenance_event,
+            NifiProcessorType.ConsumeKafka_2_0: self.process_consumeKafka_provenance_event,
+            NifiProcessorType.ConsumeAMQP: self.process_consumeAmqp_provenance_event,
         }
+
+    def process_putKafka_provenance_event(self, event):
+        transitUri = event.get("transitUri")
+        topic = "dummy" if transitUri is None else transitUri.split("/")[-1]
+        platform = "kafka"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            topic,
+            dict(topic=topic),
+            dataset_urn,
+        )
+
+    def process_consumeKafka_provenance_event(self, event):
+        attributes = event.get("attributes", [])
+        topic = get_attribute_value(attributes, "kafka.topic")
+        platform = "kafka"
+        if topic is None:
+            topic = "dummy"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            get_attribute_value(attributes, "kafka.topic"),
+            dict(topic=topic),
+            dataset_urn,
+        )
+
+    def process_consumeAmqp_provenance_event(self, event):
+        transitUri = event.get("transitUri")
+        topic = "dummy" if transitUri is None else transitUri.split("/")[-1]
+        platform = "rmq"
+        dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
+        return ExternalDataset(
+            platform,
+            topic,
+            dict(queue=topic),
+            dataset_urn,
+        )
 
     def process_s3_provenance_event(self, event):
         logger.debug(f"Processing s3 provenance event: {event}")
