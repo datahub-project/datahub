@@ -11,6 +11,9 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -183,6 +186,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="databricks",
     )
 
+    MYSQL = DataPlatformPair(
+        powerbi_data_platform_name="MySQL",
+        datahub_data_platform_name="mysql",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -275,7 +283,7 @@ class PowerBiProfilingConfig(ConfigModel):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
@@ -297,7 +305,15 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        description="Regex patterns to filter PowerBI workspaces in ingestion by ID."
+        " By default all IDs are allowed unless they are filtered by name using 'workspace_name_pattern'."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
+    )
+    # PowerBi workspace name
+    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion by name."
+        " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
@@ -373,7 +389,7 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to ingest PBI Dataset Table columns and measures",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
