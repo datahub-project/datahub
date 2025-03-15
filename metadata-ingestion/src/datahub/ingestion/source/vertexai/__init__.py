@@ -1,2 +1,2 @@
-from datahub.ingestion.source.vertexai.vertexai import VertexAISource
-from datahub.ingestion.source.vertexai import vertexai
+from datahub.ingestion.source.vertexai.vertexai import VertexAISource,ContainerKeyWithId,ModelMetadata,TrainingJobMetadata
+from datahub.ingestion.source.vertexai.config import VertexAIConfig

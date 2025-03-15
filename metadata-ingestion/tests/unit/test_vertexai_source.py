@@ -11,12 +11,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.ingestion.source.vertexai.vertexai import (
+from datahub.ingestion.source.vertexai import (
+    VertexAIConfig,
+    VertexAISource,
     ContainerKeyWithId,
     ModelMetadata,
     TrainingJobMetadata,
-    VertexAIConfig,
-    VertexAISource,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
