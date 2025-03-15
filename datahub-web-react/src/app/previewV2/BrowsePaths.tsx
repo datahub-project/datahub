@@ -110,7 +110,7 @@ function BrowsePaths(props: Props) {
                     {remainingParentPaths &&
                         remainingParentPaths.map((container, index) => {
                             return (
-                                <PlatformText>
+                                <PlatformText key={`${index}-${container.name}`}>
                                     <BrowsePathSection path={container} linksDisabled={linksDisabled} />
                                     {index < remainingParentPaths.length - 1 && <ContextPathSeparator />}
                                 </PlatformText>
