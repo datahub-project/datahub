@@ -2,7 +2,13 @@ from datetime import datetime
 from typing import List
 from unittest.mock import MagicMock
 
-from google.cloud.aiplatform import AutoMLTabularTrainingJob, CustomJob, Model
+from google.cloud.aiplatform import (
+    AutoMLTabularTrainingJob,
+    CustomJob,
+    Experiment,
+    ExperimentRun,
+    Model,
+)
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, VersionInfo
 from google.protobuf import timestamp_pb2
@@ -80,3 +86,27 @@ def gen_mock_endpoint() -> Endpoint:
     mock_endpoint.create_time = datetime.now()
     mock_endpoint.display_name = "test endpoint display name"
     return mock_endpoint
+
+
+def gen_mock_experiment(num: int = 1) -> Experiment:
+    mock_experiment = MagicMock(spec=Experiment)
+    mock_experiment.name = f"mock_experiment_{num}"
+    mock_experiment.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment.display_name = f"mock_experiment_{num}_display_name"
+    mock_experiment.description = f"mock_experiment_{num}_description"
+    mock_experiment.resource_name = (
+        f"projects/123/locations/us-central1/experiments/{num}"
+    )
+    mock_experiment.dashboard_url = "https://console.cloud.google.com/vertex-ai/locations/us-central1/experiments/123"
+    return mock_experiment
+
+
+def gen_mock_experiment_run() -> ExperimentRun:
+    mock_experiment_run = MagicMock(spec=ExperimentRun)
+    mock_experiment_run.name = "mock_experiment_run"
+    mock_experiment_run.project = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.update_time = timestamp_pb2.Timestamp().GetCurrentTime()
+    mock_experiment_run.display_name = "mock_experiment_run_display_name"
+    mock_experiment_run.description = "mock_experiment_run_description"
+    return mock_experiment_run

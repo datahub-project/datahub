@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform
@@ -12,8 +12,10 @@ from google.cloud.aiplatform import (
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
     Endpoint,
+    ExperimentRun,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
+from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.oauth2 import service_account
 from pydantic import PrivateAttr
@@ -35,23 +37,37 @@ from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.mlflow import ContainerKeyWithId
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLTrainingRunProperties,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
+    DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
+    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRunEventClass,
+    DataProcessInstanceRunResultClass,
+    DataProcessRunStatusClass,
     DatasetPropertiesClass,
+    EdgeClass,
+    MetadataAttributionClass,
+    MLHyperParamClass,
+    MLMetricClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
+    MLTrainingRunPropertiesClass,
+    RunResultTypeClass,
     SubTypesClass,
     TimeStampClass,
+    VersionPropertiesClass,
     VersionTagClass,
 )
-from datahub.utilities.str_enum import StrEnum
+from datahub.metadata.urns import DataPlatformUrn, MlModelUrn, VersionSetUrn
 from datahub.utilities.time import datetime_to_ts_millis
 
 T = TypeVar("T")
@@ -84,15 +100,6 @@ class VertexAIConfig(EnvConfigMixin):
             self._credentials_path = self.credential.create_credential_temp_file(
                 project_id=self.project_id
             )
-
-
-class MLTypes(StrEnum):
-    TRAINING_JOB = "Training Job"
-    MODEL = "ML Model"
-    MODEL_GROUP = "ML Model Group"
-    ENDPOINT = "Endpoint"
-    DATASET = "Dataset"
-    PROJECT = "Project"
 
 
 @dataclasses.dataclass
@@ -141,6 +148,7 @@ class VertexAISource(Source):
         self.client = aiplatform
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
+        self.experiments: Optional[List[Experiment]] = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -158,13 +166,168 @@ class VertexAISource(Source):
         yield from auto_workunit(self._get_ml_models_mcps())
         # Fetch and Ingest Training Jobs
         yield from auto_workunit(self._get_training_jobs_mcps())
-        # TODO Fetch Experiments and Experiment Runs
+        # Fetch and Ingest Experiments
+        yield from self._get_experiments_workunits()
+        # Fetch and Ingest Experiment Runs
+        yield from auto_workunit(self._get_experiment_runs_mcps())
+
+    def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # List all experiments
+        self.experiments = aiplatform.Experiment.list()
+
+        logger.info("Fetching experiments from VertexAI server")
+        for experiment in self.experiments:
+            yield from self._gen_experiment_workunits(experiment)
+
+    def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        if self.experiments is None:
+            self.experiments = aiplatform.Experiment.list()
+        for experiment in self.experiments:
+            logger.info(f"Fetching experiment runs for experiment {experiment.name}")
+            experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
+            for run in experiment_runs:
+                yield from self._gen_experiment_run_mcps(experiment, run)
+
+    def _gen_experiment_workunits(
+        self, experiment: Experiment
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_containers(
+            parent_container_key=self._get_project_container(),
+            container_key=ContainerKeyWithId(
+                platform=self.platform,
+                id=self._make_vertexai_experiment_name(experiment.name),
+            ),
+            name=experiment.name,
+            sub_types=[MLAssetSubTypes.VERTEX_EXPERIMENT],
+            extra_properties={
+                "name": experiment.name,
+                "resourceName": experiment.resource_name,
+                "dashboardURL": experiment.dashboard_url
+                if experiment.dashboard_url
+                else "",
+            },
+            external_url=self._make_experiment_external_url(experiment),
+        )
+
+    def _get_experiment_run_params(self, run: ExperimentRun) -> List[MLHyperParamClass]:
+        return [
+            MLHyperParamClass(name=k, value=str(v)) for k, v in run.get_params().items()
+        ]
+
+    def _get_experiment_run_metrics(self, run: ExperimentRun) -> List[MLMetricClass]:
+        return [
+            MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
+        ]
+
+    def _get_run_create_time_duration(
+        self, run: ExperimentRun
+    ) -> Tuple[Optional[int], Optional[int]]:
+        executions = run.get_executions()
+        if len(executions) == 0:
+            return None, None
+        min_create_time = min([exec.create_time for exec in executions])
+        max_upload_time = max([exec.update_time for exec in executions])
+        create_time_millis = int(min_create_time.timestamp() * 1000)
+        duration = max_upload_time.timestamp() * 1000 - create_time_millis
+        return create_time_millis, duration
+
+    def _get_run_result_status(self, status: str) -> Union[str, RunResultTypeClass]:
+        if status == "COMPLETE":
+            return RunResultTypeClass.SUCCESS
+        elif status == "FAILED":
+            return RunResultTypeClass.FAILURE
+        elif status == "RUNNING":  # No Corresponding RunResultTypeClass for RUNNING
+            return "RUNNING"
+        else:
+            return RunResultTypeClass.SKIPPED
+
+    def _make_custom_properties_for_run(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> dict:
+        properties: Dict[str, str] = dict()
+        properties["externalUrl"] = self._make_experiment_run_external_url(
+            experiment, run
+        )
+        for exec in run.get_executions():
+            exec_name = exec.name
+            properties[f"created time ({exec_name})"] = str(exec.create_time)
+            properties[f"update time ({exec_name}) "] = str(exec.update_time)
+        return properties
+
+    def _gen_experiment_run_mcps(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        experiment_key = ContainerKeyWithId(
+            platform=self.platform,
+            id=self._make_vertexai_experiment_name(experiment.name),
+        )
+
+        run_name = self._make_vertexai_experiment_run_name(
+            entity_id=f"{experiment.name}-{run.name}"
+        )
+        run_urn = builder.make_data_process_instance_urn(run_name)
+
+        created_time, duration = self._get_run_create_time_duration(run)
+        created_actor = "urn:li:corpuser:datahub"
+        run_result_type = self._get_run_result_status(run.get_state())
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(run_urn),
+            aspects=[
+                (
+                    DataProcessInstancePropertiesClass(
+                        name=run.name,
+                        created=AuditStampClass(
+                            time=created_time,
+                            actor=created_actor,
+                        ),
+                        externalUrl=self._make_experiment_run_external_url(
+                            experiment, run
+                        ),
+                        customProperties=self._make_custom_properties_for_run(
+                            experiment, run
+                        ),
+                    )
+                    if created_time
+                    else None
+                ),
+                ContainerClass(container=experiment_key.as_urn()),
+                MLTrainingRunPropertiesClass(
+                    hyperParams=self._get_experiment_run_params(run),
+                    trainingMetrics=self._get_experiment_run_metrics(run),
+                    externalUrl=self._make_experiment_run_external_url(experiment, run),
+                    id=f"{experiment.name}-{run.name}",
+                ),
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_EXPERIMENT_RUN]),
+                (
+                    DataProcessInstanceRunEventClass(
+                        status=DataProcessRunStatusClass.STARTED,
+                        timestampMillis=created_time,
+                        result=DataProcessInstanceRunResultClass(
+                            type=self._get_run_result_status(run.get_state()),
+                            nativeResultType=self.platform,
+                        ),
+                        durationMillis=duration,
+                    )
+                    if isinstance(run_result_type, RunResultTypeClass)
+                    and created_time is not None
+                    else None
+                ),
+                # DataProcessInstanceOutputClass(
+                #     outputs=[],
+                #     outputEdges=[
+                #         EdgeClass(destinationUrn=experiment_key.as_urn()),
+                #     ],
+                # ),
+            ],
+        )
 
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
             container_key=self._get_project_container(),
             name=self.config.project_id,
-            sub_types=[MLTypes.PROJECT],
+            sub_types=[MLAssetSubTypes.VERTEX_PROJECT],
         )
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
@@ -272,7 +435,6 @@ class VertexAISource(Source):
             if job.create_time
             else datetime_to_ts_millis(datetime.now())
         )
-        created_actor = "urn:li:corpuser:datahub"
 
         # If Training job has Input Dataset
         dataset_urn = (
@@ -286,29 +448,53 @@ class VertexAISource(Source):
             if job_meta.input_dataset
             else None
         )
+        # If Training Job has Output Model
+        model_urn = (
+            self._make_ml_model_urn(
+                model_version=job_meta.output_model_version,
+                model_name=self._make_vertexai_model_name(
+                    entity_id=job_meta.output_model.name
+                ),
+            )
+            if job_meta.output_model and job_meta.output_model_version
+            else None
+        )
 
         yield from MetadataChangeProposalWrapper.construct_many(
             job_urn,
             aspects=[
                 DataProcessInstancePropertiesClass(
-                    name=job_id,
+                    name=job.display_name,
                     created=AuditStampClass(
                         time=created_time,
-                        actor=created_actor,
+                        actor="urn:li:corpuser:datahub",
                     ),
                     externalUrl=self._make_job_external_url(job),
                     customProperties={
-                        "displayName": job.display_name,
                         "jobType": job.__class__.__name__,
                     },
                 ),
                 MLTrainingRunProperties(
                     externalUrl=self._make_job_external_url(job), id=job.name
                 ),
-                SubTypesClass(typeNames=[MLTypes.TRAINING_JOB]),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_TRAINING_JOB]),
                 ContainerClass(container=self._get_project_container().as_urn()),
-                DataProcessInstanceInputClass(inputs=[dataset_urn])
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
+                DataProcessInstanceInputClass(
+                    inputs=[],
+                    inputEdges=[
+                        EdgeClass(destinationUrn=dataset_urn),
+                    ],
+                )
                 if dataset_urn
+                else None,
+                DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=[
+                        EdgeClass(destinationUrn=model_urn),
+                    ],
+                )
+                if model_urn
                 else None,
             ],
         )
@@ -326,23 +512,29 @@ class VertexAISource(Source):
             ml_model_group_urn,
             aspects=[
                 MLModelGroupPropertiesClass(
-                    name=self._make_vertexai_model_group_name(model.name),
+                    name=model.display_name,
                     description=model.description,
                     created=(
-                        TimeStampClass(time=datetime_to_ts_millis(model.create_time))
+                        TimeStampClass(
+                            time=datetime_to_ts_millis(model.create_time),
+                            actor="urn:li:corpuser:datahub",
+                        )
                         if model.create_time
                         else None
                     ),
                     lastModified=(
-                        TimeStampClass(time=datetime_to_ts_millis(model.update_time))
+                        TimeStampClass(
+                            time=datetime_to_ts_millis(model.update_time),
+                            actor="urn:li:corpuser:datahub",
+                        )
                         if model.update_time
                         else None
                     ),
-                    customProperties={"displayName": model.display_name},
+                    customProperties=None,
                 ),
-                # TODO add following when metadata model for mlgroup is updated (these aspects not supported currently)
-                # SubTypesClass(typeNames=[MLTypes.MODEL_GROUP]),
-                # ContainerClass(container=self._get_project_container().as_urn())
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL_GROUP]),
+                ContainerClass(container=self._get_project_container().as_urn()),
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
             ],
         )
 
@@ -423,7 +615,7 @@ class VertexAISource(Source):
                 dataset_urn,
                 aspects=[
                     DatasetPropertiesClass(
-                        name=self._make_vertexai_dataset_name(ds.name),
+                        name=ds.display_name,
                         created=(
                             TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
                             if ds.create_time
@@ -431,13 +623,15 @@ class VertexAISource(Source):
                         ),
                         description=f"Dataset: {ds.display_name}",
                         customProperties={
-                            "displayName": ds.display_name,
                             "resourceName": ds.resource_name,
                         },
                         qualifiedName=ds.resource_name,
                     ),
-                    SubTypesClass(typeNames=[MLTypes.DATASET]),
+                    SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_DATASET]),
                     ContainerClass(container=self._get_project_container().as_urn()),
+                    DataPlatformInstanceClass(
+                        platform=str(DataPlatformUrn(self.platform))
+                    ),
                 ],
             )
 
@@ -514,7 +708,7 @@ class VertexAISource(Source):
                 )
 
                 yield from MetadataChangeProposalWrapper.construct_many(
-                    endpoint_urn,
+                    entityUrn=endpoint_urn,
                     aspects=[
                         MLModelDeploymentPropertiesClass(
                             description=model.description,
@@ -524,8 +718,10 @@ class VertexAISource(Source):
                             ),
                             customProperties={"displayName": endpoint.display_name},
                         ),
-                        # TODO add followings when metadata for MLModelDeployment is updated (these aspects not supported currently)
-                        # ContainerClass(container=self._get_project_container().as_urn()),
+                        ContainerClass(
+                            container=self._get_project_container().as_urn()
+                        ),
+                        # TODO add Subtype when metadata for MLModelDeployment is updated (not supported)
                         # SubTypesClass(typeNames=[MLTypes.ENDPOINT])
                     ],
                 )
@@ -564,23 +760,24 @@ class VertexAISource(Source):
         # Create URN for Model and Model Version
         model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_model_name(entity_id=model.name)
-        model_version_name = f"{model_name}_{model_version.version_id}"
         model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
 
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=model_urn,
             aspects=[
                 MLModelPropertiesClass(
-                    name=model_version_name,
+                    name=f"{model.display_name}_{model_version.version_id}",
                     description=model_version.version_description,
                     customProperties={
-                        "displayName": f"{model_version.model_display_name}",
                         "versionId": f"{model_version.version_id}",
                         "resourceName": model.resource_name,
                     },
                     created=(
                         TimeStampClass(
-                            datetime_to_ts_millis(model_version.version_create_time)
+                            time=datetime_to_ts_millis(
+                                model_version.version_create_time
+                            ),
+                            actor="urn:li:corpuser:datahub",
                         )
                         if model_version.version_create_time
                         else None
@@ -601,12 +798,39 @@ class VertexAISource(Source):
                     externalUrl=self._make_model_version_external_url(model),
                     type="ML Model",
                 ),
-                # TODO Add a container for Project as parent of the dataset
-                # ContainerClass(
-                #     container=self._get_project_container().as_urn(),
-                # )
+                ContainerClass(
+                    container=self._get_project_container().as_urn(),
+                ),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL]),
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
+                VersionPropertiesClass(
+                    version=VersionTagClass(
+                        versionTag=str(model_version.version_id),
+                        metadataAttribution=(
+                            MetadataAttributionClass(
+                                time=int(
+                                    model_version.version_create_time.timestamp() * 1000
+                                ),
+                                actor="urn:li:corpuser:datahub",
+                            )
+                            if model_version.version_create_time
+                            else None
+                        ),
+                    ),
+                    versionSet=str(self._get_version_set_urn(model)),
+                    sortId=str(model_version.version_id).zfill(10),
+                    aliases=None,
+                ),
             ],
         )
+
+    def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
+        guid_dict = {"platform": self.platform, "name": model.name}
+        version_set_urn = VersionSetUrn(
+            id=builder.datahub_guid(guid_dict),
+            entity_type=MlModelUrn.ENTITY_TYPE,
+        )
+        return version_set_urn
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
         """
@@ -657,6 +881,12 @@ class VertexAISource(Source):
     ) -> str:
         return f"{self.config.project_id}.job.{entity_id}"
 
+    def _make_vertexai_experiment_name(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.experiment.{entity_id}"
+
+    def _make_vertexai_experiment_run_name(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.experiment_run.{entity_id}"
+
     def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
         """
         Model external URL in Vertex AI
@@ -691,5 +921,31 @@ class VertexAISource(Source):
             f"{self.config.vertexai_url}/models/locations/{self.config.region}/models/{model.name}"
             f"/versions/{model.version_id}"
             f"?project={self.config.project_id}"
+        )
+        return external_url
+
+    def _make_experiment_external_url(self, experiment: Experiment) -> str:
+        """
+        Experiment external URL in Vertex AI
+        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs?project=acryl-poc
+        """
+
+        external_url: str = (
+            f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
+            f"/runs?project={self.config.project_id}"
+        )
+        return external_url
+
+    def _make_experiment_run_external_url(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> str:
+        """
+        Experiment Run external URL in Vertex AI
+        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs/experiment-run-with-automljob-1-automl-job-with-run-1/charts?project=acryl-poc
+        """
+
+        external_url: str = (
+            f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
+            f"/runs/{experiment.name}-{run.name}/charts?project={self.config.project_id}"
         )
         return external_url
