@@ -48,7 +48,7 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getCollectionName: () => string = () => 'Groups';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <GroupProfile />;
+    renderProfile: (urn: string) => JSX.Element = (urn: string) => <GroupProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: CorpGroup) => (
         <Preview

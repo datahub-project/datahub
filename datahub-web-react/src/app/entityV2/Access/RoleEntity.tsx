@@ -1,11 +1,11 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import * as React from 'react';
 import styled from 'styled-components';
 import { Role, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 import RoleEntityProfile from './RoleEntityProfile';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
@@ -52,7 +52,7 @@ export class RoleEntity implements Entity<Role> {
 
     getEntityName: () => string = () => 'Role';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
+    renderProfile: (urn: string) => JSX.Element = (urn: string) => <RoleEntityProfile urn={urn} />;
 
     renderPreview = (previewType: PreviewType, data: Role) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -62,7 +62,7 @@ export class RoleEntity implements Entity<Role> {
                 description={data?.properties?.description || ''}
                 name={this.displayName(data)}
                 urn={data.urn}
-                url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+                url={globalEntityRegistryV2.getEntityUrl(this.type, data.urn)}
                 logoComponent={<PreviewTagIcon />}
                 entityType={EntityType.Role}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}

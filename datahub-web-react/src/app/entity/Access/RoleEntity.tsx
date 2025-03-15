@@ -1,11 +1,11 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { globalEntityRegistry } from '@app/EntityRegistryProvider';
 import * as React from 'react';
 import styled from 'styled-components';
 import { Role, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 import RoleEntityProfile from './RoleEntityProfile';
 import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
 
@@ -53,14 +53,14 @@ export class RoleEntity implements Entity<Role> {
 
     useEntityQuery = useGetExternalRoleQuery;
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
+    renderProfile: (urn: string) => JSX.Element = (urn: string) => <RoleEntityProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: Role) => (
         <DefaultPreviewCard
             description={data?.properties?.description || ''}
             name={this.displayName(data)}
             urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+            url={globalEntityRegistry.getEntityUrl(this.type, data.urn)}
             logoComponent={<PreviewTagIcon />}
             type="Role"
             typeIcon={this.icon(14, IconStyleType.ACCENT)}

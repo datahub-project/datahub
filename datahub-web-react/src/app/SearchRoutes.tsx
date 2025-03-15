@@ -1,3 +1,5 @@
+import GenericEntityPage, { GENERIC_ENTITY_PAGE_PATH } from '@app/GenericEntityPage';
+import TypedEntityPage from '@app/TypedEntityPage';
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 import { PageRoutes } from '../conf/Global';
@@ -15,8 +17,6 @@ import {
     useIsNestedDomainsEnabled,
 } from './useAppConfig';
 
-import { EntityPage } from './entity/EntityPage';
-import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
@@ -57,17 +57,28 @@ export const SearchRoutes = (): JSX.Element => {
     return (
         <FinalSearchablePage>
             <Switch>
+                <Route
+                    path={`${PageRoutes.GLOSSARY}*`}
+                    render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
+                />
+                {isNestedDomainsEnabled && (
+                    <Route
+                        path={`${PageRoutes.DOMAIN}*`}
+                        render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
+                    />
+                )}
+                {!isNestedDomainsEnabled && (
+                    <Route
+                        path={PageRoutes.DOMAINS}
+                        render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
+                    />
+                )}
+                <Route path={GENERIC_ENTITY_PAGE_PATH} render={() => <GenericEntityPage />} />
                 {entities.map((entity) => (
                     <Route
                         key={entity.getPathName()}
-                        path={`/${entity.getPathName()}/:urn`}
-                        render={() =>
-                            isThemeV2 ? (
-                                <EntityPageV2 entityType={entity.type} />
-                            ) : (
-                                <EntityPage entityType={entity.type} />
-                            )
-                        }
+                        path={`/${entity.getPathName()}/:urn/:tab?`}
+                        render={() => <TypedEntityPage entityType={entity.type} />}
                     />
                 ))}
                 <Route
@@ -83,25 +94,9 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                {isNestedDomainsEnabled && (
-                    <Route
-                        path={`${PageRoutes.DOMAIN}*`}
-                        render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
-                    />
-                )}
-                {!isNestedDomainsEnabled && (
-                    <Route
-                        path={PageRoutes.DOMAINS}
-                        render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
-                    />
-                )}
 
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
-                <Route
-                    path={`${PageRoutes.GLOSSARY}*`}
-                    render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
-                />
                 {showStructuredProperties && (
                     <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 )}

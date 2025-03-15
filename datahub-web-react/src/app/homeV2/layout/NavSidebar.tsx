@@ -125,7 +125,7 @@ export const NavSidebar = () => {
                         <NavLinks />
                         <Spacer />
                         <UserIcon>
-                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
+                            <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, urn)}>
                                 <CustomAvatar
                                     photoUrl={user?.editableProperties?.pictureLink || undefined}
                                     name={user?.editableProperties?.displayName || ''}

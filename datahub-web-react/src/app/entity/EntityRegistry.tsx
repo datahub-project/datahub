@@ -28,11 +28,14 @@ export default class EntityRegistry {
 
     pathNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
 
+    graphNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
     register(entity: Entity<any>) {
         this.entities.push(entity);
         this.entityTypeToEntity.set(entity.type, entity);
         this.collectionNameToEntityType.set(entity.getCollectionName(), entity.type);
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
+        this.graphNameToEntityType.set(entity.getGraphName(), entity.type);
     }
 
     getEntity(type: EntityType): Entity<any> {
@@ -101,8 +104,17 @@ export default class EntityRegistry {
         return entity.getPathName();
     }
 
-    getEntityUrl(type: EntityType, urn: string, params?: Record<string, string | boolean>): string {
-        return `/${this.getPathName(type)}/${urlEncodeUrn(urn)}${params ? `?${dictToQueryStringParams(params)}` : ''}`;
+    getEntityUrl(type: EntityType, urn: string | undefined | null, params?: Record<string, string | boolean>): string {
+        if (!urn) {
+            return '';
+        }
+        let prefix = '/';
+        if (GLOSSARY_ENTITY_TYPES.includes(type)) {
+            prefix = '/glossary';
+        } else if (type === EntityType.Domain) {
+            prefix = '/domain';
+        }
+        return `${prefix}${urlEncodeUrn(urn)}${params ? `?${dictToQueryStringParams(params)}` : ''}`;
     }
 
     getTypeFromPathName(pathName: string): EntityType {
@@ -259,6 +271,10 @@ export default class EntityRegistry {
     getCustomCardUrlPath(type: EntityType): string | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getCustomCardUrlPath?.() as string | undefined;
+    }
+
+    getTypeFromGraphName(name: string): EntityType | undefined {
+        return this.graphNameToEntityType.get(name);
     }
 
     getGraphNameFromType(type: EntityType): string {

@@ -1,21 +1,15 @@
 import { Col, Row } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
-import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
-
-export interface Props {
-    onTabChange: (selectedTab: string) => void;
-}
 
 export enum TabType {
     Assets = 'Owner Of',
@@ -52,12 +46,14 @@ export const EmptyValue = styled.div`
     }
 `;
 
+interface Props {
+    urn: string;
+}
+
 /**
  * Responsible for reading & writing users.
  */
-export default function UserProfile() {
-    const { urn: encodedUrn } = useUserParams();
-    const urn = decodeUrn(encodedUrn);
+export default function UserProfile({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });

@@ -47,7 +47,7 @@ export class UserEntity implements Entity<CorpUser> {
 
     getCollectionName: () => string = () => 'People';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <UserProfile />;
+    renderProfile: (urn: string) => JSX.Element = (urn: string) => <UserProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: CorpUser) => (
         <Preview

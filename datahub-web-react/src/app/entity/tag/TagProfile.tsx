@@ -1,10 +1,8 @@
 import React from 'react';
 
-import { useParams } from 'react-router';
 import styled from 'styled-components';
 
 import { Message } from '../../shared/Message';
-import { decodeUrn } from '../shared/utils';
 import TagStyleEntity from '../../shared/TagStyleEntity';
 import { useGetTagQuery } from '../../../graphql/tag.generated';
 
@@ -16,16 +14,14 @@ const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
 
-type TagPageParams = {
+interface Props {
     urn: string;
-};
+}
 
 /**
  * Responsible for displaying metadata about a tag
  */
-export default function TagProfile() {
-    const { urn: encodedUrn } = useParams<TagPageParams>();
-    const urn = decodeUrn(encodedUrn);
+export default function TagProfile({ urn }: Props) {
     const { loading } = useGetTagQuery({ variables: { urn } });
 
     return (

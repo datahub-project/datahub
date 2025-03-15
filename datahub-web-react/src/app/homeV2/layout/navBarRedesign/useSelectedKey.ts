@@ -6,24 +6,16 @@ export default function useSelectedKey(menu: NavBarMenuItems) {
     const location = useLocation();
 
     return useMemo(() => {
-        const createItem = (item) => ({
-            item,
-            key: item.key,
-            links: [item.link, ...(item.additionalLinksForPathMatching || [])],
-        });
-
         const allItems = menu.items.flatMap((item) => {
-            const baseItem = createItem(item);
             if (item.type === NavBarMenuItemTypes.Group && item.items) {
-                const subItems = item.items.map(createItem);
-                return [baseItem, ...subItems];
+                return [item, ...item.items];
             }
-            return [baseItem];
+            return [item];
         });
 
         const matchedItems = allItems
             .map((currentItem) => {
-                const match = matchPath(location.pathname, currentItem.links);
+                const match = matchPath(location.pathname, currentItem.link ? [currentItem.link] : []);
                 return {
                     ...currentItem,
                     path: match?.path,
@@ -32,7 +24,7 @@ export default function useSelectedKey(menu: NavBarMenuItems) {
             })
             .filter((currentItem) => {
                 const isPathMatched = Boolean(currentItem.path);
-                const isExactMatch = !currentItem.item.onlyExactPathMapping || currentItem.exact;
+                const isExactMatch = !currentItem.onlyExactPathMapping || currentItem.exact;
                 return isPathMatched && isExactMatch;
             })
             .sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0));

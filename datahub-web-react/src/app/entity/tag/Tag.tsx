@@ -1,11 +1,11 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { globalEntityRegistry } from '@app/EntityRegistryProvider';
 import * as React from 'react';
 import styled from 'styled-components';
 import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 import TagProfile from './TagProfile';
 import { useGetTagQuery } from '../../../graphql/tag.generated';
 
@@ -56,14 +56,14 @@ export class TagEntity implements Entity<Tag> {
 
     useEntityQuery = useGetTagQuery;
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <TagProfile />;
+    renderProfile: (urn: string) => JSX.Element = (urn: string) => <TagProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: Tag) => (
         <DefaultPreviewCard
             description={data.description || ''}
             name={this.displayName(data)}
             urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+            url={globalEntityRegistry.getEntityUrl(this.type, data.urn)}
             logoComponent={<PreviewTagIcon />}
             type="Tag"
             typeIcon={this.icon(14, IconStyleType.ACCENT)}

@@ -1,11 +1,11 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import * as React from 'react';
 import styled from 'styled-components';
 import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 import TagProfile from './TagProfile';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
@@ -65,7 +65,7 @@ export class TagEntity implements Entity<Tag> {
                 description={data.description || ''}
                 name={this.displayName(data)}
                 urn={data.urn}
-                url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+                url={globalEntityRegistryV2.getEntityUrl(this.type, data.urn)}
                 logoComponent={<PreviewTagIcon />}
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}

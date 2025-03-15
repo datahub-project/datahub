@@ -66,7 +66,7 @@ export const NoPageFound = () => {
                         <Number>4</Number>
                     </NumberContainer>
                 </PageNotFoundTextContainer>
-                <SubTitle>The page your requested was not found,</SubTitle>
+                <SubTitle>The page you requested was not found</SubTitle>
                 <Button onClick={goToHomepage}>Back to Home</Button>
             </PageNotFoundContainer>
         </MainContainer>

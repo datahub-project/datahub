@@ -76,6 +76,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    getGraphName = () => 'glossaryNode';
+
     useEntityQuery = useGetGlossaryNodeQuery;
 
     renderProfile = (urn: string) => {
@@ -195,8 +197,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
-
-    getGraphName = () => this.getPathName();
 }
 
 export default GlossaryNodeEntity;

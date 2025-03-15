@@ -1,3 +1,4 @@
+import { EntityType } from '@types';
 import React from 'react';
 
 export enum NavBarMenuItemTypes {
@@ -13,8 +14,8 @@ export interface NavBarMenuBaseElement {
     key: string;
     description?: string;
     link?: string;
-    // Additional links to detect selected menu item (for subroutes)
-    additionalLinksForPathMatching?: string[];
+    // Entity types of entity pages to detect selected menu item (for subroutes)
+    entityTypes?: EntityType[];
     //
     onlyExactPathMapping?: boolean;
     isExternalLink?: boolean;
