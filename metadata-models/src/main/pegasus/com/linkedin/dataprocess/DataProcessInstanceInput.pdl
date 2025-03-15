@@ -16,7 +16,7 @@ record DataProcessInstanceInput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ]
+      "entityTypes": [ "dataset", "mlModel" ]
     }
   }
   @Searchable = {
