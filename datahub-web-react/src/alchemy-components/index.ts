@@ -2,6 +2,7 @@
 export * from './theme';
 
 // example usage: import { Button } from '@components';
+export * from './components/AutoComplete';
 export * from './components/Avatar';
 export * from './components/Badge';
 export * from './components/BarChart';
@@ -29,4 +30,5 @@ export * from './components/Text';
 export * from './components/TextArea';
 export * from './components/Timeline';
 export * from './components/Tooltip';
+export * from './components/Utils';
 export * from './components/WhiskerChart';
