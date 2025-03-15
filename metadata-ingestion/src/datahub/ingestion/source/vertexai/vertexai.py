@@ -466,7 +466,7 @@ class VertexAISource(Source):
     def _get_job_duration_millis(self, job: VertexAiResourceNoun) -> Optional[int]:
         create_time = job.create_time
         duration = None
-        if isinstance(job, _TrainingJob) and job.end_time:
+        if isinstance(job, _TrainingJob) and job.create_time and job.end_time:
             end_time = job.end_time
             duration = datetime_to_ts_millis(end_time) - datetime_to_ts_millis(
                 create_time
