@@ -948,33 +948,28 @@ class Mapper:
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
 
-        # collect all downstream reports
-        downstream_dashboards_edges = []
+        # collect all downstream reports (dashboards)
+        dashboard_edges = []
         for t in dashboard.tiles:
-            if t.report_id:
-                report = workspace.reports.get(t.report_id)
-                if report is None:
-                    # a title referencing a missed report was already reported during "fill_dashboards"
-                    continue
-
+            if t.report:
                 dashboard_urn = builder.make_dashboard_urn(
                     platform=self.__config.platform_name,
                     platform_instance=self.__config.platform_instance,
-                    name=report.get_urn_part(),
+                    name=t.report.get_urn_part(),
                 )
                 edge = EdgeClass(
                     destinationUrn=dashboard_urn,
-                    sourceUrn=None,
-                    created=None,
-                    lastModified=None,
-                    properties=None,
                 )
-                downstream_dashboards_edges.append(edge)
+                dashboard_edges.append(edge)
 
         # Lets convert dashboard to datahub dashboard
         dashboard_mcps: List[MetadataChangeProposalWrapper] = (
             self.to_datahub_dashboard_mcp(
-                dashboard, workspace, chart_mcps, user_mcps, downstream_dashboards_edges
+                dashboard=dashboard,
+                workspace=workspace,
+                chart_mcps=chart_mcps,
+                user_mcps=user_mcps,
+                dashboard_edges=dashboard_edges,
             )
         )
 
@@ -1198,10 +1193,10 @@ class Mapper:
 
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(
-            workspace,
-            report,
-            chart_mcps,
-            user_mcps,
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=user_mcps,
         )
 
         # Now add MCPs in sequence
