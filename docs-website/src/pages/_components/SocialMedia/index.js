@@ -185,7 +185,7 @@ const SocialMedia = ({}) => {
                 className={styles.visitPageIcon}
               />
             </Link>
-            <Link className={styles.statItem}  to="https://blog.datahubproject.io/">
+            <Link className={styles.statItem}  to="https://medium.com/datahub-project">
               <div className={styles.styledIcon}>
                 <MediumWorkmarkOutlined
                   width={38}
