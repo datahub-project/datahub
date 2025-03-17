@@ -130,6 +130,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """
         for connector in connectors:
             try:
+                # Extract table lineage for this connector
                 lineage = self.api_client.extract_table_lineage(connector.connector_id)
 
                 # Check if we need to truncate the lineage
