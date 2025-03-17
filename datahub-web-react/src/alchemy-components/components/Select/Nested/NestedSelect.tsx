@@ -177,13 +177,13 @@ export const NestedSelect = ({
         setSelectedOptions(stagedOptions); // update selected options
         setIsOpen(false);
         handleSearch('');
-    }, [stagedOptions]);
+    }, [stagedOptions, handleSearch]);
 
     const onClickCancelButton = useCallback(() => {
         setStagedOptions(selectedOptions); // reset staged options
         setIsOpen(false);
         handleSearch('');
-    }, [selectedOptions]);
+    }, [selectedOptions, handleSearch]);
 
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
