@@ -299,7 +299,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             source_type = dataset_input.dataset.source_type
             dataset_tags = {k[1]: v[1] for k, v in dataset_input.tags}
             dataset = dataset_input.dataset
-            platform = self._get_dataset_platform_from_source_type(source_type)
+            formatted_platform = self._get_dataset_platform_from_source_type(
+                source_type
+            )
             custom_properties = dataset_tags
             formatted_schema = self._get_dataset_schema(dataset.schema)
             # If the schema is not formatted, pass the schema as a custom property
@@ -308,7 +310,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             # If the dataset is local or code, we create a local dataset reference
             if source_type in ("local", "code"):
                 local_dataset_reference = Dataset(
-                    platform=platform,
+                    platform=formatted_platform,
                     name=dataset.name,
                     schema=formatted_schema,
                     custom_properties=custom_properties,
@@ -318,7 +320,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             # Otherwise, we create a hosted dataset reference and a hosted dataset
             else:
                 hosted_dataset = Dataset(
-                    platform=self._get_dataset_platform_from_source_type(source_type),
+                    platform=formatted_platform,
                     name=dataset.name,
                     schema=formatted_schema,
                     custom_properties=dataset_tags,
