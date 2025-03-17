@@ -198,20 +198,17 @@ class VertexAISource(Source):
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
-    def _get_run_create_time_duration(
+    def _get_run_timestamps(
         self, run: ExperimentRun
     ) -> Tuple[Optional[int], Optional[int]]:
         executions = run.get_executions()
-        # When no execution context started,  start time and duration was not available
-        if len(executions) == 0:
-            return None, None
-        # When one execution context started,  start time and duration will be calculated
-        elif len(executions) == 1:
+        if len(executions) == 1:
             create_time = executions[0].create_time
             update_time = executions[0].update_time
             duration = update_time.timestamp() * 1000 - create_time.timestamp() * 1000
-            return int(create_time.timestamp() * 1000), duration
-        # When multiple execution context stared, impossible to know which context to use for create_time and duration
+            return int(create_time.timestamp() * 1000), int(duration)
+        # When no execution context started,  start time and duration are not available
+        # When multiple execution contexts stared on a run, not unable to know which context to use for create_time and duration
         else:
             return None, None
 
@@ -308,7 +305,7 @@ class VertexAISource(Source):
             id=self._make_vertexai_experiment_name(experiment.name),
         )
         run_urn = self._make_experiment_run_urn(experiment, run)
-        created_time, duration = self._get_run_create_time_duration(run)
+        created_time, duration = self._get_run_timestamps(run)
         created_actor = "urn:li:corpuser:datahub"
         run_result_type = self._get_run_result_status(run.get_state())
 
@@ -347,12 +344,12 @@ class VertexAISource(Source):
                         status=DataProcessRunStatusClass.COMPLETE,
                         timestampMillis=created_time,
                         result=DataProcessInstanceRunResultClass(
-                            type=self._get_run_result_status(run.get_state()),
+                            type=run_result_type,
                             nativeResultType=self.platform,
                         ),
                         durationMillis=duration,
                     )
-                    if isinstance(run_result_type, RunResultTypeClass)
+                    if is_status_for_run_event_class(run_result_type)
                     and duration
                     and created_time
                     else None
