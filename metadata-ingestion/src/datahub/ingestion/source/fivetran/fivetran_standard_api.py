@@ -2,7 +2,10 @@ import logging
 from typing import List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.fivetran.config import FivetranSourceReport
+from datahub.ingestion.source.fivetran.config import (
+    FivetranSourceConfig,
+    FivetranSourceReport,
+)
 from datahub.ingestion.source.fivetran.data_classes import (
     ColumnLineage,
     Connector,
@@ -24,14 +27,38 @@ class FivetranStandardAPI(FivetranAccessInterface):
     instead of querying log tables directly.
     """
 
-    def __init__(self, api_client: FivetranAPIClient) -> None:
+    def __init__(
+        self,
+        api_client: FivetranAPIClient,
+        config: Optional[FivetranSourceConfig] = None,
+    ) -> None:
         """Initialize with a FivetranAPIClient instance."""
         self.api_client = api_client
-        self._fivetran_log_database = None  # Not used in standard version
+        self.config = config
+
+        # Determine the fivetran_log_database from config if available
+        self._fivetran_log_database = None
+        if (
+            self.config
+            and hasattr(self.config, "fivetran_log_config")
+            and self.config.fivetran_log_config
+        ):
+            if (
+                hasattr(self.config.fivetran_log_config, "bigquery_destination_config")
+                and self.config.fivetran_log_config.bigquery_destination_config
+            ):
+                self._fivetran_log_database = (
+                    self.config.fivetran_log_config.bigquery_destination_config.dataset
+                )
+            elif (
+                hasattr(self.config.fivetran_log_config, "snowflake_destination_config")
+                and self.config.fivetran_log_config.snowflake_destination_config
+            ):
+                self._fivetran_log_database = self.config.fivetran_log_config.snowflake_destination_config.database
 
     @property
     def fivetran_log_database(self) -> Optional[str]:
-        """Standard version doesn't have a log database."""
+        """Get the log database name from config if available."""
         return self._fivetran_log_database
 
     def get_user_email(self, user_id: str) -> Optional[str]:
@@ -99,6 +126,44 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     api_connector=api_connector, sync_history=sync_history
                 )
 
+                # Determine destination platform from config - do this BEFORE processing lineage
+                if (
+                    self.config
+                    and hasattr(self.config, "fivetran_log_config")
+                    and self.config.fivetran_log_config
+                ):
+                    destination_platform = (
+                        self.config.fivetran_log_config.destination_platform
+                    )
+                    connector.additional_properties["destination_platform"] = (
+                        destination_platform
+                    )
+                    logger.info(
+                        f"Setting destination platform to {destination_platform} from config for connector {connector_id}"
+                    )
+
+                # Special handling for kafka and streaming-type connectors
+                # These should not affect the destination type, which is typically a data warehouse
+                if connector.connector_type.lower() in [
+                    "confluent_cloud",
+                    "kafka",
+                    "pubsub",
+                ]:
+                    if (
+                        self.config
+                        and hasattr(self.config, "fivetran_log_config")
+                        and self.config.fivetran_log_config
+                    ):
+                        # Use fivetran_log_config.destination_platform
+                        connector.additional_properties["destination_platform"] = (
+                            self.config.fivetran_log_config.destination_platform
+                        )
+                    else:
+                        # Default to snowflake if not specified
+                        connector.additional_properties["destination_platform"] = (
+                            "snowflake"
+                        )
+
                 report.report_connectors_scanned()
                 connectors.append(connector)
 
@@ -138,24 +203,16 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     f"Extracting lineage for connector {connector.connector_id}"
                 )
 
-                # Make sure we're using the correct destination platform from config
-                # The destination_platform was incorrectly set to "snowflake" as the default
-                if "destination_platform" in connector.additional_properties:
-                    destination_platform = connector.additional_properties.get(
-                        "destination_platform"
-                    )
-                else:
-                    # Use the platform from the config if available
-                    destination_platform = (
-                        "bigquery"  # Default to bigquery based on your config
-                    )
-                    # Update the connector properties
-                    connector.additional_properties["destination_platform"] = (
-                        destination_platform
-                    )
-                    logger.info(
-                        f"Setting destination platform to {destination_platform} for connector {connector.connector_id}"
-                    )
+                # Determine destination platform from the configuration
+                destination_platform = self._get_destination_platform(connector)
+
+                # Update the connector's additional properties with the correct destination platform
+                connector.additional_properties["destination_platform"] = (
+                    destination_platform
+                )
+                logger.info(
+                    f"Using destination platform {destination_platform} for connector {connector.connector_id}"
+                )
 
                 # Get schema information
                 schemas = self.api_client.list_connector_schemas(connector.connector_id)
@@ -283,3 +340,61 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     exc_info=True,
                 )
                 connector.lineage = []
+
+    def _get_destination_platform(self, connector: Connector) -> str:
+        """
+        Determine the destination platform based on the configuration and connector details.
+
+        1. First, check if there's a specific setting in destination_to_platform_instance for this destination
+        2. Next, check if the fivetran_log_config has a destination_platform specified
+        3. For confluent_cloud connectors, don't override destination platform from their additional properties
+        4. Finally, fall back to the additional properties in the connector
+        """
+        # Check if we have a specific mapping for this destination
+        if self.config and hasattr(self.config, "destination_to_platform_instance"):
+            destination_details = self.config.destination_to_platform_instance.get(
+                connector.destination_id
+            )
+            if destination_details and destination_details.platform:
+                logger.info(
+                    f"Using platform '{destination_details.platform}' from destination_to_platform_instance for {connector.destination_id}"
+                )
+                return destination_details.platform
+
+        # Check if destination platform is specified in fivetran_log_config
+        if (
+            self.config
+            and hasattr(self.config, "fivetran_log_config")
+            and self.config.fivetran_log_config
+        ):
+            destination_platform: str = (
+                self.config.fivetran_log_config.destination_platform
+            )
+            logger.info(
+                f"Using platform '{destination_platform}' from fivetran_log_config"
+            )
+            return destination_platform
+
+        # Special handling for specific connector types - don't let their connector type affect destination type
+        if connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]:
+            # For these streaming connectors, we need to rely on the other settings, not on connector type
+            # Default to snowflake if we can't determine otherwise
+            logger.info(
+                f"Special handling for {connector.connector_type} connector: defaulting destination to 'snowflake'"
+            )
+            return "snowflake"
+
+        # Check if destination platform is in connector's additional properties
+        if "destination_platform" in connector.additional_properties:
+            destination_platform = str(
+                connector.additional_properties.get("destination_platform")
+            )
+            if destination_platform:
+                logger.info(
+                    f"Using platform '{destination_platform}' from connector properties"
+                )
+                return destination_platform
+
+        # Default to snowflake if no platform information is available
+        logger.info("No destination platform specified, defaulting to 'snowflake'")
+        return "snowflake"

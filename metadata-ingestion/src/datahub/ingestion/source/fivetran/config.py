@@ -18,7 +18,10 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryConnectionConfig,
 )
-from datahub.ingestion.source.fivetran.fivetran_constants import FivetranMode
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DataJobMode,
+    FivetranMode,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -192,6 +195,11 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="Mode of operation: 'enterprise' for log tables access, 'standard' for REST API, or 'auto' to detect.",
     )
 
+    datajob_mode: DataJobMode = Field(
+        default=DataJobMode.CONSOLIDATED,
+        description="DataJob generation mode: 'consolidated' to create one job per connector, 'per_table' to create one job per table.",
+    )
+
     # Enterprise version configuration
     fivetran_log_config: Optional[FivetranLogConfig] = Field(
         default=None,
@@ -235,6 +243,11 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
+    history_sync_lookback_period: int = Field(
+        7,
+        description="The number of days to look back when extracting connectors' sync history.",
+    )
+
     @root_validator
     def validate_config_based_on_mode(cls, values: Dict) -> Dict:
         """Validate configuration based on the selected mode."""
@@ -251,7 +264,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             if not api_config:
                 raise ValueError("Standard mode requires 'api_config' to be specified.")
         elif mode == FivetranMode.AUTO:
-            # Auto-detect based on provided configs
+            # For AUTO mode, we'll validate this at runtime, allowing either config to be provided
             if not log_config and not api_config:
                 raise ValueError(
                     "Either 'fivetran_log_config' (for enterprise) or 'api_config' (for standard) must be specified."
@@ -277,8 +290,3 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
                 )
 
         return values
-
-    history_sync_lookback_period: int = Field(
-        7,
-        description="The number of days to look back when extracting connectors' sync history.",
-    )

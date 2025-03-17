@@ -10,7 +10,8 @@
                 "connector_type": "postgres",
                 "sync_frequency": "1440",
                 "paused": "False",
-                "destination_id": "interval_unconstitutional"
+                "destination_id": "interval_unconstitutional",
+                "destination_platform": "snowflake"
             },
             "name": "postgres",
             "description": "Fivetran connector for postgres to snowflake",
@@ -621,7 +622,8 @@
                 "connector_type": "confluent_cloud",
                 "sync_frequency": "1440",
                 "paused": "False",
-                "destination_id": "my_confluent_cloud_connector_id"
+                "destination_id": "my_confluent_cloud_connector_id",
+                "destination_platform": "snowflake"
             },
             "name": "confluent_cloud",
             "description": "Fivetran connector for confluent_cloud to snowflake",
