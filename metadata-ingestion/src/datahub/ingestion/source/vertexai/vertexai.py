@@ -342,16 +342,14 @@ class VertexAISource(Source):
                 (
                     DataProcessInstanceRunEventClass(
                         status=DataProcessRunStatusClass.COMPLETE,
-                        timestampMillis=created_time,
+                        timestampMillis=created_time if created_time else 0, # None is not allowed, 0 as default value
                         result=DataProcessInstanceRunResultClass(
                             type=run_result_type,
                             nativeResultType=self.platform,
                         ),
-                        durationMillis=duration,
+                        durationMillis=duration if duration else None,
                     )
                     if is_status_for_run_event_class(run_result_type)
-                    and duration
-                    and created_time
                     else None
                 ),
             ],
