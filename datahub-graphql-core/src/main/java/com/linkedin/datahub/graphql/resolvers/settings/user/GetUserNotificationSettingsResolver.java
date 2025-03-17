@@ -32,6 +32,7 @@ public class GetUserNotificationSettingsResolver
             final Urn userUrn = UrnUtils.getUrn(userUrnString);
             final CorpUserSettings userSettings =
                 _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
+
             if (userSettings == null || !userSettings.hasNotificationSettings()) {
               return null;
             }
