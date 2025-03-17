@@ -47,6 +47,6 @@ export type FieldFacetGetter = (fieldName: FieldName) => FeildFacetState | undef
 
 export type FiltersRenderer = React.FC<FiltersRendererProps>;
 
-export type FiltersAppliedHandler = (appliedFilters: FieldToAppliedFieldFiltersMap) => void;
+export type FiltersAppliedHandler = (appliedFilters: FieldToAppliedFieldFiltersMap | undefined) => void;
 
 export type AppliedFieldFilterUpdater = (fieldName: FieldName, value: AppliedFieldFilterValue) => void;

@@ -20,8 +20,8 @@ export default function FiltersRenderingRunner({ fieldNames, hideEmptyFilters = 
 
     const filters: Filter[] = useMemo(() => {
         const isEmptyFilter = (fieldName: string) => {
-            const hasAnyAggregations = (fieldToFacetStateMap.get(fieldName)?.facet?.aggregations?.length ?? 0) > 0;
-            const hasAnyAppliedFilters = (fieldToAppliedFiltersMap.get(fieldName)?.filters?.length ?? 0) > 0;
+            const hasAnyAggregations = (fieldToFacetStateMap?.get(fieldName)?.facet?.aggregations?.length ?? 0) > 0;
+            const hasAnyAppliedFilters = (fieldToAppliedFiltersMap?.get(fieldName)?.filters?.length ?? 0) > 0;
 
             return !(hasAnyAggregations || hasAnyAppliedFilters);
         };
@@ -32,9 +32,9 @@ export default function FiltersRenderingRunner({ fieldNames, hideEmptyFilters = 
                 fieldName,
                 props: {
                     fieldName,
-                    appliedFilters: fieldToAppliedFiltersMap.get(fieldName),
-                    onUpdate: (values) => updateFieldAppliedFilters(fieldName, values),
-                    facetState: fieldToFacetStateMap.get(fieldName),
+                    appliedFilters: fieldToAppliedFiltersMap?.get(fieldName),
+                    onUpdate: (values) => updateFieldAppliedFilters?.(fieldName, values),
+                    facetState: fieldToFacetStateMap?.get(fieldName),
                 },
                 component: filtersRegistry.get(fieldName) || (() => null),
             }));
