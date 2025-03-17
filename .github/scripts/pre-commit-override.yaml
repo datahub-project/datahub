@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: smoke-test-cypress-lint-fix
+        name: smoke-test cypress Lint Fix
+        entry: ./gradlew :smoke-test:cypressLintFix
+        language: system
+        files: ^smoke-test/tests/cypress/.*\.tsx$
+        pass_filenames: false

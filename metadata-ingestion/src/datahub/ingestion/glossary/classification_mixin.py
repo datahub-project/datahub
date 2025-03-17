@@ -1,5 +1,6 @@
 import concurrent.futures
 import logging
+import multiprocessing
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil
@@ -182,6 +183,11 @@ class ClassificationHandler:
 
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=self.config.classification.max_workers,
+            # The fork start method, which is the default on Linux for Python < 3.14, is not
+            # safe when the main process uses threads. The default start method on windows/macOS is
+            # already spawn, and will be changed to spawn for Linux in Python 3.14.
+            # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+            mp_context=multiprocessing.get_context("spawn"),
         ) as executor:
             column_info_proposal_futures = [
                 executor.submit(
@@ -273,11 +279,7 @@ class ClassificationHandler:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=(
-                        sample_data[schema_field.fieldPath]
-                        if schema_field.fieldPath in sample_data.keys()
-                        else []
-                    ),
+                    values=sample_data.get(schema_field.fieldPath, []),
                 )
             )
 

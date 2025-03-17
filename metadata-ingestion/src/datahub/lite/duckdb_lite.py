@@ -163,9 +163,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
                 if "properties" not in writeable_dict["systemMetadata"]:
                     writeable_dict["systemMetadata"]["properties"] = {}
-                writeable_dict["systemMetadata"]["properties"][
-                    "sysVersion"
-                ] = new_version
+                writeable_dict["systemMetadata"]["properties"]["sysVersion"] = (
+                    new_version
+                )
                 if needs_write:
                     self.duckdb_client.execute(
                         query="INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
@@ -208,9 +208,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                             "lastObserved": writeable.systemMetadata.lastObserved
                         }
                     else:
-                        system_metadata[
-                            "lastObserved"
-                        ] = writeable.systemMetadata.lastObserved
+                        system_metadata["lastObserved"] = (
+                            writeable.systemMetadata.lastObserved
+                        )
                     self.duckdb_client.execute(
                         query="UPDATE metadata_aspect_v2 SET system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
                         parameters=[
@@ -284,9 +284,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         self,
         query: str,
         flavor: SearchFlavor,
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         snippet: bool = True,
     ) -> Iterable[Searchable]:
+        aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
             base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
             for r in self.duckdb_client.execute(base_query).fetchall():
@@ -497,9 +498,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             aspect_name = r[1]
             aspect_payload = json.loads(r[2])
             if typed:
-                assert (
-                    aspect_name in ASPECT_MAP
-                ), f"Missing aspect name {aspect_name} in the registry"
+                assert aspect_name in ASPECT_MAP, (
+                    f"Missing aspect name {aspect_name} in the registry"
+                )
                 try:
                     aspect_payload = ASPECT_MAP[aspect_name].from_obj(
                         post_json_transform(aspect_payload)
@@ -531,7 +532,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         for r in results.fetchall():
             urn = r[0]
             aspect_name = r[1]
-            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(post_json_transform(json.loads(r[2])))  # type: ignore
+            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(
+                post_json_transform(json.loads(r[2]))
+            )  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=urn,
@@ -757,15 +760,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 entity_id=[str(data_platform_urn), data_platform_instance],
             )
             self._create_edges_from_data_platform_instance(data_platform_instance_urn)
-        elif isinstance(aspect, ChartInfoClass):
-            urn = Urn.from_string(entity_urn)
-            self.add_edge(
-                entity_urn,
-                "name",
-                aspect.title + f" ({urn.get_entity_id()[-1]})",
-                remove_existing=True,
-            )
-        elif isinstance(aspect, DashboardInfoClass):
+        elif isinstance(aspect, (ChartInfoClass, DashboardInfoClass)):
             urn = Urn.from_string(entity_urn)
             self.add_edge(
                 entity_urn,

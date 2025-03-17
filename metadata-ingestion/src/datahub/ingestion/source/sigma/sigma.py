@@ -124,7 +124,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
-            raise ConfigurationError(f"Unable to connect sigma API. Exception: {e}")
+            raise ConfigurationError("Unable to connect sigma API") from e
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -477,9 +477,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_dataset_urns
                     and dataset_urn not in self.dataset_upstream_urn_mapping
                 ):
-                    self.dataset_upstream_urn_mapping[
-                        dataset_urn
-                    ] = upstream_dataset_urns
+                    self.dataset_upstream_urn_mapping[dataset_urn] = (
+                        upstream_dataset_urns
+                    )
 
             element_input_fields = [
                 InputFieldClass(

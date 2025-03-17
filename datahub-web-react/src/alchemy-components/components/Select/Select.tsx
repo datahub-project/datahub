@@ -24,6 +24,7 @@ export const Select = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
     values = [],
+    initialValues,
     onCancel,
     onUpdate,
     showSearch = selectDefaults.showSearch,
@@ -46,6 +47,7 @@ export const Select = ({
             size={size}
             label={label}
             values={values}
+            initialValues={initialValues}
             showSearch={showSearch}
             isDisabled={isDisabled}
             isReadOnly={isReadOnly}

@@ -2,14 +2,16 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
+    ServerError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -80,6 +82,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TimeStampClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -145,6 +148,13 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
         for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
             try:
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
@@ -175,13 +185,9 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
-        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
-            LOGGER.debug(f"Processing dataset for path {dataset_path}")
-            dataset_name = ".".join(dataset_path)
-            if not self.config.table_pattern.allowed(dataset_name):
-                # Dataset name is rejected by pattern, report as dropped.
-                self.report.report_dropped(dataset_name)
-                return
+        def _try_processing_dataset(
+            dataset_path: Tuple[str, ...], dataset_name: str
+        ) -> Iterable[MetadataWorkUnit]:
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
@@ -192,7 +198,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
-                    self.report.report_table_load_time(time_taken)
+                    self.report.report_table_load_time(
+                        time_taken, dataset_name, table.metadata_location
+                    )
                 LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
@@ -219,8 +227,48 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.warning(
                     f"NoSuchTableError while processing table {dataset_path}, skipping it.",
                 )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                )
+            except ValueError as e:
+                if "Could not initialize FileIO" not in str(e):
+                    raise
+                self.report.warning(
+                    "Could not initialize FileIO",
+                    f"Could not initialize FileIO for {dataset_path} due to: {e}",
+                )
+
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            try:
+                LOGGER.debug(f"Processing dataset for path {dataset_path}")
+                dataset_name = ".".join(dataset_path)
+                if not self.config.table_pattern.allowed(dataset_name):
+                    # Dataset name is rejected by pattern, report as dropped.
+                    self.report.report_dropped(dataset_name)
+                    LOGGER.debug(
+                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                    )
+                    return
+
+                yield from _try_processing_dataset(dataset_path, dataset_name)
             except Exception as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                self.report.report_failure(
+                    "general",
+                    f"Failed to create workunit for dataset {dataset_path}: {e}",
+                )
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
@@ -256,6 +304,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
 
             # Dataset properties aspect.
+            additional_properties = {}
             custom_properties = table.metadata.properties.copy()
             custom_properties["location"] = table.metadata.location
             custom_properties["format-version"] = str(table.metadata.format_version)
@@ -264,14 +313,30 @@ class IcebergSource(StatefulIngestionSourceBase):
                 custom_properties["snapshot-id"] = str(
                     table.current_snapshot().snapshot_id
                 )
-                custom_properties[
-                    "manifest-list"
-                ] = table.current_snapshot().manifest_list
+                custom_properties["manifest-list"] = (
+                    table.current_snapshot().manifest_list
+                )
+                additional_properties["lastModified"] = TimeStampClass(
+                    int(table.current_snapshot().timestamp_ms)
+                )
+            if "created-at" in custom_properties:
+                try:
+                    dt = dateutil_parser.isoparse(custom_properties["created-at"])
+                    additional_properties["created"] = TimeStampClass(
+                        int(dt.timestamp() * 1000)
+                    )
+                except Exception as ex:
+                    LOGGER.warning(
+                        f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
+                    )
+
             dataset_properties = DatasetPropertiesClass(
                 name=table.name()[-1],
-                tags=[],
                 description=table.metadata.properties.get("comment", None),
                 customProperties=custom_properties,
+                lastModified=additional_properties.get("lastModified"),
+                created=additional_properties.get("created"),
+                qualifiedName=dataset_name,
             )
             dataset_snapshot.aspects.append(dataset_properties)
             # Dataset ownership aspect.
@@ -286,7 +351,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        self.report.report_table_processing_time(timer.elapsed_seconds())
+        self.report.report_table_processing_time(
+            timer.elapsed_seconds(), dataset_name, table.metadata_location
+        )
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)

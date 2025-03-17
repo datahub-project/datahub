@@ -80,10 +80,10 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
                         ).add_asset(container_urn)
                         data_products_container[data_product_urn] = container_product
                     else:
-                        data_products_container[
-                            data_product_urn
-                        ] = data_products_container[data_product_urn].add_asset(
-                            container_urn
+                        data_products_container[data_product_urn] = (
+                            data_products_container[data_product_urn].add_asset(
+                                container_urn
+                            )
                         )
 
         mcps: List[

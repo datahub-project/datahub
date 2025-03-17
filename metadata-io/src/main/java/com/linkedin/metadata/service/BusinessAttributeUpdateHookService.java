@@ -112,7 +112,7 @@ public class BusinessAttributeUpdateHookService {
       @Nullable String scrollId,
       int consumedEntityCount,
       int batchNumber) {
-    GraphRetriever graph = opContext.getRetrieverContext().get().getGraphRetriever();
+    GraphRetriever graph = opContext.getRetrieverContext().getGraphRetriever();
     final ArrayList<Future<ExecutionResult>> futureList = new ArrayList<>();
     RelatedEntitiesScrollResult result =
         graph.scrollRelatedEntities(
@@ -165,7 +165,7 @@ public class BusinessAttributeUpdateHookService {
     return () -> {
       StopWatch stopWatch = new StopWatch();
       stopWatch.start();
-      AspectRetriever aspectRetriever = opContext.getAspectRetrieverOpt().get();
+      AspectRetriever aspectRetriever = opContext.getAspectRetriever();
       log.info("Batch {} for BA:{} started", batchNumber, entityKey);
       ExecutionResult executionResult = new ExecutionResult();
       executionResult.setBatchNumber(batchNumber);

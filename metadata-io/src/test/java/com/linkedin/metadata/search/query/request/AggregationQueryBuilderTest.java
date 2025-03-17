@@ -18,6 +18,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -49,8 +50,8 @@ import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
 
-  private static AspectRetriever aspectRetriever;
-  private static AspectRetriever aspectRetrieverV1;
+  private static CachingAspectRetriever aspectRetriever;
+  private static CachingAspectRetriever aspectRetrieverV1;
   private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
@@ -61,7 +62,7 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
 
     // legacy
-    aspectRetriever = mock(AspectRetriever.class);
+    aspectRetriever = mock(CachingAspectRetriever.class);
     when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -106,7 +107,7 @@ public class AggregationQueryBuilderTest {
                     new Aspect(structPropUnderscoresAndDotsDefinition.data()))));
 
     // V1
-    aspectRetrieverV1 = mock(AspectRetriever.class);
+    aspectRetrieverV1 = mock(CachingAspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -169,7 +170,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -202,7 +205,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -234,7 +239,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -251,7 +258,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -266,9 +275,11 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("test1", "test2", "hasTest1"));
-    Assert.assertEquals(aggs.size(), 4);
+    Assert.assertEquals(aggs.size(), 5);
     Set<String> facets = aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet());
-    Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1", "_entityType"), facets);
+    Assert.assertEquals(
+        ImmutableSet.of("test1", "test2", "hasTest1", "_entityType", "_entityType␞typeNames"),
+        facets);
 
     // Case 2: Ask for fields that should NOT exist.
     aggs =
@@ -276,7 +287,7 @@ public class AggregationQueryBuilderTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("hasTest2"));
     Assert.assertEquals(
-        aggs.size(), 1); // default has one field already, hasTest2 will not be in there
+        aggs.size(), 2); // default has two fields already, hasTest2 will not be in there
   }
 
   @Test
@@ -292,7 +303,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -308,7 +319,9 @@ public class AggregationQueryBuilderTest {
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
     Assert.assertEquals(
-        aggs.size(), 3); // has one default filter (_entityType) both get mapped to _index
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -332,7 +345,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -345,7 +358,7 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 4);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -369,7 +382,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -387,7 +400,9 @@ public class AggregationQueryBuilderTest {
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties._versioned.hello.00000000000001.string"));
     Assert.assertEquals(
-        aggs.size(), 3); // has two one filter (_entityType) both get mapped to _index
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -411,7 +426,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -427,7 +442,7 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties._versioned.hello.00000000000001.string"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 4);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -455,7 +470,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -472,7 +489,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -492,7 +511,7 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 6);
+    Assert.assertEquals(aggs.size(), 7);
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -525,7 +544,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -542,7 +563,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -563,7 +586,9 @@ public class AggregationQueryBuilderTest {
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
     Assert.assertEquals(
-        aggs.size(), 6); // has one default filter (_entityType) both get mapped to _index
+        aggs.size(),
+        7); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -597,7 +622,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            true);
+            true,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);

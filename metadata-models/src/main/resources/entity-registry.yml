@@ -46,6 +46,8 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - versionProperties
+      - icebergCatalogInfo
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -70,12 +72,14 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - forms
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -92,6 +96,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
@@ -105,6 +110,7 @@ entities:
       - ownership
       - status
       - testResults
+      - subTypes
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -116,6 +122,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -202,6 +212,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -216,6 +227,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -227,6 +239,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -275,6 +288,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -286,6 +300,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -329,6 +345,7 @@ entities:
       - institutionalMemory
       - deprecation
       - status
+      - icebergWarehouseInfo
   - name: mlModel
     category: core
     keyAspect: mlModelKey
@@ -358,6 +375,9 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - versionProperties
+      - subTypes
+      - container
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -376,6 +396,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - container
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -387,6 +409,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -406,6 +429,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -425,6 +449,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -442,6 +467,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -481,12 +507,19 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - deprecation
+      - subTypes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
   - name: incident
     doc: An incident for an asset.
     category: core
@@ -504,6 +537,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - subTypes
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey
@@ -549,6 +583,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

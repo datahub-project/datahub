@@ -113,8 +113,9 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                   List<Pair<Future<?>, SystemAspect>> futures;
                   futures =
                       EntityUtils.toSystemAspectFromEbeanAspects(
-                              opContext.getRetrieverContext().get(),
-                              batch.collect(Collectors.toList()))
+                              opContext.getRetrieverContext(),
+                              batch.collect(Collectors.toList()),
+                              false)
                           .stream()
                           .map(
                               systemAspect -> {

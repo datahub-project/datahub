@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
     KNOWN_DATA_PLATFORM_MAPPING,
@@ -119,21 +119,31 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
         for lineage in connector.lineage:
+            source_table = (
+                lineage.source_table
+                if source_details.include_schema_in_urn
+                else lineage.source_table.split(".", 1)[1]
+            )
             input_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=source_details.platform,
                 table_name=(
-                    f"{source_details.database.lower()}.{lineage.source_table}"
+                    f"{source_details.database.lower()}.{source_table}"
                     if source_details.database
-                    else lineage.source_table
+                    else source_table
                 ),
                 env=source_details.env,
                 platform_instance=source_details.platform_instance,
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
+            destination_table = (
+                lineage.destination_table
+                if destination_details.include_schema_in_urn
+                else lineage.destination_table.split(".", 1)[1]
+            )
             output_dataset_urn = DatasetUrn.create_from_ids(
                 platform_id=destination_details.platform,
-                table_name=f"{destination_details.database.lower()}.{lineage.destination_table}",
+                table_name=f"{destination_details.database.lower()}.{destination_table}",
                 env=destination_details.env,
                 platform_instance=destination_details.platform_instance,
             )
@@ -176,12 +186,12 @@ class FivetranSource(StatefulIngestionSourceBase):
             **{
                 f"source.{k}": str(v)
                 for k, v in source_details.dict().items()
-                if v is not None
+                if v is not None and not isinstance(v, bool)
             },
             **{
                 f"destination.{k}": str(v)
                 for k, v in destination_details.dict().items()
-                if v is not None
+                if v is not None and not isinstance(v, bool)
             },
         )
 
@@ -290,11 +300,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = FivetranSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
