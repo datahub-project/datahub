@@ -12,11 +12,11 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai import (
-    VertexAIConfig,
-    VertexAISource,
     ContainerKeyWithId,
     ModelMetadata,
     TrainingJobMetadata,
+    VertexAIConfig,
+    VertexAISource,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -27,7 +27,6 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
-    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
@@ -517,15 +516,14 @@ def test_gen_experiment_run_mcps(
     )
 
     expected_urn = builder.make_data_process_instance_urn(run_name)
-
-    assert [expected_urn] * 6 == [mcp.entityUrn for mcp in actual_mcps]
+    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
+    assert [expected_urn] * 5 == actual_urns
     expected_classes = {
         DataProcessInstancePropertiesClass,
         ContainerClass,
         MLTrainingRunPropertiesClass,
         DataPlatformInstanceClass,
         SubTypesClass,
-        DataProcessInstanceOutputClass,
     }
     actual_classes = set([mcp.aspect.__class__ for mcp in actual_mcps])
     assert expected_classes == actual_classes

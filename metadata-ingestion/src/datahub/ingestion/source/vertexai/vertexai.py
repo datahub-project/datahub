@@ -37,9 +37,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.mlflow import ContainerKeyWithId
 from datahub.ingestion.source.vertexai.config import VertexAIConfig
-from datahub.ingestion.source.vertexai.utils import (
+from datahub.ingestion.source.vertexai.result_type_utils import (
     get_execution_result_status,
-    get_job_result_type,
+    get_job_result_status,
+    is_status_for_run_event_class,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
@@ -210,7 +211,7 @@ class VertexAISource(Source):
             update_time = executions[0].update_time
             duration = update_time.timestamp() * 1000 - create_time.timestamp() * 1000
             return int(create_time.timestamp() * 1000), duration
-        # When multiple execution context stared, impossible to know which context to use fpr create_time and duration
+        # When multiple execution context stared, impossible to know which context to use for create_time and duration
         else:
             return None, None
 
@@ -254,7 +255,7 @@ class VertexAISource(Source):
         duration = datetime_to_ts_millis(update_time) - datetime_to_ts_millis(
             create_time
         )
-        result_state: Union[str, RunResultTypeClass] = get_execution_result_status(
+        result_status: Union[str, RunResultTypeClass] = get_execution_result_status(
             execution.state
         )
         execution_urn = builder.make_data_process_instance_urn(
@@ -284,25 +285,18 @@ class VertexAISource(Source):
                         status=DataProcessRunStatusClass.COMPLETE,
                         timestampMillis=datetime_to_ts_millis(create_time),
                         result=DataProcessInstanceRunResultClass(
-                            type=result_state,
+                            type=result_status,
                             nativeResultType=self.platform,
                         ),
                         durationMillis=int(duration),
                     )
-                    if isinstance(result_state, RunResultTypeClass) and duration
+                    if is_status_for_run_event_class(result_status) and duration
                     else None
                 ),
                 DataProcessInstanceRelationships(
                     upstreamInstances=[self._make_experiment_run_urn(exp, run)],
                     parentInstance=self._make_experiment_run_urn(exp, run),
                 ),
-                # TODO add input edge when metadata for DataProcessInstanceInput is updated
-                # DataProcessInstanceInputClass(
-                #     inputs=[],
-                #     inputEdges=[
-                #         EdgeClass(destinationUrn=self._make_experiment_run_urn(exp, run)),
-                #     ],
-                # ),
             ],
         )
 
@@ -511,7 +505,7 @@ class VertexAISource(Source):
             else None
         )
 
-        result_type = get_job_result_type(job)
+        result_type = get_job_result_status(job)
 
         yield from MetadataChangeProposalWrapper.construct_many(
             job_urn,
@@ -558,12 +552,12 @@ class VertexAISource(Source):
                         status=DataProcessRunStatusClass.COMPLETE,
                         timestampMillis=created_time,
                         result=DataProcessInstanceRunResultClass(
-                            type=get_job_result_type(job),
+                            type=result_type,
                             nativeResultType=self.platform,
                         ),
                         durationMillis=duration,
                     )
-                    if isinstance(result_type, RunResultTypeClass) and duration
+                    if is_status_for_run_event_class(result_type) and duration
                     else None
                 ),
             ],
