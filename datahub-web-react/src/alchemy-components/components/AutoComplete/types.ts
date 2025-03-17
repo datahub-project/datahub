@@ -6,6 +6,8 @@ export type ValueType = string;
 
 export type OptionType = DefaultOptionType;
 
+export type AutocompleteDropdownAlign = AlignType;
+
 export interface AutoCompleteProps {
     dataTestId?: string;
     className?: string;
@@ -28,7 +30,7 @@ export interface AutoCompleteProps {
     dropdownRender?: (menu: React.ReactElement) => React.ReactElement | undefined;
     notFoundContent?: React.ReactNode;
 
-    dropdownAlign?: AlignType;
+    dropdownAlign?: AutocompleteDropdownAlign;
     style?: React.CSSProperties;
     dropdownStyle?: React.CSSProperties;
     dropdownMatchSelectWidth?: boolean | number;

@@ -13,10 +13,10 @@ export default function AutoComplete({
     onDropdownVisibleChange,
     onChange,
     onClear,
-    value,
+    onSelect,
     ...props
 }: React.PropsWithChildren<AutoCompleteProps>) {
-    const [internalValue, setInternalValue] = useState<string>(value || '');
+    const [internalValue, setInternalValue] = useState<string>(props.value || '');
     const [internalOpen, setInternalOpen] = useState<boolean>(false);
 
     useEffect(() => {
@@ -52,6 +52,16 @@ export default function AutoComplete({
         }
     };
 
+    const onSelectHandler = useCallback(
+        (value: string, option: OptionType) => {
+            onSelect?.(value, option);
+            setInternalOpen(false);
+        },
+        [onSelect],
+    );
+
+    const onMouseDownHandler = () => setInternalOpen(true);
+
     return (
         <ClickOutside
             ignoreSelector={AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR}
@@ -61,9 +71,10 @@ export default function AutoComplete({
                 open={internalOpen}
                 value={internalValue}
                 {...props}
+                onSelect={onSelectHandler}
                 listHeight={dropdownContentHeight}
                 data-testid={dataTestId}
-                onClick={() => setInternalOpen(true)}
+                onMouseDown={onMouseDownHandler}
                 onBlur={onBlur}
                 onClear={onClear}
                 onKeyDown={onKeyDownHandler}
