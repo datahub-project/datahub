@@ -127,18 +127,20 @@ export const BasicSelect = <OptionType extends SelectOption>({
     const handleUpdateClick = useCallback(() => {
         setSelectedValues(tempValues);
         setIsOpen(false);
+        onSearchHandler('');
         if (onUpdate) {
             onUpdate(tempValues);
         }
-    }, [tempValues, onUpdate]);
+    }, [tempValues, onUpdate, onSearchHandler]);
 
     const handleCancelClick = useCallback(() => {
         setIsOpen(false);
         setTempValues(selectedValues);
+        onSearchHandler('');
         if (onCancel) {
             onCancel();
         }
-    }, [selectedValues, onCancel]);
+    }, [selectedValues, onCancel, onSearchHandler]);
 
     const handleClearSelection = useCallback(() => {
         setSelectedValues([]);

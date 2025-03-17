@@ -55,7 +55,7 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xxsm} ${spacing.xxsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
             padding: `${spacing.xsm} ${spacing.xsm}`,
@@ -78,6 +78,22 @@ export const getSearchPadding = (size) => {
         },
         lg: {
             padding: `${spacing.xsm} ${spacing.xsm}`,
+        },
+    };
+
+    return paddingStyles[size];
+};
+
+export const getSelectMinHeight = (size) => {
+    const paddingStyles = {
+        sm: {
+            minHeight: '32px',
+        },
+        md: {
+            minHeight: '42px',
+        },
+        lg: {
+            minHeight: '42px',
         },
     };
 
@@ -121,11 +137,13 @@ export const getSelectStyle = (props: SelectStyleProps) => {
 
     const fontStyles = getSelectFontStyles(fontSize);
     const paddingStyles = getSelectPadding(fontSize);
+    const minHeightStyles = getSelectMinHeight(fontSize);
 
     return {
         ...baseStyle,
         ...fontStyles,
         ...paddingStyles,
+        ...minHeightStyles,
     };
 };
 
