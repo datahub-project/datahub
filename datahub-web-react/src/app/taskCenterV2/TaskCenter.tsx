@@ -1,12 +1,10 @@
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
-import { Badge as BadgeAntd, Tabs } from 'antd';
+import { Badge as BadgeAntd } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { ActionRequest } from '@src/types.generated';
 import { useUserContext } from '../context/useUserContext';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useUrlQueryParam } from '../shared/useUrlQueryParam';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
@@ -16,6 +14,8 @@ import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { EntityAndType } from '../entity/shared/types';
 import { Requests } from './requests/Requests';
+import { RoutedTabs } from '../shared/RoutedTabs';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -39,6 +39,23 @@ const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: b
         background: white;
         height: 100%;
     `}
+
+    &&& .ant-tabs-nav {
+        margin-bottom: 0;
+        padding-left: 24px;
+    }
+
+    &&& .ant-tabs-tab {
+        padding-bottom: 12px;
+    }
+
+    &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+
+    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 const PageHeaderContainer = styled.div`
@@ -47,42 +64,20 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const StyledTabs = styled(Tabs)`
-    &&& .ant-tabs-nav {
-        margin-bottom: 0;
-        padding-left: 28px;
-    }
-    &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-
-    &&& .ant-tabs-tab-active .ant-tabs-tab-btn,
-    &&& .ant-tabs-tab .ant-tabs-tab-btn {
-        padding: 0 20px;
-    }
-
-    &&& .ant-tabs-tab + .ant-tabs-tab {
-        margin: 0px;
-    }
-`;
-
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    line-height: 22px;
-`;
-
 interface TabTitleProps {
     title: string;
     count: number;
     dataTestId?: string;
 }
 
+enum TabType {
+    RequestsTab = 'Requests',
+    ProposalsTab = 'Proposals',
+}
+
 const badgeBoxSize = '14px';
 
-const StyledBadge = styled(BadgeAntd)`
+export const StyledBadge = styled(BadgeAntd)`
     position: relative;
     margin-left: 0.25rem;
     margin-bottom: 0.2rem;
@@ -154,15 +149,13 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
-    const entityRegistry = useEntityRegistryV2();
-    const isV2 = useIsThemeV2();
-    const isShowNavBarRedesign = useShowNavBarRedesign();
     const [targetEntity, setTargetEntity] = useState<EntityAndType | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
     const width = useSidebarWidth();
-    const { value: activeTab, setValue: setActiveTab } = useUrlQueryParam('tab', 'requests');
+    const entityRegistry = useEntityRegistryV2();
+    const isV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    // TODO: Review this UX
     const onProposalClick = (e: ActionRequest) => {
         if (!e?.entity) {
             setTargetEntity(null);
@@ -172,24 +165,34 @@ export const TaskCenter = () => {
         }
     };
 
+    const Tabs = [
+        {
+            name: TabType.RequestsTab,
+            path: TabType.RequestsTab.toLocaleLowerCase(),
+            content: <Requests />,
+            customTitle: <TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />,
+            display: {
+                enabled: () => true,
+            },
+        },
+        {
+            name: TabType.ProposalsTab,
+            path: TabType.ProposalsTab.toLocaleLowerCase(),
+            content: <Proposals onProposalClick={onProposalClick} />,
+            customTitle: <TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />,
+            display: {
+                enabled: () => true,
+            },
+        },
+    ];
+
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <ProposalsContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <PageHeaderContainer>
                     <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
                 </PageHeaderContainer>
-                <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
-                    <Tab
-                        key="requests"
-                        tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
-                    />
-                    <Tab
-                        key="proposals"
-                        tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
-                    />
-                </StyledTabs>
-                {activeTab === 'requests' && <Requests />}
-                {activeTab === 'proposals' && <Proposals onProposalClick={onProposalClick} />}
+                <RoutedTabs defaultPath="requests" tabs={Tabs} onTabChange={() => {}} />
             </ProposalsContainer>
             {targetEntity && (
                 <EntitySidebarContext.Provider

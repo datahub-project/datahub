@@ -20,7 +20,7 @@ const ActionsContainer = styled.div`
     background-color: white;
     position: absolute;
     left: 50%;
-    bottom: 50px;
+    bottom: 44px;
     transform: translateX(-55%);
 `;
 

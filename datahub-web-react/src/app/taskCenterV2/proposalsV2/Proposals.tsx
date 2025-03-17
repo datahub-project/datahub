@@ -11,6 +11,15 @@ const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;
 `;
 
+const ActiveGroupTabViewContainer = styled.div`
+    height: calc(100% - 70px);
+    margin: 20px;
+`;
+
+const ProposalsContainer = styled.div`
+    height: 100%;
+`;
+
 const StyledTabButton = styled(TabButton)<{ $isSelected: boolean }>`
     color: ${(props) => (props.$isSelected ? colors.violet : colors.gray[600])};
     background-color: ${(props) => (props.$isSelected ? colors.gray[1000] : 'transparent')};
@@ -81,16 +90,19 @@ export const Proposals = ({ onProposalClick }: Props) => {
     const filteredActionRequestGroups = actionRequestGroups.filter((group) => group.name === actionRequestGroupName);
     const activeActionRequestGroup = filteredActionRequestGroups.length > 0 && filteredActionRequestGroups[0];
     const activeActionRequestGroupTabView = activeActionRequestGroup && (
-        <ProposalList
-            assignee={activeActionRequestGroup.assignee}
-            groupName={activeActionRequestGroup.name}
-            userUrn={authenticatedUser?.corpUser.urn}
-            onProposalClick={onProposalClick}
-        />
+        <ActiveGroupTabViewContainer>
+            <ProposalList
+                assignee={activeActionRequestGroup.assignee}
+                groupName={activeActionRequestGroup.name}
+                userUrn={authenticatedUser?.corpUser.urn}
+                showFilters
+                onProposalClick={onProposalClick}
+            />
+        </ActiveGroupTabViewContainer>
     );
 
     return (
-        <>
+        <ProposalsContainer>
             <StyledButtonGroup>
                 {actionRequestGroups.map((group) => (
                     <StyledTabButton
@@ -105,6 +117,6 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 ))}
             </StyledButtonGroup>
             {activeActionRequestGroupTabView}
-        </>
+        </ProposalsContainer>
     );
 };
