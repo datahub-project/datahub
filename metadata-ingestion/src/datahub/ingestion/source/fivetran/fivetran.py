@@ -80,16 +80,24 @@ class FivetranSource(StatefulIngestionSourceBase):
         # For backward compatibility with existing tests
         self.audit_log = self.fivetran_access
 
-    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
+    def _extend_lineage(
+        self,
+        connector: Connector,
+        datajob: DataJob,
+        source_details: Optional[PlatformDetail] = None,
+        destination_details: Optional[PlatformDetail] = None,
+    ) -> Dict[str, str]:
         """Build lineage between source and destination datasets."""
         # Initialize empty lists for dataset URNs and fine-grained lineage
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
 
-        # Obtain source and destination platform details
-        source_details = self._get_source_details(connector)
-        destination_details = self._get_destination_details(connector)
+        # Obtain source and destination platform details if not provided
+        if source_details is None:
+            source_details = self._get_source_details(connector)
+        if destination_details is None:
+            destination_details = self._get_destination_details(connector)
 
         # Handle lineage truncation if needed
         if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
@@ -110,15 +118,19 @@ class FivetranSource(StatefulIngestionSourceBase):
                 is_source=False,
             )
 
+            # Skip if either URN creation failed
+            if not source_urn or not dest_urn:
+                continue
+
             # Add URNs to lists (avoiding duplicates)
-            if source_urn and source_urn not in input_dataset_urn_list:
+            if source_urn not in input_dataset_urn_list:
                 input_dataset_urn_list.append(source_urn)
 
-            if dest_urn and dest_urn not in output_dataset_urn_list:
+            if dest_urn not in output_dataset_urn_list:
                 output_dataset_urn_list.append(dest_urn)
 
             # Create column lineage if enabled
-            if self.config.include_column_lineage and source_urn and dest_urn:
+            if self.config.include_column_lineage:
                 self._create_column_lineage(
                     lineage=lineage,
                     source_urn=source_urn,
@@ -132,11 +144,29 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob.fine_grained_lineages.extend(fine_grained_lineage)
 
         # Build properties from details and connector properties
-        return self._build_lineage_properties(
+        lineage_properties = self._build_lineage_properties(
             connector=connector,
             source_details=source_details,
             destination_details=destination_details,
         )
+
+        # Add source and destination platform information to properties
+        if source_details.platform:
+            lineage_properties["source.platform"] = source_details.platform
+        if destination_details.platform:
+            lineage_properties["destination.platform"] = destination_details.platform
+
+        # Add database information if available
+        if source_details.database:
+            lineage_properties["source.database"] = source_details.database
+        if destination_details.database:
+            lineage_properties["destination.database"] = destination_details.database
+
+        # Add environment information
+        lineage_properties["source.env"] = source_details.env or "PROD"
+        lineage_properties["destination.env"] = destination_details.env or "PROD"
+
+        return lineage_properties
 
     def _get_source_details(self, connector: Connector) -> PlatformDetail:
         """Get source platform details for a connector."""
@@ -202,22 +232,30 @@ class FivetranSource(StatefulIngestionSourceBase):
         if not table_name:
             return None
 
-        # Handle schema inclusion based on configuration
-        if not details.include_schema_in_urn and "." in table_name:
-            table_name = table_name.split(".", 1)[1]
-
-        # Include database in the table name if available
-        full_table_name = (
-            f"{details.database.lower()}.{table_name}"
-            if details.database
-            else table_name
-        )
-
         try:
+            # Handle schema inclusion based on configuration
+            if not details.include_schema_in_urn and "." in table_name:
+                table_name = table_name.split(".", 1)[1]
+
+            # Ensure we have a platform
+            platform = details.platform
+            if not platform:
+                platform = "snowflake" if not is_source else "external"
+
+            # Include database in the table name if available
+            full_table_name = (
+                f"{details.database.lower()}.{table_name}"
+                if details.database
+                else table_name
+            )
+
+            # Ensure environment is set
+            env = details.env or "PROD"
+
             return DatasetUrn.create_from_ids(
-                platform_id=details.platform,
+                platform_id=platform,
                 table_name=full_table_name,
-                env=details.env,
+                env=env,
                 platform_instance=details.platform_instance,
             )
         except Exception as e:
@@ -238,30 +276,42 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _create_column_lineage(
         self,
         lineage,
-        source_urn: DatasetUrn,
-        dest_urn: DatasetUrn,
+        source_urn: Optional[DatasetUrn],
+        dest_urn: Optional[DatasetUrn],
         fine_grained_lineage: List[FineGrainedLineage],
     ) -> None:
         """Create column-level lineage between source and destination tables."""
+        if not source_urn or not dest_urn:
+            return
+
         for column_lineage in lineage.column_lineage:
-            fine_grained_lineage.append(
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[
-                        builder.make_schema_field_urn(
-                            str(source_urn),
-                            column_lineage.source_column,
-                        )
-                    ],
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    downstreams=[
-                        builder.make_schema_field_urn(
-                            str(dest_urn),
-                            column_lineage.destination_column,
-                        )
-                    ],
+            if (
+                not column_lineage.source_column
+                or not column_lineage.destination_column
+            ):
+                continue
+
+            try:
+                source_field_urn = builder.make_schema_field_urn(
+                    str(source_urn),
+                    column_lineage.source_column,
                 )
-            )
+
+                dest_field_urn = builder.make_schema_field_urn(
+                    str(dest_urn),
+                    column_lineage.destination_column,
+                )
+
+                fine_grained_lineage.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=[source_field_urn],
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[dest_field_urn],
+                    )
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create column lineage: {e}")
 
     def _build_lineage_properties(
         self,
@@ -416,31 +466,44 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _create_destination_urn(
         self, lineage, destination_details: PlatformDetail
-    ) -> DatasetUrn:
+    ) -> Optional[DatasetUrn]:
         """Create a dataset URN for a destination table."""
-        destination_table = (
-            lineage.destination_table
-            if destination_details.include_schema_in_urn
-            else lineage.destination_table.split(".", 1)[1]
-        )
+        if not lineage.destination_table:
+            return None
 
-        # Safe access to database.lower() with None check
-        destination_table_name = (
-            f"{destination_details.database.lower()}.{destination_table}"
-            if destination_details.database
-            else destination_table
-        )
+        try:
+            destination_table = (
+                lineage.destination_table
+                if destination_details.include_schema_in_urn
+                else lineage.destination_table.split(".", 1)[1]
+                if "." in lineage.destination_table
+                else lineage.destination_table
+            )
 
-        return DatasetUrn.create_from_ids(
-            platform_id=destination_details.platform,
-            table_name=destination_table_name,
-            env=destination_details.env,
-            platform_instance=destination_details.platform_instance,
-        )
+            # Safe access to database with None check
+            destination_table_name = (
+                f"{destination_details.database.lower()}.{destination_table}"
+                if destination_details.database
+                else destination_table
+            )
+
+            return DatasetUrn.create_from_ids(
+                platform_id=destination_details.platform
+                or "snowflake",  # Default to snowflake if not specified
+                table_name=destination_table_name,
+                env=destination_details.env,
+                platform_instance=destination_details.platform_instance,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create destination URN: {e}")
+            return None
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         """Generate a DataFlow entity from a connector."""
         # Extract connector-specific metadata to enrich the dataflow
+        connector_name = (
+            connector.connector_name or f"Fivetran-{connector.connector_id}"
+        )
         description = f"Fivetran connector for {connector.connector_type}"
         properties = {}
 
@@ -454,11 +517,16 @@ class FivetranSource(StatefulIngestionSourceBase):
         properties["paused"] = str(connector.paused)
         properties["destination_id"] = connector.destination_id
 
+        # Get destination platform if available
+        if "destination_platform" in connector.additional_properties:
+            destination = connector.additional_properties.get("destination_platform")
+            description += f" to {destination}"
+
         return DataFlow(
             orchestrator=Constant.ORCHESTRATOR,
             id=connector.connector_id,
-            env=self.config.env,
-            name=connector.connector_name,
+            env=self.config.env or "PROD",
+            name=connector_name,
             description=description,
             properties=properties,
             platform_instance=self.config.platform_instance,
@@ -469,31 +537,55 @@ class FivetranSource(StatefulIngestionSourceBase):
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
             flow_id=connector.connector_id,
-            env=self.config.env,
+            env=self.config.env or "PROD",
             platform_instance=self.config.platform_instance,
         )
 
+        # Extract useful connector information
+        connector_name = (
+            connector.connector_name or f"Fivetran-{connector.connector_id}"
+        )
+
+        # Get source platform from connector type
+        source_platform = self._detect_source_platform(connector)
+
+        # Get destination platform
+        destination_platform = "snowflake"  # Default
+        if "destination_platform" in connector.additional_properties:
+            destination_platform = connector.additional_properties.get(
+                "destination_platform"
+            )
+
+        # Create job description
+        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
+
         # Get owner information
         owner_email = self.fivetran_access.get_user_email(connector.user_id)
+        owner_set = {owner_email} if owner_email else set()
 
-        # Create job description based on connector properties
-        description = f"Fivetran data pipeline from {connector.connector_type}"
-        if "destination_platform" in connector.additional_properties:
-            destination = connector.additional_properties.get("destination_platform")
-            description += f" to {destination}"
-
-        # Create the DataJob with basic information
+        # Create the DataJob with enhanced information
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
-            name=connector.connector_name,
+            name=connector_name,
             description=description,
-            owners={owner_email} if owner_email else set(),
+            owners=owner_set,
         )
 
         # Map connector source and destination table with dataset entity
         # Also extend the fine grained lineage of column if include_column_lineage is True
-        lineage_properties = self._extend_lineage(connector=connector, datajob=datajob)
+        source_details = self._get_source_details(connector)
+        source_details.platform = source_platform
+
+        destination_details = self._get_destination_details(connector)
+        destination_details.platform = destination_platform
+
+        lineage_properties = self._extend_lineage(
+            connector=connector,
+            datajob=datajob,
+            source_details=source_details,
+            destination_details=destination_details,
+        )
 
         # Extract connector properties for the DataJob
         connector_properties: Dict[str, str] = {

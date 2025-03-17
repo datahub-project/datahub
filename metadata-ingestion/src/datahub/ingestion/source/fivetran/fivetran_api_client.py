@@ -204,11 +204,22 @@ class FivetranAPIClient:
         if connector_id in self._schema_cache:
             return self._schema_cache[connector_id]
 
-        response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
-        schemas = response.get("data", {}).get("schemas", [])
+        try:
+            response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
+            schemas = response.get("data", {}).get("schemas", [])
 
-        self._schema_cache[connector_id] = schemas
-        return schemas
+            # Ensure schemas is a list of dictionaries
+            if not isinstance(schemas, list):
+                logger.warning(
+                    f"Unexpected schema format for connector {connector_id}: {schemas}"
+                )
+                schemas = []
+
+            self._schema_cache[connector_id] = schemas
+            return schemas
+        except Exception as e:
+            logger.warning(f"Error fetching schemas for connector {connector_id}: {e}")
+            return []
 
     def list_users(self) -> List[Dict]:
         """Get all users in the Fivetran account."""
@@ -630,15 +641,31 @@ class FivetranAPIClient:
             schemas = self.list_connector_schemas(connector_id)
             lineage_list = []
 
+            # Handle cases where schemas might be a string or invalid format
+            if isinstance(schemas, str) or not isinstance(schemas, list):
+                logger.warning(
+                    f"Invalid schema format for connector {connector_id}: {schemas}"
+                )
+                return lineage_list
+
             for schema in schemas:
+                if not isinstance(schema, dict):
+                    continue
+
                 schema_name = schema.get("name", "")
                 tables = schema.get("tables", [])
 
+                if not isinstance(tables, list):
+                    continue
+
                 for table in tables:
+                    if not isinstance(table, dict):
+                        continue
+
                     table_name = table.get("name", "")
                     enabled = table.get("enabled", False)
 
-                    if not enabled:
+                    if not enabled or not table_name:
                         continue
 
                     # Create source table name
@@ -657,19 +684,26 @@ class FivetranAPIClient:
                     columns = table.get("columns", [])
                     column_lineage = []
 
-                    for column in columns:
-                        column_name = column.get("name", "")
-                        # Adjust destination column name based on platform
-                        dest_column_name = self._get_destination_column_name(
-                            column_name, destination_platform
-                        )
+                    if isinstance(columns, list):
+                        for column in columns:
+                            if not isinstance(column, dict):
+                                continue
 
-                        column_lineage.append(
-                            ColumnLineage(
-                                source_column=column_name,
-                                destination_column=dest_column_name,
+                            column_name = column.get("name", "")
+                            if not column_name:
+                                continue
+
+                            # Adjust destination column name based on platform
+                            dest_column_name = self._get_destination_column_name(
+                                column_name, destination_platform
                             )
-                        )
+
+                            column_lineage.append(
+                                ColumnLineage(
+                                    source_column=column_name,
+                                    destination_column=dest_column_name,
+                                )
+                            )
 
                     lineage_list.append(
                         TableLineage(
