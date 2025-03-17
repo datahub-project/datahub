@@ -85,11 +85,54 @@ class FivetranStandardAPI(FivetranAccessInterface):
         This is the standard version replacement for querying log tables.
         """
         connectors: List[Connector] = []
+        destinations_seen = set()
+        destination_details = {}
 
         with report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list from Fivetran API")
             connector_list = self.api_client.list_connectors()
 
+            # First pass: collect all destination IDs to log them for configuration
+            for api_connector in connector_list:
+                destination_id = api_connector.get("group", {}).get("id", "")
+                if destination_id and destination_id not in destinations_seen:
+                    destinations_seen.add(destination_id)
+
+                    # Fetch destination details
+                    destination_data = self.api_client.get_destination_details(
+                        destination_id
+                    )
+                    destination_name = destination_data.get("name", "unknown")
+                    destination_service = destination_data.get("service", "unknown")
+
+                    destination_details[destination_id] = {
+                        "name": destination_name,
+                        "service": destination_service,
+                    }
+
+                    logger.info(
+                        f"Found destination: ID={destination_id}, Name={destination_name}, Service={destination_service}"
+                    )
+
+            # Log a configuration example for the user
+            if destinations_seen:
+                example_config = "\ndestination_to_platform_instance:\n"
+                for dest_id, details in destination_details.items():
+                    platform_suggestion = (
+                        "bigquery"
+                        if "bigquery" in details["service"].lower()
+                        else "snowflake"
+                    )
+                    example_config += f"  {dest_id}:  # {details['name']}\n"
+                    example_config += f'    platform: "{platform_suggestion}"\n'
+                    example_config += '    database: "your_database_name"\n'
+                    example_config += '    env: "PROD"\n'
+
+                logger.info(
+                    f"Configuration example for destination_to_platform_instance:{example_config}"
+                )
+
+            # Continue with normal connector processing
             for api_connector in connector_list:
                 connector_id = api_connector.get("id", "")
                 if not connector_id:
@@ -124,6 +167,11 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 # Convert from API format to our internal model
                 connector = self.api_client.extract_connector_metadata(
                     api_connector=api_connector, sync_history=sync_history
+                )
+
+                # Log connector details for easier configuration
+                logger.info(
+                    f"Found connector: {connector.connector_name} (ID={connector.connector_id}, Type={connector.connector_type}, Destination ID={connector.destination_id})"
                 )
 
                 # Determine destination platform from config - do this BEFORE processing lineage
