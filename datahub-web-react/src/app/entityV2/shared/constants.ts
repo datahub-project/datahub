@@ -234,3 +234,4 @@ export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 
 
 export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';
