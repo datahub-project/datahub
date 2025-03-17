@@ -13,7 +13,7 @@
                 "destination_id": "interval_unconstitutional"
             },
             "name": "postgres",
-            "description": "Fivetran connector for postgres",
+            "description": "Fivetran connector for postgres to snowflake",
             "env": "PROD"
         }
     },
@@ -97,7 +97,7 @@
                 "destination.database": "test_database"
             },
             "name": "postgres",
-            "description": "Fivetran data pipeline from postgres",
+            "description": "Fivetran data pipeline from postgres to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -624,7 +624,7 @@
                 "destination_id": "my_confluent_cloud_connector_id"
             },
             "name": "confluent_cloud",
-            "description": "Fivetran connector for confluent_cloud",
+            "description": "Fivetran connector for confluent_cloud to snowflake",
             "env": "PROD"
         }
     },
@@ -703,12 +703,12 @@
                 "source.platform": "kafka",
                 "source.env": "PROD",
                 "source.database": "kafka_prod",
-                "destination.platform": "kafka",
+                "destination.platform": "snowflake",
                 "destination.env": "PROD",
                 "destination.database": "kafka_prod"
             },
             "name": "confluent_cloud",
-            "description": "Fivetran data pipeline from confluent_cloud",
+            "description": "Fivetran data pipeline from confluent_cloud to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -748,10 +748,22 @@
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
             ],
             "inputDatajobs": [],
-            "fineGrainedLineages": []
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -870,7 +882,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
             ]
         }
     },

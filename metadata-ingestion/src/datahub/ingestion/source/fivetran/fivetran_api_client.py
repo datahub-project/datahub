@@ -48,9 +48,9 @@ class FivetranAPIClient:
         self.config = config
         self._session = self._create_session()
         # Cache for connector schemas
-        self._schema_cache = {}
+        self._schema_cache: Dict[str, List[Dict[str, Any]]] = {}
         # Cache for destination details
-        self._destination_cache = {}
+        self._destination_cache: Dict[str, Dict[str, Any]] = {}
 
     def _create_session(self) -> requests.Session:
         """Create a requests session with retry logic and auth."""
@@ -461,13 +461,15 @@ class FivetranAPIClient:
     def _extract_sync_history_from_logs(self, logs: List[Dict]) -> List[Dict]:
         """Extract sync history entries from connector logs."""
         # Group logs by sync_id
-        sync_groups = {}
+        sync_groups: Dict[str, List[Dict[str, Any]]] = {}
         for log in logs:
             if "sync_id" in log:
                 sync_id = log.get("sync_id")
-                if sync_id not in sync_groups:
-                    sync_groups[sync_id] = []
-                sync_groups[sync_id].append(log)
+                if sync_id is not None:  # Ensure sync_id is not None
+                    str_sync_id = str(sync_id)  # Convert to string to be safe
+                    if str_sync_id not in sync_groups:
+                        sync_groups[str_sync_id] = []
+                    sync_groups[str_sync_id].append(log)
 
         # Create sync history entries from log groups
         sync_history = []
@@ -591,9 +593,11 @@ class FivetranAPIClient:
 
             # Add BigQuery location if available
             if "bigquery_location" in connector_details:
-                additional_properties["bigquery_location"] = connector_details.get(
-                    "bigquery_location"
-                )
+                bigquery_location = connector_details.get("bigquery_location")
+                if bigquery_location is not None:
+                    additional_properties["bigquery_location"] = str(
+                        bigquery_location
+                    )  # Convert to string
         except Exception as e:
             logger.warning(f"Failed to extract additional connector metadata: {e}")
 
@@ -798,9 +802,17 @@ class FivetranAPIClient:
             schemas = self.list_connector_schemas(connector_id)
 
             # Get destination details
-            destination_platform = connector.additional_properties.get(
+            destination_platform_value = connector.additional_properties.get(
                 "destination_platform", ""
             )
+            # Ensure destination_platform is a string
+            destination_platform = (
+                str(destination_platform_value)
+                if destination_platform_value is not None
+                else ""
+            )
+            if not destination_platform:
+                destination_platform = "snowflake"
 
             for schema in schemas:
                 schema_name = schema.get("name", "")
