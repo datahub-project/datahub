@@ -1,51 +1,39 @@
-import { Button, SearchBar, Tooltip } from '@components';
-import analytics, { EventType } from '@src/app/analytics';
-import { useUserContext } from '@src/app/context/useUserContext';
+import { SearchBar } from '@components';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
 import React, { useState } from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../conf/Global';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import FormsTable from './FormsTable';
 
 const Container = styled.div`
     display: flex;
-    margin: 20px;
+    margin-top: 0;
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-bottom: 16px;
     overflow: auto;
-    height: calc(100% - 40px);
+    height: calc(100% - 16px);
 `;
 
 const SectionHeader = styled.div`
     display: flex;
     justify-content: space-between;
 `;
-const HeaderText = styled.div`
-    display: flex;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
-    font-size: 18px;
-    font-weight: 700;
-`;
 
 const FormsSection = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
-    gap: 20px;
 `;
 
 const FormsContainer = styled.div`
     display: flex;
     overflow: auto;
     flex: 1;
+    margin-top: 16px;
 `;
 
 const FormsTab = () => {
-    const history = useHistory();
-    const me = useUserContext();
-    const canEditForms = me.platformPrivileges?.manageDocumentationForms;
-
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     const inputs = {
@@ -77,35 +65,7 @@ const FormsTab = () => {
     return (
         <Container>
             <FormsSection>
-                <SectionHeader>
-                    <HeaderText>Your Forms</HeaderText>
-                    <Tooltip
-                        showArrow={false}
-                        title={
-                            !canEditForms
-                                ? 'Must have permission to manage forms. Ask your DataHub administrator.'
-                                : null
-                        }
-                    >
-                        <>
-                            <Button
-                                icon="Add"
-                                onClick={() => {
-                                    analytics.event({
-                                        type: EventType.CreateFormClickEvent,
-                                    });
-                                    history.push(PageRoutes.NEW_FORM, {
-                                        inputs,
-                                        searchAcrossEntities: searchData?.searchAcrossEntities,
-                                    });
-                                }}
-                                disabled={!canEditForms}
-                            >
-                                Create
-                            </Button>
-                        </>
-                    </Tooltip>
-                </SectionHeader>
+                <SectionHeader />
                 <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
                 <FormsContainer>
                     <FormsTable

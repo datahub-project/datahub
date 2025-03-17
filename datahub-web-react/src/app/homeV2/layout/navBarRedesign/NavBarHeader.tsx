@@ -47,7 +47,7 @@ const Title = styled.div`
 `;
 
 const StyledLink = styled(Link)`
-    display: flex
+    display: flex;
     height: 40px;
     align-items: center;
     max-width: calc(100% - 40px);

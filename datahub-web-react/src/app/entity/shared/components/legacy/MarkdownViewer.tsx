@@ -38,7 +38,9 @@ const MarkdownViewContainer = styled.div<{
     showall?: string;
     limit?: string;
     over?: string;
+    maxWidth?: number;
 }>`
+    ${(props) => (props.maxWidth ? `max-width: ${props.maxWidth}px;` : '')}
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -52,6 +54,7 @@ const MarkdownViewContainer = styled.div<{
         ${
             props.over &&
             `
+            overflow-y: hidden;
             &::after {
                 content: '...';
                 color: #6a737d;
@@ -76,6 +79,7 @@ export const MarkdownView = styled(MDEditor.Markdown)`
 export type Props = {
     source: string;
     limit?: number;
+    maxWidth?: number;
     // eslint-disable-next-line react/no-unused-prop-types
     isCompact?: boolean;
     editable?: boolean;
@@ -83,7 +87,7 @@ export type Props = {
     ignoreLimit?: boolean;
 };
 
-export default function MarkdownViewer({ source, limit = 150, editable, onEditClicked, ignoreLimit }: Props) {
+export default function MarkdownViewer({ source, limit = 150, maxWidth, editable, onEditClicked, ignoreLimit }: Props) {
     const [height, setHeight] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const ref = useRef(null);
@@ -105,6 +109,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                 showall={height >= limit && showAll ? 'true' : undefined}
                 limit={ignoreLimit ? undefined : `${limit}`}
                 over={height >= limit && !ignoreLimit ? 'true' : undefined}
+                maxWidth={maxWidth}
             >
                 <MarkdownView ref={ref} source={source} />
             </MarkdownViewContainer>

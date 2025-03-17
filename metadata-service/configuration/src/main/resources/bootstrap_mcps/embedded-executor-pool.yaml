@@ -9,3 +9,5 @@
     createdAt: 0
     creator: urn:li:corpuser:admin
     description: Built-in Ingestion Executor
+  headers:
+    X-DataHub-Sync-Index-Update: true

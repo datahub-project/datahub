@@ -13,6 +13,11 @@ ext {
 }
 
 dependencies {
+  implementation platform("software.amazon.awssdk:bom:$awsSdk2Version")
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sqs'
+  implementation 'software.amazon.awssdk:sts'
+
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:restli-client-api')
@@ -90,6 +95,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 
+  testImplementation(testFixtures(project(":entity-registry")))
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
@@ -121,6 +127,11 @@ bootRun {
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
   environment "SERVER_PORT", "8083"
   args += ["-u", "SystemUpdate"]
+}
+
+test {
+  testLogging.exceptionFormat = 'full'
+  testLogging.showStandardStreams = true
 }
 
 /**
@@ -236,4 +247,3 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
-

@@ -558,7 +558,7 @@ pycountry==23.12.11
     # via schwifty
 pycparser==2.22
     # via cffi
-pydantic==1.10.15
+pydantic==1.10.21
     # via
     #   acryl-datahub
     #   acryl-datahub-actions

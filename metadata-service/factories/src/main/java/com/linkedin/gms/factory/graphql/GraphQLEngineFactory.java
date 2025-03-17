@@ -76,6 +76,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import software.amazon.awssdk.services.sts.StsClient;
 
 @Configuration
 @Import({
@@ -338,6 +339,11 @@ public class GraphQLEngineFactory {
     args.setAssertionService(assertionService);
     args.setMetadataTestClient(metadataTestClient);
     args.setActionRequestService(actionRequestService);
+
+    // Saas Only
+    StsClient stsClient = StsClient.create();
+    args.setStsClient(stsClient);
+
     return new GmsGraphQLEngine(args).builder().build();
   }
 

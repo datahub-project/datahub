@@ -77,6 +77,11 @@ const FiltersContainer = styled.div`
     gap: 10px;
 `;
 
+const HighlightedQueriesContainer = styled.div`
+    height: 100%;
+    overflow: auto;
+`;
+
 type Props = {
     title: string;
     queries: Query[];
@@ -248,16 +253,19 @@ export default function QueriesListSection({
                 )}
             </QueriesTitleSection>
             {section === QueriesTabSection.Highlighted && (
-                <StyledTable
-                    {...tableProps}
-                    columns={highlightedQueriesColumns}
-                    onRow={(row) => {
-                        return {
-                            onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
-                            onMouseLeave: () => setHoveredQueryUrn(null),
-                        };
-                    }}
-                />
+                <HighlightedQueriesContainer>
+                    <StyledTable
+                        {...tableProps}
+                        scroll={{ x: 'auto', y: 400 }}
+                        columns={highlightedQueriesColumns}
+                        onRow={(row) => {
+                            return {
+                                onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
+                                onMouseLeave: () => setHoveredQueryUrn(null),
+                            };
+                        }}
+                    />
+                </HighlightedQueriesContainer>
             )}
             {section === QueriesTabSection.Popular && <StyledTable {...tableProps} columns={popularQueriesColumns} />}
             {section === QueriesTabSection.Downstream && (

@@ -1,18 +1,16 @@
 import dataclasses
-import os
 
-import pydantic
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
-
-QUERY_DESCRIPTION_GENERATION_MODEL: BedrockModel = pydantic.parse_obj_as(
+from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    os.getenv(
-        "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
-        BedrockModel.CLAUDE_35_SONNET.value,
-    ),
+    call_bedrock_llm,
+    get_bedrock_model_env_variable,
+)
+
+QUERY_DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
+    "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_35_SONNET
 )
 
 

@@ -1,6 +1,6 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Typography, message } from 'antd';
+import { Modal, message } from 'antd';
 import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -22,46 +22,29 @@ import { Query } from './types';
  * Description Column
  */
 
-const StyledLink = styled(Typography.Link)`
-    display: block;
-`;
-
 const TruncatedTextWrapper = styled.div`
     display: inline;
 `;
 
-const MAX_DESCRIPTION_LENGTH = 50;
+const QueryDescriptionWrapper = styled.div`
+    margin-top: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 10px;
+`;
 
 interface DescriptionProps {
     description?: string;
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
-    const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
-
-    if (!description) return null;
-
-    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-
     return (
-        <div>
-            {isTruncated && (
-                <>
-                    <TruncatedTextWrapper>
-                        <MarkdownViewer source={`${truncatedDescription}...`} />
-                    </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
-                </>
-            )}
-            {!isTruncated && (
-                <>
-                    <MarkdownViewer source={description} ignoreLimit />
-                    {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
-                    )}
-                </>
-            )}
-        </div>
+        <QueryDescriptionWrapper>
+            <TruncatedTextWrapper>
+                <MarkdownViewer source={description || ''} limit={60} ignoreLimit={false} maxWidth={170} />
+            </TruncatedTextWrapper>
+        </QueryDescriptionWrapper>
     );
 };
 

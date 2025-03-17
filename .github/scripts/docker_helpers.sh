@@ -31,7 +31,7 @@ function get_python_docker_release_v() {
     echo "$(echo "${GITHUB_REF}" | \
         sed -e "s,refs/heads/${MAIN_BRANCH},1\!0.0.0+docker.${SHORT_SHA},g" \
             -e 's,refs/heads/\(.*\),1!0.0.0+docker.\1,g' \
-            -e 's,refs/tags/v\(.*\),1\!\1+docker,g' \
+            -e 's,refs/tags/v\([0-9a-zA-Z.]*\).*,1\!\1+docker,g' \
             -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g' \
             -e 's,1\!\([0-9]*\.[0-9]*\.[0-9]*rc[0-9]*\).*+docker.*,\1,g' \
             -e 's,1!\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*+docker.*,\1,g')"

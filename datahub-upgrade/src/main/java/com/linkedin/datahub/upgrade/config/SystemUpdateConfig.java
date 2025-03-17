@@ -22,8 +22,15 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SystemGraphRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.UpdateGraphIndicesService;
+import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
 import io.datahubproject.metadata.context.OperationContext;
@@ -53,6 +60,21 @@ import org.springframework.context.annotation.Primary;
 @Configuration
 @Conditional(SystemUpdateCondition.class)
 public class SystemUpdateConfig {
+
+  @Value("${featureFlags.searchServiceDiffModeEnabled}")
+  private boolean searchDiffMode;
+
+  @Value("${structuredProperties.enabled}")
+  private boolean structuredPropertiesHookEnabled;
+
+  @Value("${structuredProperties.writeEnabled}")
+  private boolean structuredPropertiesWriteEnabled;
+
+  @Value("${featureFlags.graphServiceDiffModeEnabled}")
+  private boolean graphDiffMode;
+
+  @Value("${elasticsearch.search.graph.graphStatusEnabled}")
+  private boolean graphStatusEnabled;
 
   @Bean(name = "systemUpdate")
   public SystemUpdate systemUpdate(
@@ -203,5 +225,35 @@ public class SystemUpdateConfig {
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;
+  }
+
+  @Primary
+  @Bean
+  public UpdateIndicesService searchIndicesServiceGMS(
+      final GraphService graphService,
+      final EntitySearchService entitySearchService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final SystemMetadataService systemMetadataService,
+      final SearchDocumentTransformer searchDocumentTransformer,
+      final EntityIndexBuilders entityIndexBuilders,
+      final EntityService<?> entityService,
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+
+    UpdateIndicesService updateIndicesService =
+        new UpdateIndicesService(
+            new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+            entitySearchService,
+            timeseriesAspectService,
+            systemMetadataService,
+            searchDocumentTransformer,
+            entityIndexBuilders,
+            idHashAlgo,
+            searchDiffMode,
+            structuredPropertiesHookEnabled,
+            structuredPropertiesWriteEnabled);
+
+    entityService.setUpdateIndicesService(updateIndicesService);
+
+    return updateIndicesService;
   }
 }
