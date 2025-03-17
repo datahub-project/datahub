@@ -360,7 +360,7 @@ def test_vertexai_config_init():
     assert config.credential.client_id == "test-client-id"
     assert config.credential.auth_uri == "https://accounts.google.com/o/oauth2/auth"
     assert config.credential.token_uri == "https://oauth2.googleapis.com/token"
-    assert config.credential.auth_provider_x509_cert_url == "service_account"
+    assert config.credential.auth_provider_x509_cert_url == "https://www.googleapis.com/oauth2/v1/certs"
 
     parsed_conf = config.get_credentials()
     assert parsed_conf is not None
