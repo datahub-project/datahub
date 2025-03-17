@@ -392,7 +392,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             schema_metadata_list = [schema_metadata_list]
 
         for schema_metadata in schema_metadata_list:
-            yield from self._process_schema_metadata(
+            yield from self._set_schema_metadata(
                 schema_metadata,
                 topic,
                 is_subject,
@@ -554,7 +554,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _get_dataset_subtype(
-        self, dataset_name: str, topic: str, is_subject: bool
+        self, is_subject: bool, dataset_name: str, topic: str
     ) -> str:
         # 7. Add the subtype aspect marking this as a "topic" or "schema"
         # 토픽내 스키마가 여러개일때 View 라고 Subtype 추가
