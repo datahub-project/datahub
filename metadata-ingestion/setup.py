@@ -348,9 +348,7 @@ sac = {
 
 superset_common = {
     "requests",
-    "sqlalchemy",
-    "great_expectations",
-    "greenlet",
+    *sqlglot_lib,
 }
 
 # Note: for all of these, framework_common will be added.
@@ -712,7 +710,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
-            "vertexai"
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
