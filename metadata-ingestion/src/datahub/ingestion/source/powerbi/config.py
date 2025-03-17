@@ -22,6 +22,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -390,7 +391,8 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
         default=True,
-        description="Whether to ingest PBI Dataset Table columns and measures",
+        description="Whether to ingest PBI Dataset Table columns and measures."
+        " Note: this setting must be `true` for schema extraction and column lineage to be enabled.",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
@@ -526,6 +528,7 @@ class PowerBiDashboardSourceConfig(
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
             "extract_lineage",
+            "extract_dataset_schema",
         ]
 
         if (
@@ -590,4 +593,12 @@ class PowerBiDashboardSourceConfig(
                 "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
             )
 
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
+        if values.get("extract_dataset_schema") is False:
+            add_global_warning(
+                "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
+            )
         return values
