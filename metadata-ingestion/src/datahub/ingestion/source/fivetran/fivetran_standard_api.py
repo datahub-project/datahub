@@ -3,7 +3,11 @@ from typing import List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import FivetranSourceReport
-from datahub.ingestion.source.fivetran.data_classes import Connector
+from datahub.ingestion.source.fivetran.data_classes import (
+    ColumnLineage,
+    Connector,
+    TableLineage,
+)
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_query import (
@@ -130,20 +134,141 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """
         for connector in connectors:
             try:
-                # Extract table lineage for this connector
-                lineage = self.api_client.extract_table_lineage(connector.connector_id)
+                logger.info(
+                    f"Extracting lineage for connector {connector.connector_id}"
+                )
 
-                # Check if we need to truncate the lineage
-                if len(lineage) > MAX_TABLE_LINEAGE_PER_CONNECTOR:
+                # Get destination platform from connector properties
+                destination_platform = connector.additional_properties.get(
+                    "destination_platform", "snowflake"
+                )
+
+                # Try to get schema information with detailed logging
+                schemas = self.api_client.list_connector_schemas(connector.connector_id)
+                logger.info(
+                    f"Retrieved {len(schemas)} schemas for connector {connector.connector_id}"
+                )
+
+                lineage_list = []
+
+                # Process each schema
+                for schema in schemas:
+                    try:
+                        schema_name = schema.get("name", "")
+                        if not schema_name:
+                            logger.warning(f"Skipping schema with no name: {schema}")
+                            continue
+
+                        tables = schema.get("tables", [])
+                        if not isinstance(tables, list):
+                            logger.warning(
+                                f"Schema {schema_name} has non-list tables: {tables}"
+                            )
+                            continue
+
+                        # Log the number of tables found
+                        logger.info(
+                            f"Processing {len(tables)} tables in schema {schema_name}"
+                        )
+
+                        # Process each table in the schema
+                        for table in tables:
+                            try:
+                                if not isinstance(table, dict):
+                                    continue
+
+                                table_name = table.get("name", "")
+                                enabled = table.get("enabled", False)
+
+                                if not enabled or not table_name:
+                                    continue
+
+                                # Create source and destination table identifiers
+                                source_table = f"{schema_name}.{table_name}"
+
+                                # Adjust case based on destination platform
+                                dest_schema = (
+                                    schema_name.upper()
+                                    if destination_platform != "bigquery"
+                                    else schema_name
+                                )
+                                dest_table = (
+                                    table_name.upper()
+                                    if destination_platform != "bigquery"
+                                    else table_name
+                                )
+                                destination_table = f"{dest_schema}.{dest_table}"
+
+                                # Process columns for lineage
+                                column_lineage = []
+                                columns = table.get("columns", [])
+
+                                if isinstance(columns, list):
+                                    for column in columns:
+                                        try:
+                                            if not isinstance(column, dict):
+                                                continue
+
+                                            col_name = column.get("name", "")
+                                            if not col_name:
+                                                continue
+
+                                            # Destination column name follows same case convention as table
+                                            dest_col_name = (
+                                                col_name.upper()
+                                                if destination_platform != "bigquery"
+                                                else col_name
+                                            )
+
+                                            column_lineage.append(
+                                                ColumnLineage(
+                                                    source_column=col_name,
+                                                    destination_column=dest_col_name,
+                                                )
+                                            )
+                                        except Exception as col_e:
+                                            logger.warning(
+                                                f"Error processing column in table {table_name}: {col_e}"
+                                            )
+
+                                # Add this table's lineage
+                                lineage_list.append(
+                                    TableLineage(
+                                        source_table=source_table,
+                                        destination_table=destination_table,
+                                        column_lineage=column_lineage,
+                                    )
+                                )
+
+                                logger.debug(
+                                    f"Added lineage: {source_table} -> {destination_table} with {len(column_lineage)} columns"
+                                )
+                            except Exception as table_e:
+                                logger.warning(
+                                    f"Error processing table {table.get('name', 'unknown')}: {table_e}"
+                                )
+                    except Exception as schema_e:
+                        logger.warning(
+                            f"Error processing schema {schema.get('name', 'unknown')}: {schema_e}"
+                        )
+
+                # Truncate if necessary
+                if len(lineage_list) > MAX_TABLE_LINEAGE_PER_CONNECTOR:
                     logger.warning(
-                        f"Connector {connector.connector_name} has {len(lineage)} tables, "
+                        f"Connector {connector.connector_name} has {len(lineage_list)} tables, "
                         f"truncating to {MAX_TABLE_LINEAGE_PER_CONNECTOR}"
                     )
-                    lineage = lineage[:MAX_TABLE_LINEAGE_PER_CONNECTOR]
+                    lineage_list = lineage_list[:MAX_TABLE_LINEAGE_PER_CONNECTOR]
 
-                connector.lineage = lineage
+                connector.lineage = lineage_list
+
+                logger.info(
+                    f"Successfully extracted {len(lineage_list)} table lineages for connector {connector.connector_id}"
+                )
+
             except Exception as e:
                 logger.error(
-                    f"Failed to extract lineage for connector {connector.connector_name}: {e}"
+                    f"Failed to extract lineage for connector {connector.connector_name}: {e}",
+                    exc_info=True,
                 )
                 connector.lineage = []

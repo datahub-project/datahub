@@ -206,16 +206,42 @@ class FivetranAPIClient:
 
         try:
             response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
-            schemas = response.get("data", {}).get("schemas", [])
+            # Log the raw response format for debugging
+            logger.debug(
+                f"Schema response format for connector {connector_id}: {type(response)}"
+            )
 
-            # Ensure schemas is a list of dictionaries
-            if not isinstance(schemas, list):
-                logger.warning(
-                    f"Unexpected schema format for connector {connector_id}: {schemas}"
-                )
+            schemas = response.get("data", {}).get("schemas", [])
+            logger.debug(f"Schemas format: {type(schemas)}, value: {schemas}")
+
+            # Handle various schema response formats
+            if schemas is None:
+                schemas = []
+            elif isinstance(schemas, str):
+                # Some APIs return a JSON string that needs to be parsed
+                try:
+                    import json
+
+                    parsed = json.loads(schemas)
+                    if isinstance(parsed, list):
+                        schemas = parsed
+                    else:
+                        logger.warning(f"Parsed schema is not a list: {parsed}")
+                        schemas = []
+                except Exception as e:
+                    logger.warning(f"Failed to parse schema string: {e}")
+                    schemas = []
+            elif not isinstance(schemas, list):
+                logger.warning(f"Unexpected schema type: {type(schemas)}")
                 schemas = []
 
+            # Filter out non-dict entries
+            schemas = [s for s in schemas if isinstance(s, dict)]
+
             self._schema_cache[connector_id] = schemas
+            logger.info(
+                f"Retrieved {len(schemas)} schemas for connector {connector_id}"
+            )
             return schemas
         except Exception as e:
             logger.warning(f"Error fetching schemas for connector {connector_id}: {e}")

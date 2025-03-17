@@ -99,44 +99,75 @@ class FivetranSource(StatefulIngestionSourceBase):
         if destination_details is None:
             destination_details = self._get_destination_details(connector)
 
+        # Ensure platform is set to avoid URN creation issues
+        if not source_details.platform:
+            source_details.platform = self._detect_source_platform(connector)
+
+        if not destination_details.platform:
+            destination_details.platform = "snowflake"  # Default to snowflake
+
+        # Log the lineage information for debugging
+        logger.info(
+            f"Processing lineage for connector {connector.connector_id}: "
+            f"source_platform={source_details.platform}, "
+            f"destination_platform={destination_details.platform}, "
+            f"{len(connector.lineage)} table lineage entries"
+        )
+
         # Handle lineage truncation if needed
         if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
             self._report_lineage_truncation(connector)
 
         # Process each table lineage entry
         for lineage in connector.lineage:
-            # Create source and destination URNs
-            source_urn = self._create_dataset_urn(
-                lineage.source_table,
-                source_details,
-                is_source=True,
-            )
-
-            dest_urn = self._create_dataset_urn(
-                lineage.destination_table,
-                destination_details,
-                is_source=False,
-            )
-
-            # Skip if either URN creation failed
-            if not source_urn or not dest_urn:
-                continue
-
-            # Add URNs to lists (avoiding duplicates)
-            if source_urn not in input_dataset_urn_list:
-                input_dataset_urn_list.append(source_urn)
-
-            if dest_urn not in output_dataset_urn_list:
-                output_dataset_urn_list.append(dest_urn)
-
-            # Create column lineage if enabled
-            if self.config.include_column_lineage:
-                self._create_column_lineage(
-                    lineage=lineage,
-                    source_urn=source_urn,
-                    dest_urn=dest_urn,
-                    fine_grained_lineage=fine_grained_lineage,
+            try:
+                # Create source and destination URNs
+                source_urn = self._create_dataset_urn(
+                    lineage.source_table,
+                    source_details,
+                    is_source=True,
                 )
+
+                dest_urn = self._create_dataset_urn(
+                    lineage.destination_table,
+                    destination_details,
+                    is_source=False,
+                )
+
+                # Skip if either URN creation failed
+                if not source_urn or not dest_urn:
+                    logger.warning(
+                        f"Skipping lineage for {lineage.source_table} -> {lineage.destination_table}: "
+                        f"Failed to create URNs"
+                    )
+                    continue
+
+                # Add URNs to lists (avoiding duplicates)
+                if str(source_urn) not in [str(u) for u in input_dataset_urn_list]:
+                    input_dataset_urn_list.append(source_urn)
+
+                if str(dest_urn) not in [str(u) for u in output_dataset_urn_list]:
+                    output_dataset_urn_list.append(dest_urn)
+
+                # Create column lineage if enabled
+                if self.config.include_column_lineage:
+                    self._create_column_lineage(
+                        lineage=lineage,
+                        source_urn=source_urn,
+                        dest_urn=dest_urn,
+                        fine_grained_lineage=fine_grained_lineage,
+                    )
+
+                logger.debug(f"Created lineage from {source_urn} to {dest_urn}")
+            except Exception as e:
+                logger.warning(
+                    f"Error creating lineage for table {lineage.source_table} -> {lineage.destination_table}: {e}"
+                )
+
+        # Log the lineage that was created for debugging
+        logger.info(
+            f"Created lineage with {len(input_dataset_urn_list)} input URNs and {len(output_dataset_urn_list)} output URNs"
+        )
 
         # Add URNs and lineage to the datajob
         datajob.inlets.extend(input_dataset_urn_list)
@@ -149,22 +180,6 @@ class FivetranSource(StatefulIngestionSourceBase):
             source_details=source_details,
             destination_details=destination_details,
         )
-
-        # Add source and destination platform information to properties
-        if source_details.platform:
-            lineage_properties["source.platform"] = source_details.platform
-        if destination_details.platform:
-            lineage_properties["destination.platform"] = destination_details.platform
-
-        # Add database information if available
-        if source_details.database:
-            lineage_properties["source.database"] = source_details.database
-        if destination_details.database:
-            lineage_properties["destination.database"] = destination_details.database
-
-        # Add environment information
-        lineage_properties["source.env"] = source_details.env or "PROD"
-        lineage_properties["destination.env"] = destination_details.env or "PROD"
 
         return lineage_properties
 
@@ -241,16 +256,23 @@ class FivetranSource(StatefulIngestionSourceBase):
             platform = details.platform
             if not platform:
                 platform = "snowflake" if not is_source else "external"
+                logger.info(
+                    f"Using default platform {platform} for {'source' if is_source else 'destination'} table {table_name}"
+                )
 
-            # Include database in the table name if available
-            full_table_name = (
-                f"{details.database.lower()}.{table_name}"
-                if details.database
-                else table_name
-            )
+            # Include database in the table name if available and ensure it's lowercase
+            database = details.database.lower() if details.database else ""
+            full_table_name = f"{database}.{table_name}" if database else table_name
 
             # Ensure environment is set
             env = details.env or "PROD"
+
+            # Log the URN creation details for debugging
+            logger.debug(
+                f"Creating {'source' if is_source else 'destination'} URN with: "
+                f"platform={platform}, table_name={full_table_name}, env={env}, "
+                f"platform_instance={details.platform_instance}"
+            )
 
             return DatasetUrn.create_from_ids(
                 platform_id=platform,
@@ -260,18 +282,9 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
         except Exception as e:
             logger.warning(
-                f"Failed to create {'source' if is_source else 'destination'} URN: {e}"
+                f"Failed to create {'source' if is_source else 'destination'} URN for {table_name}: {e}"
             )
             return None
-
-    def _report_lineage_truncation(self, connector: Connector) -> None:
-        """Report warning about truncated lineage."""
-        self.report.warning(
-            title="Table lineage truncated",
-            message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
-            f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
-            context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
-        )
 
     def _create_column_lineage(
         self,
