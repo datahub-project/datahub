@@ -1,5 +1,4 @@
 import contextlib
-import json
 from typing import List
 from unittest.mock import patch
 
@@ -110,7 +109,6 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
 
     # Run _gen_ml_model_mcps
     actual_mcps = list(source._gen_ml_model_mcps(model_meta))
-
     actual_urns = [mcp.entityUrn for mcp in actual_mcps]
     expected_urns = [
         source._make_ml_model_urn(
@@ -362,31 +360,29 @@ def test_vertexai_config_init():
     assert config.credential.client_id == "test-client-id"
     assert config.credential.auth_uri == "https://accounts.google.com/o/oauth2/auth"
     assert config.credential.token_uri == "https://oauth2.googleapis.com/token"
+    assert config.credential.auth_provider_x509_cert_url == "service_account"
+
+    parsed_conf = config.get_credentials()
+    assert parsed_conf is not None
+    assert parsed_conf.get("project_id") == config_data["project_id"]
+    assert "credential" in config_data
+    assert parsed_conf.get("private_key_id", "") == "test-key-id"
     assert (
-        config.credential.auth_provider_x509_cert_url
+        parsed_conf.get("private_key", "")
+        == "-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n"
+    )
+    assert (
+        parsed_conf.get("client_email")
+        == "test-email@test-project.iam.gserviceaccount.com"
+    )
+    assert parsed_conf.get("client_id") == "test-client-id"
+    assert parsed_conf.get("auth_uri") == "https://accounts.google.com/o/oauth2/auth"
+    assert parsed_conf.get("token_uri") == "https://oauth2.googleapis.com/token"
+    assert (
+        parsed_conf.get("auth_provider_x509_cert_url")
         == "https://www.googleapis.com/oauth2/v1/certs"
     )
-
-    assert config._credentials_path is not None
-    with open(config._credentials_path, "r") as file:
-        content = json.loads(file.read())
-        assert content["project_id"] == "test-project"
-        assert content["private_key_id"] == "test-key-id"
-        assert content["private_key_id"] == "test-key-id"
-        assert (
-            content["private_key"]
-            == "-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n"
-        )
-        assert (
-            content["client_email"] == "test-email@test-project.iam.gserviceaccount.com"
-        )
-        assert content["client_id"] == "test-client-id"
-        assert content["auth_uri"] == "https://accounts.google.com/o/oauth2/auth"
-        assert content["token_uri"] == "https://oauth2.googleapis.com/token"
-        assert (
-            content["auth_provider_x509_cert_url"]
-            == "https://www.googleapis.com/oauth2/v1/certs"
-        )
+    assert parsed_conf.get("type") == "service_account"
 
 
 def test_get_input_dataset_mcps(source: VertexAISource) -> None:

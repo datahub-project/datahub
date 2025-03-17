@@ -1,6 +1,6 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
@@ -23,11 +23,10 @@ class VertexAIConfig(EnvConfigMixin):
         description=("VertexUI URI"),
     )
 
-    _credentials_path: Optional[str] = PrivateAttr(None)
-
     def __init__(self, **data: Any):
         super().__init__(**data)
+
+    def get_credentials(self) -> Optional[Dict[str, str]]:
         if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file(
-                project_id=self.project_id
-            )
+            return self.credential.to_dict(self.project_id)
+        return None

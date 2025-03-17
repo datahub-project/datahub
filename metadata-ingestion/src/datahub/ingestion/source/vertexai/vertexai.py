@@ -113,11 +113,10 @@ class VertexAISource(Source):
         self.config = config
         self.report = SourceReport()
 
+        creds = self.config.get_credentials()
         credentials = (
-            service_account.Credentials.from_service_account_file(
-                self.config._credentials_path
-            )
-            if self.config.credential
+            service_account.Credentials.from_service_account_info(**creds)
+            if creds
             else None
         )
 
@@ -294,6 +293,16 @@ class VertexAISource(Source):
                     upstreamInstances=[self._make_experiment_run_urn(exp, run)],
                     parentInstance=self._make_experiment_run_urn(exp, run),
                 ),
+                (
+                    DataProcessInstanceInputClass(
+                        inputs=[],
+                        inputEdges=[
+                            EdgeClass(
+                                destinationUrn=self._make_experiment_run_urn(exp, run)
+                            ),
+                        ],
+                    )
+                ),
             ],
         )
 
@@ -342,7 +351,9 @@ class VertexAISource(Source):
                 (
                     DataProcessInstanceRunEventClass(
                         status=DataProcessRunStatusClass.COMPLETE,
-                        timestampMillis=created_time if created_time else 0, # None is not allowed, 0 as default value
+                        timestampMillis=created_time
+                        if created_time
+                        else 0,  # None is not allowed, 0 as default value
                         result=DataProcessInstanceRunResultClass(
                             type=run_result_type,
                             nativeResultType=self.platform,
