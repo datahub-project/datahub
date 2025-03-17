@@ -7,7 +7,7 @@ extend type Query {
   """
   List configurations related to the remote executor
   """
-  listExecutorConfigs: ListExecutorConfigsResult
+  listExecutorConfigs(input: ListExecutorConfigsInput): ListExecutorConfigsResult
 }
 
 """
@@ -53,6 +53,13 @@ type SignalRequest {
   The signal sent
   """
   signal: String!
+}
+
+"""
+ListExecutorConfigs optionally accepts a list of executor ids to return
+"""
+input ListExecutorConfigsInput {
+  executorIds: [String!]
 }
 
 """

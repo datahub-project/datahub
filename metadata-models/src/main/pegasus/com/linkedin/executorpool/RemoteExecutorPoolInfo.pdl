@@ -33,6 +33,11 @@ record RemoteExecutorPoolInfo {
   queueUrl: optional string
 
   /**
+   * The region of the sqs queue for this pool for backwards compatibility.
+   */
+  queueRegion: optional string
+
+  /**
    * Only set true if this is the pool embedded within the DataHub Cloud deployment
    */
   isEmbedded: optional boolean

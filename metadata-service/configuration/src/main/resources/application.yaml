@@ -601,6 +601,12 @@ systemUpdate:
     inputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_INPUT_PLATFORMS:}
     outputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_OUTPUT_PLATFORMS:}
     parentPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_PARENT_PLATFORMS:}
+  executorPools:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_BATCH_SIZE:500}
+    customerId: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_CUSTOMER_ID:unset}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings

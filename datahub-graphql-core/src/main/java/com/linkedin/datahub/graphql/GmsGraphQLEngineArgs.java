@@ -56,6 +56,7 @@ import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.Data;
+import software.amazon.awssdk.services.sts.StsClient;
 
 @Data
 public class GmsGraphQLEngineArgs {
@@ -105,6 +106,7 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   AssertionService assertionService;
   EntityVersioningService entityVersioningService;
+  StsClient stsClient;
 
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;

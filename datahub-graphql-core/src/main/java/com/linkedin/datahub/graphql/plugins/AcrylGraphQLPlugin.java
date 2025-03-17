@@ -202,6 +202,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.services.sts.StsClient;
 
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
@@ -237,6 +238,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private TimeseriesAspectService timeseriesAspectService;
   private MetadataTestClient metadataTestClient;
   private ActionRequestService actionRequestService;
+  private StsClient stsClient;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -295,6 +297,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.dataContractType = new DataContractType(entityClient); // SaaS only
     this.remoteExecutorType = new RemoteExecutorType(args.getEntityClient()); // SaaS only
     this.remoteExecutorPoolType = new RemoteExecutorPoolType(args.getEntityClient()); // SaaS only
+    this.stsClient = args.getStsClient(); // SaaS only
 
     // New saas types
     this.entityTypes =
@@ -1074,7 +1077,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     .dataFetcher(
                         "listExecutorConfigs",
                         new ListExecutorConfigsResolver(
-                            this.entityClient, this.executorConfiguration)))
+                            this.entityClient, this.stsClient, this.executorConfiguration)))
         .type(
             "ListRemoteExecutorPoolsResult",
             typeWiring ->
