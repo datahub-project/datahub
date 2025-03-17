@@ -301,7 +301,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             f"{self.config.connect_uri}/api/v1/dashboard/",
             timeout=self.config.timeout,
         )
-        if test_response.status_code == 200:
+        if test_response.status_code != 200:
             # throw an error and terminate ingestion,
             # cannot proceed without access token
             logger.error(
