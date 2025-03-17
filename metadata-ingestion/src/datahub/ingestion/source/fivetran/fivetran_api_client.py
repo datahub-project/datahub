@@ -61,9 +61,20 @@ class FivetranAPIClient:
         )
         kwargs["headers"] = headers
 
-        response = self._session.request(method, url, **kwargs)
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = self._session.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error occurred: {e}")
+            if e.response.status_code == 404:
+                logger.error(f"Endpoint not found: {url}")
+                if "sync_history" in endpoint:
+                    logger.info("Attempting fallback to /sync endpoint")
+                    # Try with the correct endpoint
+                    new_endpoint = endpoint.replace("sync_history", "sync")
+                    return self._make_request(method, new_endpoint, **kwargs)
+            raise
 
     def list_connectors(self) -> List[Dict]:
         """Retrieve all connectors from the Fivetran API."""
@@ -172,8 +183,9 @@ class FivetranAPIClient:
         since_time = int(time.time()) - (days * 24 * 60 * 60)
         params = {"limit": 100, "since": since_time}
 
+        # Updated to use the correct endpoint
         response = self._make_request(
-            "GET", f"/connectors/{connector_id}/sync_history", params=params
+            "GET", f"/connectors/{connector_id}/sync", params=params
         )
 
         return response.get("data", {}).get("items", [])
