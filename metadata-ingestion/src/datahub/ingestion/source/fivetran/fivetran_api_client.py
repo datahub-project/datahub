@@ -62,18 +62,17 @@ class FivetranAPIClient:
         kwargs["headers"] = headers
 
         try:
+            logger.debug(f"Making {method} request to {url}")
             response = self._session.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP error occurred: {e}")
-            if e.response.status_code == 404:
-                logger.error(f"Endpoint not found: {url}")
-                if "sync_history" in endpoint:
-                    logger.info("Attempting fallback to /sync endpoint")
-                    # Try with the correct endpoint
-                    new_endpoint = endpoint.replace("sync_history", "sync")
-                    return self._make_request(method, new_endpoint, **kwargs)
+            # If we get a 405 (Method Not Allowed) error, log additional information
+            if e.response.status_code == 405:
+                logger.error(f"Method {method} not allowed for {url}")
+                allowed_methods = e.response.headers.get("Allow", "unknown")
+                logger.error(f"Allowed methods: {allowed_methods}")
             raise
 
     def list_connectors(self) -> List[Dict]:
@@ -179,16 +178,47 @@ class FivetranAPIClient:
         self, connector_id: str, days: int = 7
     ) -> List[Dict]:
         """Get the sync history for a connector."""
-        # Calculate the start time for the lookback period
-        since_time = int(time.time()) - (days * 24 * 60 * 60)
-        params = {"limit": 100, "since": since_time}
+        try:
+            # First, try the "synchronization_history" endpoint (most likely correct)
+            since_time = int(time.time()) - (days * 24 * 60 * 60)
+            params = {"limit": 100, "since": since_time}
 
-        # Updated to use the correct endpoint
-        response = self._make_request(
-            "GET", f"/connectors/{connector_id}/sync", params=params
-        )
+            response = self._make_request(
+                "GET",
+                f"/connectors/{connector_id}/synchronization_history",
+                params=params,
+            )
+            return response.get("data", {}).get("items", [])
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.warning(
+                    "synchronization_history endpoint not found, trying alternative endpoints"
+                )
 
-        return response.get("data", {}).get("items", [])
+                # Try alternative endpoints
+                try:
+                    # Try "history" endpoint
+                    response = self._make_request(
+                        "GET", f"/connectors/{connector_id}/history", params=params
+                    )
+                    return response.get("data", {}).get("items", [])
+                except requests.exceptions.HTTPError:
+                    # As a last resort, try getting runs directly
+                    logger.warning(
+                        "history endpoint not found, trying to get connector runs"
+                    )
+                    try:
+                        response = self._make_request(
+                            "GET", f"/connectors/{connector_id}/runs", params=params
+                        )
+                        return response.get("data", {}).get("items", [])
+                    except requests.exceptions.HTTPError as e:
+                        logger.error(f"Failed to get sync history: {e}")
+                        # Return empty list if all attempts fail
+                        return []
+            else:
+                logger.error(f"Failed to get sync history: {e}")
+                return []
 
     def _parse_timestamp(self, iso_timestamp: Optional[str]) -> Optional[int]:
         """Parse ISO timestamp to Unix timestamp."""
@@ -223,24 +253,53 @@ class FivetranAPIClient:
         # Convert sync jobs to our Job model
         jobs = []
         for job in sync_history:
-            started_at = self._parse_timestamp(job.get("started_at"))
-            completed_at = self._parse_timestamp(job.get("completed_at"))
+            # Try different possible field names for start and end times
+            started_at = None
+            completed_at = None
+
+            # Check for different possible field names
+            for start_field in ["started_at", "start_time", "created_at"]:
+                if start_field in job:
+                    started_at = self._parse_timestamp(job.get(start_field))
+                    if started_at:
+                        break
+
+            for end_field in ["completed_at", "end_time", "finished_at", "updated_at"]:
+                if end_field in job:
+                    completed_at = self._parse_timestamp(job.get(end_field))
+                    if completed_at:
+                        break
 
             # Only include completed jobs
             if started_at and completed_at:
-                status = job.get("status", "").upper()
+                # Try different possible field names for status
+                status = None
+                for status_field in ["status", "state", "result"]:
+                    if status_field in job:
+                        status = job.get(status_field, "").upper()
+                        if status:
+                            break
+
+                if not status:
+                    continue
+
                 # Map Fivetran API status to our constants
                 # API returns: "COMPLETED", "FAILED", "CANCELLED", etc.
-                if status == "COMPLETED":
+                if status in ["COMPLETED", "SUCCESS", "SUCCEEDED"]:
                     status = Constant.SUCCESSFUL
-                elif status == "FAILED":
+                elif status in ["FAILED", "FAILURE", "ERROR"]:
                     status = Constant.FAILURE_WITH_TASK
-                elif status == "CANCELLED":
+                elif status in ["CANCELLED", "CANCELED", "ABORTED", "STOPPED"]:
                     status = Constant.CANCELED
+                else:
+                    # Skip unknown statuses
+                    continue
 
                 jobs.append(
                     Job(
-                        job_id=job.get("id", ""),
+                        job_id=job.get(
+                            "id", str(hash(str(job)))
+                        ),  # Use hash as fallback ID
                         start_time=started_at,
                         end_time=completed_at,
                         status=status,
