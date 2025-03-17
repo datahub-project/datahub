@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
@@ -85,20 +85,248 @@ class FivetranStandardAPI(FivetranAccessInterface):
         This is the standard version replacement for querying log tables.
         """
         connectors: List[Connector] = []
-        destinations_seen = set()
-        destination_details = {}
 
         with report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list from Fivetran API")
             connector_list = self.api_client.list_connectors()
 
-            # First pass: collect all destination IDs to log them for configuration
-            for api_connector in connector_list:
-                destination_id = api_connector.get("group", {}).get("id", "")
-                if destination_id and destination_id not in destinations_seen:
-                    destinations_seen.add(destination_id)
+            # Debug raw connector list to see structure (uncomment if needed)
+            # logger.debug(f"Raw connector list from API (first 2 items): {connector_list[:2]}")
 
-                    # Fetch destination details
+            # Collect destination information
+            destinations_seen, destination_details = self._collect_destination_info(
+                connector_list
+            )
+
+            # Log a configuration example for the user
+            if destinations_seen:
+                example_config = self._generate_config_example(destination_details)
+                logger.info(
+                    f"Configuration example for destination_to_platform_instance:{example_config}"
+                )
+            else:
+                logger.warning(
+                    "No destinations found. This may indicate an issue with the API response structure or permissions."
+                )
+
+            # Process each connector
+            for api_connector in connector_list:
+                connector = self._process_connector(
+                    api_connector=api_connector,
+                    connector_patterns=connector_patterns,
+                    destination_patterns=destination_patterns,
+                    syncs_interval=syncs_interval,
+                    report=report,
+                )
+
+                if connector:
+                    connectors.append(connector)
+
+        if not connectors:
+            logger.info("No allowed connectors found")
+            return []
+
+        logger.info(f"Found {len(connectors)} allowed connectors")
+
+        with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
+            logger.info("Fetching connector lineage from Fivetran API")
+            self._fill_connectors_lineage(connectors)
+
+        # Process jobs for each connector
+        self._process_connector_jobs(connectors, report)
+
+        return connectors
+
+    def _process_connector(
+        self,
+        api_connector: Dict,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        syncs_interval: int,
+        report: FivetranSourceReport,
+    ) -> Optional[Connector]:
+        """Process a single connector and return the Connector object if applicable."""
+        connector_id = api_connector.get("id", "")
+        if not connector_id:
+            logger.warning(f"Skipping connector with missing id: {api_connector}")
+            return None
+
+        connector_name = api_connector.get("name", "")
+        if not connector_name:
+            connector_name = f"connector-{connector_id}"
+
+        # Extract destination ID
+        destination_id = self._extract_destination_id(api_connector)
+
+        # Apply filters
+        if not connector_patterns.allowed(connector_name):
+            report.report_connectors_dropped(
+                f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
+            )
+            return None
+
+        if not destination_patterns.allowed(destination_id):
+            report.report_connectors_dropped(
+                f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
+            )
+            return None
+
+        # Get sync history for this connector
+        sync_history = self.api_client.list_connector_sync_history(
+            connector_id=connector_id, days=syncs_interval
+        )
+
+        # Convert from API format to our internal model
+        connector = self.api_client.extract_connector_metadata(
+            api_connector=api_connector, sync_history=sync_history
+        )
+
+        # Ensure destination_id is set in the connector
+        if not connector.destination_id:
+            connector.destination_id = destination_id
+            logger.info(
+                f"Set destination_id={destination_id} for connector {connector_id}"
+            )
+
+        # Log connector details for easier configuration
+        logger.info(
+            f"Found connector: {connector.connector_name} (ID={connector.connector_id}, Type={connector.connector_type}, Destination ID={connector.destination_id})"
+        )
+
+        # Determine destination platform from config
+        if (
+            self.config
+            and hasattr(self.config, "fivetran_log_config")
+            and self.config.fivetran_log_config
+        ):
+            destination_platform = self.config.fivetran_log_config.destination_platform
+            connector.additional_properties["destination_platform"] = (
+                destination_platform
+            )
+            logger.info(
+                f"Setting destination platform to {destination_platform} from config for connector {connector_id}"
+            )
+
+        # Special handling for kafka and streaming-type connectors
+        if connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]:
+            if (
+                self.config
+                and hasattr(self.config, "fivetran_log_config")
+                and self.config.fivetran_log_config
+            ):
+                # Use fivetran_log_config.destination_platform
+                connector.additional_properties["destination_platform"] = (
+                    self.config.fivetran_log_config.destination_platform
+                )
+            else:
+                # Default to snowflake if not specified
+                connector.additional_properties["destination_platform"] = "snowflake"
+
+        report.report_connectors_scanned()
+        return connector
+
+    def _extract_destination_id(self, api_connector: Dict) -> str:
+        """Extract destination ID from connector data with robust error handling."""
+        connector_id = api_connector.get("id", "unknown")
+
+        # Try different ways of getting the destination ID
+        group_field = api_connector.get("group", {})
+        destination_id = None
+
+        if isinstance(group_field, dict):
+            destination_id = group_field.get("id", "")
+            logger.debug(f"Found destination_id={destination_id} from group.id")
+        else:
+            logger.debug(f"group field is not a dictionary: {group_field}")
+
+        # Try alternate fields if group.id doesn't work
+        if not destination_id:
+            destination_id = api_connector.get("destination_id", "")
+            if destination_id:
+                logger.debug(
+                    f"Found destination_id={destination_id} from destination_id field"
+                )
+
+        if not destination_id:
+            destination_id = api_connector.get("group_id", "")
+            if destination_id:
+                logger.debug(
+                    f"Found destination_id={destination_id} from group_id field"
+                )
+
+        # If destination_id is still empty, log a warning and try to extract any identifier
+        if not destination_id:
+            logger.warning(
+                f"Empty destination ID found for connector: {connector_id}, name: {api_connector.get('name', 'unknown')}"
+            )
+            logger.warning(f"Available fields: {list(api_connector.keys())}")
+
+            # As a fallback, check if there's any field that might contain destination info
+            for key, value in api_connector.items():
+                if isinstance(value, str) and (
+                    "destination" in key.lower() or "group" in key.lower()
+                ):
+                    logger.info(f"Potential destination field: {key}={value}")
+
+            # Generate a dummy destination ID based on connector ID if all else fails
+            destination_id = f"destination_for_{connector_id}"
+            logger.warning(f"Using generated destination ID: {destination_id}")
+
+        return destination_id
+
+    def _process_connector_jobs(
+        self, connectors: List[Connector], report: FivetranSourceReport
+    ) -> None:
+        """Process jobs for each connector, limiting to the maximum allowed."""
+        for connector in connectors:
+            if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
+                report.warning(
+                    title="Job history truncated",
+                    message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period if self.config else 7} days. "
+                    f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                    context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                )
+                connector.jobs = sorted(
+                    connector.jobs, key=lambda j: j.end_time, reverse=True
+                )[:MAX_JOBS_PER_CONNECTOR]
+
+    def _generate_config_example(
+        self, destination_details: Dict[str, Dict[str, str]]
+    ) -> str:
+        """Generate configuration example for destination to platform instance mapping."""
+        example_config = "\ndestination_to_platform_instance:\n"
+        for dest_id, details in destination_details.items():
+            platform_suggestion = (
+                "bigquery"
+                if details.get("service") and "bigquery" in details["service"].lower()
+                else "snowflake"
+            )
+            example_config += f"  {dest_id}:  # {details['name']}\n"
+            example_config += f'    platform: "{platform_suggestion}"\n'
+            example_config += '    database: "your_database_name"\n'
+            example_config += '    env: "PROD"\n'
+
+        return example_config
+
+    def _collect_destination_info(
+        self, connector_list: List[Dict]
+    ) -> Tuple[Set[str], Dict[str, Dict[str, str]]]:
+        """Collect information about all destinations from connector list."""
+        destinations_seen = set()
+        destination_details = {}
+
+        # First pass: collect all destination IDs to log them for configuration
+        for api_connector in connector_list:
+            # Debug raw connector structure if needed
+            # logger.debug(f"Connector structure: {json.dumps(api_connector, indent=2)}")
+
+            destination_id = self._extract_destination_id(api_connector)
+
+            if destination_id and destination_id not in destinations_seen:
+                destinations_seen.add(destination_id)
+
+                # Fetch destination details with better error handling
+                try:
                     destination_data = self.api_client.get_destination_details(
                         destination_id
                     )
@@ -113,133 +341,16 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     logger.info(
                         f"Found destination: ID={destination_id}, Name={destination_name}, Service={destination_service}"
                     )
-
-            # Log a configuration example for the user
-            if destinations_seen:
-                example_config = "\ndestination_to_platform_instance:\n"
-                for dest_id, details in destination_details.items():
-                    platform_suggestion = (
-                        "bigquery"
-                        if "bigquery" in details["service"].lower()
-                        else "snowflake"
-                    )
-                    example_config += f"  {dest_id}:  # {details['name']}\n"
-                    example_config += f'    platform: "{platform_suggestion}"\n'
-                    example_config += '    database: "your_database_name"\n'
-                    example_config += '    env: "PROD"\n'
-
-                logger.info(
-                    f"Configuration example for destination_to_platform_instance:{example_config}"
-                )
-
-            # Continue with normal connector processing
-            for api_connector in connector_list:
-                connector_id = api_connector.get("id", "")
-                if not connector_id:
+                except Exception as e:
                     logger.warning(
-                        f"Skipping connector with missing id: {api_connector}"
+                        f"Error fetching details for destination {destination_id}: {e}"
                     )
-                    continue
+                    destination_details[destination_id] = {
+                        "name": "unknown (error fetching details)",
+                        "service": "unknown",
+                    }
 
-                connector_name = api_connector.get("name", "")
-                if not connector_name:
-                    connector_name = f"connector-{connector_id}"
-
-                destination_id = api_connector.get("group", {}).get("id", "")
-
-                if not connector_patterns.allowed(connector_name):
-                    report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
-                    )
-                    continue
-
-                if not destination_patterns.allowed(destination_id):
-                    report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
-                    )
-                    continue
-
-                # Get sync history for this connector
-                sync_history = self.api_client.list_connector_sync_history(
-                    connector_id=connector_id, days=syncs_interval
-                )
-
-                # Convert from API format to our internal model
-                connector = self.api_client.extract_connector_metadata(
-                    api_connector=api_connector, sync_history=sync_history
-                )
-
-                # Log connector details for easier configuration
-                logger.info(
-                    f"Found connector: {connector.connector_name} (ID={connector.connector_id}, Type={connector.connector_type}, Destination ID={connector.destination_id})"
-                )
-
-                # Determine destination platform from config - do this BEFORE processing lineage
-                if (
-                    self.config
-                    and hasattr(self.config, "fivetran_log_config")
-                    and self.config.fivetran_log_config
-                ):
-                    destination_platform = (
-                        self.config.fivetran_log_config.destination_platform
-                    )
-                    connector.additional_properties["destination_platform"] = (
-                        destination_platform
-                    )
-                    logger.info(
-                        f"Setting destination platform to {destination_platform} from config for connector {connector_id}"
-                    )
-
-                # Special handling for kafka and streaming-type connectors
-                # These should not affect the destination type, which is typically a data warehouse
-                if connector.connector_type.lower() in [
-                    "confluent_cloud",
-                    "kafka",
-                    "pubsub",
-                ]:
-                    if (
-                        self.config
-                        and hasattr(self.config, "fivetran_log_config")
-                        and self.config.fivetran_log_config
-                    ):
-                        # Use fivetran_log_config.destination_platform
-                        connector.additional_properties["destination_platform"] = (
-                            self.config.fivetran_log_config.destination_platform
-                        )
-                    else:
-                        # Default to snowflake if not specified
-                        connector.additional_properties["destination_platform"] = (
-                            "snowflake"
-                        )
-
-                report.report_connectors_scanned()
-                connectors.append(connector)
-
-        if not connectors:
-            logger.info("No allowed connectors found")
-            return []
-
-        logger.info(f"Found {len(connectors)} allowed connectors")
-
-        with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
-            logger.info("Fetching connector lineage from Fivetran API")
-            self._fill_connectors_lineage(connectors)
-
-        # Jobs are already filled when we create the connector object
-        # Just check if we need to truncate the list
-        for connector in connectors:
-            if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
-                report.warning(
-                    title="Job history truncated",
-                    message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {syncs_interval} days. "
-                    f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
-                    context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
-                )
-                connector.jobs = sorted(
-                    connector.jobs, key=lambda j: j.end_time, reverse=True
-                )[:MAX_JOBS_PER_CONNECTOR]
-
-        return connectors
+        return destinations_seen, destination_details
 
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
         """

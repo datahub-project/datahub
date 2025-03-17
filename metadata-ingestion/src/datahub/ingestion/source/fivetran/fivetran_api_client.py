@@ -530,6 +530,7 @@ class FivetranAPIClient:
     ) -> Connector:
         """
         Convert API connector data to our internal Connector model.
+        Enhanced with better destination ID detection.
         """
         connector_id = api_connector.get("id")
         if not connector_id:
@@ -549,14 +550,70 @@ class FivetranAPIClient:
         # Extract jobs from sync history
         jobs = self._extract_jobs_from_sync_history(sync_history)
 
-        destination_id = api_connector.get("group", {}).get("id", "")
-        destination_platform = self.detect_destination_platform(destination_id)
-        destination_database = self.get_destination_database(destination_id)
+        # Enhanced destination ID detection
+        destination_id = ""
 
-        # Add destination info to properties
-        additional_properties["destination_platform"] = destination_platform
-        if destination_database:
-            additional_properties["destination_database"] = destination_database
+        # Try different ways to get the destination ID
+        group_field = api_connector.get("group", {})
+        if isinstance(group_field, dict) and "id" in group_field:
+            destination_id = group_field.get("id", "")
+            logger.debug(f"Found destination_id={destination_id} from group.id")
+
+        # Alternative fields if group.id doesn't exist
+        if not destination_id:
+            if "destination_id" in api_connector:
+                destination_id = api_connector.get("destination_id", "")
+                logger.debug(
+                    f"Found destination_id={destination_id} from destination_id field"
+                )
+
+        if not destination_id:
+            if "group_id" in api_connector:
+                destination_id = api_connector.get("group_id", "")
+                logger.debug(
+                    f"Found destination_id={destination_id} from group_id field"
+                )
+
+        # Log the issue and create a fallback ID if still empty
+        if not destination_id:
+            logger.warning(
+                f"Could not find destination ID for connector {connector_id}. Available fields: {list(api_connector.keys())}"
+            )
+            destination_id = f"destination_for_{connector_id}"
+            logger.warning(f"Using generated destination ID: {destination_id}")
+
+        # Get destination platform and database information
+        # Try to detect the destination platform and database
+        try:
+            destination_platform = self.detect_destination_platform(destination_id)
+            destination_database = self.get_destination_database(destination_id)
+
+            # Add destination info to properties
+            additional_properties["destination_platform"] = destination_platform
+            if destination_database:
+                additional_properties["destination_database"] = destination_database
+
+            logger.info(
+                f"Detected destination platform: {destination_platform}, database: {destination_database} for destination ID: {destination_id}"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to detect destination details for {destination_id}: {e}"
+            )
+            # Default to snowflake if detection fails
+            additional_properties["destination_platform"] = "snowflake"
+
+        # Add any other useful metadata from the API response
+        for key, value in api_connector.items():
+            if key not in [
+                "id",
+                "name",
+                "service",
+                "paused",
+                "schedule",
+                "group",
+            ] and isinstance(value, (str, int, bool, float)):
+                additional_properties[f"api.{key}"] = str(value)
 
         return Connector(
             connector_id=connector_id,
