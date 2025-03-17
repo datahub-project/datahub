@@ -201,14 +201,12 @@ class FivetranAPIClient:
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
         """Get schema information for a connector."""
-        # Check cache first
         if connector_id in self._schema_cache:
             return self._schema_cache[connector_id]
 
         response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
         schemas = response.get("data", {}).get("schemas", [])
 
-        # Cache the response
         self._schema_cache[connector_id] = schemas
         return schemas
 
@@ -335,7 +333,7 @@ class FivetranAPIClient:
             # Try v1/connectors/{connector_id}/logs (most likely endpoint)
             try:
                 response = self._make_request(
-                    "GET", f"/connectors/{connector_id}/logs", params=params
+                    "GET", f"/connectors/{connector_id}/sync-history", params=params
                 )
                 logs = response.get("data", {}).get("items", [])
                 if logs:
