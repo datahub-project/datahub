@@ -530,10 +530,21 @@ class FivetranSource(StatefulIngestionSourceBase):
         properties["paused"] = str(connector.paused)
         properties["destination_id"] = connector.destination_id
 
-        # Get destination platform if available
-        if "destination_platform" in connector.additional_properties:
-            destination = connector.additional_properties.get("destination_platform")
-            description += f" to {destination}"
+        # Get destination platform
+        default_destination = (
+            "bigquery"
+            if (
+                hasattr(self.config, "fivetran_log_config")
+                and self.config.fivetran_log_config
+                and self.config.fivetran_log_config.destination_platform == "bigquery"
+            )
+            else "snowflake"
+        )
+
+        destination = connector.additional_properties.get(
+            "destination_platform", default_destination
+        )
+        description += f" to {destination}"
 
         return DataFlow(
             orchestrator=Constant.ORCHESTRATOR,
@@ -562,12 +573,20 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Get source platform from connector type
         source_platform = self._detect_source_platform(connector)
 
-        # Get destination platform
-        destination_platform = "snowflake"  # Default
-        if "destination_platform" in connector.additional_properties:
-            destination_platform = connector.additional_properties.get(
-                "destination_platform"
+        # Get destination platform - use bigquery as default if we have bigquery config
+        default_destination = (
+            "bigquery"
+            if (
+                hasattr(self.config, "fivetran_log_config")
+                and self.config.fivetran_log_config
+                and self.config.fivetran_log_config.destination_platform == "bigquery"
             )
+            else "snowflake"
+        )
+
+        destination_platform = connector.additional_properties.get(
+            "destination_platform", default_destination
+        )
 
         # Create job description
         description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"

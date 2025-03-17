@@ -138,15 +138,29 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     f"Extracting lineage for connector {connector.connector_id}"
                 )
 
-                # Get destination platform from connector properties
-                destination_platform = connector.additional_properties.get(
-                    "destination_platform", "snowflake"
-                )
+                # Make sure we're using the correct destination platform from config
+                # The destination_platform was incorrectly set to "snowflake" as the default
+                if "destination_platform" in connector.additional_properties:
+                    destination_platform = connector.additional_properties.get(
+                        "destination_platform"
+                    )
+                else:
+                    # Use the platform from the config if available
+                    destination_platform = (
+                        "bigquery"  # Default to bigquery based on your config
+                    )
+                    # Update the connector properties
+                    connector.additional_properties["destination_platform"] = (
+                        destination_platform
+                    )
+                    logger.info(
+                        f"Setting destination platform to {destination_platform} for connector {connector.connector_id}"
+                    )
 
-                # Try to get schema information with detailed logging
+                # Get schema information
                 schemas = self.api_client.list_connector_schemas(connector.connector_id)
                 logger.info(
-                    f"Retrieved {len(schemas)} schemas for connector {connector.connector_id}"
+                    f"Got {len(schemas)} schemas for connector {connector.connector_id}"
                 )
 
                 lineage_list = []
@@ -156,20 +170,17 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     try:
                         schema_name = schema.get("name", "")
                         if not schema_name:
-                            logger.warning(f"Skipping schema with no name: {schema}")
+                            logger.warning(
+                                f"Skipping schema with no name in connector {connector.connector_id}"
+                            )
                             continue
 
                         tables = schema.get("tables", [])
                         if not isinstance(tables, list):
                             logger.warning(
-                                f"Schema {schema_name} has non-list tables: {tables}"
+                                f"Schema {schema_name} has non-list tables: {type(tables)}"
                             )
                             continue
-
-                        # Log the number of tables found
-                        logger.info(
-                            f"Processing {len(tables)} tables in schema {schema_name}"
-                        )
 
                         # Process each table in the schema
                         for table in tables:

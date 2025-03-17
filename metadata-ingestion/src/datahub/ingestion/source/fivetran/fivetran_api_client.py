@@ -206,45 +206,85 @@ class FivetranAPIClient:
 
         try:
             response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
-            # Log the raw response format for debugging
-            logger.debug(
-                f"Schema response format for connector {connector_id}: {type(response)}"
-            )
 
-            schemas = response.get("data", {}).get("schemas", [])
-            logger.debug(f"Schemas format: {type(schemas)}, value: {schemas}")
+            # Debug the response format
+            logger.debug(f"Schema response for connector {connector_id}: {response}")
 
-            # Handle various schema response formats
-            if schemas is None:
+            # The API can return schemas in different formats
+            # Format 1: {'data': {'schemas': [...]}}
+            # Format 2: {'data': {'schemas': {'schema_name': {'name_in_destination': 'schema_name', 'enabled': True, 'tables': {...}}}}}
+            raw_schemas = response.get("data", {}).get("schemas", [])
+
+            schemas = []
+
+            # Handle different response formats
+            if isinstance(raw_schemas, dict):
+                # Handle nested object format
+                logger.info(
+                    f"Converting nested schema format for connector {connector_id}"
+                )
+                for schema_name, schema_data in raw_schemas.items():
+                    # Convert to the expected format
+                    schema_obj = {
+                        "name": schema_name,
+                        "name_in_destination": schema_data.get(
+                            "name_in_destination", schema_name
+                        ),
+                        "enabled": schema_data.get("enabled", True),
+                        "tables": [],
+                    }
+
+                    # Convert tables from dict to list format
+                    tables_dict = schema_data.get("tables", {})
+                    if isinstance(tables_dict, dict):
+                        for table_name, table_data in tables_dict.items():
+                            table_obj = {
+                                "name": table_name,
+                                "name_in_destination": table_data.get(
+                                    "name_in_destination", table_name
+                                ),
+                                "enabled": table_data.get("enabled", False),
+                            }
+
+                            # Handle columns if present
+                            columns_dict = table_data.get("columns", {})
+                            columns = []
+                            if isinstance(columns_dict, dict):
+                                for column_name, column_data in columns_dict.items():
+                                    column_obj = {
+                                        "name": column_name,
+                                        "name_in_destination": column_data.get(
+                                            "name_in_destination", column_name
+                                        ),
+                                        "enabled": column_data.get("enabled", True),
+                                    }
+                                    columns.append(column_obj)
+
+                            if columns:
+                                table_obj["columns"] = columns
+
+                            schema_obj["tables"].append(table_obj)
+
+                    schemas.append(schema_obj)
+            elif isinstance(raw_schemas, list):
+                # Already in the expected format
+                schemas = raw_schemas
+            else:
+                logger.warning(
+                    f"Unexpected schema format type for connector {connector_id}: {type(raw_schemas)}"
+                )
                 schemas = []
-            elif isinstance(schemas, str):
-                # Some APIs return a JSON string that needs to be parsed
-                try:
-                    import json
-
-                    parsed = json.loads(schemas)
-                    if isinstance(parsed, list):
-                        schemas = parsed
-                    else:
-                        logger.warning(f"Parsed schema is not a list: {parsed}")
-                        schemas = []
-                except Exception as e:
-                    logger.warning(f"Failed to parse schema string: {e}")
-                    schemas = []
-            elif not isinstance(schemas, list):
-                logger.warning(f"Unexpected schema type: {type(schemas)}")
-                schemas = []
-
-            # Filter out non-dict entries
-            schemas = [s for s in schemas if isinstance(s, dict)]
 
             self._schema_cache[connector_id] = schemas
             logger.info(
-                f"Retrieved {len(schemas)} schemas for connector {connector_id}"
+                f"Processed {len(schemas)} schemas for connector {connector_id}"
             )
             return schemas
         except Exception as e:
-            logger.warning(f"Error fetching schemas for connector {connector_id}: {e}")
+            logger.warning(
+                f"Error fetching schemas for connector {connector_id}: {e}",
+                exc_info=True,
+            )
             return []
 
     def list_users(self) -> List[Dict]:
