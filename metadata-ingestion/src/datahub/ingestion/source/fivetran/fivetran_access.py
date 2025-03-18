@@ -65,7 +65,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
         ):
             raise ValueError("Enterprise mode requires fivetran_log_config")
         logger.info("Using enterprise mode with log tables")
-        return FivetranLogAPI(config.fivetran_log_config)
+        return FivetranLogAPI(
+            config.fivetran_log_config, config=config
+        )  # Pass the full config
 
     # Explicit standard mode selection
     if mode == FivetranMode.STANDARD:
@@ -94,7 +96,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
         and config.api_config is not None
     ):
         logger.info("Test environment detected - using enterprise mode for tests")
-        return FivetranLogAPI(config.fivetran_log_config)
+        return FivetranLogAPI(
+            config.fivetran_log_config, config=config
+        )  # Pass the full config
 
     # Normal auto-detection logic for non-test environment
     if (
@@ -104,7 +108,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
         try:
             logger.info("Auto mode: trying enterprise mode first with log tables")
             # Create the enterprise implementation with error handling
-            enterprise_impl = FivetranLogAPI(config.fivetran_log_config)
+            enterprise_impl = FivetranLogAPI(
+                config.fivetran_log_config, config=config
+            )  # Pass the full config
 
             # Test connectivity by making a simple query - skip in test environments
             if not is_test:

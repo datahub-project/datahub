@@ -293,28 +293,57 @@ class FivetranAPIClient:
         return response.get("data", {}).get("items", [])
 
     def get_destination_details(self, group_id: str) -> Dict:
-        """Get details about a destination group"""
+        """Get details about a destination group with enhanced error handling and logging"""
         if not group_id:
+            logger.warning("Empty group_id provided to get_destination_details")
             return {}
 
         # Check cache first
         if group_id in self._destination_cache:
+            logger.debug(f"Using cached destination details for {group_id}")
             return self._destination_cache[group_id]
 
         try:
+            logger.debug(f"Fetching destination details for group ID: {group_id}")
             response = self._make_request("GET", f"/groups/{group_id}")
             destination_data = response.get("data", {})
+            logger.debug(f"Raw destination data for {group_id}: {destination_data}")
 
             # Additional destination details
             try:
                 # Try to get destination config
+                logger.debug(f"Fetching config for destination {group_id}")
                 config_response = self._make_request(
                     "GET", f"/groups/{group_id}/config"
                 )
-                destination_data["config"] = config_response.get("data", {})
-            except Exception as e:
-                logger.debug(f"Could not get destination config for {group_id}: {e}")
-                pass
+                config_data = config_response.get("data", {})
+                logger.debug(f"Destination config for {group_id}: {config_data}")
+                destination_data["config"] = config_data
+            except Exception as config_e:
+                logger.debug(
+                    f"Could not get destination config for {group_id}: {config_e}"
+                )
+                # Continue without config data
+
+            # Check for essential destination info
+            if "service" in destination_data:
+                logger.info(
+                    f"Destination {group_id} has service: {destination_data['service']}"
+                )
+            else:
+                logger.warning(
+                    f"No service field found in destination details for {group_id}"
+                )
+                # Try to infer from other fields
+                if "name" in destination_data:
+                    name = destination_data["name"].lower()
+                    logger.debug(f"Checking destination name for clues: {name}")
+                    if "bigquery" in name:
+                        logger.info(f"Found 'bigquery' in destination name: {name}")
+                        destination_data["service"] = "bigquery"
+                    elif "snowflake" in name:
+                        logger.info(f"Found 'snowflake' in destination name: {name}")
+                        destination_data["service"] = "snowflake"
 
             # Cache the result
             self._destination_cache[group_id] = destination_data
@@ -327,32 +356,90 @@ class FivetranAPIClient:
 
     def detect_destination_platform(self, group_id: str) -> str:
         """Attempt to detect the destination platform from group information"""
-        destination = self.get_destination_details(group_id)
+        if not group_id:
+            logger.warning("Empty group_id provided to detect_destination_platform")
+            return "snowflake"  # Default if no group_id is provided
 
-        # Get the destination service if available
-        service = destination.get("service", "")
+        try:
+            destination = self.get_destination_details(group_id)
+            logger.debug(f"Destination details for {group_id}: {destination}")
 
-        # Map Fivetran service names to DataHub platform names
-        if service:
-            service = service.lower()
-            if "snowflake" in service:
-                return "snowflake"
-            elif "bigquery" in service:
-                return "bigquery"
-            elif "redshift" in service:
-                return "redshift"
-            elif "postgres" in service:
-                return "postgres"
-            elif "mysql" in service:
-                return "mysql"
-            elif "databricks" in service:
-                return "databricks"
-            elif "synapse" in service:
-                return "synapse"
-            elif "azure_sql_database" in service:
-                return "mssql"
+            # Get the destination service if available
+            service = destination.get("service", "")
+            logger.debug(f"Service value from API: '{service}'")
 
-        return "snowflake"  # Default to snowflake if detection failed
+            # Map Fivetran service names to DataHub platform names
+            if service:
+                service = service.lower()
+                logger.debug(f"Lowercase service: '{service}'")
+
+                if "snowflake" in service:
+                    logger.info(
+                        f"Detected Snowflake destination from service '{service}'"
+                    )
+                    return "snowflake"
+                elif "bigquery" in service:
+                    logger.info(
+                        f"Detected BigQuery destination from service '{service}'"
+                    )
+                    return "bigquery"
+                elif "redshift" in service:
+                    logger.info(
+                        f"Detected Redshift destination from service '{service}'"
+                    )
+                    return "redshift"
+                elif "postgres" in service:
+                    logger.info(
+                        f"Detected Postgres destination from service '{service}'"
+                    )
+                    return "postgres"
+                elif "mysql" in service:
+                    logger.info(f"Detected MySQL destination from service '{service}'")
+                    return "mysql"
+                elif "databricks" in service:
+                    logger.info(
+                        f"Detected Databricks destination from service '{service}'"
+                    )
+                    return "databricks"
+                elif "synapse" in service:
+                    logger.info(
+                        f"Detected Synapse destination from service '{service}'"
+                    )
+                    return "synapse"
+                elif "azure_sql_database" in service:
+                    logger.info(
+                        f"Detected Azure SQL destination from service '{service}'"
+                    )
+                    return "mssql"
+                else:
+                    logger.warning(
+                        f"Unknown service type: '{service}', defaulting to snowflake"
+                    )
+            else:
+                logger.warning(
+                    f"No service field found in destination details for {group_id}"
+                )
+
+            # Check for other clues in the destination details if service is not available
+            if "config" in destination:
+                config = destination.get("config", {})
+                logger.debug(f"Destination config: {config}")
+
+                # Look for platform-specific fields
+                if "warehouse" in config:
+                    logger.info("Found 'warehouse' in config, likely Snowflake")
+                    return "snowflake"
+                elif "dataset" in config:
+                    logger.info("Found 'dataset' in config, likely BigQuery")
+                    return "bigquery"
+
+            logger.warning(
+                f"Could not determine platform for destination {group_id}, defaulting to snowflake"
+            )
+            return "snowflake"  # Default to snowflake if detection failed
+        except Exception as e:
+            logger.warning(f"Error in detect_destination_platform for {group_id}: {e}")
+            return "snowflake"  # Default on error
 
     def get_destination_database(self, group_id: str) -> str:
         """Get the database name for a destination."""
@@ -582,25 +669,32 @@ class FivetranAPIClient:
             destination_id = f"destination_for_{connector_id}"
             logger.warning(f"Using generated destination ID: {destination_id}")
 
-        # Get destination platform and database information
+        # Get destination platform and database information with better logging
         # Try to detect the destination platform and database
         try:
+            logger.debug(f"Detecting platform for destination ID: {destination_id}")
             destination_platform = self.detect_destination_platform(destination_id)
+
+            # Log more details about why this platform was detected
+            logger.info(
+                f"API detected destination platform '{destination_platform}' for destination ID: {destination_id}"
+            )
+
             destination_database = self.get_destination_database(destination_id)
 
-            # Add destination info to properties
+            # Add destination info to properties with clear key names
             additional_properties["destination_platform"] = destination_platform
             if destination_database:
                 additional_properties["destination_database"] = destination_database
 
-            logger.info(
-                f"Detected destination platform: {destination_platform}, database: {destination_database} for destination ID: {destination_id}"
-            )
         except Exception as e:
             logger.warning(
                 f"Failed to detect destination details for {destination_id}: {e}"
             )
-            # Default to snowflake if detection fails
+            # Default to snowflake if detection fails but log clearly that this is a fallback
+            logger.warning(
+                "Using fallback platform 'snowflake' due to detection failure"
+            )
             additional_properties["destination_platform"] = "snowflake"
 
         # Add any other useful metadata from the API response

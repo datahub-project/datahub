@@ -163,13 +163,27 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # Extract destination ID
         destination_id = self._extract_destination_id(api_connector)
 
-        # Apply filters
-        if not connector_patterns.allowed(connector_name):
+        # Check if this connector ID is explicitly specified in sources_to_platform_instance
+        # If it is, we should include it regardless of connector_patterns
+        explicitly_included = False
+        if (
+            self.config
+            and hasattr(self.config, "sources_to_platform_instance")
+            and connector_id in self.config.sources_to_platform_instance
+        ):
+            explicitly_included = True
+            logger.info(
+                f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
+            )
+
+        # Apply connector pattern filter only if not explicitly included
+        if not explicitly_included and not connector_patterns.allowed(connector_name):
             report.report_connectors_dropped(
                 f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
             )
             return None
 
+        # Apply destination filter
         if not destination_patterns.allowed(destination_id):
             report.report_connectors_dropped(
                 f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
@@ -552,12 +566,14 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """
         Determine the destination platform based on the configuration and connector details.
 
-        1. First, check if there's a specific setting in destination_to_platform_instance for this destination
-        2. Next, check if the fivetran_log_config has a destination_platform specified
-        3. For confluent_cloud connectors, don't override destination platform from their additional properties
-        4. Finally, fall back to the additional properties in the connector
+        Order of precedence:
+        1. Check if there's a specific setting in destination_to_platform_instance for this destination
+        2. Check if destination platform is in connector's additional properties (from API detection)
+        3. Only then fall back to fivetran_log_config platform
+        4. Default to snowflake if nothing else is available
         """
         # Check if we have a specific mapping for this destination
+        destination_platform: str
         if self.config and hasattr(self.config, "destination_to_platform_instance"):
             destination_details = self.config.destination_to_platform_instance.get(
                 connector.destination_id
@@ -568,28 +584,39 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 )
                 return destination_details.platform
 
-        # Check if destination platform is specified in fivetran_log_config
+        # Check if destination platform is in connector's additional properties from API detection
+        if "destination_platform" in connector.additional_properties:
+            destination_platform = str(
+                connector.additional_properties.get("destination_platform")
+            )
+            if destination_platform:
+                logger.info(
+                    f"Using platform '{destination_platform}' from API-detected properties"
+                )
+                return destination_platform
+
+        # Only fall back to fivetran_log_config if no platform was detected from the API
         if (
             self.config
             and hasattr(self.config, "fivetran_log_config")
             and self.config.fivetran_log_config
         ):
-            destination_platform: str = (
-                self.config.fivetran_log_config.destination_platform
-            )
+            destination_platform = self.config.fivetran_log_config.destination_platform
             logger.info(
-                f"Using platform '{destination_platform}' from fivetran_log_config"
+                f"Falling back to platform '{destination_platform}' from fivetran_log_config"
             )
             return destination_platform
 
-        # Special handling for specific connector types - don't let their connector type affect destination type
+        # Special handling for specific connector types
         if connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]:
-            # For these streaming connectors, we need to rely on the other settings, not on connector type
-            # Default to snowflake if we can't determine otherwise
             logger.info(
                 f"Special handling for {connector.connector_type} connector: defaulting destination to 'snowflake'"
             )
             return "snowflake"
+
+        # Default to snowflake if no platform information is available
+        logger.info("No destination platform specified, defaulting to 'snowflake'")
+        return "snowflake"
 
         # Check if destination platform is in connector's additional properties
         if "destination_platform" in connector.additional_properties:

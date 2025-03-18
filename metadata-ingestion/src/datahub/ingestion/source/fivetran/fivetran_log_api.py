@@ -12,6 +12,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranLogConfig,
+    FivetranSourceConfig,
     FivetranSourceReport,
 )
 from datahub.ingestion.source.fivetran.data_classes import (
@@ -27,8 +28,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class FivetranLogAPI(FivetranAccessInterface):
-    def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
+    def __init__(
+        self,
+        fivetran_log_config: FivetranLogConfig,
+        config: Optional[FivetranSourceConfig] = None,
+    ) -> None:
         self.fivetran_log_config = fivetran_log_config
+        self.config = config
         (
             self.engine,
             self.fivetran_log_query,
@@ -292,18 +298,36 @@ class FivetranLogAPI(FivetranAccessInterface):
             for connector in connector_list:
                 connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
-                if not connector_patterns.allowed(connector_name):
+                destination_id = connector[Constant.DESTINATION_ID]
+
+                # Check if this connector ID is explicitly specified in sources_to_platform_instance
+                # If it is, we should include it regardless of connector_patterns
+                explicitly_included = False
+                if (
+                    self.config
+                    and hasattr(self.config, "sources_to_platform_instance")
+                    and connector_id in self.config.sources_to_platform_instance
+                ):
+                    explicitly_included = True
+                    logger.info(
+                        f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
+                    )
+
+                # Apply connector pattern filter only if not explicitly included
+                if not explicitly_included and not connector_patterns.allowed(
+                    connector_name
+                ):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not destination_patterns.allowed(
-                    destination_id := connector[Constant.DESTINATION_ID]
-                ):
+
+                if not destination_patterns.allowed(destination_id):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
                     continue
+
                 connectors.append(
                     Connector(
                         connector_id=connector_id,
