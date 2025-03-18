@@ -521,7 +521,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         Returns:
             Dict mapping table names to Dict of column names and their types
         """
-        source_columns = {}
+        source_columns: Dict[str, Dict[str, str]] = {}
         for schema in schemas:
             schema_name = schema.get("name", "")
             if not schema_name:

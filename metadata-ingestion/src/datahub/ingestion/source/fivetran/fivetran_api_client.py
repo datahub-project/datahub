@@ -7,7 +7,10 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-from datahub.ingestion.source.fivetran.config import Constant, FivetranAPIConfig
+from datahub.ingestion.source.fivetran.config import (
+    Constant,
+    FivetranAPIConfig,
+)
 from datahub.ingestion.source.fivetran.data_classes import (
     ColumnLineage,
     Connector,
@@ -200,92 +203,463 @@ class FivetranAPIClient:
             logger.warning(f"Failed to enrich BigQuery connector {connector_id}: {e}")
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
-        """Get schema information for a connector."""
+        """
+        Get schema information for a connector with improved error handling and format normalization.
+        Overrides the parent method to provide better schema retrieval.
+        """
         if connector_id in self._schema_cache:
             return self._schema_cache[connector_id]
 
         try:
+            # First, try the standard schema endpoint
             response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
 
-            # Debug the response format
             logger.debug(f"Schema response for connector {connector_id}: {response}")
 
-            # The API can return schemas in different formats
-            # Format 1: {'data': {'schemas': [...]}}
-            # Format 2: {'data': {'schemas': {'schema_name': {'name_in_destination': 'schema_name', 'enabled': True, 'tables': {...}}}}}
+            # Process raw schemas based on format received
             raw_schemas = response.get("data", {}).get("schemas", [])
+            schemas = self._normalize_schema_format(raw_schemas, connector_id)
 
-            schemas = []
-
-            # Handle different response formats
-            if isinstance(raw_schemas, dict):
-                # Handle nested object format
+            # If schemas are empty, try alternate schema retrieval methods
+            if not schemas:
                 logger.info(
-                    f"Converting nested schema format for connector {connector_id}"
+                    f"No schemas found from primary endpoint for {connector_id}, trying alternate methods"
                 )
-                for schema_name, schema_data in raw_schemas.items():
-                    # Convert to the expected format
-                    schema_obj = {
-                        "name": schema_name,
-                        "name_in_destination": schema_data.get(
-                            "name_in_destination", schema_name
-                        ),
-                        "enabled": schema_data.get("enabled", True),
-                        "tables": [],
-                    }
+                schemas = self._try_alternate_schema_methods(connector_id)
 
-                    # Convert tables from dict to list format
-                    tables_dict = schema_data.get("tables", {})
-                    if isinstance(tables_dict, dict):
-                        for table_name, table_data in tables_dict.items():
-                            table_obj = {
-                                "name": table_name,
-                                "name_in_destination": table_data.get(
-                                    "name_in_destination", table_name
-                                ),
-                                "enabled": table_data.get("enabled", False),
-                            }
-
-                            # Handle columns if present
-                            columns_dict = table_data.get("columns", {})
-                            columns = []
-                            if isinstance(columns_dict, dict):
-                                for column_name, column_data in columns_dict.items():
-                                    column_obj = {
-                                        "name": column_name,
-                                        "name_in_destination": column_data.get(
-                                            "name_in_destination", column_name
-                                        ),
-                                        "enabled": column_data.get("enabled", True),
-                                    }
-                                    columns.append(column_obj)
-
-                            if columns:
-                                table_obj["columns"] = columns
-
-                            schema_obj["tables"].append(table_obj)
-
-                    schemas.append(schema_obj)
-            elif isinstance(raw_schemas, list):
-                # Already in the expected format
-                schemas = raw_schemas
-            else:
-                logger.warning(
-                    f"Unexpected schema format type for connector {connector_id}: {type(raw_schemas)}"
-                )
-                schemas = []
-
+            # Cache and return the results
             self._schema_cache[connector_id] = schemas
             logger.info(
                 f"Processed {len(schemas)} schemas for connector {connector_id}"
             )
+
+            # Ensure we have column information
+            if schemas:
+                self._ensure_column_information(schemas, connector_id)
+
             return schemas
+
         except Exception as e:
             logger.warning(
                 f"Error fetching schemas for connector {connector_id}: {e}",
                 exc_info=True,
             )
+            # Return an empty but well-structured schema list that can be used by the lineage builder
             return []
+
+    def _normalize_schema_format(
+        self, raw_schemas: Any, connector_id: str
+    ) -> List[Dict]:
+        """
+        Normalize schema information into a consistent format regardless of API response structure.
+        """
+        schemas = []
+
+        # Handle different response formats
+        if isinstance(raw_schemas, dict):
+            # Handle nested object format (older API versions)
+            logger.info(f"Converting nested schema format for connector {connector_id}")
+            for schema_name, schema_data in raw_schemas.items():
+                # Convert to the expected format
+                schema_obj = {
+                    "name": schema_name,
+                    "name_in_destination": schema_data.get(
+                        "name_in_destination", schema_name
+                    ),
+                    "enabled": schema_data.get("enabled", True),
+                    "tables": [],
+                }
+
+                # Convert tables from dict to list format
+                tables_dict = schema_data.get("tables", {})
+                if isinstance(tables_dict, dict):
+                    for table_name, table_data in tables_dict.items():
+                        table_obj = {
+                            "name": table_name,
+                            "name_in_destination": table_data.get(
+                                "name_in_destination", table_name
+                            ),
+                            "enabled": table_data.get("enabled", False),
+                        }
+
+                        # Handle columns if present
+                        columns_dict = table_data.get("columns", {})
+                        columns = []
+                        if isinstance(columns_dict, dict):
+                            for column_name, column_data in columns_dict.items():
+                                column_obj = {
+                                    "name": column_name,
+                                    "name_in_destination": column_data.get(
+                                        "name_in_destination", column_name
+                                    ),
+                                    "enabled": column_data.get("enabled", True),
+                                    "type": column_data.get("type", ""),
+                                }
+                                columns.append(column_obj)
+                        elif isinstance(columns_dict, list):
+                            columns = columns_dict
+
+                        if columns:
+                            table_obj["columns"] = columns
+
+                        schema_obj["tables"].append(table_obj)
+
+                schemas.append(schema_obj)
+        elif isinstance(raw_schemas, list):
+            # Already in the expected list format
+            schemas = raw_schemas
+
+            # Ensure each schema has the expected structure
+            for schema in schemas:
+                if "tables" not in schema:
+                    schema["tables"] = []
+
+                for table in schema.get("tables", []):
+                    if "columns" not in table:
+                        table["columns"] = []
+        else:
+            logger.warning(
+                f"Unexpected schema format type for connector {connector_id}: {type(raw_schemas)}"
+            )
+            schemas = []
+
+        return schemas
+
+    def _try_alternate_schema_methods(self, connector_id: str) -> List[Dict]:
+        """
+        Try alternate methods to retrieve schema information when the primary method fails.
+        """
+        schemas = []
+
+        try:
+            # Try connector details endpoint, which sometimes has schema information
+            connector_details = self.get_connector_details(connector_id)
+
+            # Check if we have config with schema info
+            if "config" in connector_details:
+                config = connector_details.get("config", {})
+                schema_config = config.get("schema", {}) or config.get("schemas", {})
+
+                if schema_config:
+                    logger.info(
+                        f"Found schema information in connector config for {connector_id}"
+                    )
+                    # Try to extract schema information from config
+                    schemas = self._extract_schemas_from_config(
+                        schema_config, connector_id
+                    )
+
+            # If we still don't have schemas, try metadata endpoint if available
+            if not schemas:
+                try:
+                    metadata_response = self._make_request(
+                        "GET", f"/connectors/{connector_id}/metadata"
+                    )
+                    schemas = self._extract_schemas_from_metadata(
+                        metadata_response, connector_id
+                    )
+                except Exception as metadata_err:
+                    logger.debug(
+                        f"No metadata endpoint for {connector_id}: {metadata_err}"
+                    )
+
+            # Try to retrieve information about connector setup itself
+            if not schemas:
+                try:
+                    setup_response = self._make_request(
+                        "GET", f"/connectors/{connector_id}/setup_tests"
+                    )
+                    if "data" in setup_response and "results" in setup_response["data"]:
+                        for result in setup_response["data"]["results"]:
+                            if (
+                                "source" in result.get("title", "").lower()
+                                and "schema" in result
+                            ):
+                                logger.info(
+                                    f"Found schema info in setup tests for {connector_id}"
+                                )
+                                source_schema = result.get("schema", {})
+                                schemas = self._extract_schemas_from_setup(
+                                    source_schema, connector_id
+                                )
+                except Exception as setup_err:
+                    logger.debug(
+                        f"No setup test information for {connector_id}: {setup_err}"
+                    )
+
+        except Exception as e:
+            logger.warning(
+                f"Error in alternate schema retrieval for {connector_id}: {e}"
+            )
+
+        return schemas
+
+    def _extract_schemas_from_config(
+        self, schema_config: Dict, connector_id: str
+    ) -> List[Dict]:
+        """
+        Extract schema information from connector config.
+        """
+        schemas = []
+        try:
+            # Handle various config formats we might encounter
+            if isinstance(schema_config, dict):
+                # Format: {"schema_name": {"tables": {"table_name": {...}}}}
+                for schema_name, schema_data in schema_config.items():
+                    schema_obj = {"name": schema_name, "tables": []}
+
+                    tables = schema_data.get("tables", {})
+                    if isinstance(tables, dict):
+                        for table_name, table_data in tables.items():
+                            # Skip if table is explicitly disabled
+                            if table_data.get("enabled") is False:
+                                continue
+
+                            table_obj = {
+                                "name": table_name,
+                                "enabled": True,
+                                "columns": [],
+                            }
+
+                            # Extract column information if available
+                            columns = table_data.get("columns", {})
+                            if isinstance(columns, dict):
+                                for col_name, col_data in columns.items():
+                                    if col_data.get("enabled") is False:
+                                        continue
+                                    table_obj["columns"].append(
+                                        {
+                                            "name": col_name,
+                                            "enabled": True,
+                                            "type": col_data.get("type", ""),
+                                        }
+                                    )
+
+                            schema_obj["tables"].append(table_obj)
+
+                    schemas.append(schema_obj)
+
+            logger.info(
+                f"Extracted {len(schemas)} schemas from config for connector {connector_id}"
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Error extracting schemas from config for {connector_id}: {e}"
+            )
+
+        return schemas
+
+    def _extract_schemas_from_metadata(
+        self, metadata_response: Dict, connector_id: str
+    ) -> List[Dict]:
+        """
+        Extract schema information from connector metadata response.
+        """
+        schemas: List[Dict] = []
+        try:
+            # Try to extract from various metadata formats
+            metadata = metadata_response.get("data", {})
+
+            # If metadata contains schema information directly
+            if "schemas" in metadata:
+                raw_schemas = metadata.get("schemas", [])
+                return self._normalize_schema_format(raw_schemas, connector_id)
+
+            # If metadata contains source_objects which might have schema information
+            if "source_objects" in metadata:
+                source_objects = metadata.get("source_objects", [])
+                schema_obj = {"name": "default", "tables": []}
+
+                for obj in source_objects:
+                    if isinstance(obj, dict) and "name" in obj:
+                        table_name = obj.get("name")
+                        schema_name = obj.get("schema", "default")
+
+                        # If we found a schema name, update or create a schema object
+                        if schema_name != "default":
+                            schema_obj = next(
+                                (s for s in schemas if s["name"] == schema_name),
+                                {"name": schema_name, "tables": []},
+                            )
+                            if not schema_obj:
+                                schema_obj = {"name": schema_name, "tables": []}
+                                schemas.append(schema_obj)
+
+                        table_obj: Dict[str, Any] = {
+                            "name": table_name,
+                            "enabled": True,
+                            "columns": [],
+                        }
+
+                        # Extract column information if available
+                        if "columns" in obj:
+                            for col in obj.get("columns", []):
+                                if isinstance(col, dict) and "name" in col:
+                                    table_obj["columns"].append(
+                                        {
+                                            "name": col.get("name"),
+                                            "enabled": True,
+                                            "type": col.get("type", ""),
+                                        }
+                                    )
+
+                        if isinstance(schema_obj["tables"], list):
+                            schema_obj["tables"].append(table_obj)
+
+                # Add the default schema if it has tables and isn't already in schemas
+                if schema_obj["name"] == "default" and schema_obj["tables"]:
+                    schemas.append(schema_obj)
+
+            logger.info(
+                f"Extracted {len(schemas)} schemas from metadata for connector {connector_id}"
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Error extracting schemas from metadata for {connector_id}: {e}"
+            )
+
+        return schemas
+
+    def _extract_schemas_from_setup(
+        self, setup_schema: Dict, connector_id: str
+    ) -> List[Dict]:
+        """
+        Extract schema information from connector setup test results.
+        """
+        schemas = []
+        try:
+            # Setup tests might contain information about available schemas and tables
+            if isinstance(setup_schema, dict):
+                for schema_name, tables in setup_schema.items():
+                    schema_obj = {"name": schema_name, "tables": []}
+
+                    if isinstance(tables, list):
+                        for table_name in tables:
+                            table_obj = {
+                                "name": table_name,
+                                "enabled": True,
+                                "columns": [],  # We likely won't have column info here
+                            }
+                            schema_obj["tables"].append(table_obj)
+
+                    schemas.append(schema_obj)
+
+            logger.info(
+                f"Extracted {len(schemas)} schemas from setup tests for connector {connector_id}"
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Error extracting schemas from setup tests for {connector_id}: {e}"
+            )
+
+        return schemas
+
+    def _ensure_column_information(
+        self, schemas: List[Dict], connector_id: str
+    ) -> None:
+        """
+        Ensure we have column information for tables by fetching additional details if needed.
+        """
+        tables_missing_columns = []
+
+        # Check if we have tables without column information
+        for schema in schemas:
+            for table in schema.get("tables", []):
+                if not table.get("columns") and table.get("enabled", True):
+                    # Add to list of tables needing column info
+                    tables_missing_columns.append(
+                        {"schema": schema["name"], "table": table["name"]}
+                    )
+
+        if not tables_missing_columns:
+            return
+
+        logger.info(
+            f"Found {len(tables_missing_columns)} tables without column information for connector {connector_id}"
+        )
+
+        # Try to fetch column information for these tables
+        for table_info in tables_missing_columns[
+            :10
+        ]:  # Limit to avoid too many API calls
+            schema_name = table_info["schema"]
+            table_name = table_info["table"]
+
+            try:
+                # Try to get column information from table metadata endpoint
+                table_path = f"/connectors/{connector_id}/schemas/{schema_name}/tables/{table_name}"
+                try:
+                    table_response = self._make_request("GET", table_path)
+                    table_data = table_response.get("data", {})
+
+                    if "columns" in table_data:
+                        columns = table_data.get("columns", [])
+                        # Update our schema information with these columns
+                        for schema in schemas:
+                            if schema["name"] == schema_name:
+                                for table in schema["tables"]:
+                                    if table["name"] == table_name:
+                                        table["columns"] = self._process_column_data(
+                                            columns
+                                        )
+                                        logger.info(
+                                            f"Added {len(table['columns'])} columns to {schema_name}.{table_name}"
+                                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Could not get details for table {schema_name}.{table_name}: {e}"
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Error ensuring column information for {schema_name}.{table_name}: {e}"
+                )
+
+    def _process_column_data(self, columns: Any) -> List[Dict]:
+        """
+        Process column data from various API response formats into a consistent format.
+        """
+        processed_columns = []
+
+        try:
+            if isinstance(columns, dict):
+                # Format: {"column_name": {"type": "string", ...}}
+                for col_name, col_data in columns.items():
+                    if col_data.get("enabled") is False:
+                        continue
+                    processed_columns.append(
+                        {
+                            "name": col_name,
+                            "enabled": True,
+                            "type": col_data.get("type", ""),
+                            "name_in_destination": col_data.get(
+                                "name_in_destination", col_name
+                            ),
+                        }
+                    )
+            elif isinstance(columns, list):
+                # Format: [{"name": "column_name", "type": "string", ...}]
+                for col in columns:
+                    if isinstance(col, dict) and "name" in col:
+                        if col.get("enabled") is False:
+                            continue
+                        processed_columns.append(
+                            {
+                                "name": col.get("name"),
+                                "enabled": True,
+                                "type": col.get("type", ""),
+                                "name_in_destination": col.get(
+                                    "name_in_destination", col.get("name")
+                                ),
+                            }
+                        )
+        except Exception as e:
+            logger.warning(f"Error processing column data: {e}")
+
+        return processed_columns
 
     def list_users(self) -> List[Dict]:
         """Get all users in the Fivetran account."""
