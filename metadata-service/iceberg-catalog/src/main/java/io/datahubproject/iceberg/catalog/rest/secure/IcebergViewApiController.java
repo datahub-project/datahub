@@ -37,9 +37,14 @@ public class IcebergViewApiController extends AbstractIcebergController {
         "CREATE VIEW REQUEST in {}.{}, body {}", platformInstance, namespace, createViewRequest);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_VIEWS,
+        false);
 
     LoadViewResponse createViewResponse =
         catalogOperation(
@@ -78,7 +83,7 @@ public class IcebergViewApiController extends AbstractIcebergController {
     authorize(
         operationContext,
         warehouse,
-        tableIdFromString(namespace, view),
+        namespaceFromString(namespace),
         DataOperation.MANAGE_VIEWS,
         false);
 
@@ -132,8 +137,14 @@ public class IcebergViewApiController extends AbstractIcebergController {
     log.info("DROP VIEW REQUEST {}.{}.{}", platformInstance, namespace, view);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_VIEWS,
+        false);
 
     catalogOperation(
         warehouse,
@@ -159,9 +170,20 @@ public class IcebergViewApiController extends AbstractIcebergController {
         renameTableRequest);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        renameTableRequest.source().namespace(),
+        DataOperation.MANAGE_VIEWS,
+        false);
+    authorize(
+        operationContext,
+        warehouse,
+        renameTableRequest.destination().namespace(),
+        DataOperation.MANAGE_VIEWS,
+        false);
 
     catalogOperation(
         warehouse,
@@ -187,8 +209,10 @@ public class IcebergViewApiController extends AbstractIcebergController {
     log.info("LIST VIEWS REQUEST for {}.{}", platformInstance, namespace);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.LIST, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext, warehouse, namespaceFromString(namespace), DataOperation.LIST, false);
 
     ListTablesResponse listTablesResponse =
         catalogOperation(

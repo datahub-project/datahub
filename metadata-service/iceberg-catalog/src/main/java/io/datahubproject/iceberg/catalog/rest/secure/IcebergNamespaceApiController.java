@@ -63,6 +63,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
 
     OperationContext operationContext = opContext(request);
 
+    // TODO TBD
     authorize(operationContext, platformInstance, DataOperation.MANAGE_NAMESPACES, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
     CreateNamespaceResponse createNamespaceResponse =
@@ -96,9 +97,15 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
         updateNamespacePropertiesRequest);
 
     OperationContext operationContext = opContext(request);
-
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_NAMESPACES, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_NAMESPACES,
+        false);
+
     UpdateNamespacePropertiesResponse updateNamespaceResponse =
         catalogOperation(
             warehouse,
@@ -122,9 +129,15 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
     log.info("DROP NAMESPACE REQUEST {}.{}", platformInstance, namespace);
 
     OperationContext operationContext = opContext(request);
-
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_NAMESPACES, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_NAMESPACES,
+        false);
+
     catalogOperation(
         warehouse,
         operationContext,
@@ -146,9 +159,14 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
     log.info("LIST NAMESPACES REQUEST for {}.{}", platformInstance, parent);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.LIST, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    if (StringUtils.isEmpty(parent)) {
+      authorize(operationContext, platformInstance, DataOperation.LIST, false);
+    } else {
+      authorize(
+          operationContext, warehouse, namespaceFromString(parent), DataOperation.LIST, false);
+    }
 
     ListNamespacesResponse listNamespacesResponse =
         catalogOperation(
