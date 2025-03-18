@@ -1,4 +1,7 @@
+import logging
 from typing import Optional
+
+from azure.identity import DefaultAzureCredential
 
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -9,14 +12,48 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
+try:
+    from azure.identity import DefaultAzureCredential
+
+    AZURE_AVAILABLE = True
+except ImportError:
+    AZURE_AVAILABLE = False
+
+try:
+    from databricks import sql  # type: ignore
+
+    DATABRICKS_SQL_AVAILABLE = True
+except ImportError:
+    DATABRICKS_SQL_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+# Databricks resource ID for Azure
+DATABRICKS_RESOURCE_ID = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+
 
 class UnityCatalogConnectionTest:
     def __init__(self, config: UnityCatalogSourceConfig):
         self.config = config
         self.report = UnityCatalogReport()
+
+        # Get the appropriate token based on auth type
+        if config.auth_type == "azure_default":
+            if not AZURE_AVAILABLE:
+                raise ImportError(
+                    "azure-identity package is required for Azure Default Credentials authentication. "
+                    "Please install it with: pip install azure-identity"
+                )
+            credential = DefaultAzureCredential()
+            token = credential.get_token(f"{DATABRICKS_RESOURCE_ID}/.default").token
+        else:
+            if not config.token:
+                raise ValueError("token is required when auth_type is 'token'")
+            token = config.token
+
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
-            self.config.token,
+            token,
             self.config.profiling.warehouse_id,
             report=self.report,
         )
@@ -66,3 +103,84 @@ class UnityCatalogConnectionTest:
             return CapabilityReport(capable=self.proxy.check_profiling_connectivity())
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        try:
+            config = UnityCatalogSourceConfig.parse_obj(config_dict)
+
+            # Test authentication
+            if config.auth_type == "azure_default":
+                if not AZURE_AVAILABLE:
+                    return TestConnectionReport(
+                        basic_connectivity=CapabilityReport(
+                            capable=False,
+                            failure_reason="azure-identity package is required for Azure Default Credentials authentication. "
+                            "Please install it with: pip install azure-identity",
+                        )
+                    )
+                try:
+                    credential = DefaultAzureCredential()
+                    token = credential.get_token(
+                        f"{DATABRICKS_RESOURCE_ID}/.default"
+                    ).token
+                except Exception as e:
+                    return TestConnectionReport(
+                        basic_connectivity=CapabilityReport(
+                            capable=False,
+                            failure_reason=f"Failed to get Azure token: {str(e)}",
+                        )
+                    )
+            else:
+                if not config.token:
+                    return TestConnectionReport(
+                        basic_connectivity=CapabilityReport(
+                            capable=False,
+                            failure_reason="token is required when auth_type is 'token'",
+                        )
+                    )
+
+            # Test connection to Databricks
+            if not DATABRICKS_SQL_AVAILABLE:
+                return TestConnectionReport(
+                    basic_connectivity=CapabilityReport(
+                        capable=False,
+                        failure_reason="databricks-sql-connector package is required. Please install it with: pip install databricks-sql-connector",
+                    )
+                )
+
+            try:
+                with sql.connect(
+                    server_hostname=config.workspace_url,
+                    http_path=f"/sql/1.0/warehouses/{config.warehouse_id}",
+                    access_token=token
+                    if config.auth_type == "azure_default"
+                    else config.token,
+                ) as connection:
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT 1")
+                        result = cursor.fetchone()
+                        if not result:
+                            return TestConnectionReport(
+                                basic_connectivity=CapabilityReport(
+                                    capable=False,
+                                    failure_reason="Failed to execute test query",
+                                )
+                            )
+            except Exception as e:
+                return TestConnectionReport(
+                    basic_connectivity=CapabilityReport(
+                        capable=False, failure_reason=str(e)
+                    )
+                )
+
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True)
+            )
+
+        except Exception as e:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason=str(e)
+                )
+            )
