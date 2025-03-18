@@ -705,12 +705,12 @@
                 "source.platform": "kafka",
                 "source.env": "PROD",
                 "source.database": "kafka_prod",
-                "destination.platform": "snowflake",
+                "destination.platform": "kafka",
                 "destination.env": "PROD",
                 "destination.database": "kafka_prod"
             },
             "name": "confluent_cloud",
-            "description": "Fivetran data pipeline from confluent_cloud to snowflake",
+            "description": "Fivetran data pipeline from confluent_cloud to kafka",
             "type": {
                 "string": "COMMAND"
             },
@@ -750,7 +750,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": [
@@ -761,7 +761,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
+                        "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -884,7 +884,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
             ]
         }
     },
