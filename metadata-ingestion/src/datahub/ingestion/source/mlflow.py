@@ -32,6 +32,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -50,7 +51,6 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
-    DatasetPropertiesClass,
     EdgeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
@@ -119,11 +119,9 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
             default=None, description="Mapping of source type to datahub platform"
         )
 
-    materialize_dataset_inputs: Optional[
-        Union[bool, MaterializeDatasetInputsConfig]
-    ] = Field(
-        default=False,
-        description="Whether to materialize dataset inputs for each run",
+    materialize_dataset_inputs: Optional[MaterializeDatasetInputsConfig] = Field(
+        default=MaterializeDatasetInputsConfig(),
+        description="Configuration for materializing dataset inputs for each run",
     )
 
 
@@ -227,13 +225,14 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
         for experiment in experiments:
-            yield from self._get_experiment_container_workunit(experiment)
+            if experiment.name == "lineage_test_v6_experiment":
+                yield from self._get_experiment_container_workunit(experiment)
 
-            runs = self._get_mlflow_runs_from_experiment(experiment)
-            if runs:
-                for run in runs:
-                    yield from self._get_run_workunits(experiment, run)
-                    yield from self._get_dataset_input_workunits(run)
+                runs = self._get_mlflow_runs_from_experiment(experiment)
+                if runs:
+                    for run in runs:
+                        yield from self._get_run_workunits(experiment, run)
+                        yield from self._get_dataset_input_workunits(run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -302,18 +301,22 @@ class MLflowSource(StatefulIngestionSourceBase):
         return None
 
     def _get_dataset_platform_from_source_type(self, source_type: str) -> Optional[str]:
+        # convert source_type to lowercase
+        source_type = source_type.lower()
+
         def is_valid_platform(platform: str) -> bool:
-            return platform in DataPlatformUrn.__annotations__
+            # Check if the platform is registered as a source plugin
+            return platform in source_registry.mapping
 
         # Check user-provided mapping first
-        if isinstance(
-            self.config.materialize_dataset_inputs,
-            MLflowConfig.MaterializeDatasetInputsConfig,
+        if (
+            self.config.materialize_dataset_inputs
+            and self.config.materialize_dataset_inputs.source_mapping_to_platform
         ):
             source_dict = (
                 self.config.materialize_dataset_inputs.source_mapping_to_platform
             )
-            if source_dict and source_type in source_dict:
+            if source_type in source_dict:
                 platform = source_dict[source_type]
                 if is_valid_platform(platform):
                     return platform
@@ -322,41 +325,41 @@ class MLflowSource(StatefulIngestionSourceBase):
                         f"Invalid platform '{platform}' in source_mapping_to_platform"
                     )
 
-        # Check internal mapping
-        if source_type == "gs":
-            return "gcs"
-
         # Check if source type is a valid datahub platform
         if is_valid_platform(source_type):
             return source_type
 
+        # Check internal mapping
+        if source_type == "gs":
+            return "gcs"
         return None
+
+    def _check_dataset_existence(self, dataset_urn: str) -> bool:
+        if not self.ctx.graph:
+            return False
+        return self.ctx.graph.exists(dataset_urn)
 
     def _get_hosted_dataset_upstream(
         self, formatted_platform: Optional[str], dataset: MLflowDataset
     ) -> Optional[UpstreamLineageClass]:
-        if formatted_platform and self.ctx.graph:  # check if graph exists
-            hosted_dataset_urn = DatasetUrn(
-                platform=formatted_platform, name=dataset.name
-            )
-            # Implement actual dataset existence check using DataHub API
-            try:
-                dataset_exists = (
-                    self.ctx.graph.get_aspect_v2(
-                        str(hosted_dataset_urn),
-                        DatasetPropertiesClass,  # use the actual type instead of string
-                        "latest",
-                    )
-                    is not None
-                )
-                if dataset_exists:
-                    return UpstreamLineageClass(
-                        upstreams=[UpstreamClass(str(hosted_dataset_urn), type="COPY")]
-                    )
-            except Exception:
-                # Handle any errors in checking dataset existence
-                pass
-        return None
+        # If platform is not supported, return None
+        if not formatted_platform:
+            return None
+
+        hosted_dataset_urn = DatasetUrn(platform=formatted_platform, name=dataset.name)
+
+        # When materialization is disabled, only create upstream if dataset exists
+        if (
+            self.config.materialize_dataset_inputs
+            and not self.config.materialize_dataset_inputs.enabled
+        ):
+            if not self._check_dataset_existence(str(hosted_dataset_urn)):
+                return None
+
+        # Create upstream relationship
+        return UpstreamLineageClass(
+            upstreams=[UpstreamClass(str(hosted_dataset_urn), type="COPY")]
+        )
 
     def _get_dataset_input_workunits(self, run: Run) -> Iterable[MetadataWorkUnit]:
         run_urn = DataProcessInstance(
@@ -389,39 +392,30 @@ class MLflowSource(StatefulIngestionSourceBase):
                 formatted_platform = self._get_dataset_platform_from_source_type(
                     source_type
                 )
-                # Handle materialization config properly
-                materialize_enabled = False
-                if isinstance(
-                    self.config.materialize_dataset_inputs,
-                    MLflowConfig.MaterializeDatasetInputsConfig,
+                if (
+                    self.config.materialize_dataset_inputs
+                    and self.config.materialize_dataset_inputs.enabled
                 ):
-                    materialize_enabled = self.config.materialize_dataset_inputs.enabled
-                elif isinstance(self.config.materialize_dataset_inputs, bool):
-                    materialize_enabled = self.config.materialize_dataset_inputs
-
-                # Use materialize_enabled in the logic
-                if materialize_enabled:
-                    if formatted_platform:
-                        hosted_dataset = Dataset(
-                            platform=formatted_platform,
-                            name=dataset.name,
-                            schema=formatted_schema,
-                            custom_properties=dataset_tags,
-                        )
-                        yield from hosted_dataset.as_workunits()
-                    else:
+                    if not formatted_platform:
                         raise ValueError(
                             f"No mapping dataPlatform found for dataset input source type '{source_type}', please add `materialize_dataset_inputs.source_mapping_to_platform` in config (e.g. '{source_type}': 'snowflake')"
                         )
-                hosted_dataset_upstream = self._get_hosted_dataset_upstream(
-                    formatted_platform, dataset
-                )
+                    # When materialization is enabled, create the dataset and its upstream
+                    hosted_dataset = Dataset(
+                        platform=formatted_platform,
+                        name=dataset.name,
+                        schema=formatted_schema,
+                        custom_properties=dataset_tags,
+                    )
+                    yield from hosted_dataset.as_workunits()
                 hosted_dataset_reference = Dataset(
                     platform=self.platform,
                     name=dataset.name,
                     schema=formatted_schema,
                     custom_properties=dataset_tags,
-                    upstreams=hosted_dataset_upstream,
+                    upstreams=self._get_hosted_dataset_upstream(
+                        formatted_platform, dataset
+                    ),
                 )
                 dataset_reference_urns.append(str(hosted_dataset_reference.urn))
                 yield from hosted_dataset_reference.as_workunits()
@@ -838,3 +832,11 @@ class MLflowSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":
         config = MLflowConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def _is_materialize_enabled(self):
+        if isinstance(self.config.materialize_dataset_inputs, bool):
+            return self.config.materialize_dataset_inputs
+        elif isinstance(self.config.materialize_dataset_inputs, dict):
+            return self.config.materialize_dataset_inputs.enabled
+        else:
+            raise ValueError("Invalid materialize_dataset_inputs format")
