@@ -174,8 +174,6 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
         ),
     )
 
-    print(f"mcp_mlmodel: {mcp_mlmodel}")
-    print(f"actual_mcps: {actual_mcps}")
     assert len(actual_mcps) == 5
     assert any(mcp_container == mcp for mcp in actual_mcps)
     assert any(mcp_subtype == mcp for mcp in actual_mcps)
@@ -346,9 +344,6 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             ),
         ),
     )
-    print(f"\n\nactual_mcps: {actual_mcps}")
-
-    print(f"\n\nmcp_dpi: {mcp_dpi}")
 
     mcp_ml_props = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -636,14 +631,6 @@ def test_gen_experiment_run_mcps(
         ),
     )
 
-    mcp = [
-        mcp
-        for mcp in actual_mcps
-        if isinstance(mcp.aspect, (DataProcessInstancePropertiesClass))
-    ][0]
-    assert mcp == mcp_dpi
-
-    print(f"\nactual_mcps: {actual_mcps}")
     assert len(actual_mcps) == 5
     assert any(mcp_dpi == mcp for mcp in actual_mcps)
     assert any(mcp_ml_props == mcp for mcp in actual_mcps)
