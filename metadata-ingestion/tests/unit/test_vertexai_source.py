@@ -18,8 +18,6 @@ from datahub.ingestion.source.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-from datahub.metadata._schema_classes import TimeStampClass, VersionTagClass
-from datahub.metadata._urns.urn_defs import DataPlatformUrn
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -37,8 +35,11 @@ from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
     StatusClass,
     SubTypesClass,
+    TimeStampClass,
     VersionPropertiesClass,
+    VersionTagClass,
 )
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.time import datetime_to_ts_millis
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
