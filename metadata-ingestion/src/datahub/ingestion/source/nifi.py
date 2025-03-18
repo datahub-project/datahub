@@ -376,13 +376,12 @@ class NifiProcessorProvenanceEventAnalyzer:
     def process_consumeKafka_provenance_event(self, event):
         attributes = event.get("attributes", [])
         topic = get_attribute_value(attributes, "kafka.topic")
+        topic = "dummy" if topic is None else topic
         platform = "kafka"
-        if topic is None:
-            topic = "dummy"
         dataset_urn = builder.make_dataset_urn(platform, topic, self.env)
         return ExternalDataset(
             platform,
-            get_attribute_value(attributes, "kafka.topic"),
+            topic,
             dict(topic=topic),
             dataset_urn,
         )
