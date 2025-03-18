@@ -45,10 +45,15 @@ public class IcebergTableApiController extends AbstractIcebergController {
         "CREATE TABLE REQUEST in {}.{}, body {}", platformInstance, namespace, createTableRequest);
 
     OperationContext operationContext = opContext(request);
-    PoliciesConfig.Privilege privilege =
-        authorize(operationContext, platformInstance, DataOperation.MANAGE_TABLES, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_TABLES,
+        false);
+
     LoadTableResponse createTableResponse =
         catalogOperation(
             warehouse,
@@ -203,9 +208,14 @@ public class IcebergTableApiController extends AbstractIcebergController {
         purgeRequested);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_TABLES, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_TABLES,
+        false);
 
     catalogOperation(
         warehouse,
@@ -237,9 +247,20 @@ public class IcebergTableApiController extends AbstractIcebergController {
         renameTableRequest);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_TABLES, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        renameTableRequest.source().namespace(),
+        DataOperation.MANAGE_TABLES,
+        false);
+    authorize(
+        operationContext,
+        warehouse,
+        renameTableRequest.destination().namespace(),
+        DataOperation.MANAGE_TABLES,
+        false);
 
     catalogOperation(
         warehouse,
@@ -266,9 +287,14 @@ public class IcebergTableApiController extends AbstractIcebergController {
         "REGISTER TABLE REQUEST {}.{}, body {}", platformInstance, namespace, registerTableRequest);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_TABLES, false);
-
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_TABLES,
+        false);
 
     LoadTableResponse registerTableResponse =
         catalogOperation(
@@ -297,8 +323,10 @@ public class IcebergTableApiController extends AbstractIcebergController {
     log.info("LIST TABLES REQUEST for {}.{}", platformInstance, namespace);
 
     OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.LIST, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext, warehouse, namespaceFromString(namespace), DataOperation.LIST, false);
 
     ListTablesResponse listTablesResponse =
         catalogOperation(
