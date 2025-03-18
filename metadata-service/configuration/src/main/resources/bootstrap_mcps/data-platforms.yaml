@@ -747,4 +747,14 @@
     displayName: Neo4j
     type: OTHERS
     logoUrl: "/assets/platforms/neo4j.png"
+- entityUrn: urn:li:dataPlatform:vertexai
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: vertexai
+    displayName: vertexai
+    type: OTHERS
+    logoUrl: "/assets/platforms/vertexai.png"
 

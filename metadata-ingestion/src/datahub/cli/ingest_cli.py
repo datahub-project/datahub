@@ -307,7 +307,7 @@ def deploy(
         sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {variables['name']}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {variables['input']['name']}:"
     )
     click.echo(response)
 

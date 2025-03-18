@@ -308,8 +308,11 @@
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
-            "outputs": [
-                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
+            "outputs": [],
+            "outputEdges": [
+                {
+                    "destinationUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
+                }
             ]
         }
     },
