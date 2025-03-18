@@ -442,6 +442,7 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
+    "hdf5": {"h5py"},
     "hive": sql_common
     | pyhive_common
     | {
@@ -749,6 +750,7 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
+        "hdf5 = datahub.ingestion.source.hdf5.source:HDF5Source",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
