@@ -32,7 +32,7 @@ jobs:
         id: ci-optimize
 
   deploy:
-    runs-on: depot-ubuntu-22.04
+    runs-on: depot-ubuntu-22.04-4
     permissions:
       contents: read
       deployments: write
@@ -50,7 +50,7 @@ jobs:
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-web-react:build -x test -x check --parallel
+          ./gradlew :datahub-web-react:build -Psourcemap -x test -x check --parallel
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         uses: cloudflare/pages-action@1
