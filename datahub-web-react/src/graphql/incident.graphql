@@ -57,6 +57,15 @@ fragment incidentsFields on EntityIncidentsResult {
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary
+        siblings {
+            urn
+            type
+            ... on Dataset {
+                incidents(start: $start, count: $count, state: $state) {
+                    ...incidentsFields
+                }
+            }
+        }
     }
     siblingsSearch(input: { query: "*", count: 5 }) {
         count
