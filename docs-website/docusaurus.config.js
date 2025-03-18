@@ -35,6 +35,10 @@ module.exports = {
     },
     {
       src: "https://app.revenuehero.io/scheduler.min.js"
+    },
+    {
+      src: "https://tag.clearbitscripts.com/v1/pk_2e321cabe30432a5c44c0424781aa35f/tags.js",
+      referrerPolicy: "strict-origin-when-cross-origin"
     }
   ],
   noIndex: isSaas,
@@ -152,7 +156,7 @@ module.exports = {
               label: "Adoption Stories",
             },
             {
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project",
               label: "Blog",
             },
             {
@@ -243,7 +247,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project",
             },
             {
               label: "Town Halls",
