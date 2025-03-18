@@ -223,6 +223,9 @@ class DremioSource(StatefulIngestionSourceBase):
                             "env": mapping.env,
                         }
                         source_present = True
+                        logger.debug(
+                            f"Source mapping found for input source map. Source added to map:{source_platform_name}: {source_map[source_platform_name]}"
+                        )
                         break
 
                 if not source_present:
@@ -249,6 +252,10 @@ class DremioSource(StatefulIngestionSourceBase):
                         "dremio_source_type": dremio_source_type,
                     }
 
+                    logger.debug(
+                        f"Source mapping not found for input source map. Source added to map:{source_platform_name}: {source_map[source_platform_name]}"
+                    )
+
             else:
                 logger.error(
                     f'Source "{source.container_name}" is broken. Containers will not be created for source.'
@@ -257,6 +264,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     f'No new cross-platform lineage will be emitted for source "{source.container_name}".'
                 )
                 logger.error("Fix this source in Dremio to fix this issue.")
+
+        logger.debug(f"Full source map: {source_map}")
 
         return source_map
 
@@ -431,6 +440,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     dremio_path=dataset_info.path,
                     dremio_dataset=dataset_info.resource_name,
                 )
+                logger.debug(f"Upstream dataset for {dataset_urn}: {upstream_urn}")
 
                 if upstream_urn:
                     upstream_lineage = UpstreamLineage(
@@ -603,7 +613,13 @@ class DremioSource(StatefulIngestionSourceBase):
         platform_instance = mapping.get(
             "platform_instance", self.config.platform_instance
         )
+        if mapping.get("platform_instance"):
+            logger.debug(f"Platform instance found: {platform_instance}")
+
         env = mapping.get("env", self.config.env)
+
+        if mapping.get("env"):
+            logger.debug(f"Environment found: {platform_instance}")
 
         root_path = ""
         database_name = ""
