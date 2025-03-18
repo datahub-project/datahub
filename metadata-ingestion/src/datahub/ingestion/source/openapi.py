@@ -285,7 +285,7 @@ class APISource(Source, ABC):
 
         return dataset_name, dataset_urn, workunits
 
-    def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         config = self.config
 
         sw_dict = self.config.get_swagger()
