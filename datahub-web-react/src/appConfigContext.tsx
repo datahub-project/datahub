@@ -68,6 +68,7 @@ export const DEFAULT_APP_CONFIG = {
         showAutoCompleteResults: false,
         entityVersioningEnabled: false,
         showHasSiblingsFilter: false,
+        showSearchBarAutocompleteRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

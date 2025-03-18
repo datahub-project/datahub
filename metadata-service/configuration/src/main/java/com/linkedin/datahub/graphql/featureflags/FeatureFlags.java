@@ -37,4 +37,5 @@ public class FeatureFlags {
   private boolean dataProcessInstanceEntityEnabled = true;
   private boolean entityVersioning = false;
   private boolean showHasSiblingsFilter = false;
+  private boolean showSearchBarAutocompleteRedesign = false;
 }

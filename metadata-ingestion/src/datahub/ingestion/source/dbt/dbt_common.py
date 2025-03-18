@@ -1033,7 +1033,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             cll_nodes.add(dbt_name)
             schema_nodes.add(dbt_name)
 
-        for dbt_name in all_nodes_map.keys():
+        for dbt_name in all_nodes_map:
             if self._is_allowed_node(dbt_name):
                 add_node_to_cll_list(dbt_name)
 
@@ -1774,10 +1774,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
                     )
-            if isinstance(owner, list):
-                owners = owner
-            else:
-                owners = [owner]
+            owners = owner if isinstance(owner, list) else [owner]
+
             for owner in owners:
                 if self.config.strip_user_ids_from_email:
                     owner = owner.split("@")[0]

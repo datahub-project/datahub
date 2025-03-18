@@ -1,0 +1,37 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "c7f48ff25eae801c8bbbe7f86ec725efd4da6ccbdb243e42f6c06209ad2a4cb2",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,abc.employees,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "employee_type_number",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR2"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,abc.employees,PROD)",
+                    "column": "employee_type"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,abc.employees,PROD)",
+                    "column": "job_title"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT CASE WHEN (employee_TYPE = ?) THEN (CASE WHEN job_title IN (?) THEN ? ELSE ? END) ELSE (CASE WHEN job_title IN (?) THEN ? ELSE ? END) END AS employee_type_number FROM ABC.employees"
+    }
+}
