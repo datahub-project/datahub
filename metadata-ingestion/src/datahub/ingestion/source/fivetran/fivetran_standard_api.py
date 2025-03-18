@@ -1,3 +1,8 @@
+"""
+This is an updated version of fivetran_standard_api.py with the fix for BigQuery case handling.
+The key fix is in the _fill_connectors_lineage method, which now properly lowercases table names for BigQuery.
+"""
+
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -414,15 +419,16 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                 source_table = f"{schema_name}.{table_name}"
 
                                 # Adjust case based on destination platform
+                                # FIX: Use the helper method from api_client for consistent case handling
                                 dest_schema = (
-                                    schema_name.upper()
-                                    if destination_platform != "bigquery"
-                                    else schema_name
+                                    self.api_client._get_destination_schema_name(
+                                        schema_name, destination_platform
+                                    )
                                 )
                                 dest_table = (
-                                    table_name.upper()
-                                    if destination_platform != "bigquery"
-                                    else table_name
+                                    self.api_client._get_destination_table_name(
+                                        table_name, destination_platform
+                                    )
                                 )
                                 destination_table = f"{dest_schema}.{dest_table}"
 
@@ -440,11 +446,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                             if not col_name:
                                                 continue
 
-                                            # Destination column name follows same case convention as table
-                                            dest_col_name = (
-                                                col_name.upper()
-                                                if destination_platform != "bigquery"
-                                                else col_name
+                                            # FIX: Use the helper method for consistent case handling
+                                            dest_col_name = self.api_client._get_destination_column_name(
+                                                col_name, destination_platform
                                             )
 
                                             column_lineage.append(
