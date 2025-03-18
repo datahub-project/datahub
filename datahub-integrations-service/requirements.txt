@@ -7,7 +7,7 @@
     #   -r requirements-local.in
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-acryl-datahub-actions==0.1.3
+acryl-datahub-actions==0.1.10
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -759,7 +759,9 @@ starlette==0.37.2
 tabulate==0.9.0
     # via acryl-datahub
 tenacity==9.0.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-integrations
 terminado==0.18.1
     # via
     #   jupyter-server

@@ -11,7 +11,7 @@
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-acryl-datahub-actions==0.1.3
+acryl-datahub-actions==0.1.10
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -1176,6 +1176,7 @@ tenacity==9.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-actions
     #   acryl-datahub-integrations
     #   papermill
 terminado==0.18.1
