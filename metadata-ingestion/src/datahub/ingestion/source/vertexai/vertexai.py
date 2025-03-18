@@ -691,7 +691,7 @@ class VertexAISource(Source):
                             if ds.create_time
                             else None
                         ),
-                        description=f"Dataset: {ds.display_name}",
+                        description=ds.display_name,
                         customProperties={
                             "resourceName": ds.resource_name,
                         },
@@ -858,7 +858,10 @@ class VertexAISource(Source):
                     ),
                     lastModified=(
                         TimeStampClass(
-                            datetime_to_ts_millis(model_version.version_update_time)
+                            time=datetime_to_ts_millis(
+                                model_version.version_update_time
+                            ),
+                            actor="urn:li:corpuser:datahub",
                         )
                         if model_version.version_update_time
                         else None

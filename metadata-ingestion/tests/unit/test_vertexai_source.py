@@ -1,4 +1,5 @@
 import contextlib
+from datetime import datetime
 from typing import List
 from unittest.mock import patch
 
@@ -17,9 +18,13 @@ from datahub.ingestion.source.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
+from datahub.metadata._schema_classes import TimeStampClass, VersionTagClass
+from datahub.metadata._urns.urn_defs import DataPlatformUrn
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
+    MLTrainingRunProperties,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -29,14 +34,12 @@ from datahub.metadata.schema_classes import (
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
-    MetadataChangeProposalClass,
     MLModelDeploymentPropertiesClass,
-    MLModelGroupPropertiesClass,
-    MLTrainingRunPropertiesClass,
     StatusClass,
     SubTypesClass,
     VersionPropertiesClass,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_endpoint,
@@ -68,38 +71,50 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
 
         # Running _get_ml_models_mcps
         actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
-        actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-        expected_urns = [
-            builder.make_ml_model_group_urn(
-                platform=source.platform,
-                group_name=source._make_vertexai_model_group_name(mock_model.name),
-                env=source.config.env,
-            )
-        ] * 4
 
-        assert actual_urns == expected_urns
+        expected_urn = builder.make_ml_model_group_urn(
+            platform=source.platform,
+            group_name=source._make_vertexai_model_group_name(mock_model.name),
+            env=source.config.env,
+        )
 
-        # assert expected aspect classes
-        expected_classes = [
-            MLModelGroupPropertiesClass,
-            ContainerClass,
-            SubTypesClass,
-            DataPlatformInstanceClass,
-        ]
-        actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
+        mcp_mlgroup = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=MLModelGroupProperties(
+                name=mock_model.display_name,
+                description=mock_model.description,
+                created=TimeStampClass(
+                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                    actor="urn:li:corpuser:datahub",
+                ),
+                lastModified=TimeStampClass(
+                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878500)),
+                    actor="urn:li:corpuser:datahub",
+                ),
+            ),
+        )
 
-        assert set(expected_classes) == set(actual_classes)
+        mcp_container = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        )
+        mcp_subtype = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL_GROUP]),
+        )
 
-        for mcp in actual_mcps:
-            assert isinstance(mcp, MetadataChangeProposalWrapper)
-            aspect = mcp.aspect
-            if isinstance(aspect, MLModelGroupProperties):
-                assert aspect.name == mock_model.display_name
-                assert aspect.description == mock_model.description
-            elif isinstance(aspect, SubTypesClass):
-                assert aspect.typeNames == [MLAssetSubTypes.VERTEX_MODEL_GROUP]
-            elif isinstance(aspect, ContainerClass):
-                assert aspect.container == source._get_project_container().as_urn()
+        mcp_dataplatform = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=str(DataPlatformUrn(source.platform))
+            ),
+        )
+
+        assert len(actual_mcps) == 4
+        assert any(mcp_container == mcp for mcp in actual_mcps)
+        assert any(mcp_subtype == mcp for mcp in actual_mcps)
+        assert any(mcp_mlgroup == mcp for mcp in actual_mcps)
+        assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
 
 
 def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
@@ -109,39 +124,70 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
 
     # Run _gen_ml_model_mcps
     actual_mcps = list(source._gen_ml_model_mcps(model_meta))
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    expected_urns = [
-        source._make_ml_model_urn(
-            model_version, source._make_vertexai_model_name(mock_model.name)
-        )
-    ] * 5
+    expected_urn = source._make_ml_model_urn(
+        model_version, source._make_vertexai_model_name(mock_model.name)
+    )
 
-    assert actual_urns == expected_urns
+    mcp_mlmodel = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=MLModelProperties(
+            name="mock_prediction_model_1_display_name_1",
+            description=model_version.version_description,
+            created=TimeStampClass(
+                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                actor="urn:li:corpuser:datahub",
+            ),
+            lastModified=TimeStampClass(
+                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878500)),
+                actor="urn:li:corpuser:datahub",
+            ),
+            customProperties={
+                "versionId": model_version.version_id,
+                "resourceName": mock_model.resource_name,
+            },
+            externalUrl="https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/mock_prediction_model_1/versions/1?project=acryl-poc",
+            version=VersionTagClass(
+                versionTag=model_version.version_id, metadataAttribution=None
+            ),
+            groups=[
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,acryl-poc.model_group.mock_prediction_model_1,PROD)"
+            ],
+            type=MLAssetSubTypes.VERTEX_MODEL,
+            deployments=[],
+        ),
+    )
 
-    # assert expected aspect classes
-    expected_classes = [
-        MLModelProperties,
-        ContainerClass,
-        SubTypesClass,
-        VersionPropertiesClass,
-        DataPlatformInstanceClass,
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+    )
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL]),
+    )
+
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=str(DataPlatformUrn(source.platform))
+        ),
+    )
+
+    print(f"mcp_mlmodel: {mcp_mlmodel}")
+    print(f"actual_mcps: {actual_mcps}")
+    assert len(actual_mcps) == 5
+    assert any(mcp_container == mcp for mcp in actual_mcps)
+    assert any(mcp_subtype == mcp for mcp in actual_mcps)
+    assert any(mcp_mlmodel == mcp for mcp in actual_mcps)
+    assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
+
+    # Version Tag has GUID generated by the system,  so we need to check it separately
+    version_tag_mcps = [
+        mcp for mcp in actual_mcps if isinstance(mcp.aspect, VersionPropertiesClass)
     ]
-    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-
-    assert set(expected_classes) == set(actual_classes)
-
-    for mcp in actual_mcps:
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        if isinstance(aspect, MLModelProperties):
-            assert aspect.name == f"{mock_model.display_name}_{mock_model.version_id}"
-            assert aspect.description == model_version.version_description
-            assert aspect.date == model_version.version_create_time
-            assert aspect.hyperParams is None
-        elif isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == [MLAssetSubTypes.VERTEX_MODEL]
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
+    assert len(version_tag_mcps) == 1
+    version_tag_mcp = version_tag_mcps[0]
+    assert isinstance(version_tag_mcp.aspect, VersionPropertiesClass)
 
 
 def test_get_endpoint_mcps(
@@ -156,45 +202,40 @@ def test_get_endpoint_mcps(
 
     # Run _gen_endpoint_mcps
     actual_mcps = list(source._gen_endpoints_mcps(model_meta))
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    expected_urns = [
-        builder.make_ml_model_deployment_urn(
-            platform=source.platform,
-            deployment_name=source._make_vertexai_endpoint_name(
-                entity_id=mock_endpoint.name
+    expected_urn = builder.make_ml_model_deployment_urn(
+        platform=source.platform,
+        deployment_name=source._make_vertexai_endpoint_name(
+            entity_id=mock_endpoint.name
+        ),
+        env=source.config.env,
+    )
+
+    mcp_endpoint = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=MLModelDeploymentPropertiesClass(
+            customProperties={"displayName": mock_endpoint.display_name},
+            description=mock_model.description,
+            createdAt=int(datetime_to_ts_millis(datetime.fromtimestamp(1647878400))),
+            version=VersionTagClass(
+                versionTag=model_version.version_id, metadataAttribution=None
             ),
-            env=source.config.env,
-        )
-    ] * 2
-    # Assert URN,   expect 1 endpoint urn
-    assert actual_urns == expected_urns
+        ),
+    )
 
-    # Assert Aspect Classes
-    expected_classes = [MLModelDeploymentPropertiesClass, ContainerClass]
-    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-    assert set(actual_classes) == set(expected_classes)
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+    )
 
-    for mcp in source._gen_endpoints_mcps(model_meta):
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        if isinstance(aspect, MLModelDeploymentPropertiesClass):
-            assert aspect.description == mock_model.description
-            assert aspect.customProperties == {
-                "displayName": mock_endpoint.display_name
-            }
-            assert aspect.createdAt == int(mock_endpoint.create_time.timestamp() * 1000)
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
-        # TODO: Add following when subtype supported
-        # elif isinstance(aspect, SubTypesClass):
-        #     assert aspect.typeNames == ["Endpoint"]
+    assert len(actual_mcps) == 2
+    assert any(mcp_endpoint == mcp for mcp in actual_mcps)
+    assert any(mcp_container == mcp for mcp in actual_mcps)
 
 
 def test_get_training_jobs_mcps(
     source: VertexAISource,
 ) -> None:
     mock_training_job = gen_mock_training_custom_job()
-    mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -222,45 +263,55 @@ def test_get_training_jobs_mcps(
 
         # Run _get_training_jobs_mcps
         actual_mcps = [mcp for mcp in source._get_training_jobs_mcps()]
-        actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-        expected_urns = [
-            builder.make_data_process_instance_urn(
-                source._make_vertexai_job_name(mock_training_job.name)
-            )
-        ] * 5  # expect 4 aspects
-        assert actual_urns == expected_urns
 
-        # Assert Aspect Classes
-        expected_classes = [
-            DataProcessInstancePropertiesClass,
-            MLTrainingRunPropertiesClass,
-            SubTypesClass,
-            ContainerClass,
-            DataPlatformInstanceClass,
-        ]
-        actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-        assert set(expected_classes) == set(actual_classes)
+        # Assert Entity Urns
+        expected_urn = builder.make_data_process_instance_urn(
+            source._make_vertexai_job_name(mock_training_job.name)
+        )
 
-        # Assert Aspect Contents
-        for mcp in actual_mcps:
-            assert isinstance(mcp, MetadataChangeProposalWrapper)
-            aspect = mcp.aspect
-            if isinstance(aspect, DataProcessInstancePropertiesClass):
-                assert (
-                    aspect.name
-                    == f"{source.config.project_id}.job.{mock_training_job.name}"
-                    or f"{source.config.project_id}.job.{mock_training_automl_job.name}"
-                )
-            if isinstance(aspect, MLTrainingRunPropertiesClass):
-                assert aspect.id == mock_training_job.name
-                assert aspect.externalUrl == source._make_job_external_url(
-                    mock_training_job
-                )
-            if isinstance(aspect, SubTypesClass):
-                assert aspect.typeNames == [MLAssetSubTypes.VERTEX_TRAINING_JOB]
+        mcp_dpi = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=DataProcessInstancePropertiesClass(
+                name=mock_training_job.display_name,
+                externalUrl=source._make_job_external_url(mock_training_job),
+                customProperties={"jobType": "CustomJob"},
+                created=AuditStamp(
+                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                    actor="urn:li:corpuser:datahub",
+                ),
+            ),
+        )
 
-            if isinstance(aspect, ContainerClass):
-                assert aspect.container == source._get_project_container().as_urn()
+        mcp_ml_props = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=MLTrainingRunProperties(
+                id=mock_training_job.name,
+                externalUrl=source._make_job_external_url(mock_training_job),
+            ),
+        )
+
+        mcp_container = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        )
+        mcp_subtype = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_TRAINING_JOB]),
+        )
+
+        mcp_dataplatform = MetadataChangeProposalWrapper(
+            entityUrn=expected_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=str(DataPlatformUrn(source.platform))
+            ),
+        )
+
+        assert len(actual_mcps) == 5
+        assert any(mcp_dpi == mcp for mcp in actual_mcps)
+        assert any(mcp_ml_props == mcp for mcp in actual_mcps)
+        assert any(mcp_subtype == mcp for mcp in actual_mcps)
+        assert any(mcp_container == mcp for mcp in actual_mcps)
+        assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
 
 
 def test_gen_training_job_mcps(source: VertexAISource) -> None:
@@ -270,27 +321,6 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
 
     actual_mcps = [mcp for mcp in source._gen_training_job_mcps(job_meta)]
 
-    # Assert Entity Urns
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    expected_urns = [
-        builder.make_data_process_instance_urn(
-            source._make_vertexai_job_name(mock_training_job.name)
-        )
-    ] * 6  # expect 5 aspects under the same urn for the job
-    assert actual_urns == expected_urns
-
-    # Assert Aspect Classes
-    expected_classes = [
-        DataProcessInstancePropertiesClass,
-        MLTrainingRunPropertiesClass,
-        SubTypesClass,
-        ContainerClass,
-        DataProcessInstanceInputClass,
-        DataPlatformInstanceClass,
-    ]
-    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-    assert set(expected_classes) == set(actual_classes)
-
     dataset_name = source._make_vertexai_dataset_name(entity_id=mock_dataset.name)
     dataset_urn = builder.make_dataset_urn(
         platform=source.platform,
@@ -298,29 +328,65 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
         env=source.config.env,
     )
 
-    for mcp in actual_mcps:
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        if isinstance(aspect, DataProcessInstancePropertiesClass):
-            assert aspect.name == mock_training_job.display_name
-        if isinstance(aspect, MLTrainingRunPropertiesClass):
-            assert aspect.id == mock_training_job.name
-            assert aspect.externalUrl == source._make_job_external_url(
-                mock_training_job
-            )
+    # Assert Entity Urns
+    expected_urn = builder.make_data_process_instance_urn(
+        source._make_vertexai_job_name(mock_training_job.name)
+    )
 
-        if isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == [MLAssetSubTypes.VERTEX_TRAINING_JOB]
+    mcp_dpi = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataProcessInstancePropertiesClass(
+            name=mock_training_job.display_name,
+            externalUrl=source._make_job_external_url(mock_training_job),
+            customProperties={"jobType": "CustomJob"},
+            created=AuditStamp(
+                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                actor="urn:li:corpuser:datahub",
+            ),
+        ),
+    )
+    print(f"\n\nactual_mcps: {actual_mcps}")
 
-        if isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
+    print(f"\n\nmcp_dpi: {mcp_dpi}")
 
-        if isinstance(aspect, DataProcessInstanceInputClass):
-            edges = aspect.inputEdges
-            assert edges is not None
-            assert len(edges) == 1
-            assert isinstance(edges[0], EdgeClass)
-            assert edges[0].destinationUrn == dataset_urn
+    mcp_ml_props = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=MLTrainingRunProperties(
+            id=mock_training_job.name,
+            externalUrl=source._make_job_external_url(mock_training_job),
+        ),
+    )
+
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+    )
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_TRAINING_JOB]),
+    )
+
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=str(DataPlatformUrn(source.platform))
+        ),
+    )
+
+    mcp_dpi_input = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataProcessInstanceInputClass(
+            inputs=[], inputEdges=[EdgeClass(destinationUrn=dataset_urn)]
+        ),
+    )
+
+    assert len(actual_mcps) == 6
+    assert any(mcp_dpi == mcp for mcp in actual_mcps)
+    assert any(mcp_ml_props == mcp for mcp in actual_mcps)
+    assert any(mcp_subtype == mcp for mcp in actual_mcps)
+    assert any(mcp_container == mcp for mcp in actual_mcps)
+    assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
+    assert any(mcp_dpi_input == mcp for mcp in actual_mcps)
 
 
 def test_vertexai_config_init():
@@ -360,7 +426,10 @@ def test_vertexai_config_init():
     assert config.credential.client_id == "test-client-id"
     assert config.credential.auth_uri == "https://accounts.google.com/o/oauth2/auth"
     assert config.credential.token_uri == "https://oauth2.googleapis.com/token"
-    assert config.credential.auth_provider_x509_cert_url == "https://www.googleapis.com/oauth2/v1/certs"
+    assert (
+        config.credential.auth_provider_x509_cert_url
+        == "https://www.googleapis.com/oauth2/v1/certs"
+    )
 
     parsed_conf = config.get_credentials()
     assert parsed_conf is not None
@@ -394,98 +463,112 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
         source._get_input_dataset_mcps(job_meta)
     )
 
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
     assert job_meta.input_dataset is not None
-    expected_urns = [
-        builder.make_dataset_urn(
-            platform=source.platform,
-            name=source._make_vertexai_dataset_name(
-                entity_id=job_meta.input_dataset.name
+    expected_urn = builder.make_dataset_urn(
+        platform=source.platform,
+        name=source._make_vertexai_dataset_name(entity_id=job_meta.input_dataset.name),
+        env=source.config.env,
+    )
+
+    mcp_ds = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DatasetPropertiesClass(
+            name=mock_dataset.display_name,
+            description=mock_dataset.display_name,
+            qualifiedName=mock_dataset.resource_name,
+            customProperties={"resourceName": mock_dataset.resource_name},
+            created=TimeStampClass(
+                time=datetime_to_ts_millis(mock_dataset.create_time)
             ),
-            env=source.config.env,
-        )
-    ] * 4  # expect 3 aspects
-    assert actual_urns == expected_urns
+        ),
+    )
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+    )
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_DATASET]),
+    )
 
-    # Assert Aspect Classes
-    actual_classes = [mcp.aspect.__class__ for mcp in actual_mcps]
-    expected_classes = [
-        DatasetPropertiesClass,
-        ContainerClass,
-        SubTypesClass,
-        DataPlatformInstanceClass,
-    ]
-    assert set(expected_classes) == set(actual_classes)
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=str(DataPlatformUrn(source.platform))
+        ),
+    )
 
-    # Run _get_input_dataset_mcps
-    for mcp in actual_mcps:
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        if isinstance(aspect, DataProcessInstancePropertiesClass):
-            assert aspect.name == f"{source._make_vertexai_job_name(mock_dataset.name)}"
-            assert aspect.customProperties["displayName"] == mock_dataset.display_name
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
-        elif isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == ["Dataset"]
+    assert len(actual_mcps) == 4
+    assert any(mcp_ds == mcp for mcp in actual_mcps)
+    assert any(mcp_subtype == mcp for mcp in actual_mcps)
+    assert any(mcp_container == mcp for mcp in actual_mcps)
+    assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
 
 
 @patch("google.cloud.aiplatform.Experiment.list")
 def test_get_experiment_mcps(
     mock_list: List[Experiment], source: VertexAISource
 ) -> None:
-    experiment = gen_mock_experiment()
+    mock_experiment = gen_mock_experiment()
     assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
-    mock_list.return_value = [experiment]
-    workunits: List[MetadataWorkUnit] = list(source._get_experiments_workunits())
+    mock_list.return_value = [mock_experiment]
+    actual_wus: List[MetadataWorkUnit] = list(source._get_experiments_workunits())
+    actual_mcps = [
+        mcp.metadata
+        for mcp in actual_wus
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+    ]
 
     expected_urn = ContainerKeyWithId(
         platform=source.platform,
-        id=source._make_vertexai_experiment_name(experiment.name),
+        id=source._make_vertexai_experiment_name(mock_experiment.name),
     ).as_urn()
 
-    actual_urns = [
-        wu.metadata.entityUrn
-        for wu in workunits
-        if isinstance(
-            wu.metadata, (MetadataChangeProposalClass, MetadataChangeProposalWrapper)
-        )
-    ]
-    assert [expected_urn] * 5 == actual_urns
-
-    expected_classes = {
-        ContainerPropertiesClass,
-        SubTypesClass,
-        DataPlatformInstanceClass,
-        StatusClass,
-        ContainerClass,
-    }
-    instances = set(
-        [
-            wu.metadata.aspect.__class__
-            for wu in workunits
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
-            )
-        ]
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=source._get_project_container().as_urn()),
     )
-    assert expected_classes == instances
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_EXPERIMENT]),
+    )
 
-    for wu in workunits:
-        assert wu.get_urn() == expected_urn
-        aspect = wu.get_metadata()["metadata"]
-        if isinstance(aspect, ContainerPropertiesClass):
-            assert aspect.name == experiment.name
-            assert aspect.externalUrl == source._make_experiment_external_url(
-                experiment
-            )
-        elif isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == [MLAssetSubTypes.VERTEX_EXPERIMENT]
-        elif isinstance(aspect, DataPlatformInstanceClass):
-            assert aspect.platform == source.platform
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == source._get_project_container().as_urn()
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=str(DataPlatformUrn(source.platform))
+        ),
+    )
+
+    mcp_container_props = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerPropertiesClass(
+            name=mock_experiment.name,
+            customProperties={
+                "platform": source.platform,
+                "id": source._make_vertexai_experiment_name(mock_experiment.name),
+                "name": mock_experiment.name,
+                "resourceName": mock_experiment.resource_name,
+                "dashboardURL": mock_experiment.dashboard_url
+                if mock_experiment.dashboard_url
+                else "",
+            },
+            externalUrl=source._make_experiment_external_url(mock_experiment),
+        ),
+    )
+
+    mcp_status = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn, aspect=StatusClass(removed=False)
+    )
+
+    assert len(actual_wus) == 5
+    assert len(actual_mcps) == 5
+    assert any(mcp_container_props == mcp for mcp in actual_mcps)
+
+    assert any(mcp_subtype == mcp for mcp in actual_mcps)
+    assert any(mcp_container == mcp for mcp in actual_mcps)
+    assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
+    assert any(mcp_status == mcp for mcp in actual_mcps)
 
 
 @patch("google.cloud.aiplatform.ExperimentRun.list")
@@ -503,42 +586,69 @@ def test_gen_experiment_run_mcps(
         id=source._make_vertexai_experiment_name(mock_exp.name),
     ).as_urn()
 
+    expected_urn = source._make_experiment_run_urn(mock_exp, mock_exp_run)
     actual_mcps: List[MetadataChangeProposalWrapper] = list(
         source._get_experiment_runs_mcps()
     )
 
-    run_name = source._make_vertexai_experiment_run_name(
-        entity_id=f"{mock_exp.name}-{mock_exp_run.name}"
+    mcp_dpi = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataProcessInstancePropertiesClass(
+            name=mock_exp_run.name,
+            externalUrl=source._make_experiment_run_external_url(
+                mock_exp, mock_exp_run
+            ),
+            customProperties={
+                "externalUrl": source._make_experiment_run_external_url(
+                    mock_exp, mock_exp_run
+                )
+            },
+            created=AuditStamp(time=0, actor="urn:li:corpuser:datahub"),
+        ),
     )
 
-    expected_urn = builder.make_data_process_instance_urn(run_name)
-    actual_urns = [mcp.entityUrn for mcp in actual_mcps]
-    assert [expected_urn] * 5 == actual_urns
-    expected_classes = {
-        DataProcessInstancePropertiesClass,
-        ContainerClass,
-        MLTrainingRunPropertiesClass,
-        DataPlatformInstanceClass,
-        SubTypesClass,
-    }
-    actual_classes = set([mcp.aspect.__class__ for mcp in actual_mcps])
-    assert expected_classes == actual_classes
+    mcp_ml_props = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=MLTrainingRunProperties(
+            id=f"{mock_exp.name}-{mock_exp_run.name}",
+            externalUrl=source._make_experiment_run_external_url(
+                mock_exp, mock_exp_run
+            ),
+            hyperParams=[],
+            trainingMetrics=[],
+        ),
+    )
 
-    for mcp in actual_mcps:
-        aspect = mcp.aspect
-        if isinstance(aspect, DataProcessInstancePropertiesClass):
-            assert aspect.name == mock_exp_run.name
-            assert aspect.externalUrl == source._make_experiment_run_external_url(
-                mock_exp, mock_exp_run
-            )
-        elif isinstance(aspect, ContainerClass):
-            assert aspect.container == expected_exp_urn
-        elif isinstance(aspect, MLTrainingRunPropertiesClass):
-            assert aspect.externalUrl == source._make_experiment_run_external_url(
-                mock_exp, mock_exp_run
-            )
-        elif isinstance(aspect, SubTypesClass):
-            assert aspect.typeNames == [MLAssetSubTypes.VERTEX_EXPERIMENT_RUN]
+    mcp_container = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=ContainerClass(container=expected_exp_urn),
+    )
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_EXPERIMENT_RUN]),
+    )
+
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=str(DataPlatformUrn(source.platform))
+        ),
+    )
+
+    mcp = [
+        mcp
+        for mcp in actual_mcps
+        if isinstance(mcp.aspect, (DataProcessInstancePropertiesClass))
+    ][0]
+    assert mcp == mcp_dpi
+
+    print(f"\nactual_mcps: {actual_mcps}")
+    assert len(actual_mcps) == 5
+    assert any(mcp_dpi == mcp for mcp in actual_mcps)
+    assert any(mcp_ml_props == mcp for mcp in actual_mcps)
+    assert any(mcp_subtype == mcp for mcp in actual_mcps)
+    assert any(mcp_container == mcp for mcp in actual_mcps)
+    assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:
