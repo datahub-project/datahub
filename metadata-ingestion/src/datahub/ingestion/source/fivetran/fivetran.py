@@ -643,6 +643,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                 **lineage_properties,
             }
 
+            logger.info(
+                f"Created DataJob for table lineage {source_table} -> {destination_table}"
+            )
             return datajob
 
         except Exception as e:
@@ -696,7 +699,8 @@ class FivetranSource(StatefulIngestionSourceBase):
         """Generate workunits for a connector using per-table mode (one datajob per table)."""
         # Get source and destination platform details
         source_details = self._get_source_details(connector)
-        source_details.platform = self._detect_source_platform(connector)
+        if not source_details.platform:
+            source_details.platform = self._detect_source_platform(connector)
 
         destination_details = self._get_destination_details(connector)
 
@@ -710,6 +714,8 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create job instances for each table lineage
         processed_tables = set()
+        table_job_map = {}  # Map to track table specific jobs
+
         for lineage in connector.lineage:
             # Create a unique key to avoid duplicates
             table_key = f"{lineage.source_table}:{lineage.destination_table}"
@@ -727,27 +733,34 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
             if datajob:
+                # Store the datajob in our mapping
+                table_job_map[table_key] = datajob
+
                 # Emit the datajob
                 for mcp in datajob.generate_mcp(materialize_iolets=False):
                     yield mcp.as_workunit()
 
-                # For each job in connector's history, create a DPI for this table
-                # Only include recent jobs to avoid cluttering
-                sorted_jobs = sorted(
-                    connector.jobs, key=lambda j: j.end_time, reverse=True
-                )
-                for job in sorted_jobs[:5]:  # Limit to 5 recent jobs per table
-                    # Make a unique job ID for this table-specific job run
-                    table_job_id = f"{job.job_id}_{hash(table_key)}"
-                    table_dpi = DataProcessInstance.from_datajob(
-                        datajob=datajob,
-                        id=table_job_id,
-                        clone_inlets=True,
-                        clone_outlets=True,
-                    )
+        # Now process job history for each table
+        sorted_jobs = sorted(connector.jobs, key=lambda j: j.end_time, reverse=True)[
+            :5
+        ]  # Limit to 5 recent jobs
 
-                    # Generate DPI workunits
-                    yield from self._get_dpi_workunits(job, table_dpi)
+        # For each job in connector's history, create DPIs for each table
+        for job in sorted_jobs:
+            for table_key, datajob in table_job_map.items():
+                # Create a unique job ID for this table-specific job run
+                table_job_id = f"{job.job_id}_{hash(table_key)}"
+
+                # Create a DPI specific to this table
+                table_dpi = DataProcessInstance.from_datajob(
+                    datajob=datajob,
+                    id=table_job_id,
+                    clone_inlets=True,
+                    clone_outlets=True,
+                )
+
+                # Generate DPI workunits
+                yield from self._get_dpi_workunits(job, table_dpi)
 
     def _generate_datajob_from_connector(self, connector: Connector) -> DataJob:
         """Generate a DataJob entity from a connector."""
