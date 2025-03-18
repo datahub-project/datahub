@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: depot-ubuntu-22.04-small
+    runs-on: ubuntu-22.04
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
     steps:
@@ -31,7 +31,7 @@ jobs:
         id: ci-optimize
 
   deploy:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
       deployments: write
