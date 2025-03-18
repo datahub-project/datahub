@@ -4,12 +4,14 @@ from typing import Any, Union
 
 import pytest
 from mlflow import MlflowClient
+from mlflow.entities import Dataset as MLflowDataset
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.store.entities import PagedList
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mlflow import MLflowConfig, MLflowSource
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 @pytest.fixture
@@ -41,6 +43,39 @@ def model_version(
         name=registered_model.name,
         version=version,
         creation_timestamp=datetime.datetime.now(),
+    )
+
+
+@pytest.fixture
+def mlflow_dataset() -> MLflowDataset:
+    return MLflowDataset(
+        name="test_dataset",
+        digest="test_digest",
+        source="test_source",
+        source_type="snowflake",
+        schema='{"mlflow_colspec":[{"name":"col1", "type":"string"}]}',
+    )
+
+
+@pytest.fixture
+def mlflow_local_dataset() -> MLflowDataset:
+    return MLflowDataset(
+        name="test_local_dataset",
+        digest="test_digest",
+        source="test_source",
+        source_type="local",
+        schema='{"mlflow_colspec":[{"name":"col1", "type":"string"}]}',
+    )
+
+
+@pytest.fixture
+def mlflow_unsupported_dataset() -> MLflowDataset:
+    return MLflowDataset(
+        name="test_unsupported_dataset",
+        digest="test_digest",
+        source="test_source",
+        source_type="unsupported_platform",
+        schema='{"mlflow_colspec":[{"name":"col1", "type":"string"}]}',
     )
 
 
@@ -149,3 +184,136 @@ def test_make_external_link_remote_via_config(source, model_version):
     url = source._make_external_url(model_version)
 
     assert url == expected_url
+
+
+def test_local_dataset_reference_creation(source, mlflow_local_dataset):
+    """Test that local dataset reference is always created for local source type"""
+    workunits = list(source._get_dataset_input_workunits(mlflow_local_dataset))
+
+    # Should create local dataset reference
+    assert len(workunits) > 0
+    assert any(
+        "urn:li:dataset:(urn:li:dataPlatform:mlflow" in wu.id for wu in workunits
+    )
+
+
+def test_materialization_disabled_with_supported_platform(source, mlflow_dataset):
+    """
+    Test when materialize_dataset_inputs=False and platform is supported:
+    - Should create dataset reference
+    - Should not create hosted dataset
+    - Should try to link with existing upstream if exists
+    """
+    source.config.materialize_dataset_inputs = False
+
+    # Mock the graph to simulate existing dataset
+    class MockGraph:
+        def get_aspect_v2(self, *args, **kwargs):
+            return {}  # Return non-None to simulate existing dataset
+
+    source.ctx.graph = MockGraph()
+
+    workunits = list(source._get_dataset_input_workunits(mlflow_dataset))
+
+    # Should create dataset reference
+    assert len(workunits) > 0
+    # Should have upstream lineage
+    assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
+    # Should not create hosted dataset (no snowflake platform URN)
+    assert not any(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake" in wu.id for wu in workunits
+    )
+
+
+def test_materialization_disabled_with_unsupported_platform(
+    source, mlflow_unsupported_dataset
+):
+    """
+    Test when materialize_dataset_inputs=False and platform is not supported:
+    - Should create dataset reference
+    - Should not create hosted dataset
+    - Should not try to link upstream
+    """
+    source.config.materialize_dataset_inputs = False
+    workunits = list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+
+    # Should create dataset reference
+    assert len(workunits) > 0
+    # Should not have upstream lineage
+    assert not any(
+        isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits
+    )
+
+
+def test_materialization_enabled_with_supported_platform(source, mlflow_dataset):
+    """
+    Test when materialize_dataset_inputs=True and platform is supported:
+    - Should create dataset reference
+    - Should create hosted dataset
+    """
+    source.config.materialize_dataset_inputs = (
+        MLflowConfig.MaterializeDatasetInputsConfig(enabled=True)
+    )
+    workunits = list(source._get_dataset_input_workunits(mlflow_dataset))
+
+    # Should create both dataset reference and hosted dataset
+    assert len(workunits) > 0
+    assert any(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake" in wu.id for wu in workunits
+    )
+
+
+def test_materialization_enabled_with_unsupported_platform(
+    source, mlflow_unsupported_dataset
+):
+    """
+    Test when materialize_dataset_inputs=True and platform is not supported:
+    - Should raise ValueError
+    """
+    source.config.materialize_dataset_inputs = (
+        MLflowConfig.MaterializeDatasetInputsConfig(enabled=True)
+    )
+
+    with pytest.raises(ValueError, match="No mapping dataPlatform found"):
+        list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+
+
+def test_materialization_enabled_with_custom_mapping(
+    source, mlflow_unsupported_dataset
+):
+    """
+    Test when materialize_dataset_inputs=True with custom platform mapping:
+    - Should create dataset reference
+    - Should create hosted dataset with mapped platform
+    """
+    source.config.materialize_dataset_inputs = (
+        MLflowConfig.MaterializeDatasetInputsConfig(
+            enabled=True,
+            source_mapping_to_platform={"unsupported_platform": "snowflake"},
+        )
+    )
+    workunits = list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+
+    # Should create both dataset reference and hosted dataset
+    assert len(workunits) > 0
+    assert any(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake" in wu.id for wu in workunits
+    )
+
+
+def test_materialization_enabled_with_invalid_custom_mapping(
+    source, mlflow_unsupported_dataset
+):
+    """
+    Test when materialize_dataset_inputs=True with invalid custom platform mapping:
+    - Should raise ValueError
+    """
+    source.config.materialize_dataset_inputs = (
+        MLflowConfig.MaterializeDatasetInputsConfig(
+            enabled=True,
+            source_mapping_to_platform={"unsupported_platform": "invalid_platform"},
+        )
+    )
+
+    with pytest.raises(ValueError, match="Invalid platform"):
+        list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))

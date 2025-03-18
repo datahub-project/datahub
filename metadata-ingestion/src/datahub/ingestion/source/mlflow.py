@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from mlflow import MlflowClient
-from mlflow.entities import Experiment, Run
+from mlflow.entities import Dataset as MLflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
@@ -13,6 +13,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
 )
+from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
@@ -49,6 +50,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
+    DatasetPropertiesClass,
     EdgeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
@@ -68,7 +70,7 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
     _Aspect,
 )
-from datahub.metadata.urns import DataPlatformUrn, MlModelUrn, VersionSetUrn
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -105,6 +107,23 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
             " If not set, tracking_uri is used if it's an HTTP URL."
             " If neither is set, external URLs are not generated."
         ),
+    )
+
+    class MaterializeDatasetInputsConfig(ConfigModel):
+        enabled: bool = Field(
+            default=False,
+            description="Whether to materialize dataset inputs for each run",
+        )
+
+        source_mapping_to_platform: Optional[dict] = Field(
+            default=None, description="Mapping of source type to datahub platform"
+        )
+
+    materialize_dataset_inputs: Optional[
+        Union[bool, MaterializeDatasetInputsConfig]
+    ] = Field(
+        default=False,
+        description="Whether to materialize dataset inputs for each run",
     )
 
 
@@ -282,11 +301,62 @@ class MLflowSource(StatefulIngestionSourceBase):
         # If the schema is not formatted, return None
         return None
 
-    def _get_dataset_platform_from_source_type(self, source_type):
-        # manually map mlflow platform to datahub platform
+    def _get_dataset_platform_from_source_type(self, source_type: str) -> Optional[str]:
+        def is_valid_platform(platform: str) -> bool:
+            return platform in DataPlatformUrn.__annotations__
+
+        # Check user-provided mapping first
+        if isinstance(
+            self.config.materialize_dataset_inputs,
+            MLflowConfig.MaterializeDatasetInputsConfig,
+        ):
+            source_dict = (
+                self.config.materialize_dataset_inputs.source_mapping_to_platform
+            )
+            if source_dict and source_type in source_dict:
+                platform = source_dict[source_type]
+                if is_valid_platform(platform):
+                    return platform
+                else:
+                    raise ValueError(
+                        f"Invalid platform '{platform}' in source_mapping_to_platform"
+                    )
+
+        # Check internal mapping
         if source_type == "gs":
             return "gcs"
-        return source_type
+
+        # Check if source type is a valid datahub platform
+        if is_valid_platform(source_type):
+            return source_type
+
+        return None
+
+    def _get_hosted_dataset_upstream(
+        self, formatted_platform: Optional[str], dataset: MLflowDataset
+    ) -> Optional[UpstreamLineageClass]:
+        if formatted_platform and self.ctx.graph:  # check if graph exists
+            hosted_dataset_urn = DatasetUrn(
+                platform=formatted_platform, name=dataset.name
+            )
+            # Implement actual dataset existence check using DataHub API
+            try:
+                dataset_exists = (
+                    self.ctx.graph.get_aspect_v2(
+                        str(hosted_dataset_urn),
+                        DatasetPropertiesClass,  # use the actual type instead of string
+                        "latest",
+                    )
+                    is not None
+                )
+                if dataset_exists:
+                    return UpstreamLineageClass(
+                        upstreams=[UpstreamClass(str(hosted_dataset_urn), type="COPY")]
+                    )
+            except Exception:
+                # Handle any errors in checking dataset existence
+                pass
+        return None
 
     def _get_dataset_input_workunits(self, run: Run) -> Iterable[MetadataWorkUnit]:
         run_urn = DataProcessInstance(
@@ -299,9 +369,6 @@ class MLflowSource(StatefulIngestionSourceBase):
             source_type = dataset_input.dataset.source_type
             dataset_tags = {k[1]: v[1] for k, v in dataset_input.tags}
             dataset = dataset_input.dataset
-            formatted_platform = self._get_dataset_platform_from_source_type(
-                source_type
-            )
             custom_properties = dataset_tags
             formatted_schema = self._get_dataset_schema(dataset.schema)
             # If the schema is not formatted, pass the schema as a custom property
@@ -310,35 +377,53 @@ class MLflowSource(StatefulIngestionSourceBase):
             # If the dataset is local or code, we create a local dataset reference
             if source_type in ("local", "code"):
                 local_dataset_reference = Dataset(
-                    platform=formatted_platform,
+                    platform=self.platform,
                     name=dataset.name,
                     schema=formatted_schema,
                     custom_properties=custom_properties,
                 )
                 yield from local_dataset_reference.as_workunits()
                 dataset_reference_urns.append(str(local_dataset_reference.urn))
-            # Otherwise, we create a hosted dataset reference and a hosted dataset
+            # Otherwise, we create a hosted dataset reference
             else:
-                hosted_dataset = Dataset(
-                    platform=formatted_platform,
-                    name=dataset.name,
-                    schema=formatted_schema,
-                    custom_properties=dataset_tags,
+                formatted_platform = self._get_dataset_platform_from_source_type(
+                    source_type
+                )
+                # Handle materialization config properly
+                materialize_enabled = False
+                if isinstance(
+                    self.config.materialize_dataset_inputs,
+                    MLflowConfig.MaterializeDatasetInputsConfig,
+                ):
+                    materialize_enabled = self.config.materialize_dataset_inputs.enabled
+                elif isinstance(self.config.materialize_dataset_inputs, bool):
+                    materialize_enabled = self.config.materialize_dataset_inputs
+
+                # Use materialize_enabled in the logic
+                if materialize_enabled:
+                    if formatted_platform:
+                        hosted_dataset = Dataset(
+                            platform=formatted_platform,
+                            name=dataset.name,
+                            schema=formatted_schema,
+                            custom_properties=dataset_tags,
+                        )
+                        yield from hosted_dataset.as_workunits()
+                    else:
+                        raise ValueError(
+                            f"No mapping dataPlatform found for dataset input source type '{source_type}', please add `materialize_dataset_inputs.source_mapping_to_platform` in config (e.g. '{source_type}': 'snowflake')"
+                        )
+                hosted_dataset_upstream = self._get_hosted_dataset_upstream(
+                    formatted_platform, dataset
                 )
                 hosted_dataset_reference = Dataset(
                     platform=self.platform,
                     name=dataset.name,
                     schema=formatted_schema,
                     custom_properties=dataset_tags,
-                    upstreams=UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(dataset=str(hosted_dataset.urn), type="COPY")
-                        ]
-                    ),
+                    upstreams=hosted_dataset_upstream,
                 )
                 dataset_reference_urns.append(str(hosted_dataset_reference.urn))
-
-                yield from hosted_dataset.as_workunits()
                 yield from hosted_dataset_reference.as_workunits()
 
         # add the dataset reference as upstream for the run
