@@ -401,8 +401,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
@@ -514,8 +515,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(chart_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
 
@@ -782,8 +784,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dataset_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
