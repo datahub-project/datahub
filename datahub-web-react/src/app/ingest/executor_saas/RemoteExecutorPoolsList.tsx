@@ -6,15 +6,12 @@ import {
     useListRemoteExecutorPoolsQuery,
     useUpdateDefaultRemoteExecutorPoolMutation,
 } from '@src/graphql/remote_executor.saas.generated';
-import { Button, Pagination } from 'antd';
+import { Button, SearchBar } from '@components';
+import { Pagination } from 'antd';
 import { ArrowClockwise, Plus } from 'phosphor-react';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { RemoteExecutorPool } from '@src/types.generated';
-import { ONE_SECOND_IN_MS } from '@src/app/entity/shared/tabs/Dataset/Queries/utils/constants';
-import { debounce } from 'lodash';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { SearchBar } from '@src/app/search/SearchBar';
 import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useHistory } from 'react-router';
@@ -41,6 +38,35 @@ const ArrowClockwiseStyled = styled(ArrowClockwise)`
     top: 2px;
 `;
 
+const SearchContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const StyledTabToolbar = styled(TabToolbar)`
+    padding: 16px 20px;
+    height: auto;
+    &&& {
+        padding: 8px 20px;
+        height: auto;
+        box-shadow: none;
+        border-bottom: none;
+    }
+`;
+
+const StyledSearchBar = styled(SearchBar)`
+    width: 220px;
+`;
+
+const RefreshButtonContainer = styled.div``;
+
+const PaginationContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+`;
+
 type Props = {
     onSwitchTab: (tab: string) => void;
 };
@@ -49,7 +75,6 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
     const me = useUserContext();
     const canManagePools = me.platformPrivileges?.manageIngestion;
 
-    const entityRegistry = useEntityRegistry();
     const defaultQuery = useQueryParamValue('pool');
 
     // ---------------------- load & search data ---------------------- //
@@ -80,10 +105,10 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
         setPage(newPage);
     };
 
-    const onSearch = debounce((newQuery: string | undefined) => {
-        setQuery(newQuery);
+    const handleSearch = (value: string) => {
         setPage(1);
-    }, ONE_SECOND_IN_MS);
+        setQuery(value);
+    };
 
     // ---------------------- updating default pools ---------------------- //
     const [updateDefaultPoolMutation] = useUpdateDefaultRemoteExecutorPoolMutation();
@@ -125,38 +150,28 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
             {/* ----------- Main content ----------- */}
             <ExecutorsContainer>
                 {/* ----------- Toolbar ----------- */}
-                <TabToolbar>
+                <StyledTabToolbar>
                     <div>
                         {canManagePools && IS_CREATE_POOL_ENABLED && (
-                            <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
+                            <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} variant="text" onClick={onCreatePool}>
                                 <PlusStyled />
                                 <span style={{ marginLeft: 4 }}>Create</span>
                             </Button>
                         )}
-                        <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} type="text" onClick={onRefresh}>
-                            <ArrowClockwiseStyled />
-                            <span style={{ marginLeft: 4 }}>Refresh</span>
-                        </Button>
+                        <SearchContainer>
+                            <StyledSearchBar
+                                placeholder="Search pools..."
+                                value={query || ''}
+                                onChange={handleSearch}
+                            />
+                        </SearchContainer>
                     </div>
-                    <SearchBar
-                        searchInputRef={searchInputRef}
-                        initialQuery={query || ''}
-                        placeholderText="Search pools..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={onSearch}
-                        entityRegistry={entityRegistry}
-                        hideRecommendations
-                    />
-                </TabToolbar>
+                    <RefreshButtonContainer>
+                        <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} variant="text" onClick={onRefresh}>
+                            <ArrowClockwiseStyled /> <span style={{ marginLeft: 4 }}>Refresh</span>
+                        </Button>
+                    </RefreshButtonContainer>
+                </StyledTabToolbar>
                 {/* ----------- Table ----------- */}
                 <RemoteExecutorPoolsTable
                     pools={remoteExecutorPools}
@@ -165,15 +180,16 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                     viewSourcesForPool={onViewSourcesForPool}
                 />
                 {/* ----------- Pagination ----------- */}
-                <Pagination
-                    style={{ margin: 16 }}
-                    current={page}
-                    pageSize={pageSize}
-                    total={total}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={false}
-                />
+                <PaginationContainer>
+                    <Pagination
+                        current={page}
+                        pageSize={pageSize}
+                        total={total}
+                        showLessItems
+                        onChange={onChangePage}
+                        showSizeChanger={false}
+                    />
+                </PaginationContainer>
             </ExecutorsContainer>
             {showCreatePoolModal && (
                 <CreateRemoteExecutorPoolModal

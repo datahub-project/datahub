@@ -70,7 +70,7 @@ describe("managing secrets for ingestion creation", () => {
     // Remove a secret
     cy.openEntityTab("Secrets");
     cy.waitTextVisible(`secretname${number}`);
-    cy.get('[data-icon="delete"]').first().click();
+    cy.get('[data-test-id="delete-secret-action"]').first().click();
     cy.waitTextVisible("Confirm Secret Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed secret.");
@@ -109,7 +109,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.enterTextInTestId(
       "secret-modal-description-input",
       `secretdescription${number}`,
-    );
+    ).wait(500);
     cy.clickOptionWithTestId("secret-modal-create-button");
     cy.waitTextVisible("Created secret!");
     cy.get("#role").type(role);

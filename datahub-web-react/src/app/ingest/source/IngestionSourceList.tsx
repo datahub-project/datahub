@@ -1,12 +1,11 @@
-import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-import { Button, message, Modal, Pagination, Select } from 'antd';
+import { Button, colors, SearchBar, SimpleSelect } from '@components';
+import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
+import { message, Modal, Pagination } from 'antd';
 import styled from 'styled-components';
-import { X } from 'phosphor-react';
-import { colors } from '@src/alchemy-components';
+import { X, ArrowClockwise } from 'phosphor-react';
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
@@ -20,8 +19,6 @@ import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderMod
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
 import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
 import RecipeViewerModal from './RecipeViewerModal';
 import IngestionSourceTable from './IngestionSourceTable';
@@ -29,31 +26,52 @@ import { scrollToTop } from '../../shared/searchUtils';
 import useRefreshIngestionData from './executions/useRefreshIngestionData';
 import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
 import analytics, { EventType } from '../../analytics';
-import {
-    INGESTION_CREATE_SOURCE_ID,
-    INGESTION_REFRESH_SOURCES_ID,
-} from '../../onboarding/config/IngestionOnboardingConfig';
-import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { INGESTION_REFRESH_SOURCES_ID } from '../../onboarding/config/IngestionOnboardingConfig';
 import { useCommandS } from './hooks';
 import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
 import { usePoolActionsForIngestionSourceList } from './hooks.saas';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
 
 const SourcePaginationContainer = styled.div`
     display: flex;
     justify-content: center;
 `;
 
-const StyledSelect = styled(Select)`
-    margin-right: 15px;
-    min-width: 75px;
+const StyledTabToolbar = styled(TabToolbar)`
+    padding: 16px 20px;
+    height: auto;
+    &&& {
+        padding: 8px 20px;
+        height: auto;
+        box-shadow: none;
+    }
 `;
 
-const FilterWrapper = styled.div`
+const SearchContainer = styled.div`
     display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const RefreshButtonContainer = styled.div``;
+
+const StyledSearchBar = styled(SearchBar)`
+    width: 220px;
+`;
+
+const StyledPagination = styled(Pagination)`
+    margin: 15px;
+`;
+
+const StyledSimpleSelect = styled(SimpleSelect)`
+    display: flex;
+    align-self: start;
 `;
 
 // SaaS only button
@@ -74,10 +92,10 @@ const CloseButton = styled(X)`
 
 const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
-export enum IngestionSourceType {
-    ALL,
-    UI,
-    CLI,
+enum IngestionSourceType {
+    ALL = 0,
+    UI = 1,
+    CLI = 2,
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -96,12 +114,11 @@ const removeExecutionsFromIngestionSource = (source) => {
 
 type Props = {
     onSwitchTab: (tab: string) => void;
+    showCreateModal?: boolean;
+    setShowCreateModal?: (show: boolean) => void;
 };
 
-export const IngestionSourceList = ({ onSwitchTab }: Props) => {
-    const entityRegistry = useEntityRegistry();
-
-    // parse query params
+export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreateModal }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.[INGESTION_TAB_QUERY_PARAMS.searchQuery] as string) || undefined;
@@ -133,6 +150,14 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    // Add a useEffect to handle the showCreateModal prop
+    useEffect(() => {
+        if (showCreateModal && setShowCreateModal) {
+            setIsBuildingSource(true);
+            setShowCreateModal(false);
+        }
+    }, [showCreateModal, setShowCreateModal]);
 
     // When source filter changes, reset page to 1
     useEffect(() => {
@@ -194,9 +219,10 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
         setLastRefresh(new Date().getTime());
     }, [refetch]);
 
-    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
-        setQuery(newQuery);
-    }, ONE_SECOND_IN_MS);
+    const handleSearch = (value: string) => {
+        setPage(1);
+        setQuery(value);
+    };
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
@@ -444,57 +470,35 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-                <TabToolbar>
-                    <div>
-                        <Button
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            type="text"
-                            onClick={() => setIsBuildingSource(true)}
-                            data-testid="create-ingestion-source-button"
-                        >
-                            <PlusOutlined /> Create new source
-                        </Button>
-                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
-                            <RedoOutlined /> Refresh
-                        </Button>
-                    </div>
-                    <FilterWrapper>
-                        <StyledSelect
-                            value={sourceFilter}
-                            onChange={(selection) => setSourceFilter(selection as IngestionSourceType)}
-                        >
-                            <Select.Option value={IngestionSourceType.ALL}>All</Select.Option>
-                            <Select.Option value={IngestionSourceType.UI}>UI</Select.Option>
-                            <Select.Option value={IngestionSourceType.CLI}>CLI</Select.Option>
-                        </StyledSelect>
-
-                        <SearchBar
-                            searchInputRef={searchInputRef}
-                            initialQuery={query || ''}
-                            placeholderText="Search sources..."
-                            suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
-                            onSearch={() => null}
-                            onQueryChange={(q) => {
-                                setPage(1);
-                                debouncedSetQuery(q);
-                            }}
-                            entityRegistry={entityRegistry}
-                            hideRecommendations
+                <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
+                <StyledTabToolbar>
+                    <SearchContainer>
+                        <StyledSearchBar
+                            placeholder="Search..."
+                            value={query || ''}
+                            onChange={(value) => handleSearch(value)}
                         />
-                    </FilterWrapper>
-                </TabToolbar>
-
+                        <StyledSimpleSelect
+                            options={[
+                                { label: 'All', value: '0' },
+                                { label: 'UI', value: '1' },
+                                { label: 'CLI', value: '2' },
+                            ]}
+                            values={[sourceFilter.toString()]}
+                            onUpdate={(values) => setSourceFilter(Number(values[0]))}
+                            showClear={false}
+                            width={60}
+                        />
+                    </SearchContainer>
+                    <RefreshButtonContainer>
+                        <Button id={INGESTION_REFRESH_SOURCES_ID} variant="text" onClick={onRefresh}>
+                            <ArrowClockwise /> Refresh
+                        </Button>
+                    </RefreshButtonContainer>
+                </StyledTabToolbar>
                 {/* SaaS only: Pools filter query param indicator with an 'x' button */}
                 {paramsPoolFilter && (
-                    <PoolsFilterButton type="text" onClick={clearPoolFilter}>
+                    <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
                         Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
                         <CloseButton color={colors.gray[500]} size={12} />
                     </PoolsFilterButton>
@@ -512,8 +516,7 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
                     saasProps={{ onViewPool }}
                 />
                 <SourcePaginationContainer>
-                    <Pagination
-                        style={{ margin: 15 }}
+                    <StyledPagination
                         current={page}
                         pageSize={pageSize}
                         total={totalSources}

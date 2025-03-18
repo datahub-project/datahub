@@ -213,6 +213,7 @@ export function ActionsColumn({
             )}
             <Button
                 data-testid={`delete-ingestion-source-${record.name}`}
+                data-icon="delete"
                 onClick={() => onDelete(record.urn)}
                 type="text"
                 shape="circle"

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, List, message, Tag, Typography } from 'antd';
+import { Button, Dropdown, List, message, Tag, Typography } from 'antd';
 import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import { Copy, DotsThreeVertical, LockOpen, Trash } from 'phosphor-react';
@@ -157,10 +157,14 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     refetch={refetch}
                 />
                 <Dropdown trigger={['click']} menu={{ items }}>
-                    <MenuIcon
-                        fontSize={20}
+                    <Button
+                        type="text"
+                        style={{ padding: 0 }}
+                        onClick={(e) => e.preventDefault()}
                         data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
-                    />
+                    >
+                        <MenuIcon fontSize={20} />
+                    </Button>
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal

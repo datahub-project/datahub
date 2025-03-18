@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dropdown, Menu, message } from 'antd';
+import { Button, Dropdown, Menu, message } from 'antd';
 import { Tooltip } from '@components';
 import { Redirect, useHistory } from 'react-router';
 import {
@@ -332,7 +332,14 @@ function EntityDropdown(props: Props) {
     return (
         <>
             <Dropdown menu={{ items }} trigger={['click']}>
-                <MenuIcon data-testid="entity-header-dropdown" fontSize={size} />
+                <Button
+                    type="text"
+                    style={{ padding: 0 }}
+                    onClick={(e) => e.preventDefault()}
+                    data-testid="entity-header-dropdown"
+                >
+                    <MenuIcon fontSize={size} />
+                </Button>
             </Dropdown>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
