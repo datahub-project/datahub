@@ -1,7 +1,7 @@
-from enum import Enum
+from datahub.utilities.str_enum import StrEnum
 
 
-class FivetranMode(str, Enum):
+class FivetranMode(str, StrEnum):
     """Mode of operation for Fivetran connector."""
 
     ENTERPRISE = "enterprise"  # Using log tables (enterprise)
@@ -9,7 +9,7 @@ class FivetranMode(str, Enum):
     AUTO = "auto"  # Auto-detect based on provided configs
 
 
-class DataJobMode(str, Enum):
+class DataJobMode(str, StrEnum):
     """Mode for creating DataJobs."""
 
     CONSOLIDATED = "consolidated"  # One DataJob per connector (default)

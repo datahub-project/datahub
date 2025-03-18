@@ -1,8 +1,3 @@
-"""
-This is an updated version of fivetran_standard_api.py with the fix for BigQuery case handling.
-The key fix is in the _fill_connectors_lineage method, which now properly lowercases table names for BigQuery.
-"""
-
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -94,9 +89,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         with report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list from Fivetran API")
             connector_list = self.api_client.list_connectors()
-
-            # Debug raw connector list to see structure (uncomment if needed)
-            # logger.debug(f"Raw connector list from API (first 2 items): {connector_list[:2]}")
 
             # Collect destination information
             destinations_seen, destination_details = self._collect_destination_info(
@@ -336,9 +328,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         # First pass: collect all destination IDs to log them for configuration
         for api_connector in connector_list:
-            # Debug raw connector structure if needed
-            # logger.debug(f"Connector structure: {json.dumps(api_connector, indent=2)}")
-
             destination_id = self._extract_destination_id(api_connector)
 
             if destination_id and destination_id not in destinations_seen:
@@ -374,7 +363,12 @@ class FivetranStandardAPI(FivetranAccessInterface):
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
         """
         Fill in lineage information for connectors by calling the API.
-        This implementation correctly uses name_in_destination from the API response.
+
+        This enhanced implementation:
+        1. Correctly handles API response data
+        2. Uses name_in_destination when available
+        3. Implements fallback column-level lineage by matching column names
+        4. Handles case transformation based on destination platform
         """
         for connector in connectors:
             try:
@@ -382,10 +376,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     f"Extracting lineage for connector {connector.connector_id}"
                 )
 
-                # Determine destination platform from the configuration
+                # Determine destination platform
                 destination_platform = self._get_destination_platform(connector)
-
-                # Update the connector's additional properties with the correct destination platform
                 connector.additional_properties["destination_platform"] = (
                     destination_platform
                 )
@@ -393,13 +385,17 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     f"Using destination platform {destination_platform} for connector {connector.connector_id}"
                 )
 
-                # Get schema information
+                # Get schema information from API
                 schemas = self.api_client.list_connector_schemas(connector.connector_id)
                 logger.info(
                     f"Got {len(schemas)} schemas for connector {connector.connector_id}"
                 )
 
                 lineage_list = []
+
+                # First, collect all source columns with their types for each table
+                # This will help with generating column-level lineage
+                source_table_columns = self._collect_source_columns(schemas)
 
                 # Process each schema
                 for schema in schemas:
@@ -442,10 +438,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                     dest_schema = schema_name_in_destination
                                 else:
                                     # Fall back to case transformation if name_in_destination not available
-                                    dest_schema = (
-                                        self.api_client._get_destination_schema_name(
-                                            schema_name, destination_platform
-                                        )
+                                    dest_schema = self._get_destination_schema_name(
+                                        schema_name, destination_platform
                                     )
 
                                 # Get destination table name - prefer name_in_destination if available
@@ -455,16 +449,13 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                 )
                                 if table_name_in_destination:
                                     dest_table = table_name_in_destination
-                                    # Log that we're using the provided name_in_destination
                                     logger.debug(
                                         f"Using provided name_in_destination '{dest_table}' for table {table_name}"
                                     )
                                 else:
                                     # Fall back to case transformation if name_in_destination not available
-                                    dest_table = (
-                                        self.api_client._get_destination_table_name(
-                                            table_name, destination_platform
-                                        )
+                                    dest_table = self._get_destination_table_name(
+                                        table_name, destination_platform
                                     )
                                     logger.debug(
                                         f"No name_in_destination found for table {table_name}, using transformed name '{dest_table}'"
@@ -474,51 +465,12 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                 destination_table = f"{dest_schema}.{dest_table}"
 
                                 # Process columns for lineage
-                                column_lineage = []
-                                columns = table.get("columns", [])
-
-                                if isinstance(columns, list):
-                                    for column in columns:
-                                        try:
-                                            if not isinstance(column, dict):
-                                                continue
-
-                                            col_name = column.get("name", "")
-                                            if not col_name:
-                                                continue
-
-                                            # Get destination column name - prefer name_in_destination if available
-                                            dest_col_name = None
-                                            column_name_in_destination = column.get(
-                                                "name_in_destination"
-                                            )
-
-                                            if column_name_in_destination:
-                                                dest_col_name = (
-                                                    column_name_in_destination
-                                                )
-                                                logger.debug(
-                                                    f"Using provided name_in_destination '{dest_col_name}' for column {col_name}"
-                                                )
-                                            else:
-                                                # Fall back to case transformation if name_in_destination not available
-                                                dest_col_name = self.api_client._get_destination_column_name(
-                                                    col_name, destination_platform
-                                                )
-                                                logger.debug(
-                                                    f"No name_in_destination found for column {col_name}, using transformed name '{dest_col_name}'"
-                                                )
-
-                                            column_lineage.append(
-                                                ColumnLineage(
-                                                    source_column=col_name,
-                                                    destination_column=dest_col_name,
-                                                )
-                                            )
-                                        except Exception as col_e:
-                                            logger.warning(
-                                                f"Error processing column in table {table_name}: {col_e}"
-                                            )
+                                column_lineage = self._extract_column_lineage(
+                                    table=table,
+                                    source_table=source_table,
+                                    destination_platform=destination_platform,
+                                    source_table_columns=source_table_columns,
+                                )
 
                                 # Add this table's lineage
                                 lineage_list.append(
@@ -562,6 +514,150 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 )
                 connector.lineage = []
 
+    def _collect_source_columns(self, schemas: List[Dict]) -> Dict[str, Dict[str, str]]:
+        """
+        Collect all source columns with their types for each table.
+
+        Returns:
+            Dict mapping table names to Dict of column names and their types
+        """
+        source_columns = {}
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
+            tables = schema.get("tables", [])
+            if not isinstance(tables, list):
+                continue
+
+            for table in tables:
+                if not isinstance(table, dict):
+                    continue
+
+                table_name = table.get("name", "")
+                if not table_name:
+                    continue
+
+                full_table_name = f"{schema_name}.{table_name}"
+                source_columns[full_table_name] = {}
+
+                columns = table.get("columns", [])
+                if not isinstance(columns, list):
+                    continue
+
+                for column in columns:
+                    if not isinstance(column, dict):
+                        continue
+
+                    column_name = column.get("name", "")
+                    if not column_name:
+                        continue
+
+                    column_type = column.get("type", "")
+                    source_columns[full_table_name][column_name] = column_type
+
+        return source_columns
+
+    def _extract_column_lineage(
+        self,
+        table: Dict,
+        source_table: str,
+        destination_platform: str,
+        source_table_columns: Dict[str, Dict[str, str]],
+    ) -> List[ColumnLineage]:
+        """
+        Extract column-level lineage for a table, with fallback to name matching if needed.
+
+        Args:
+            table: Table data from API
+            source_table: Full source table name (schema.table)
+            destination_platform: Destination platform type
+            source_table_columns: Dict mapping table names to column information
+
+        Returns:
+            List of ColumnLineage objects
+        """
+        column_lineage = []
+
+        # Get columns from the API response
+        columns = table.get("columns", [])
+
+        if isinstance(columns, list) and columns:
+            # API provided column information, use it
+            for column in columns:
+                if not isinstance(column, dict):
+                    continue
+
+                col_name = column.get("name", "")
+                if not col_name:
+                    continue
+
+                # Skip Fivetran system columns
+                if col_name.startswith("_fivetran"):
+                    continue
+
+                # Get destination column name - prefer name_in_destination if available
+                dest_col_name = None
+                column_name_in_destination = column.get("name_in_destination")
+
+                if column_name_in_destination:
+                    dest_col_name = column_name_in_destination
+                    logger.debug(
+                        f"Using provided name_in_destination '{dest_col_name}' for column {col_name}"
+                    )
+                else:
+                    # Fall back to case transformation if name_in_destination not available
+                    dest_col_name = self._get_destination_column_name(
+                        col_name, destination_platform
+                    )
+                    logger.debug(
+                        f"No name_in_destination found for column {col_name}, using transformed name '{dest_col_name}'"
+                    )
+
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name,
+                        destination_column=dest_col_name,
+                    )
+                )
+        else:
+            # No column information from API, use source table columns if available
+            source_columns = source_table_columns.get(source_table, {})
+
+            if source_columns:
+                logger.info(
+                    f"No column information from API for {source_table}. "
+                    f"Using source table schema with {len(source_columns)} columns"
+                )
+
+                # For each source column, create a lineage entry assuming it has the same name in destination
+                # with appropriate case transformation
+                for col_name in source_columns:
+                    # Skip Fivetran system columns
+                    if col_name.startswith("_fivetran"):
+                        continue
+
+                    # Transform column name based on destination platform
+                    dest_col_name = self._get_destination_column_name(
+                        col_name, destination_platform
+                    )
+
+                    column_lineage.append(
+                        ColumnLineage(
+                            source_column=col_name,
+                            destination_column=dest_col_name,
+                        )
+                    )
+
+        # Log whether we found column lineage
+        if column_lineage:
+            logger.info(f"Found {len(column_lineage)} columns for {source_table}")
+        else:
+            logger.warning(f"No column lineage found for {source_table}")
+
+        return column_lineage
+
     def _get_destination_platform(self, connector: Connector) -> str:
         """
         Determine the destination platform based on the configuration and connector details.
@@ -573,7 +669,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         4. Default to snowflake if nothing else is available
         """
         # Check if we have a specific mapping for this destination
-        destination_platform: str
         if self.config and hasattr(self.config, "destination_to_platform_instance"):
             destination_details = self.config.destination_to_platform_instance.get(
                 connector.destination_id
@@ -618,17 +713,44 @@ class FivetranStandardAPI(FivetranAccessInterface):
         logger.info("No destination platform specified, defaulting to 'snowflake'")
         return "snowflake"
 
-        # Check if destination platform is in connector's additional properties
-        if "destination_platform" in connector.additional_properties:
-            destination_platform = str(
-                connector.additional_properties.get("destination_platform")
-            )
-            if destination_platform:
-                logger.info(
-                    f"Using platform '{destination_platform}' from connector properties"
-                )
-                return destination_platform
+    def _get_destination_schema_name(
+        self, schema_name: str, destination_platform: str
+    ) -> str:
+        """
+        Get the destination schema name based on the platform.
+        This is a helper method that applies appropriate case transformations.
+        """
+        if destination_platform.lower() == "bigquery":
+            # BigQuery schema names are case-sensitive and typically lowercase
+            return schema_name.lower()
+        else:
+            # For most other systems (Snowflake, Redshift, etc.), schema names are uppercased
+            return schema_name.upper()
 
-        # Default to snowflake if no platform information is available
-        logger.info("No destination platform specified, defaulting to 'snowflake'")
-        return "snowflake"
+    def _get_destination_table_name(
+        self, table_name: str, destination_platform: str
+    ) -> str:
+        """
+        Get the destination table name based on the platform.
+        This is a helper method that applies appropriate case transformations.
+        """
+        if destination_platform.lower() == "bigquery":
+            # BigQuery table names are case-sensitive and typically lowercase
+            return table_name.lower()
+        else:
+            # For most other systems (Snowflake, Redshift, etc.), table names are uppercased
+            return table_name.upper()
+
+    def _get_destination_column_name(
+        self, column_name: str, destination_platform: str
+    ) -> str:
+        """
+        Get the destination column name based on the platform.
+        This is a helper method that applies appropriate case transformations.
+        """
+        if destination_platform.lower() == "bigquery":
+            # BigQuery column names are case-sensitive and typically lowercase
+            return column_name.lower()
+        else:
+            # For most other systems (Snowflake, Redshift, etc.), column names are uppercased
+            return column_name.upper()
