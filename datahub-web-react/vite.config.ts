@@ -67,6 +67,26 @@ export default defineConfig(({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (id.includes('node_modules')) {
+                            if (id.includes('@mui')) {
+                                return 'mui-vendor';
+                            }
+                            if (id.includes('phosphor-react')) {
+                                return 'phosphor-vendor';
+                            }
+                            // All other node_modules
+                            return 'vendor';
+                        }
+                        if (id.includes('src/')) {
+                            return 'source';
+                        }
+                        return null;
+                    },
+                },
+            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',
