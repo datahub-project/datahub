@@ -103,6 +103,14 @@ public class DatahubSparkListener extends SparkListener {
   }
 
   public Optional<DatahubEmitterConfig> initializeEmitter(Config sparkConf) {
+    log.debug("Available config keys:");
+    sparkConf
+        .entrySet()
+        .forEach(
+            entry -> {
+              log.debug("  Key: [{}], Value: [{}]", entry.getKey(), entry.getValue().unwrapped());
+            });
+
     String emitterType =
         sparkConf.hasPath(SparkConfigParser.EMITTER_TYPE)
             ? sparkConf.getString(SparkConfigParser.EMITTER_TYPE)
@@ -117,6 +125,23 @@ public class DatahubSparkListener extends SparkListener {
             sparkConf.hasPath(SparkConfigParser.GMS_AUTH_TOKEN)
                 ? sparkConf.getString(SparkConfigParser.GMS_AUTH_TOKEN)
                 : null;
+        Map<String, String> headers = new HashMap<>();
+        sparkConf
+            .entrySet()
+            .forEach(
+                entry -> {
+                  String key = entry.getKey();
+                  if (key.startsWith(SparkConfigParser.GMS_HEADERS)) {
+                    String headerName = key.substring(SparkConfigParser.GMS_HEADERS.length());
+                    headers.put(headerName, entry.getValue().unwrapped().toString());
+                  }
+                });
+
+        // 헤더가 있으면 로그에 표시
+        if (!headers.isEmpty()) {
+          log.info("REST Emitter Configuration: Adding {} custom headers", headers.size());
+        }
+
         boolean disableSslVerification =
             sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
                 && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
@@ -153,6 +178,7 @@ public class DatahubSparkListener extends SparkListener {
                 .maxRetries(max_retries)
                 .retryIntervalSec(retry_interval_in_sec)
                 .disableChunkedEncoding(disableChunkedEncoding)
+                .extraHeaders(headers)
                 .build();
         return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
       case "kafka":

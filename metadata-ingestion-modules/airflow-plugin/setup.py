@@ -122,7 +122,7 @@ per_version_test_requirements = {
 
 
 entry_points = {
-    "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin",
+    "airflow.plugins": "dsp-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin",
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 

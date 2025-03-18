@@ -43,6 +43,7 @@ from datahub_airflow_plugin._airflow_shims import (
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
+from datahub_airflow_plugin._dataset_converter import AirflowDatasetConverter
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
 
-    def hookimpl(f: _F) -> _F:  # type: ignore[misc]
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
         return f
 
 else:
@@ -194,6 +195,9 @@ class DataHubListener:
 
         self.extractor_manager = ExtractorManager()
 
+        # Converter 추가
+        self.converter = AirflowDatasetConverter()
+
         # This "inherits" from types.ModuleType to avoid issues with Airflow's listener plugin loader.
         # It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
         # https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
@@ -239,23 +243,43 @@ class DataHubListener:
         return emit_callback
 
     def _extract_lineage(
-        self,
-        datajob: DataJob,
-        dagrun: "DagRun",
-        task: "Operator",
-        task_instance: "TaskInstance",
-        complete: bool = False,
+            self,
+            datajob: DataJob,
+            dagrun: "DagRun",
+            task: "Operator",
+            task_instance: "TaskInstance",
+            complete: bool = False,
     ) -> None:
         """
         Combine lineage (including column lineage) from task inlets/outlets and
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
-
+        # 기존 원본 변수 초기화
         input_urns: List[str] = []
         output_urns: List[str] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
+        # 데이터셋 변환 및 저장
+        inlets = [dataset if isinstance(dataset, _Entity)
+                  else self.converter.convert_to_datahub_dataset(dataset)
+                  for dataset in get_task_inlets(task)]
+        outlets = [dataset if isinstance(dataset, _Entity)
+                   else self.converter.convert_to_datahub_dataset(dataset)
+                   for dataset in get_task_outlets(task)]
+
+        # URN 추출 및 추가
+        input_urns.extend(dataset.urn for dataset in inlets)
+        output_urns.extend(dataset.urn for dataset in outlets)
+
+        # 매핑 테이블 생성
+        in_urn_mapping_table = self.converter.create_urn_mapping_table(inlets)
+        out_urn_mapping_table = self.converter.create_urn_mapping_table(outlets)
+
+        logger.debug(f"in_urn_mapping_table: {in_urn_mapping_table}")
+        logger.debug(f"out_urn_mapping_table: {out_urn_mapping_table}")
+
+        # Extractor를 통한 메타데이터 추출
         task_metadata = None
         if self.config.enable_extractors:
             task_metadata = self.extractor_manager.extract_metadata(
@@ -270,14 +294,13 @@ class DataHubListener:
 
             # Translate task_metadata.inputs/outputs to DataHub URNs.
             input_urns.extend(
-                translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.inputs
+                translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.inputs if task_metadata.inputs
             )
             output_urns.extend(
-                translate_ol_to_datahub_urn(dataset)
-                for dataset in task_metadata.outputs
+                translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.outputs if task_metadata.outputs
             )
 
-        # Add DataHub-native SQL parser results.
+        # SQL 파싱 결과 처리
         sql_parsing_result: Optional[SqlParsingResult] = None
         if task_metadata:
             sql_parsing_result = task_metadata.run_facets.pop(
@@ -289,6 +312,9 @@ class DataHubListener:
                 datajob.properties["datahub_sql_parser_error"] = (
                     f"{type(error).__name__}: {error}"
                 )
+
+            logger.debug(f"Column lineage from SQL parsing: {sql_parsing_result.column_lineage}")
+
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)
@@ -300,13 +326,13 @@ class DataHubListener:
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             upstreams=[
                                 builder.make_schema_field_urn(
-                                    upstream.table, upstream.column
+                                    in_urn_mapping_table.get(upstream.table, upstream.table), upstream.column
                                 )
                                 for upstream in column_lineage.upstreams
                             ],
                             downstreams=[
                                 builder.make_schema_field_urn(
-                                    downstream.table, downstream.column
+                                    out_urn_mapping_table.get(downstream.table, downstream.table), downstream.column
                                 )
                                 for downstream in [column_lineage.downstream]
                                 if downstream.table
@@ -315,23 +341,7 @@ class DataHubListener:
                         for column_lineage in sql_parsing_result.column_lineage
                     )
 
-        # Add DataHub-native inlets/outlets.
-        # These are filtered out by the extractor, so we need to add them manually.
-        input_urns.extend(
-            iolet.urn for iolet in get_task_inlets(task) if isinstance(iolet, _Entity)
-        )
-        output_urns.extend(
-            iolet.urn for iolet in get_task_outlets(task) if isinstance(iolet, _Entity)
-        )
-
-        # Write the lineage to the datajob object.
-        datajob.inlets.extend(entities_to_dataset_urn_list(input_urns))
-        datajob.outlets.extend(entities_to_dataset_urn_list(output_urns))
-        datajob.upstream_urns.extend(entities_to_datajob_urn_list(input_urns))
-        datajob.fine_grained_lineages.extend(fine_grained_lineages)
-
-        # Merge in extra stuff that was present in the DataJob we constructed
-        # at the start of the task.
+        # Start task의 datajob과 병합
         if complete:
             original_datajob = self._datajob_holder.get(str(datajob.urn), None)
         else:
@@ -340,22 +350,32 @@ class DataHubListener:
 
         if original_datajob:
             logger.debug("Merging start datajob into finish datajob")
-            datajob.inlets.extend(original_datajob.inlets)
-            datajob.outlets.extend(original_datajob.outlets)
+            input_urns.extend(str(inlet) for inlet in original_datajob.inlets)
+            output_urns.extend(str(outlet) for outlet in original_datajob.outlets)
             datajob.upstream_urns.extend(original_datajob.upstream_urns)
-            datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
+            fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
 
             for k, v in original_datajob.properties.items():
                 datajob.properties.setdefault(k, v)
 
-        # Deduplicate inlets/outlets.
-        datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
-        datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
+        unique_input_urn = self.converter.deduplicate_urns(input_urns, in_urn_mapping_table)
+        unique_output_urn = self.converter.deduplicate_urns(output_urns, out_urn_mapping_table)
+
+        logger.debug(f"unique inlets : {unique_input_urn}")
+        logger.debug(f"unique outlets : {unique_input_urn}")
+
+        # 정규화된 URN을 datajob에 할당
+        datajob.inlets = entities_to_dataset_urn_list(unique_input_urn)
+        datajob.outlets = entities_to_dataset_urn_list(unique_output_urn)
         datajob.upstream_urns = list(
             sorted(set(datajob.upstream_urns), key=lambda x: str(x))
         )
+        datajob.fine_grained_lineages = fine_grained_lineages
 
-        # Write all other OL facets as DataHub properties.
+        logger.debug(f"inlets : {datajob.inlets}")
+        logger.debug(f"outlets : {datajob.outlets}")
+
+        # OL facets를 DataHub properties로 기록
         if task_metadata:
             for k, v in task_metadata.job_facets.items():
                 datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
