@@ -135,6 +135,9 @@ describe("incidents", () => {
     cy.get('[data-testid="status-options-list"]').contains("Resolved").click();
     cy.get('[data-testid="incident-create-button"]').click();
     cy.wait(3000);
+    cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="child-option-RESOLVED"]').click();
+    cy.get('[data-testid="nested-options-dropdown-container"]').click();
     cy.get('[data-testid="incident-group-HIGH"]').within(() => {
       cy.get('[data-testid="group-header-collapsed-icon"]')
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
@@ -146,9 +149,6 @@ describe("incidents", () => {
           }
         });
     });
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
-    cy.get('[data-testid="child-option-RESOLVED"]').click();
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
     cy.get(
       `[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`,
     ).should("exist");

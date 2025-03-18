@@ -70,8 +70,8 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     customType: incident.customType,
                     stage: formData?.status || IncidentStage.Fixed,
                     message: formData?.note,
-                    assigneeUrns: incident.assignees.map((a) => a.urn),
-                    resourceUrns: incident.linkedAssets.map((l) => l.urn),
+                    linkedAssets: incident.linkedAssets,
+                    assignees: incident.assignees,
                 };
 
                 const updatedIncident = getCacheIncident({
