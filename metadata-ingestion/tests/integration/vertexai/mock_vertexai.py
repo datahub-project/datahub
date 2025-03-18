@@ -91,8 +91,8 @@ def gen_mock_endpoint() -> Endpoint:
 def gen_mock_experiment(num: int = 1) -> Experiment:
     mock_experiment = MagicMock(spec=Experiment)
     mock_experiment.name = f"mock_experiment_{num}"
-    mock_experiment.project = (datetime.fromtimestamp(1647878400),)
-    mock_experiment.update_time = (datetime.fromtimestamp(1647878500),)
+    mock_experiment.project = datetime.fromtimestamp(1647878400)
+    mock_experiment.update_time = datetime.fromtimestamp(1647878500)
     mock_experiment.display_name = f"mock_experiment_{num}_display_name"
     mock_experiment.description = f"mock_experiment_{num}_description"
     mock_experiment.resource_name = (
@@ -105,8 +105,8 @@ def gen_mock_experiment(num: int = 1) -> Experiment:
 def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run = MagicMock(spec=ExperimentRun)
     mock_experiment_run.name = "mock_experiment_run"
-    mock_experiment_run.project = (datetime.fromtimestamp(1647878400),)
-    mock_experiment_run.update_time = (datetime.fromtimestamp(1647878500),)
+    mock_experiment_run.project = datetime.fromtimestamp(1647878400)
+    mock_experiment_run.update_time = datetime.fromtimestamp(1647878500)
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
     return mock_experiment_run
