@@ -754,7 +754,7 @@ class FivetranAPIClient:
     def extract_table_lineage(self, connector_id: str) -> List[TableLineage]:
         """
         Extract table lineage information for a connector.
-        Uses a generic approach that works for any connector type.
+        Uses a generic approach that works for any connector type and properly handles name_in_destination.
         """
         try:
             # Get the connector details first
@@ -780,6 +780,8 @@ class FivetranAPIClient:
                     continue
 
                 schema_name = schema.get("name", "")
+                # Use name_in_destination if available for schema
+                schema_name_in_destination = schema.get("name_in_destination")
                 tables = schema.get("tables", [])
 
                 if not isinstance(tables, list):
@@ -798,14 +800,28 @@ class FivetranAPIClient:
                     # Create source table name
                     source_table = f"{schema_name}.{table_name}"
 
-                    # Create destination table name based on destination platform
-                    destination_schema = self._get_destination_schema_name(
-                        schema_name, destination_platform
+                    # Create destination schema name - prefer name_in_destination if available
+                    destination_schema = (
+                        schema_name_in_destination
+                        if schema_name_in_destination
+                        else self._get_destination_schema_name(
+                            schema_name, destination_platform
+                        )
                     )
-                    destination_table = self._get_destination_table_name(
-                        table_name, destination_platform
+
+                    # Create destination table name - prefer name_in_destination if available
+                    table_name_in_destination = table.get("name_in_destination")
+                    destination_table_name = (
+                        table_name_in_destination
+                        if table_name_in_destination
+                        else self._get_destination_table_name(
+                            table_name, destination_platform
+                        )
                     )
-                    destination_table_full = f"{destination_schema}.{destination_table}"
+
+                    destination_table_full = (
+                        f"{destination_schema}.{destination_table_name}"
+                    )
 
                     # Extract column information
                     columns = table.get("columns", [])
@@ -820,9 +836,16 @@ class FivetranAPIClient:
                             if not column_name:
                                 continue
 
-                            # Adjust destination column name based on platform
-                            dest_column_name = self._get_destination_column_name(
-                                column_name, destination_platform
+                            # Get destination column name - prefer name_in_destination if available
+                            column_name_in_destination = column.get(
+                                "name_in_destination"
+                            )
+                            dest_column_name = (
+                                column_name_in_destination
+                                if column_name_in_destination
+                                else self._get_destination_column_name(
+                                    column_name, destination_platform
+                                )
                             )
 
                             column_lineage.append(
@@ -928,28 +951,43 @@ class FivetranAPIClient:
     def _get_destination_schema_name(
         self, schema_name: str, destination_platform: str
     ) -> str:
-        """Get the destination schema name based on the platform."""
+        """
+        Get the destination schema name based on the platform.
+        This is a helper method that applies default case transformations when name_in_destination is not available.
+        """
         if destination_platform.lower() == "bigquery":
+            # BigQuery schema names are case-sensitive and typically lowercase
             return schema_name.lower()
         else:
+            # For most other systems (Snowflake, Redshift, etc.), schema names are uppercased
             return schema_name.upper()
 
     def _get_destination_table_name(
         self, table_name: str, destination_platform: str
     ) -> str:
-        """Get the destination table name based on the platform."""
+        """
+        Get the destination table name based on the platform.
+        This is a helper method that applies default case transformations when name_in_destination is not available.
+        """
         if destination_platform.lower() == "bigquery":
+            # BigQuery table names are case-sensitive and typically lowercase
             return table_name.lower()
         else:
+            # For most other systems (Snowflake, Redshift, etc.), table names are uppercased
             return table_name.upper()
 
     def _get_destination_column_name(
         self, column_name: str, destination_platform: str
     ) -> str:
-        """Get the destination column name based on the platform."""
+        """
+        Get the destination column name based on the platform.
+        This is a helper method that applies default case transformations when name_in_destination is not available.
+        """
         if destination_platform.lower() == "bigquery":
+            # BigQuery column names are case-sensitive and typically lowercase
             return column_name.lower()
         else:
+            # For most other systems (Snowflake, Redshift, etc.), column names are uppercased
             return column_name.upper()
 
     def _build_lineage_from_schemas(

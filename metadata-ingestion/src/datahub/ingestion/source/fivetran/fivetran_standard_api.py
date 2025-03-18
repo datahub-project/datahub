@@ -360,6 +360,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
         """
         Fill in lineage information for connectors by calling the API.
+        This implementation correctly uses name_in_destination from the API response.
         """
         for connector in connectors:
             try:
@@ -396,6 +397,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
                             )
                             continue
 
+                        # Use name_in_destination if available for schema
+                        schema_name_in_destination = schema.get("name_in_destination")
+
                         tables = schema.get("tables", [])
                         if not isinstance(tables, list):
                             logger.warning(
@@ -415,21 +419,44 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                 if not enabled or not table_name:
                                     continue
 
-                                # Create source and destination table identifiers
+                                # Create source table identifier
                                 source_table = f"{schema_name}.{table_name}"
 
-                                # Adjust case based on destination platform
-                                # FIX: Use the helper method from api_client for consistent case handling
-                                dest_schema = (
-                                    self.api_client._get_destination_schema_name(
-                                        schema_name, destination_platform
+                                # Get destination schema name - prefer name_in_destination if available
+                                dest_schema = None
+                                if schema_name_in_destination:
+                                    dest_schema = schema_name_in_destination
+                                else:
+                                    # Fall back to case transformation if name_in_destination not available
+                                    dest_schema = (
+                                        self.api_client._get_destination_schema_name(
+                                            schema_name, destination_platform
+                                        )
                                     )
+
+                                # Get destination table name - prefer name_in_destination if available
+                                dest_table = None
+                                table_name_in_destination = table.get(
+                                    "name_in_destination"
                                 )
-                                dest_table = (
-                                    self.api_client._get_destination_table_name(
-                                        table_name, destination_platform
+                                if table_name_in_destination:
+                                    dest_table = table_name_in_destination
+                                    # Log that we're using the provided name_in_destination
+                                    logger.debug(
+                                        f"Using provided name_in_destination '{dest_table}' for table {table_name}"
                                     )
-                                )
+                                else:
+                                    # Fall back to case transformation if name_in_destination not available
+                                    dest_table = (
+                                        self.api_client._get_destination_table_name(
+                                            table_name, destination_platform
+                                        )
+                                    )
+                                    logger.debug(
+                                        f"No name_in_destination found for table {table_name}, using transformed name '{dest_table}'"
+                                    )
+
+                                # Combine to create full destination table name
                                 destination_table = f"{dest_schema}.{dest_table}"
 
                                 # Process columns for lineage
@@ -446,10 +473,27 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                             if not col_name:
                                                 continue
 
-                                            # FIX: Use the helper method for consistent case handling
-                                            dest_col_name = self.api_client._get_destination_column_name(
-                                                col_name, destination_platform
+                                            # Get destination column name - prefer name_in_destination if available
+                                            dest_col_name = None
+                                            column_name_in_destination = column.get(
+                                                "name_in_destination"
                                             )
+
+                                            if column_name_in_destination:
+                                                dest_col_name = (
+                                                    column_name_in_destination
+                                                )
+                                                logger.debug(
+                                                    f"Using provided name_in_destination '{dest_col_name}' for column {col_name}"
+                                                )
+                                            else:
+                                                # Fall back to case transformation if name_in_destination not available
+                                                dest_col_name = self.api_client._get_destination_column_name(
+                                                    col_name, destination_platform
+                                                )
+                                                logger.debug(
+                                                    f"No name_in_destination found for column {col_name}, using transformed name '{dest_col_name}'"
+                                                )
 
                                             column_lineage.append(
                                                 ColumnLineage(

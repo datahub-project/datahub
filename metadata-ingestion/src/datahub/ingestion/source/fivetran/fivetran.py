@@ -642,16 +642,31 @@ class FivetranSource(StatefulIngestionSourceBase):
                     default_dest = self.config.fivetran_log_config.destination_platform
                 destination_details.platform = default_dest
 
+        # Extract source and destination information from the lineage object
+        source_table = lineage.source_table
+        destination_table = lineage.destination_table
+
+        # Log detailed debug information for troubleshooting
+        logger.debug(
+            f"Building table lineage from {source_table} to {destination_table}"
+        )
+        logger.debug(
+            f"Source details: platform={source_details.platform}, database={source_details.database}"
+        )
+        logger.debug(
+            f"Destination details: platform={destination_details.platform}, database={destination_details.database}"
+        )
+
         try:
             # Create source and destination URNs
             source_urn = self._create_dataset_urn(
-                lineage.source_table,
+                source_table,
                 source_details,
                 is_source=True,
             )
 
             dest_urn = self._create_dataset_urn(
-                lineage.destination_table,
+                destination_table,
                 destination_details,
                 is_source=False,
             )
@@ -659,7 +674,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             # Skip if either URN creation failed
             if not source_urn or not dest_urn:
                 logger.warning(
-                    f"Skipping lineage for {lineage.source_table} -> {lineage.destination_table}: "
+                    f"Skipping lineage for {source_table} -> {destination_table}: "
                     f"Failed to create URNs"
                 )
                 return
@@ -667,9 +682,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             # Add URNs to datajob (avoiding duplicates)
             if str(source_urn) not in [str(u) for u in datajob.inlets]:
                 datajob.inlets.append(source_urn)
+                # Log for debugging
+                logger.debug(f"Added source URN: {source_urn}")
 
             if str(dest_urn) not in [str(u) for u in datajob.outlets]:
                 datajob.outlets.append(dest_urn)
+                # Log for debugging
+                logger.debug(f"Added destination URN: {dest_urn}")
 
             # Create column lineage if enabled
             if self.config.include_column_lineage:
@@ -681,11 +700,15 @@ class FivetranSource(StatefulIngestionSourceBase):
                     fine_grained_lineage=fine_grained_lineage,
                 )
                 datajob.fine_grained_lineages.extend(fine_grained_lineage)
+                # Log for debugging
+                logger.debug(
+                    f"Added {len(fine_grained_lineage)} column lineage entries"
+                )
 
-            logger.debug(f"Created lineage from {source_urn} to {dest_urn}")
+            logger.debug(f"Completed lineage from {source_urn} to {dest_urn}")
         except Exception as e:
             logger.warning(
-                f"Error creating lineage for table {lineage.source_table} -> {lineage.destination_table}: {e}"
+                f"Error creating lineage for table {source_table} -> {destination_table}: {e}"
             )
 
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
