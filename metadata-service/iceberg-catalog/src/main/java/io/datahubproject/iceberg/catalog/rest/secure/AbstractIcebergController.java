@@ -1,7 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
 import com.datahub.authentication.Authentication;
@@ -32,6 +31,7 @@ import javax.inject.Named;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.ForbiddenException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +84,24 @@ public class AbstractIcebergController {
 
   protected PoliciesConfig.Privilege authorize(
       OperationContext operationContext,
+      DataHubIcebergWarehouse warehouse,
+      Namespace namespace,
+      DataOperation operation,
+      boolean returnHighestPrivilege) {
+    EntitySpec entitySpec =
+        new EntitySpec(
+            CONTAINER_ENTITY_NAME,
+            containerUrn(warehouse.getPlatformInstance(), namespace).toString());
+    return authorize(
+        operationContext,
+        entitySpec,
+        platformInstanceEntitySpec(warehouse.getPlatformInstance()),
+        operation,
+        returnHighestPrivilege);
+  }
+
+  protected PoliciesConfig.Privilege authorize(
+      OperationContext operationContext,
       String platformInstance,
       DataOperation operation,
       boolean returnHighestPrivilege) {
@@ -106,20 +124,9 @@ public class AbstractIcebergController {
         returnHighestPrivilege ? operation.descendingPrivileges : operation.ascendingPrivileges;
 
     for (PoliciesConfig.Privilege privilege : privileges) {
-      if ((entitySpec.getType().equals(DATASET_ENTITY_NAME)
-              && PoliciesConfig.DATASET_PRIVILEGES.getPrivileges().contains(privilege)
-          || (entitySpec.getType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)
-              && PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES
-                  .getPrivileges()
-                  .contains(privilege)))) {
-        if (AuthUtil.isAuthorized(operationContext, privilege, entitySpec)) {
-          return privilege;
-        }
-      } else if (entitySpec.getType().equals(DATASET_ENTITY_NAME)
-          && PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES.getPrivileges().contains(privilege)) {
-        if (AuthUtil.isAuthorized(operationContext, privilege, platformInstanceEntitySpec)) {
-          return privilege;
-        }
+      if (AuthUtil.isAuthorized(operationContext, privilege, entitySpec)
+          || AuthUtil.isAuthorized(operationContext, privilege, platformInstanceEntitySpec)) {
+        return privilege;
       }
     }
 
