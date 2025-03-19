@@ -41,6 +41,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SCHEMA_PARALLELISM,
+    BaseProcedure,
     SnowflakeColumn,
     SnowflakeDatabase,
     SnowflakeDataDictionary,
@@ -68,6 +69,9 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_dataplatform_instance_aspect,
     get_domain_wu,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    generate_procedure_workunits,
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     EXTERNAL_TABLE_DDL_LINEAGE,
@@ -448,9 +452,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_streams:
             self.report.num_get_streams_for_schema_queries += 1
             streams = self.fetch_streams_for_schema(
-                snowflake_schema, db_name, schema_name
+                snowflake_schema,
+                db_name,
             )
             yield from self._process_streams(streams, snowflake_schema, db_name)
+
+        if self.config.include_procedures:
+            procedures = self.fetch_procedures_for_schema(snowflake_schema, db_name)
+            yield from self._process_procedures(procedures, snowflake_schema, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
             yield from self._process_tags_in_schema(snowflake_schema)
@@ -535,6 +544,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         for stream in streams:
             yield from self._process_stream(stream, snowflake_schema, db_name)
+
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.config.include_technical_schema:
+            for procedure in procedures:
+                yield from self._process_procedure(procedure, snowflake_schema, db_name)
 
     def _process_tags_in_schema(
         self, snowflake_schema: SnowflakeSchema
@@ -1290,13 +1309,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
     def fetch_streams_for_schema(
-        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+        self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> List[SnowflakeStream]:
         try:
             streams: List[SnowflakeStream] = []
-            for stream in self.get_streams_for_schema(schema_name, db_name):
+            for stream in self.get_streams_for_schema(snowflake_schema.name, db_name):
                 stream_identifier = self.identifiers.get_dataset_identifier(
-                    stream.name, schema_name, db_name
+                    stream.name, snowflake_schema.name, db_name
                 )
 
                 self.report.report_entity_scanned(stream_identifier, "stream")
@@ -1311,12 +1330,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return streams
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
-                error_msg = f"Failed to get streams for schema {db_name}.{schema_name}. Please check permissions."
+                error_msg = f"Failed to get streams for schema {db_name}.{snowflake_schema.name}. Please check permissions."
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
                 self.structured_reporter.warning(
                     "Failed to get streams for schema",
-                    f"{db_name}.{schema_name}",
+                    f"{db_name}.{snowflake_schema.name}",
                     exc=e,
                 )
                 return []
@@ -1327,6 +1346,43 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         streams = self.data_dictionary.get_streams_for_database(db_name)
 
         return streams.get(schema_name, [])
+
+    def fetch_procedures_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str
+    ) -> List[BaseProcedure]:
+        try:
+            procedures: List[BaseProcedure] = []
+            for procedure in self.get_procedures_for_schema(snowflake_schema, db_name):
+                # TODO: introduce procedure identifier dependent on arguments
+                procedure_identifier = self.identifiers.get_dataset_identifier(
+                    procedure.name, snowflake_schema.name, db_name
+                )
+
+                self.report.report_entity_scanned(procedure_identifier, "procedure")
+
+                # TODO:  use procedure pattern
+                procedures.append(procedure)
+            return procedures
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = f"Failed to get procedures for schema {db_name}.{snowflake_schema.name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    message="Failed to get procedures for schema",
+                    context=f"{db_name}.{snowflake_schema.name}",
+                    exc=e,
+                )
+                return []
+
+    def get_procedures_for_schema(
+        self,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> List[BaseProcedure]:
+        procedures = self.data_dictionary.get_procedures_for_database(db_name)
+
+        return procedures.get(snowflake_schema.name, [])
 
     def _process_stream(
         self,
@@ -1348,6 +1404,38 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         except Exception as e:
             self.structured_reporter.warning(
                 "Failed to get columns for stream:", stream.name, exc=e
+            )
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            yield from generate_procedure_workunits(
+                procedure,
+                database_key=gen_database_key(
+                    self.snowflake_identifier(db_name),
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=self.snowflake_identifier(db_name),
+                    schema=self.snowflake_identifier(snowflake_schema.name),
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                # TODO: should we process procedures after all tables are processed ?
+                schema_resolver=(
+                    self.aggregator._schema_resolver if self.aggregator else None
+                ),
+            )
+        except Exception as e:
+            self.structured_reporter.warning(
+                "Failed to ingest stored procedure", procedure.name, exc=e
             )
 
     def get_columns_for_stream(
