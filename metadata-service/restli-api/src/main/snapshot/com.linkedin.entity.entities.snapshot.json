@@ -6643,6 +6643,16 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, "com.linkedin.metadata.search.LineageSearchEntity", {
+    "type" : "enum",
+    "name" : "LineageSearchPath",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The path taken when doing search across lineage",
+    "symbols" : [ "TORTOISE", "LIGHTNING" ],
+    "symbolDocs" : {
+      "LIGHTNING" : "Designates the lightning lineage code path",
+      "TORTOISE" : "Designates the tortoise lineage code path"
+    }
+  }, {
     "type" : "record",
     "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -6671,6 +6681,11 @@
       "name" : "numEntities",
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
+    }, {
+      "name" : "lineageSearchPath",
+      "type" : "LineageSearchPath",
+      "doc" : "The path taken when doing search across lineage",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.search.MatchedField", {
     "type" : "record",

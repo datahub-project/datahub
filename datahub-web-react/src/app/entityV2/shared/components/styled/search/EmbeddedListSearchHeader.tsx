@@ -1,17 +1,20 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
-import { FilterOutlined } from '@ant-design/icons';
+import React, { useContext, useState } from 'react';
+import { Button as AntButton, Typography } from 'antd';
+import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import InfoPopover from '@src/app/sharedV2/icons/InfoPopover';
+import { Button, colors } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput } from '../../../../../../types.generated';
+import { AndFilterInput, LineageSearchPath } from '../../../../../../types.generated';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
+import { LineageTabContext } from '../../../tabs/Lineage/LineageTabContext';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -29,6 +32,21 @@ const SearchAndDownloadContainer = styled.div`
 const SearchMenuContainer = styled.div`
     margin-left: 10px;
     display: flex;
+`;
+
+const ImpactAnalysisWarning = styled.div`
+    gap: 8px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    background-color: ${colors.yellow[0]};
+    z-index: 1;
+`;
+
+const StyledButton = styled(Button)`
+    margin-left: auto;
+    color: #ee9521;
+    padding: 0;
 `;
 
 type Props = {
@@ -70,15 +88,17 @@ export default function EmbeddedListSearchHeader({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+    const { lineageSearchPath } = useContext(LineageTabContext);
+    const [showLightningWarning, setShowLightningWarning] = useState(true);
 
     return (
         <>
             <TabToolbar>
                 <HeaderContainer>
-                    <Button type="text" onClick={onToggleFilters}>
+                    <AntButton type="text" onClick={onToggleFilters}>
                         <FilterOutlined />
                         <Typography.Text>Filters</Typography.Text>
-                    </Button>
+                    </AntButton>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             data-testid="embedded-search-bar"
@@ -131,6 +151,29 @@ export default function EmbeddedListSearchHeader({
                         refetch={refetch}
                     />
                 </TabToolbar>
+            )}
+            {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
+                <ImpactAnalysisWarning data-testid="lightning-cache-warning">
+                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    Using lineage search cache, results may be unexpected
+                    <InfoPopover
+                        iconColor="rgba(0, 0, 0, 0.85)"
+                        content={
+                            <>
+                                When there are enough results, we use a lineage search cache which may return
+                                <br />
+                                assets that do not exist in your DataHub instance
+                            </>
+                        }
+                    />
+                    <StyledButton
+                        onClick={() => setShowLightningWarning(false)}
+                        variant="text"
+                        icon="Close"
+                        size="xl"
+                        data-testid="close-lightning-cache-warning"
+                    />
+                </ImpactAnalysisWarning>
             )}
         </>
     );

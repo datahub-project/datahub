@@ -1,14 +1,35 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
 import { Button, Input, Modal, Spin, notification } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
-import { AndFilterInput } from '../../../../../../types.generated';
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { colors, Text } from '@src/alchemy-components';
+import styled from 'styled-components';
+import InfoPopover from '@src/app/sharedV2/icons/InfoPopover';
+import { AndFilterInput, LineageSearchPath } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import analytics, { EventType } from '../../../../../analytics';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+import { LineageTabContext } from '../../../tabs/Lineage/LineageTabContext';
+
+const ImpactAnalysisWarning = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    color: ${colors.yellow[1000]};
+    background-color: ${colors.yellow[0]};
+    margin-bottom: 16px;
+    border-radius: 8px;
+`;
+
+const SubText = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
@@ -40,6 +61,7 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { lineageSearchPath } = useContext(LineageTabContext);
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -183,6 +205,29 @@ export default function DownloadAsCsvModal({
                 </>
             }
         >
+            {lineageSearchPath === LineageSearchPath.Lightning && (
+                <ImpactAnalysisWarning data-testid="lightning-cache-warning">
+                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    <div>
+                        <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                            Results may vary
+                        </Text>
+                        <SubText>
+                            Using lineage search cache, this can cause downloaded results to differ
+                            <InfoPopover
+                                content={
+                                    <>
+                                        Downloaded results will only be assets that exist in DataHub while the list view
+                                        in
+                                        <br />
+                                        the UI may include soft deleted or non existent assets
+                                    </>
+                                }
+                            />
+                        </SubText>
+                    </div>
+                </ImpactAnalysisWarning>
+            )}
             <Input
                 data-testid="download-as-csv-input"
                 placeholder="datahub.csv"

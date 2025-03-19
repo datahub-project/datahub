@@ -17,7 +17,7 @@ import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
-import { EntityType, LineageDirection } from '../../../../../types.generated';
+import { EntityType, LineageDirection, LineageSearchPath } from '../../../../../types.generated';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -87,6 +87,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const [shouldRefetch, setShouldRefetch] = useState(false);
     const [skipCache, setSkipCache] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [lineageSearchPath, setLineageSearchPath] = useState<LineageSearchPath | null>(null);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
@@ -189,7 +190,15 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     </Tooltip>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
-            <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
+            <LineageTabContext.Provider
+                value={{
+                    isColumnLevelLineage,
+                    selectedColumn,
+                    lineageDirection,
+                    lineageSearchPath,
+                    setLineageSearchPath,
+                }}
+            >
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
                     direction={lineageDirection as LineageDirection}
