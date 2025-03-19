@@ -24,7 +24,8 @@ nodes:                                                  # list of child **Glossa
 Example **GlossaryNode**:
 
 ```yaml
-- name: Shipping                                                # name of the node
+- name: "Shipping"                                              # name of the node
+  id: "Shipping-Logistics"                                      # (optional) custom identifier for the node
   description: Provides terms related to the shipping domain    # description of the node
   owners:                                                       # (optional) owners contains 2 nested fields
     users:                                                      # (optional) a list of user IDs
@@ -43,7 +44,8 @@ Example **GlossaryNode**:
 Example **GlossaryTerm**:
 
 ```yaml
-- name: FullAddress                                                          # name of the term
+- name: "Full Address"                                                         # name of the term
+  id: "Full-Address-Details"                                                  # (optional) custom identifier for the term
   description: A collection of information to give the location of a building or plot of land.    # description of the term
   owners:                                                                   # (optional) owners contains 2 nested fields
     users:                                                                  # (optional) a list of user IDs
@@ -67,10 +69,86 @@ Example **GlossaryTerm**:
   domain: "urn:li:domain:Logistics"                                            # (optional) domain name or domain urn
 ```
 
-To see how these all work together, check out this comprehensive example business glossary file below:
+## ID Management and URL Generation
 
-<details>
-<summary>Example business glossary file</summary>
+The business glossary provides two primary ways to manage term and node identifiers:
+
+1. **Custom IDs**: You can explicitly specify an ID for any term or node using the `id` field. This is recommended for terms that need stable, predictable identifiers:
+   ```yaml
+   terms:
+     - name: "Response Time"
+       id: "support-response-time"  # Explicit ID
+       description: "Target time to respond to customer inquiries"
+   ```
+
+2. **Automatic ID Generation**: When no ID is specified, the system will generate one based on the `enable_auto_id` setting:
+   - With `enable_auto_id: false` (default):
+     - Node and term names are converted to URL-friendly format
+     - Spaces within names are replaced with hyphens
+     - Special characters are removed (except hyphens)
+     - Case is preserved
+     - Multiple hyphens are collapsed to single ones
+     - Path components (node/term hierarchy) are joined with periods
+     - Example: Node "Customer Support" with term "Response Time" → "Customer-Support.Response-Time"
+
+   - With `enable_auto_id: true`:
+     - Generates GUID-based IDs
+     - Recommended for guaranteed uniqueness
+     - Required for terms with non-ASCII characters
+
+Here's how path-based ID generation works:
+```yaml
+nodes:
+  - name: "Customer Support"          # Node ID: Customer-Support
+    terms:
+      - name: "Response Time"         # Term ID: Customer-Support.Response-Time
+        description: "Response SLA"
+      
+      - name: "First Reply"          # Term ID: Customer-Support.First-Reply
+        description: "Initial response"
+
+  - name: "Product Feedback"         # Node ID: Product-Feedback
+    terms:
+      - name: "Response Time"        # Term ID: Product-Feedback.Response-Time
+        description: "Feedback response"
+```
+
+**Important Notes**:
+- Periods (.) are used exclusively as path separators between nodes and terms
+- Periods in term or node names themselves will be removed
+- Each component of the path (node names, term names) is cleaned independently:
+  - Spaces to hyphens
+  - Special characters removed
+  - Case preserved
+- The cleaned components are then joined with periods to form the full path
+- Non-ASCII characters in any component trigger automatic GUID generation
+- Once an ID is created (either manually or automatically), it cannot be easily changed
+- All references to a term (in `inherits`, `contains`, etc.) must use its correct ID
+- Moving terms in the hierarchy does NOT update their IDs:
+  - The ID retains its original path components even after moving
+  - This can lead to IDs that don't match the current location
+  - Consider using `enable_auto_id: true` if you plan to reorganize your glossary
+- For terms that other terms will reference, consider using explicit IDs or enable auto_id
+
+Example of how different names are handled:
+```yaml
+nodes:
+  - name: "Data Services"           # Node ID: Data-Services
+    terms:
+      # Basic term name
+      - name: "Response Time"       # Term ID: Data-Services.Response-Time
+        description: "SLA metrics"
+      
+      # Term name with special characters
+      - name: "API @ Response"      # Term ID: Data-Services.API-Response
+        description: "API metrics"
+      
+      # Term with non-ASCII (triggers GUID)
+      - name: "パフォーマンス"      # Term ID will be a 32-character GUID
+        description: "Performance"
+```
+
+To see how these all work together, check out this comprehensive example business glossary file below:
 
 ```yaml
 version: "1"
@@ -80,172 +158,108 @@ owners:
     - mjames
 url: "https://github.com/datahub-project/datahub/"
 nodes:
-  - name: Classification
+  - name: "Data Classification"
+    id: "Data-Classification"                    # Custom ID for stable references
     description: A set of terms related to Data Classification
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
     terms:
-      - name: Sensitive
+      - name: "Sensitive Data"                   # Will generate: Data-Classification.Sensitive-Data
         description: Sensitive Data
         custom_properties:
           is_confidential: "false"
-      - name: Confidential
+      - name: "Confidential Information"         # Will generate: Data-Classification.Confidential-Information
         description: Confidential Data
         custom_properties:
           is_confidential: "true"
-      - name: HighlyConfidential
+      - name: "Highly Confidential"              # Will generate: Data-Classification.Highly-Confidential
         description: Highly Confidential Data
         custom_properties:
           is_confidential: "true"
         domain: Marketing
-  - name: PersonalInformation
+
+  - name: "Personal Information"
     description: All terms related to personal information
     owners:
       users:
         - mjames
     terms:
-      - name: Email
-        ## An example of using an id to pin a term to a specific guid
-        ## See "how to generate custom IDs for your terms" section below
-        # id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
+      - name: "Email"                           # Will generate: Personal-Information.Email
         description: An individual's email address
         inherits:
-          - Classification.Confidential
+          - Data-Classification.Confidential    # References parent node path
         owners:
           groups:
             - Trust and Safety
-      - name: Address
+      - name: "Address"                         # Will generate: Personal-Information.Address
         description: A physical address
-      - name: Gender
+      - name: "Gender"                          # Will generate: Personal-Information.Gender
         description: The gender identity of the individual
         inherits:
-          - Classification.Sensitive
-  - name: Shipping
-    description: Provides terms related to the shipping domain
-    owners:
-      users:
-        - njones
-      groups:
-        - logistics
-    terms:
-      - name: FullAddress
-        description: A collection of information to give the location of a building or plot of land.
-        owners:
-          users:
-            - njones
-          groups:
-            - logistics
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://www.google.com"
-        inherits:
-          - Privacy.PII
-        contains:
-          - Shipping.ZipCode
-          - Shipping.CountryCode
-          - Shipping.StreetAddress
-        related_terms:
-          - Housing.Kitchen.Cutlery
-        custom_properties:
-          - is_used_for_compliance_tracking: "true"
-        knowledge_links:
-          - url: "https://en.wikipedia.org/wiki/Address"
-            label: Wiki link
-        domain: "urn:li:domain:Logistics"
-    knowledge_links:
-      - label: Wiki link for shipping
-        url: "https://en.wikipedia.org/wiki/Freight_transport"
-  - name: ClientsAndAccounts
+          - Data-Classification.Sensitive       # References parent node path
+
+  - name: "Clients And Accounts"
     description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
     owners:
       groups:
         - finance
+      type: DATAOWNER
     terms:
-      - name: Account
+      - name: "Account"                         # Will generate: Clients-And-Accounts.Account
         description: Container for records associated with a business arrangement for regular transactions and services
         term_source: "EXTERNAL"
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
         inherits:
-          - Classification.HighlyConfidential
+          - Data-Classification.Highly-Confidential  # References parent node path
         contains:
-          - ClientsAndAccounts.Balance
-      - name: Balance
+          - Clients-And-Accounts.Balance            # References term in same node
+      - name: "Balance"                            # Will generate: Clients-And-Accounts.Balance
         description: Amount of money available or owed
         term_source: "EXTERNAL"
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
-  - name: Housing
-    description: Provides terms related to the housing domain
-    owners:
-      users:
-        - mjames
-      groups:
-        - interior
-    nodes:
-      - name: Colors
-        description: "Colors that are used in Housing construction"
-        terms:
-          - name: Red
-            description: "red color"
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
 
-          - name: Green
-            description: "green color"
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-
-          - name: Pink
-            description: pink color
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+  - name: "KPIs"
+    description: Common Business KPIs
     terms:
-      - name: WindowColor
-        description: Supported window colors
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        values:
-          - Housing.Colors.Red
-          - Housing.Colors.Pink
-
-      - name: Kitchen
-        description: a room or area where food is prepared and cooked.
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-
-      - name: Spoon
-        description: an implement consisting of a small, shallow oval or round bowl on a long handle, used for eating, stirring, and serving food.
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        related_terms:
-          - Housing.Kitchen
-        knowledge_links:
-          - url: "https://en.wikipedia.org/wiki/Spoon"
-            label: Wiki link
+      - name: "CSAT %"                             # Will generate: KPIs.CSAT
+        description: Customer Satisfaction Score
 ```
-</details>
 
-Source file linked [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
+## Custom ID Specification
 
-## Generating custom IDs for your terms
+Custom IDs can be specified in two ways, both of which are fully supported and acceptable:
 
-IDs are normally inferred from the glossary term/node's name, see the `enable_auto_id` config. But, if you need a stable
-identifier, you can generate a custom ID for your term. It should be unique across the entire Glossary.
+1. Just the ID portion (simpler approach):
+```yaml
+terms:
+  - name: "Email"
+    id: "company-email"  # Will become urn:li:glossaryTerm:company-email
+    description: "Company email address"
+```
 
-Here's an example ID:
-`id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"`
+2. Full URN format:
+```yaml
+terms:
+  - name: "Email"
+    id: "urn:li:glossaryTerm:company-email"
+    description: "Company email address"
+```
 
-A note of caution: once you select a custom ID, it cannot be easily changed.
+Both methods are valid and will work correctly. The system will automatically handle the URN prefix if you specify just the ID portion.
+
+The same applies for nodes:
+```yaml
+nodes:
+  - name: "Communications"
+    id: "internal-comms"  # Will become urn:li:glossaryNode:internal-comms
+    description: "Internal communication methods"
+```
+
+Note: Once you select a custom ID, it cannot be easily changed.
 
 ## Compatibility
 
-Compatible with version 1 of business glossary format.
-The source will be evolved as we publish newer versions of this format.
+Compatible with version 1 of business glossary format. The source will be evolved as newer versions of this format are published.

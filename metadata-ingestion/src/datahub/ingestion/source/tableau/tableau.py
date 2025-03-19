@@ -1562,8 +1562,9 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         page_size: int,
-        query_filter: dict = {},
+        query_filter: Optional[dict] = None,
     ) -> Iterable[dict]:
+        query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,
@@ -1910,11 +1911,7 @@ class TableauSiteSource:
                     if upstream_col.get(c.TABLE)
                     else None
                 )
-                if (
-                    name
-                    and upstream_table_id
-                    and upstream_table_id in table_id_to_urn.keys()
-                ):
+                if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)

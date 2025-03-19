@@ -890,9 +890,7 @@ class Mapper:
                         set(user_rights) & set(self.__config.ownership.owner_criteria)
                     )
                     > 0
-                ):
-                    user_mcps.extend(self.to_datahub_user(user))
-                elif self.__config.ownership.owner_criteria is None:
+                ) or self.__config.ownership.owner_criteria is None:
                     user_mcps.extend(self.to_datahub_user(user))
                 else:
                     continue

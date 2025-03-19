@@ -36,6 +36,7 @@ public class FeatureFlags {
   private boolean showAutoCompleteResults = false;
   private boolean dataProcessInstanceEntityEnabled = true;
   private boolean entityVersioning = false;
+  private boolean showSearchBarAutocompleteRedesign = false;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;

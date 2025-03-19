@@ -19,19 +19,21 @@ generateDataTemplate.dependsOn copyMetadataModels
 mainCopySchemas.dependsOn copyMetadataModels
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
-task copyOriginalAvsc(type: Copy, dependsOn: generateAvroSchema) {
+task renameNamespace(type: Copy, dependsOn: generateAvroSchema) {
   from("src/mainGeneratedAvroSchema/avro")
   into file("src/renamed/avro")
-}
 
-task renameNamespace(type: Exec, dependsOn: copyOriginalAvsc) {
-  commandLine 'bash', './rename-namespace.sh'
+  doLast {
+    project.exec {
+      commandLine 'bash', './rename-namespace.sh'
+    }
+  }
 }
 
 build.dependsOn renameNamespace
 
 clean {
-  project.delete('src/main/pegasus')
-  project.delete('src/mainGeneratedAvroSchema/avro')
-  project.delete('src/renamed/avro')
+  delete 'src/main/pegasus'
+  delete 'src/mainGeneratedAvroSchema/avro'
+  delete 'src/renamed/avro'
 }

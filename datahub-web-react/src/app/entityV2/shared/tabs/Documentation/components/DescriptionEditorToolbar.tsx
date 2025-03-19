@@ -1,43 +1,11 @@
 import styled from 'styled-components';
-import { Button } from 'antd';
 import React from 'react';
+import { Button } from '@src/alchemy-components';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { REDESIGN_COLORS, ANTD_GRAY } from '../../../constants';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;
-`;
-
-const SaveButton = styled(Button)`
-    background-color: #5c3fd1;
-    color: ${ANTD_GRAY[1]};
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.DARK_PURPLE};
-    line-height: 0;
-
-    &:hover,
-    &:focus {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.DARK_PURPLE};
-        background-color: ${REDESIGN_COLORS.HOVER_PURPLE};
-        color: ${ANTD_GRAY[1]};
-    }
-`;
-
-const StyledButton = styled(Button)`
-    margin-right: 10px;
-    box-shadow: none;
-    color: ${REDESIGN_COLORS.DARK_PURPLE};
-    border-color: ${REDESIGN_COLORS.DARK_PURPLE};
-    line-height: 0;
-
-    &:hover,
-    &:focus {
-        background-color: ${REDESIGN_COLORS.DARK_PURPLE};
-        color: #fff;
-        border-color: ${REDESIGN_COLORS.DARK_PURPLE};
-    }
+    gap: 16px;
 `;
 
 type DescriptionEditorToolbarProps = {
@@ -57,8 +25,9 @@ export const DescriptionEditorToolbar = ({
 }: DescriptionEditorToolbarProps) => {
     return (
         <StyledTabToolbar>
-            <StyledButton data-testid="description-editor-cancel-button" onClick={onCancel}>
+            <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
                 Cancel
+<<<<<<< HEAD
             </StyledButton>
             {showPropose && (
                 <StyledButton data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
@@ -66,8 +35,15 @@ export const DescriptionEditorToolbar = ({
                 </StyledButton>
             )}
             <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
+||||||| f14c42d2ef7
+            </StyledButton>
+            <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
+=======
+            </Button>
+            <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
+>>>>>>> master
                 Publish
-            </SaveButton>
+            </Button>
         </StyledTabToolbar>
     );
 };

@@ -1,6 +1,6 @@
 import pathlib
 
-from datahub.sdk._entity import Entity
+from datahub.sdk.entity import Entity
 from tests.test_helpers import mce_helpers
 
 

@@ -333,6 +333,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
@@ -1328,7 +1333,6 @@ type FeatureFlagsConfig {
   """
   showTaskCenterRedesign: Boolean!
 
-
   """
   If enabled, use general propagations framework over specialized propagations actions.
   """
@@ -1338,6 +1342,13 @@ type FeatureFlagsConfig {
   If enabled, show remote executor pools across the UI
   """
   displayExecutorPools: Boolean!
+
+  entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
 }
 
 """

@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
@@ -54,7 +55,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final List<String> entityNames =
         entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
-    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // escape forward slash since it is a reserved character in Elasticsearch,
+    // default to * if
     // blank/empty
     final String sanitizedQuery =
         StringUtils.isNotBlank(input.getQuery())
@@ -82,6 +84,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           } else {
             searchFlags = null;
           }
+          List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
           Filter finalFilter =
               maybeResolvedView != null
@@ -122,7 +125,9 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     finalFilter,
                     scrollId,
                     keepAlive,
+                    sortCriteria,
                     count,
+                    null,
                     predicateJson));
           } catch (Exception e) {
             log.error(

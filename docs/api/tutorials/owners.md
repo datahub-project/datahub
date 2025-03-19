@@ -41,12 +41,14 @@ Save this `user.yaml` as a local file.
   email: bar@acryl.io
   slack: "@the_bar_raiser"
   description: "I like raising the bar higher"
+  title: "Analytics Engineer"
   groups:
     - foogroup@acryl.io
 - id: datahub
   slack: "@datahubproject"
   phone: "1-800-GOT-META"
   description: "The DataHub Project"
+  title: "Data Engineer"
   picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
 ```
 

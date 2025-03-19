@@ -16,10 +16,13 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
+from datahub.ingestion.source.superset import (
+    SupersetConfig,
+    SupersetSource,
+    SupersetSourceReport,
+)
 from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
@@ -76,7 +79,7 @@ class PresetSource(SupersetSource):
     """
 
     config: PresetConfig
-    report: StaleEntityRemovalSourceReport
+    report: SupersetSourceReport
     platform = "preset"
 
     def __init__(self, ctx: PipelineContext, config: PresetConfig):
@@ -84,7 +87,7 @@ class PresetSource(SupersetSource):
 
         super().__init__(ctx, config)
         self.config = config
-        self.report = StaleEntityRemovalSourceReport()
+        self.report = SupersetSourceReport()
         self.platform = "preset"
 
     def login(self):

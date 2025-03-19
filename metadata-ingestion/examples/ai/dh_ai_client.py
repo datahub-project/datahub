@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
+    EdgeClass,
 )
 from datahub.metadata.urns import (
     ContainerUrn,
@@ -255,7 +256,7 @@ class DatahubAIClient:
         version_props = {
             "version": version_tag,
             "versionSet": str(version_set_urn),
-            "sortId": "AAAAAAAA",
+            "sortId": str(version_tag).zfill(10),
         }
 
         # Add alias if provided
@@ -266,21 +267,9 @@ class DatahubAIClient:
             models.VersionPropertiesClass, version_props
         )
 
-        # Create version set properties
-        version_set_properties = models.VersionSetPropertiesClass(
-            latest=str(model_urn),
-            versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",
-        )
-
         mcps = [
             self._create_mcp(
                 str(model_urn), properties, "mlModel", "mlModelProperties"
-            ),
-            self._create_mcp(
-                str(version_set_urn),
-                version_set_properties,
-                "versionSet",
-                "versionSetProperties",
             ),
             self._create_mcp(
                 str(model_urn), version_properties, "mlModel", "versionProperties"
@@ -429,7 +418,13 @@ class DatahubAIClient:
             entity_urn=run_urn,
             entity_type="dataProcessInstance",
             aspect_name="dataProcessInstanceInput",
-            aspect=DataProcessInstanceInput(inputs=dataset_urns),
+            aspect=DataProcessInstanceInput(
+                inputs=[],
+                inputEdges=[
+                    EdgeClass(destinationUrn=str(dataset_urn))
+                    for dataset_urn in dataset_urns
+                ],
+            ),
         )
         self._emit_mcps(mcp)
         logger.info(f"Added input datasets to run {run_urn}")
@@ -440,7 +435,13 @@ class DatahubAIClient:
             entity_urn=run_urn,
             entity_type="dataProcessInstance",
             aspect_name="dataProcessInstanceOutput",
-            aspect=DataProcessInstanceOutput(outputs=dataset_urns),
+            aspect=DataProcessInstanceOutput(
+                outputEdges=[
+                    EdgeClass(destinationUrn=str(dataset_urn))
+                    for dataset_urn in dataset_urns
+                ],
+                outputs=[],
+            ),
         )
         self._emit_mcps(mcp)
         logger.info(f"Added output datasets to run {run_urn}")

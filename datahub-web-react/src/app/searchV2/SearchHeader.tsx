@@ -54,6 +54,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
         margin-top: 8px;
         gap: 16px;
         flex-direction: row;
+<<<<<<< HEAD
         
         // preventing of NavBar's overlapping
         position: relative;
@@ -67,6 +68,23 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
         @media only screen and (max-width: 1200px) {
             transition: padding 250ms ease-in-out;
         }
+||||||| f14c42d2ef7
+        transition: padding 250ms ease-in-out;
+=======
+
+        // preventing of NavBar's overlapping
+        position: relative;
+        padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};
+        left: ${props.$isNavBarCollapsed ? '-112px' : '-270px'};
+        transition: none;
+        @media only screen and (min-width: 1280px) {
+            padding-left: 540px;
+            left: -270px;
+        }
+        @media only screen and (max-width: 1200px) {
+            transition: padding 250ms ease-in-out;
+        }
+>>>>>>> master
     `}
     ${(props) => props.$isShowNavBarRedesign && !props.$isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;

@@ -2,13 +2,13 @@ package com.linkedin.metadata.timeline;
 
 import static org.mockito.Mockito.mock;
 
+import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
-import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;

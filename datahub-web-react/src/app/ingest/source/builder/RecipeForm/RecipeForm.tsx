@@ -1,7 +1,14 @@
 import React, { Fragment } from 'react';
 
+<<<<<<< HEAD
 import { Button, Collapse, Form, message, Typography } from 'antd';
 import { Tooltip } from '@components';
+||||||| f14c42d2ef7
+import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
+=======
+import { Collapse, Form, message, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
+>>>>>>> master
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
@@ -231,12 +238,10 @@ function RecipeForm(props: Props) {
                 </Collapse.Panel>
             </StyledCollapse>
             <ControlsContainer>
-                <Button disabled={isEditing} onClick={goToPrevious}>
+                <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button type="primary" htmlType="submit">
-                    Next
-                </Button>
+                <Button>Next</Button>
             </ControlsContainer>
         </RequiredFieldForm>
     );

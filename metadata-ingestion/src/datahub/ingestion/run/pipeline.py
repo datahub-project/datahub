@@ -526,10 +526,8 @@ class Pipeline:
         Evaluates the commit_policy for each committable in the context and triggers the commit operation
         on the committable if its required commit policies are satisfied.
         """
-        has_errors: bool = (
-            True
-            if self.source.get_report().failures or self.sink.get_report().failures
-            else False
+        has_errors: bool = bool(
+            self.source.get_report().failures or self.sink.get_report().failures
         )
         has_warnings: bool = bool(
             self.source.get_report().warnings or self.sink.get_report().warnings

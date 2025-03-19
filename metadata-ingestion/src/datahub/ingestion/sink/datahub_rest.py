@@ -20,7 +20,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DEFAULT_REST_SINK_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
     DataHubRestEmitter,
+    RestSinkEndpoint,
+    RestTraceMode,
 )
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -66,6 +70,8 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
+    endpoint: RestSinkEndpoint = DEFAULT_REST_SINK_ENDPOINT
+    default_trace_mode: RestTraceMode = DEFAULT_REST_TRACE_MODE
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -172,6 +178,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
+            openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
+            default_trace_mode=config.default_trace_mode == RestTraceMode.ENABLED,
         )
 
     @property

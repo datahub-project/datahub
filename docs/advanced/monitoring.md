@@ -33,6 +33,11 @@ the `@WithSpan` annotation in various places to make the trace more readable. Yo
 tracing collector of choice. Our example [docker-compose](../../docker/monitoring/docker-compose.monitoring.yml) deploys
 an instance of Jaeger with port 16686. The traces should be available at http://localhost:16686.
 
+### Configuration Note
+
+We recommend using either `grpc` or `http/protobuf`, configured using `OTEL_EXPORTER_OTLP_PROTOCOL`. Avoid using `http` will not work as expected due to the size of
+the generated spans.
+
 ## Metrics
 
 With tracing, we can observe how a request flows through our system into the persistence layer. However, for a more

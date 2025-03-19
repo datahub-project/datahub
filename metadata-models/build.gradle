@@ -74,7 +74,6 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
-task cleanExtraDirs {
+clean {
   delete "$projectDir/src/generatedJsonSchema"
 }
-clean.finalizedBy(cleanExtraDirs)

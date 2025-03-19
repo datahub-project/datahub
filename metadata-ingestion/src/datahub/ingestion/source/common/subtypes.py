@@ -60,8 +60,15 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
 
 
+class FlowContainerSubTypes(StrEnum):
+    MSSQL_JOB = "Job"
+    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+
+
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
+    MSSQL_JOBSTEP = "Job Step"
+    MSSQL_STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -85,3 +92,8 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+
+class MLAssetSubTypes(StrEnum):
+    MLFLOW_TRAINING_RUN = "ML Training Run"
+    MLFLOW_EXPERIMENT = "ML Experiment"

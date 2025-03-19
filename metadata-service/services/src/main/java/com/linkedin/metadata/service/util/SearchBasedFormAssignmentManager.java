@@ -65,7 +65,9 @@ public class SearchBasedFormAssignmentManager {
                 null,
                 scrollId,
                 "5m",
+                List.of(),
                 batchFormEntityCount,
+                List.of(),
                 predicateJson);
 
         if (!results.hasEntities()

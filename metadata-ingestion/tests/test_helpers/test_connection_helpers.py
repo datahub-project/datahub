@@ -33,9 +33,13 @@ def assert_basic_connectivity_failure(
 
 def assert_capability_report(
     capability_report: Optional[Dict[Union[SourceCapability, str], CapabilityReport]],
-    success_capabilities: List[SourceCapability] = [],
-    failure_capabilities: Dict[SourceCapability, str] = {},
+    success_capabilities: Optional[List[SourceCapability]] = None,
+    failure_capabilities: Optional[Dict[SourceCapability, str]] = None,
 ) -> None:
+    if success_capabilities is None:
+        success_capabilities = []
+    if failure_capabilities is None:
+        failure_capabilities = {}
     assert capability_report
     for capability in success_capabilities:
         assert capability_report[capability]

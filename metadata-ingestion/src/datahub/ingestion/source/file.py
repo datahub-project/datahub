@@ -410,10 +410,13 @@ def _from_obj_for_file(
         item = MetadataChangeEvent.from_obj(obj)
     elif "aspect" in obj:
         item = MetadataChangeProposalWrapper.from_obj(obj)
-    else:
+    elif "bucket" in obj:
         item = UsageAggregationClass.from_obj(obj)
+    else:
+        raise ValueError(f"Unknown object type: {obj}")
+
     if not item.validate():
-        raise ValueError(f"failed to parse: {obj}")
+        raise ValueError(f"Failed to parse: {obj}")
 
     if isinstance(item, UsageAggregationClass):
         logger.warning(f"Dropping deprecated UsageAggregationClass: {item}")

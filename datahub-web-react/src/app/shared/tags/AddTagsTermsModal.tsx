@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
+import { message, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
+import { Button } from '@src/alchemy-components';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import {
     EntityType,
@@ -33,6 +33,7 @@ import ParentEntities from '../../search/filters/ParentEntities';
 import { getParentEntities } from '../../search/filters/utils';
 import analytics, { EntityActionType, EventType } from '../../analytics';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ModalButtonContainer } from '../button/styledComponents';
 
 export enum OperationType {
     ADD,
@@ -556,8 +557,8 @@ export default function EditTagTermsModal({
             open={open}
             onCancel={onCloseModal}
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onCloseModal} color="gray">
                         Cancel
                     </Button>
                     {showPropose && (
@@ -570,7 +571,6 @@ export default function EditTagTermsModal({
                         </Button>
                     )}
                     <Button
-                        type="primary"
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
@@ -578,7 +578,7 @@ export default function EditTagTermsModal({
                     >
                         Add
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
         >

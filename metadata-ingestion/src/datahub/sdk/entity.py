@@ -56,6 +56,10 @@ class Entity:
     @abc.abstractmethod
     def get_urn_type(cls) -> Type[_SpecificUrn]: ...
 
+    @classmethod
+    def entity_type_name(cls) -> str:
+        return cls.get_urn_type().ENTITY_TYPE
+
     @property
     def urn(self) -> _SpecificUrn:
         return self._urn

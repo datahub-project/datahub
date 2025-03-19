@@ -98,6 +98,7 @@ public class PolicyFetcher {
             filter,
             scrollId,
             null,
+            List.of(),
             count,
             null);
     List<Urn> policyUrns =

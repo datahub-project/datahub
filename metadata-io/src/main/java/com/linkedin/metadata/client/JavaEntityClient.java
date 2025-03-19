@@ -498,7 +498,7 @@ public class JavaEntityClient implements EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets,
+      @Nonnull List<String> facets,
       @Nullable String predicateJson)
       throws RemoteInvocationException {
 
@@ -526,7 +526,9 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
+      List<SortCriterion> sortCriteria,
       int count,
+      @Nullable List<String> facets,
       @Nullable String predicateJson)
       throws RemoteInvocationException {
 
@@ -537,10 +539,11 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            Collections.emptyList(),
+            sortCriteria,
             scrollId,
             keepAlive,
             count,
+            facets,
             predicateJson),
         entityService);
   }

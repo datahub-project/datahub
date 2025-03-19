@@ -1,3 +1,4 @@
+import concurrent.futures
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -91,7 +92,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
                         profile_requests.append(profile_request)
                     if i > 0 and i % 100 == 0:
                         logger.info(f"Finished table-level profiling for {i} tables")
-            except TimeoutError:
+            except (TimeoutError, concurrent.futures.TimeoutError):
                 logger.warning("Timed out waiting to complete table-level profiling.")
 
         if len(profile_requests) == 0:

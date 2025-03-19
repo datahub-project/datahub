@@ -18,4 +18,4 @@ class TestDataProcessInstanceUrn(unittest.TestCase):
         assert str(dataprocessinstance_urn) == dataprocessinstance_urn_str
         assert dataprocessinstance_urn == DataProcessInstanceUrn("abc")
         assert dataprocessinstance_urn == DataProcessInstanceUrn.create_from_id("abc")
-        assert "abc" == dataprocessinstance_urn.get_dataprocessinstance_id()
+        assert dataprocessinstance_urn.get_dataprocessinstance_id() == "abc"

@@ -2,7 +2,7 @@ import functools
 import importlib.resources as pkg_resource
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import lark
 from lark import Lark, Tree
@@ -65,8 +65,9 @@ def get_upstream_tables(
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
-    parameters: Dict[str, str] = {},
+    parameters: Optional[Dict[str, str]] = None,
 ) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+    parameters = parameters or {}
     if table.expression is None:
         logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []

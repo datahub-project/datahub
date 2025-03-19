@@ -7,6 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.resolver_client import ResolverClient
+from datahub.sdk.search_client import SearchClient
 
 
 class DataHubClient:
@@ -39,6 +40,8 @@ class DataHubClient:
 
         self._graph = graph
 
+    # TODO: test connection
+
     @classmethod
     def from_env(cls) -> "DataHubClient":
         """Initialize a DataHubClient from the environment variables or ~/.datahubenv file.
@@ -69,5 +72,8 @@ class DataHubClient:
     def resolve(self) -> ResolverClient:
         return ResolverClient(self)
 
-    # TODO: search client
+    @property
+    def search(self) -> SearchClient:
+        return SearchClient(self)
+
     # TODO: lineage client

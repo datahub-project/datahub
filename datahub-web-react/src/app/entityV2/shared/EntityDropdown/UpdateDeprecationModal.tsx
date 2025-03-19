@@ -1,7 +1,9 @@
-import { Button, DatePicker, Form, message, Modal, Select, Skeleton } from 'antd';
+import { DatePicker, Form, message, Modal, Select, Skeleton } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
 import { useGetEntitiesQuery } from '../../../../graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { ResourceRefInput, SubResourceType } from '../../../../types.generated';
@@ -92,14 +94,14 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
             onCancel={handleClose}
             keyboard
             footer={
-                <>
-                    <Button onClick={handleClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={handleClose} variant="text">
                         Cancel
                     </Button>
-                    <Button type="primary" data-testid="add" form="addDeprecationForm" key="submit" htmlType="submit">
+                    <Button data-testid="add" form="addDeprecationForm" key="submit">
                         Save
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
@@ -164,7 +166,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     )}
                     {replacementUrn && isDeprecatingFields && (
                         <Button
-                            type="text"
+                            variant="text"
                             style={{
                                 padding: 5,
                                 marginLeft: -5,
@@ -177,7 +179,12 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                         </Button>
                     )}
                     {!replacementUrn && (
-                        <Button size="small" onClick={() => setIsReplacementModalVisible(true)}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            size="sm"
+                            onClick={() => setIsReplacementModalVisible(true)}
+                        >
                             Select Replacement
                         </Button>
                     )}

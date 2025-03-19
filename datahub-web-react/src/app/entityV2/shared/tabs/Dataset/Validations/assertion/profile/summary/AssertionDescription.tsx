@@ -27,11 +27,13 @@ export const AssertionDescription = ({ assertion, monitor, options }: Props) => 
     return (
         <>
             {primaryLabel}
-            {!options?.hideSecondaryLabel && (
-                <Typography.Text style={{ marginLeft: options?.noSecondarySpacing ? 0 : 12 }}>
-                    {secondaryLabel}
-                </Typography.Text>
-            )}
+            <div>
+                {!options?.hideSecondaryLabel && (
+                    <Typography.Text style={{ marginLeft: options?.noSecondarySpacing ? 0 : 0 }}>
+                        {secondaryLabel}
+                    </Typography.Text>
+                )}
+            </div>
         </>
     );
 };

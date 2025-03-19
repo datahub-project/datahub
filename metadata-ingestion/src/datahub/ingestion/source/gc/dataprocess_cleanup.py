@@ -498,7 +498,7 @@ class DataProcessCleanup:
         # Delete empty dataflows if needed
         if self.config.delete_empty_data_flows:
             deleted_data_flows: int = 0
-            for key in dataFlows.keys():
+            for key in dataFlows:
                 if not dataJobs.get(key) or len(dataJobs[key]) == 0:
                     logger.info(
                         f"Deleting dataflow {key} because there are not datajobs"

@@ -246,6 +246,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             platform=self.platform,
             platform_instance=platform_instance,
             name=dataset_name,
+            env=self.config.env,
         )
         dataset_properties = DatasetPropertiesClass(
             name=table_name,

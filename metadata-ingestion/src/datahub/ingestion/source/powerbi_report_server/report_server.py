@@ -196,7 +196,7 @@ class PowerBiReportServerAPI:
         }
 
         reports: List[Any] = []
-        for report_type in report_types_mapping.keys():
+        for report_type in report_types_mapping:
             report_get_endpoint: str = API_ENDPOINTS[report_type]
             # Replace place holders
             report_get_endpoint_http = report_get_endpoint.format(

@@ -43,6 +43,7 @@ query appConfig {
             faviconUrl
             appTitle
             hideGlossary
+            showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
             }
@@ -116,6 +117,7 @@ query appConfig {
             showDatasetFeaturesSearchSortOptions
             showNavBarRedesign
             showAutoCompleteResults
+            showSearchBarAutocompleteRedesign
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions

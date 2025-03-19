@@ -11,16 +11,23 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "name": "another_taxis",
                         "customProperties": {
                             "owner": "root",
-                            "created-at": "2024-06-27T17:29:32.492204247Z",
+                            "created-at": "2025-02-28T22:29:45.128452801Z",
                             "write.format.default": "parquet",
                             "location": "s3a://warehouse/wh/nyc/another_taxis",
                             "format-version": "1",
                             "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                            "snapshot-id": "1131595459662979239",
-                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-1131595459662979239-1-0e80739b-774c-4eda-9d96-3a4c70873c32.avro"
+                            "snapshot-id": "2650690634256613262",
+                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-2650690634256613262-1-da2608b8-1ca0-4331-ac49-332e8a7654d3.avro"
+                        },
+                        "name": "another_taxis",
+                        "qualifiedName": "nyc.another_taxis",
+                        "created": {
+                            "time": 1740781785128
+                        },
+                        "lastModified": {
+                            "time": 1740781786629
                         },
                         "tags": []
                     }
@@ -150,7 +157,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-2020_04_14-07_00_00",
+        "runId": "iceberg-2020_04_14-07_00_00-x9zw1z",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -168,7 +175,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-2020_04_14-07_00_00",
+        "runId": "iceberg-2020_04_14-07_00_00-x9zw1z",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -185,7 +192,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-2020_04_14-07_00_00",
+        "runId": "iceberg-2020_04_14-07_00_00-x9zw1z",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

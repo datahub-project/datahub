@@ -54,7 +54,8 @@ def random_email():
     )
 
 
-def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
+def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) -> dict:
+    source_config_override = source_config_override or {}
     return {
         "source": {
             "type": "bigquery",

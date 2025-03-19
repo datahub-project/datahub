@@ -532,9 +532,10 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
 
 def setup_mock_explore(
     mocked_client: Any,
-    additional_lkml_fields: List[LookmlModelExploreField] = [],
+    additional_lkml_fields: Optional[List[LookmlModelExploreField]] = None,
     **additional_explore_fields: Any,
 ) -> None:
+    additional_lkml_fields = additional_lkml_fields or []
     mock_model = mock.MagicMock(project_name="lkml_samples")
     mocked_client.lookml_model.return_value = mock_model
 

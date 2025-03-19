@@ -38,7 +38,8 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.11.3,<1.12",
+    # avro has historically made breaking changes, so we have a cautious upper bound.
+    "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2==4.4.2",
@@ -76,7 +77,10 @@ kafka_common = {
     # now provide prebuilt wheels for most platforms, including M1 Macs and
     # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
     # from source remains a pain.
-    "confluent_kafka[schemaregistry]>=1.9.0",
+    # With the release of 2.8.1, confluent-kafka only released a source distribution,
+    # and no prebuilt wheels.
+    # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
+    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -181,7 +185,11 @@ looker_common = {
     "lkml>=1.3.4",
     *sqlglot_lib,
     "GitPython>2",
-    "python-liquid",
+    # python-liquid 2 includes a bunch of breaking changes.
+    # See https://jg-rp.github.io/liquid/migration/
+    # Eventually we should fully upgrade to v2, but that will require
+    # us to drop Python 3.8 support first.
+    "python-liquid<2",
     "deepmerge>=1.1.1",
 }
 
@@ -344,9 +352,7 @@ sac = {
 
 superset_common = {
     "requests",
-    "sqlalchemy",
-    "great_expectations",
-    "greenlet",
+    *sqlglot_lib,
 }
 
 # Note: for all of these, framework_common will be added.
@@ -528,6 +534,7 @@ plugins: Dict[str, Set[str]] = {
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
+    "vertexai": {"google-cloud-aiplatform>=1.80.0"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -673,6 +680,7 @@ base_dev_requirements = {
             "sac",
             "cassandra",
             "neo4j",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -706,6 +714,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -795,6 +804,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "vertexai = datahub.ingestion.source.vertexai:VertexAISource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

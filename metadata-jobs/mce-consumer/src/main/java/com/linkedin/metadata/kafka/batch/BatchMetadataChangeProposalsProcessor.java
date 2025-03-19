@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -109,32 +110,37 @@ public class BatchMetadataChangeProposalsProcessor {
       }
     }
 
-    List<SystemMetadata> systemMetadataList =
-        metadataChangeProposals.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
-    systemOperationContext.withQueueSpan(
-        "consume",
-        systemMetadataList,
-        topicName,
-        () -> {
-          try {
-            List<String> urns =
-                entityClient.batchIngestProposals(
-                    systemOperationContext, metadataChangeProposals, false);
-            log.info("Successfully processed MCP event urns: {}", urns);
-          } catch (Throwable throwable) {
-            log.error("MCP Processor Error", throwable);
-            Span currentSpan = Span.current();
-            currentSpan.recordException(throwable);
-            currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-            currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+    if (!metadataChangeProposals.isEmpty()) {
+      List<SystemMetadata> systemMetadataList =
+          metadataChangeProposals.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
+      systemOperationContext.withQueueSpan(
+          "consume",
+          systemMetadataList,
+          topicName,
+          () -> {
+            try {
+              List<String> urns =
+                  entityClient.batchIngestProposals(
+                      systemOperationContext, metadataChangeProposals, false);
 
-            kafkaProducer.produceFailedMetadataChangeProposal(
-                systemOperationContext, metadataChangeProposals, throwable);
-          }
-        },
-        BATCH_SIZE_ATTR,
-        String.valueOf(metadataChangeProposals.size()),
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(this.getClass(), "consume"));
+              log.info(
+                  "Successfully processed MCP event urns: {}",
+                  urns.stream().filter(Objects::nonNull).toList());
+            } catch (Throwable throwable) {
+              log.error("MCP Processor Error", throwable);
+              Span currentSpan = Span.current();
+              currentSpan.recordException(throwable);
+              currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
+              currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+              kafkaProducer.produceFailedMetadataChangeProposal(
+                  systemOperationContext, metadataChangeProposals, throwable);
+            }
+          },
+          BATCH_SIZE_ATTR,
+          String.valueOf(metadataChangeProposals.size()),
+          MetricUtils.DROPWIZARD_NAME,
+          MetricUtils.name(this.getClass(), "consume"));
+    }
   }
 }

@@ -403,6 +403,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     res["session_id"],
                     res["query_start_time"],
                     object_modified_by_ddl,
+                    res["query_type"],
                 )
             if known_ddl_entry:
                 return known_ddl_entry
@@ -537,9 +538,27 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         session_id: str,
         timestamp: datetime,
         object_modified_by_ddl: dict,
+        query_type: str,
     ) -> Optional[Union[TableRename, TableSwap]]:
         timestamp = timestamp.astimezone(timezone.utc)
-        if object_modified_by_ddl[
+        if (
+            object_modified_by_ddl["operationType"] == "ALTER"
+            and query_type == "RENAME_TABLE"
+            and object_modified_by_ddl["properties"].get("objectName")
+        ):
+            original_un = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            new_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                )
+            )
+            return TableRename(original_un, new_urn, query, session_id, timestamp)
+        elif object_modified_by_ddl[
             "operationType"
         ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
             urn1 = self.identifiers.gen_dataset_urn(
@@ -555,22 +574,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
 
             return TableSwap(urn1, urn2, query, session_id, timestamp)
-        elif object_modified_by_ddl[
-            "operationType"
-        ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
-            original_un = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["objectName"]
-                )
-            )
-
-            new_urn = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["objectName"]["value"]
-                )
-            )
-
-            return TableRename(original_un, new_urn, query, session_id, timestamp)
         else:
             self.report.num_ddl_queries_dropped += 1
             return None

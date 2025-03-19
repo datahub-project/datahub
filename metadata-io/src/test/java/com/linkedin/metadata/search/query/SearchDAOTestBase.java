@@ -436,7 +436,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
                 null,
                 null,
                 10,
-                null);
+                List.of());
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");

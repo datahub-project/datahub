@@ -1,7 +1,7 @@
 import logging
 import sys
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -93,10 +93,12 @@ def get_data_platform_tables_with_dummy_table(
 
 
 def get_default_instances(
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Tuple[
     PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
 ]:
+    if override_config is None:
+        override_config = {}
     config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
         {
             "tenant_id": "fake",

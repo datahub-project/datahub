@@ -38,6 +38,10 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     implementation externalDependency.awsMskIamAuth
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
 }
 
 task avroSchemaSources(type: Copy) {
@@ -54,5 +58,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }
