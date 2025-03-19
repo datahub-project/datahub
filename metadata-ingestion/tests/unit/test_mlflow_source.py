@@ -4,7 +4,15 @@ from typing import Any, Union
 
 import pytest
 from mlflow import MlflowClient
-from mlflow.entities import Dataset as MLflowDataset
+from mlflow.entities import (
+    Dataset as MLflowDataset,
+    DatasetInput,
+    InputTag,
+    Run,
+    RunData,
+    RunInfo,
+    RunInputs,
+)
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.store.entities import PagedList
@@ -188,7 +196,29 @@ def test_make_external_link_remote_via_config(source, model_version):
 
 def test_local_dataset_reference_creation(source, mlflow_local_dataset):
     """Test that local dataset reference is always created for local source type"""
-    workunits = list(source._get_dataset_input_workunits(mlflow_local_dataset))
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_local_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
+    )
+    workunits = list(source._get_dataset_input_workunits(run))
 
     # Should create local dataset reference
     assert len(workunits) > 0
@@ -213,7 +243,29 @@ def test_materialization_disabled_with_supported_platform(source, mlflow_dataset
 
     source.ctx.graph = MockGraph()
 
-    workunits = list(source._get_dataset_input_workunits(mlflow_dataset))
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
+    )
+    workunits = list(source._get_dataset_input_workunits(run))
 
     # Should create dataset reference
     assert len(workunits) > 0
@@ -235,7 +287,30 @@ def test_materialization_disabled_with_unsupported_platform(
     - Should not try to link upstream
     """
     source.config.materialize_dataset_inputs = False
-    workunits = list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_unsupported_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
+    )
+    workunits = list(source._get_dataset_input_workunits(run))
 
     # Should create dataset reference
     assert len(workunits) > 0
@@ -251,10 +326,32 @@ def test_materialization_enabled_with_supported_platform(source, mlflow_dataset)
     - Should create dataset reference
     - Should create hosted dataset
     """
-    source.config.materialize_dataset_inputs = (
-        MLflowConfig.MaterializeDatasetInputsConfig(enabled=True)
+    source.config.materialize_dataset_inputs = True
+    source.config.source_mapping_to_platform = {"snowflake": "snowflake"}
+
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
     )
-    workunits = list(source._get_dataset_input_workunits(mlflow_dataset))
+    workunits = list(source._get_dataset_input_workunits(run))
 
     # Should create both dataset reference and hosted dataset
     assert len(workunits) > 0
@@ -268,14 +365,42 @@ def test_materialization_enabled_with_unsupported_platform(
 ):
     """
     Test when materialize_dataset_inputs=True and platform is not supported:
-    - Should raise ValueError
+    - Should report error about missing platform mapping
     """
-    source.config.materialize_dataset_inputs = (
-        MLflowConfig.MaterializeDatasetInputsConfig(enabled=True)
-    )
+    source.config.materialize_dataset_inputs = True
+    source.config.source_mapping_to_platform = {}
 
-    with pytest.raises(ValueError, match="No mapping dataPlatform found"):
-        list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_unsupported_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
+    )
+    workunits = list(source._get_dataset_input_workunits(run))
+
+    # Should not create any workunits due to error
+    assert len(workunits) == 0
+    # Should report error about missing platform mapping
+    assert any(
+        "No mapping dataPlatform found" in report.message
+        for report in source.report.failures
+    )
 
 
 def test_materialization_enabled_with_custom_mapping(
@@ -286,13 +411,32 @@ def test_materialization_enabled_with_custom_mapping(
     - Should create dataset reference
     - Should create hosted dataset with mapped platform
     """
-    source.config.materialize_dataset_inputs = (
-        MLflowConfig.MaterializeDatasetInputsConfig(
-            enabled=True,
-            source_mapping_to_platform={"unsupported_platform": "snowflake"},
-        )
+    source.config.materialize_dataset_inputs = True
+    source.config.source_mapping_to_platform = {"unsupported_platform": "snowflake"}
+
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_unsupported_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
     )
-    workunits = list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+    workunits = list(source._get_dataset_input_workunits(run))
 
     # Should create both dataset reference and hosted dataset
     assert len(workunits) > 0
@@ -306,14 +450,38 @@ def test_materialization_enabled_with_invalid_custom_mapping(
 ):
     """
     Test when materialize_dataset_inputs=True with invalid custom platform mapping:
-    - Should raise ValueError
+    - Should report error about invalid platform
     """
-    source.config.materialize_dataset_inputs = (
-        MLflowConfig.MaterializeDatasetInputsConfig(
-            enabled=True,
-            source_mapping_to_platform={"unsupported_platform": "invalid_platform"},
-        )
-    )
+    source.config.materialize_dataset_inputs = True
+    source.config.source_mapping_to_platform = {
+        "unsupported_platform": "invalid_platform"
+    }
 
-    with pytest.raises(ValueError, match="Invalid platform"):
-        list(source._get_dataset_input_workunits(mlflow_unsupported_dataset))
+    run = Run(
+        RunInfo(
+            run_id="test_run",
+            run_uuid="test_uuid",
+            experiment_id="test_exp",
+            user_id="test_user",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567891,
+            artifact_uri="s3://test-bucket/test",
+            lifecycle_stage="active",
+        ),
+        RunData(metrics={}, params={}, tags=[]),
+        RunInputs(
+            dataset_inputs=[
+                DatasetInput(
+                    dataset=mlflow_unsupported_dataset,
+                    tags=[InputTag(key="key", value="value")],
+                )
+            ]
+        ),
+    )
+    workunits = list(source._get_dataset_input_workunits(run))
+
+    # Should not create any workunits due to error
+    assert len(workunits) == 0
+    # Should report error about invalid platform
+    assert any("Invalid platform" in report.title for report in source.report.failures)

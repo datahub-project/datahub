@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from mlflow import MlflowClient
-from mlflow.entities import Dataset as MLflowDataset, Experiment, Run
+from mlflow.entities import Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
@@ -291,6 +291,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         # If the schema is not formatted, return None
         return None
 
+    def _get_external_dataset_urn(self, platform: str, dataset_name: str) -> str:
+        """
+        Get the URN for an external dataset.
+        Args:
+            platform: The platform of the external dataset (e.g., 's3', 'bigquery')
+            dataset: The MLflow dataset
+        Returns:
+            str: The URN of the external dataset
+        """
+        return str(DatasetUrn(platform=platform, name=dataset_name))
+
     def _get_dataset_input_workunits(self, run: Run) -> Iterable[MetadataWorkUnit]:
         """
         Generate workunits for dataset inputs in a run.
@@ -365,9 +376,18 @@ class MLflowSource(StatefulIngestionSourceBase):
                 name=dataset.name,
                 schema=formatted_schema,
                 custom_properties=dataset_tags,
-                upstreams=self._get_hosted_dataset_upstream(
-                    formatted_platform, dataset
-                ),
+                upstreams=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            self._get_external_dataset_urn(
+                                formatted_platform, dataset.name
+                            ),
+                            type="COPY",
+                        )
+                    ]
+                )
+                if formatted_platform
+                else None,
             )
             dataset_reference_urns.append(str(hosted_dataset_reference.urn))
             yield from hosted_dataset_reference.as_workunits()
@@ -432,26 +452,6 @@ class MLflowSource(StatefulIngestionSourceBase):
             "datahub/ingestion/source/common/known_platforms.py",
         )
         return None
-
-    def _get_hosted_dataset_upstream(
-        self, platform: Optional[str], dataset: MLflowDataset
-    ) -> Optional[UpstreamLineageClass]:
-        """
-        Create upstream lineage for a hosted dataset.
-        Returns None if platform is not supported
-        """
-        if not platform:
-            return None
-
-        hosted_dataset_urn = DatasetUrn(platform=platform, name=dataset.name)
-
-        return UpstreamLineageClass(
-            upstreams=[UpstreamClass(str(hosted_dataset_urn), type="COPY")]
-        )
-
-    def _is_valid_platform(self, platform: Optional[str]) -> bool:
-        """Check if platform is registered as a source plugin"""
-        return platform in KNOWN_VALID_PLATFORM_NAMES
 
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
@@ -849,6 +849,10 @@ class MLflowSource(StatefulIngestionSourceBase):
             aspect=global_tags,
         )
         return wu
+
+    def _is_valid_platform(self, platform: Optional[str]) -> bool:
+        """Check if platform is registered as a source plugin"""
+        return platform in KNOWN_VALID_PLATFORM_NAMES
 
     def _materialize_dataset_inputs(self) -> Optional[bool]:
         """Check if dataset materialization is enabled"""
