@@ -56,6 +56,14 @@ Follow these simple steps to understand the full dependency chain of your data e
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/impact-analysis-view-export-results.png"/>
 </p>
 
+### Known Issues
+
+Impact Analysis is a powerful feature that can place significant demands on the system. To maintain high performance when handling large result sets, we've implemented "Lightning Cache" - an alternate processing path that delivers results more quickly.
+
+However, the Lightning Cache has a limitation: it may include assets that are soft-deleted or no longer exist in the DataHub database. This occurs because lineage references may contain "ghost entities" (URNs without associated data).
+
+Note that when you download Impact Analysis results, our system properly filters out these soft-deleted and non-existent assets. As a result, you might notice differences between what appears in the UI and what appears in your downloaded results.
+
 ## Additional Resources
 
 ### Videos
