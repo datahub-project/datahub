@@ -100,6 +100,7 @@ const StructuredPropsForm = ({
                             }}
                             placeholder="Select Property Type"
                             options={valueTypes}
+                            width="full"
                             values={formValues?.valueType ? [formValues?.valueType] : undefined}
                             isDisabled={isEditMode}
                             showDescriptions

@@ -1,7 +1,7 @@
 import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
 
-import { SelectStyleProps } from './types';
+import { BaseSelectOption, SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => {
     const color = isSelected ? colors.gray[600] : colors.gray[500];
@@ -55,7 +55,7 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xxsm} ${spacing.xxsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
             padding: `${spacing.xsm} ${spacing.xsm}`,
@@ -78,6 +78,22 @@ export const getSearchPadding = (size) => {
         },
         lg: {
             padding: `${spacing.xsm} ${spacing.xsm}`,
+        },
+    };
+
+    return paddingStyles[size];
+};
+
+export const getSelectMinHeight = (size) => {
+    const paddingStyles = {
+        sm: {
+            minHeight: '32px',
+        },
+        md: {
+            minHeight: '42px',
+        },
+        lg: {
+            minHeight: '42px',
         },
     };
 
@@ -121,10 +137,19 @@ export const getSelectStyle = (props: SelectStyleProps) => {
 
     const fontStyles = getSelectFontStyles(fontSize);
     const paddingStyles = getSelectPadding(fontSize);
+    const minHeightStyles = getSelectMinHeight(fontSize);
 
     return {
         ...baseStyle,
         ...fontStyles,
         ...paddingStyles,
+        ...minHeightStyles,
     };
 };
+
+export function defaultFilteringPredicate(option: BaseSelectOption, query: string) {
+    if (typeof option.label !== 'string') return true; // just show all options as we don't know how to filter options
+
+    const label = option.label.toLowerCase();
+    return label.includes(query.toLowerCase());
+}

@@ -28,6 +28,7 @@ import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingCo
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import useSearchViewAll from './useSearchViewAll';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import useFocusElementByCommandK from './searchBarV2/hooks/useFocusSearchBarByCommandK';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
@@ -148,6 +149,7 @@ interface Props {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
+    isSuggestionsLoading?: boolean;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
@@ -385,27 +387,7 @@ export const SearchBar = ({
 
     const searchInputRef = useRef(null);
 
-    useEffect(() => {
-        if (showCommandK) {
-            const handleKeyDown = (event) => {
-                const isMac = (navigator as any).userAgentData
-                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
-                    : navigator.userAgent.toLowerCase().includes('mac');
-
-                // Support command-k to select the search bar on all platforms
-                // Support ctrl-k to select the search bar on non-Mac platforms
-                // 75 is the keyCode for 'k'
-                if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
-                    (searchInputRef?.current as any)?.focus();
-                }
-            };
-            document.addEventListener('keydown', handleKeyDown);
-            return () => {
-                document.removeEventListener('keydown', handleKeyDown);
-            };
-        }
-        return () => null;
-    }, [showCommandK]);
+    useFocusElementByCommandK(searchInputRef, !showCommandK);
 
     const viewsEnabledStyle = {
         ...style,

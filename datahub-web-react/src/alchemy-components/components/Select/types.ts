@@ -3,17 +3,26 @@ import { IconNames } from '../Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 
-export interface SelectOption {
+export interface BaseSelectOption {
     value: string;
-    label: string;
+    label: React.ReactNode;
+}
+
+export interface SelectOption extends BaseSelectOption {
     description?: string;
     icon?: React.ReactNode;
 }
 
 export type SelectLabelVariants = 'default' | 'labeled';
+export interface SelectLabelProps {
+    variant: SelectLabelVariants;
+    label: string;
+}
 
-export interface SelectProps {
-    options: SelectOption[];
+export type FilteringPredicate<Option extends SelectOption = SelectOption> = (option: Option, query: string) => boolean;
+
+export interface SelectProps<Option extends SelectOption = SelectOption> {
+    options: Option[];
     label?: string;
     values?: string[];
     initialValues?: string[];
@@ -22,11 +31,13 @@ export interface SelectProps {
     size?: SelectSizeOptions;
     icon?: IconNames;
     showSearch?: boolean;
+    onSearch?: (query: string) => void;
+    filteringPredicate?: FilteringPredicate<Option>;
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
     showClear?: boolean;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
@@ -35,10 +46,7 @@ export interface SelectProps {
     showDescriptions?: boolean;
     optionListTestId?: string;
     optionSwitchable?: boolean;
-    selectLabelProps?: {
-        variant: SelectLabelVariants;
-        label: string;
-    };
+    selectLabelProps?: SelectLabelProps;
 }
 
 export interface SelectStyleProps {
@@ -47,7 +55,7 @@ export interface SelectStyleProps {
     isReadOnly?: boolean;
     isRequired?: boolean;
     isOpen?: boolean;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
 }
 
 export interface ActionButtonsProps {

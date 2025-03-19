@@ -13,6 +13,8 @@ import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import useSearchViewAll from './useSearchViewAll';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { FiltersAppliedHandler } from './filtersV2/types';
+import { SearchBarV2 } from './searchBarV2/SearchBarV2';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -123,8 +125,10 @@ type Props = {
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
+    isSuggestionsLoading?: boolean;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
+    onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
 };
 
@@ -135,9 +139,11 @@ export const SearchHeader = ({
     initialQuery,
     placeholderText,
     suggestions,
+    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     entityRegistry,
+    onFilter,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -147,6 +153,9 @@ export const SearchHeader = ({
     const searchViewAll = useSearchViewAll();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const styles = getStyles(isShowNavBarRedesign);
+
+    const showSearchBarAutocompleteRedesign = appConfig.config?.showSearchBarAutocompleteRedesign;
+    const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
 
     return (
         <>
@@ -159,7 +168,7 @@ export const SearchHeader = ({
                         </NavBarTogglerWrapper>
                     )}
                     <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-                        <SearchBar
+                        <FinalSearchBar
                             isLoading={isUserInitializing || !appConfig.loaded}
                             id={V2_SEARCH_BAR_ID}
                             style={styles.searchBoxContainer}
@@ -168,12 +177,14 @@ export const SearchHeader = ({
                             initialQuery={initialQuery}
                             placeholderText={placeholderText}
                             suggestions={suggestions}
+                            isSuggestionsLoading={isSuggestionsLoading}
                             onSearch={onSearch}
                             onQueryChange={onQueryChange}
                             entityRegistry={entityRegistry}
                             setIsSearchBarFocused={setIsSearchBarFocused}
                             viewsEnabled={viewsEnabled}
                             isShowNavBarRedesign={isShowNavBarRedesign}
+                            onFilter={onFilter}
                             combineSiblings
                             fixAutoComplete
                             showQuickFilters

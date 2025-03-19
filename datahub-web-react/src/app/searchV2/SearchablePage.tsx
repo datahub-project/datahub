@@ -23,6 +23,10 @@ import { useSelectedSortOption } from '../search/context/SearchContext';
 import { NavSidebar as NavSidebarRedesign } from '../homeV2/layout/navBarRedesign/NavSidebar';
 import { NavSidebar } from '../homeV2/layout/NavSidebar';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { FieldToAppliedFieldFiltersMap } from './filtersV2/types';
+import { generateOrFilters } from './utils/generateOrFilters';
+import { UnionType } from './utils/constants';
+import { useAppConfig } from '../useAppConfig';
 
 const Body = styled.div`
     display: flex;
@@ -72,6 +76,9 @@ const isSearchResultPage = (path: string) => {
  */
 export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
+    const appConfig = useAppConfig();
+    const showSearchBarAutocompleteRedesign = appConfig.config?.showSearchBarAutocompleteRedesign;
+
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
     const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
@@ -86,10 +93,14 @@ export const SearchablePage = ({ children }: Props) => {
     const themeConfig = useTheme();
     const { selectedQuickFilter } = useQuickFiltersContext();
 
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData, loading: isSuggestionsLoading }] =
+        useGetAutoCompleteMultipleResultsLazyQuery();
     const userContext = useUserContext();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const viewUrn = userContext.localState?.selectedViewUrn;
+
+    const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap | undefined>(new Map());
+    const [searchQuery, setSearchQuery] = useState<string>(currentQuery);
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -97,7 +108,7 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, [suggestionsData]);
 
-    const search = (query: string, quickFilters?: FacetFilterInput[]) => {
+    const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({
             type: EventType.SearchEvent,
             query,
@@ -107,11 +118,11 @@ export const SearchablePage = ({ children }: Props) => {
             selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
 
-        const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
+        const newAppliedFilters = newFilters && newFilters?.length > 0 ? newFilters : filters;
 
         navigateToSearchUrl({
             query,
-            filters: appliedFilters,
+            filters: newAppliedFilters,
             history,
             selectedSortOption,
         });
@@ -130,6 +141,29 @@ export const SearchablePage = ({ children }: Props) => {
             });
         }
     }, FIFTH_SECOND_IN_MS);
+
+    useEffect(() => {
+        const autoCompleteWithFilters = debounce((query: string) => {
+            if (query.trim() === '') return null;
+
+            const flatAppliedFilters = Array.from(appliedFilters?.values?.() || [])
+                .flatMap((value) => value.filters)
+                .filter((filter) => filter.values?.length);
+
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query,
+                        viewUrn,
+                        orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
+                    },
+                },
+            });
+            return null;
+        }, FIFTH_SECOND_IN_MS);
+
+        if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery);
+    }, [searchQuery, showSearchBarAutocompleteRedesign]);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
@@ -158,9 +192,11 @@ export const SearchablePage = ({ children }: Props) => {
                         newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
+                isSuggestionsLoading={isSuggestionsLoading}
                 onSearch={search}
-                onQueryChange={autoComplete}
+                onQueryChange={showSearchBarAutocompleteRedesign ? setSearchQuery : autoComplete}
                 entityRegistry={entityRegistry}
+                onFilter={(newFilters) => setAppliedFilters(newFilters)}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
