@@ -41,7 +41,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-tab {
         padding: 8px;
         margin: 0 4px 12px 4px !important;
-        border-radius: 6px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -113,7 +113,7 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
 
 const TabText = styled.span<{ $isSelected?: boolean }>`
     font-size: 10px;
-    margin-top: 4px;
+    margin-top: 2px;
     text-align: center;
     transition: none !important;
     /* Prevent text selection */
@@ -192,7 +192,7 @@ const TabsWrapper = styled.div`
     flex-direction: column;
     align-items: center;
     padding: 0;
-    margin-top: 8px;
+    margin-top: 4px;
 `;
 
 export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props) => {
