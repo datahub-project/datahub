@@ -23,7 +23,7 @@ interface Props {
 const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    const property = schemaFieldEntity.structuredProperties?.properties?.find(
+    const property = schemaFieldEntity?.structuredProperties?.properties?.find(
         (prop) => prop.structuredProperty.urn === propColumn?.entity?.urn,
     );
     const propRow = property ? mapStructuredPropertyToPropertyRow(property) : undefined;
