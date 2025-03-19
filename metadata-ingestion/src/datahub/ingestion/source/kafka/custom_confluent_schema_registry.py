@@ -56,7 +56,7 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
 
     # 하나의 토픽에 대해 여러개의 subject 를 뽑음
     def _get_subjects_for_topic(
-        self, topic: str, is_subject: bool
+        self, topic: str, is_subject: bool, topic_list: list
     ) -> List[Optional[str]]:
         subjects = set()
         if is_subject:
@@ -65,15 +65,17 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
             # TODO : 레지스트리를 계속 돌지 않게끔 변경할 방법 필요
             if self.source_config.topic_patterns.allowed(topic):
                 for subject in self.known_schema_registry_subjects:
-                    if subject.startswith(topic + "-") or subject.startswith(
-                        topic + "."
-                    ):
-                        record_name = (
-                            subject.replace("_key", "")
-                            .replace("_value", "")
-                            .replace("-key", "")
-                            .replace("-value", "")
-                        )
+                    subject_name = (
+                        subject.replace("_key", "")
+                        .replace("_value", "")
+                        .replace("-key", "")
+                        .replace("-value", "")
+                    )
+                    if (
+                        subject_name.startswith(topic + "-")
+                        or subject_name.startswith(topic + ".")
+                    ) and subject_name not in topic_list:
+                        record_name = subject_name
                         subjects.add(record_name)
         return list(subjects)
 
@@ -115,11 +117,11 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
         return None
 
     def get_schema_metadata(
-        self, topic: str, platform_urn: str, is_subject: bool
+        self, topic: str, platform_urn: str, is_subject: bool, topic_list: list
     ) -> List[SchemaMetadata]:
         logger.debug(f"Inside get_schema_metadata {topic} {platform_urn}")
 
-        subjects = self._get_subjects_for_topic(topic, is_subject)
+        subjects = self._get_subjects_for_topic(topic, is_subject, topic_list)
         dataset_metadata_list = []
 
         for subject in subjects:
