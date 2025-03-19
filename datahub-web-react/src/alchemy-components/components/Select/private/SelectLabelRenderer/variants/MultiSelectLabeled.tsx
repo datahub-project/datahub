@@ -7,7 +7,7 @@ export default function MultiSelectLabeled({ selectedOptions, label }: SelectLab
         <LabelsWrapper>
             <ActionButtonsContainer>
                 <SelectValue>{label}</SelectValue>
-                <HighlightedLabel>{selectedOptions.length}</HighlightedLabel>
+                {selectedOptions.length > 0 && <HighlightedLabel>{selectedOptions.length}</HighlightedLabel>}
             </ActionButtonsContainer>
         </LabelsWrapper>
     );
