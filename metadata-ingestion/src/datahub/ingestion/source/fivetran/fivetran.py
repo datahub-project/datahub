@@ -1,5 +1,7 @@
+import difflib
 import logging
-from typing import Dict, Iterable, List, Optional
+import re
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -80,6 +82,9 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # For backward compatibility with existing tests
         self.audit_log = self.fivetran_access
+
+        # Initialize field lineage workunits list
+        self.field_lineage_workunits: List[MetadataWorkUnit] = []
 
     def _get_source_details(self, connector: Connector) -> PlatformDetail:
         """Get source platform details for a connector."""
@@ -342,6 +347,96 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _normalize_column_name(self, column_name: str) -> str:
+        """Normalize column name for comparison by removing non-alphanumeric chars and converting to lowercase."""
+        # Remove non-alphanumeric characters and convert to lowercase
+        normalized = re.sub(r"[^a-zA-Z0-9]", "", column_name).lower()
+        return normalized
+
+    def _transform_column_name_for_platform(
+        self, column_name: str, is_bigquery: bool
+    ) -> str:
+        """Transform column name based on the destination platform."""
+        if is_bigquery:
+            # For BigQuery:
+            # 1. Convert to lowercase
+            # 2. Replace camelCase with snake_case
+            # 3. Clean up any invalid characters
+
+            # Step 1: Convert camelCase to snake_case with regex
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+
+            # Step 2: lowercase and replace non-alphanumeric with underscore
+            transformed = re.sub(r"[^a-zA-Z0-9_]", "_", s2.lower())
+
+            # Step 3: Remove leading/trailing underscores and collapse multiple underscores
+            transformed = re.sub(r"_+", "_", transformed).strip("_")
+
+            return transformed
+        else:
+            # For other platforms like Snowflake, typically uppercase
+            return column_name.upper()
+
+    def _find_best_fuzzy_match(
+        self, source_col: str, source_norm: str, dest_columns: List[Tuple[str, str]]
+    ) -> Optional[str]:
+        """Find best fuzzy match for a source column from destination columns.
+
+        Args:
+            source_col: Original source column name
+            source_norm: Normalized source column name
+            dest_columns: List of (original_dest, normalized_dest) tuples
+
+        Returns:
+            Best matching destination column name or None if no good match found
+        """
+        # First try to match normalized versions with high cutoff
+        dest_norms = [dest_norm for _, dest_norm in dest_columns]
+        matches = difflib.get_close_matches(source_norm, dest_norms, n=1, cutoff=0.8)
+
+        if matches:
+            # Find original dest column with this normalized value
+            matched_norm = matches[0]
+            for dest_col, dest_norm in dest_columns:
+                if dest_norm == matched_norm:
+                    return dest_col
+
+        # If no high-quality match found, try a lower threshold on original names
+        # This helps with acronyms and abbreviated field names
+        dest_cols = [dest_col for dest_col, _ in dest_columns]
+        matches = difflib.get_close_matches(source_col, dest_cols, n=1, cutoff=0.6)
+
+        if matches:
+            return matches[0]
+
+        # Try special patterns like converting "someField" to "some_field"
+        snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", source_col).lower()
+        for dest_col, _ in dest_columns:
+            if dest_col.lower() == snake_case:
+                return dest_col
+
+        # If source_col contains words that are also in a destination column, consider it a match
+        # This helps with "BillingStreet" matching "billing_street" or "street_billing"
+        words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", source_col)
+        if words:
+            word_matches = {}
+            for dest_col, _ in dest_columns:
+                # Count how many words from source appear in destination
+                dest_words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", dest_col)
+                common_words = len(
+                    set(w.lower() for w in words) & set(w.lower() for w in dest_words)
+                )
+                if common_words > 0:
+                    word_matches[dest_col] = common_words
+
+            # If we found matches based on common words, return the one with most matches
+            if word_matches:
+                return max(word_matches.items(), key=lambda x: x[1])[0]
+
+        # No good match found
+        return None
+
     def _create_column_lineage(
         self,
         lineage: TableLineage,
@@ -349,17 +444,23 @@ class FivetranSource(StatefulIngestionSourceBase):
         dest_urn: Optional[DatasetUrn],
         fine_grained_lineage: List[FineGrainedLineage],
     ) -> None:
-        """Create column-level lineage between source and destination tables."""
+        """Create column-level lineage between source and destination tables with fuzzy matching."""
         if not source_urn or not dest_urn:
             return
 
         # Log details for debugging
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
 
+        # Get destination platform
+        dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
+        is_bigquery = dest_platform.lower() == "bigquery"
+
         # If there are explicit column mappings, use them directly
         if lineage.column_lineage:
-            # Log the number of column mappings we're processing
-            logger.info(f"Processing {len(lineage.column_lineage)} column mappings")
+            # Extract and normalize all source and destination columns
+            source_columns = []
+            dest_columns = []
+            original_mappings = {}
 
             for column_lineage in lineage.column_lineage:
                 if (
@@ -369,33 +470,62 @@ class FivetranSource(StatefulIngestionSourceBase):
                 ):
                     continue
 
-                # Log the column mapping
-                logger.debug(
-                    f"Column mapping: {column_lineage.source_column} -> {column_lineage.destination_column}"
+                source_col = column_lineage.source_column
+                dest_col = column_lineage.destination_column
+
+                # Transform destination column based on platform
+                transformed_dest = self._transform_column_name_for_platform(
+                    dest_col, is_bigquery
                 )
 
+                # Store original and normalized versions
+                source_norm = self._normalize_column_name(source_col)
+                dest_norm = self._normalize_column_name(transformed_dest)
+
+                source_columns.append((source_col, source_norm))
+                dest_columns.append((transformed_dest, dest_norm))
+
+                # Keep track of original mappings
+                original_mappings[(source_col, dest_col)] = (
+                    source_col,
+                    transformed_dest,
+                )
+
+            # Apply fuzzy matching to find best matches where needed
+            best_matches = {}
+
+            for source_col, source_norm in source_columns:
+                # First try exact match with normalized column name
+                exact_match = None
+                for dest_col, dest_norm in dest_columns:
+                    if source_norm == dest_norm:
+                        exact_match = dest_col
+                        break
+
+                if exact_match:
+                    best_matches[source_col] = exact_match
+                    continue
+
+                # If no exact match, try fuzzy matching
+                best_match = self._find_best_fuzzy_match(
+                    source_col, source_norm, dest_columns
+                )
+                if best_match:
+                    best_matches[source_col] = best_match
+                    logger.info(f"Fuzzy matched: {source_col} -> {best_match}")
+
+            # Create lineage for each matched column
+            for source_col, dest_col in best_matches.items():
                 try:
-                    # Use column names directly as they should already be in the correct form
-                    source_column = column_lineage.source_column
-                    destination_column = column_lineage.destination_column
-
-                    # For BigQuery specifically, ensure the field names are correctly formed
-                    dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
-                    if dest_platform.lower() == "bigquery":
-                        # BigQuery fields are case-sensitive, ensure proper case
-                        destination_column = destination_column.lower()
-                        # Make sure we don't have any special characters in field path
-                        destination_column = destination_column.replace(".", "_")
-
-                    # Create field URNs for source and destination
+                    # Create field URNs
                     source_field_urn = builder.make_schema_field_urn(
                         str(source_urn),
-                        source_column,
+                        source_col,
                     )
 
                     dest_field_urn = builder.make_schema_field_urn(
                         str(dest_urn),
-                        destination_column,
+                        dest_col,
                     )
 
                     # Add to fine-grained lineage
@@ -413,7 +543,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to create column lineage for {column_lineage.source_column} -> {column_lineage.destination_column}: {e}"
+                        f"Failed to create column lineage for {source_col} -> {dest_col}: {e}"
                     )
 
             # Log the total number of lineage entries created
@@ -430,6 +560,16 @@ class FivetranSource(StatefulIngestionSourceBase):
             logger.warning(
                 f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}. "
                 f"This may indicate an issue with schema retrieval from the Fivetran API."
+            )
+
+            # Add a special note in the report
+            self.report.warning(
+                title="Missing column lineage",
+                message=(
+                    "No column lineage information was available for some tables. "
+                    "This may indicate an issue with schema retrieval from the Fivetran API."
+                ),
+                context=f"{lineage.source_table} → {lineage.destination_table}",
             )
 
             # Add a placeholder entry to indicate table-level lineage only
