@@ -1,5 +1,5 @@
 import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '../../../../../../types.generated';
+import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import SingleSelectInput from './SingleSelectInput';
 import MultiSelectInput from './MultiSelectInput';
 import StringInput from './StringInput';
