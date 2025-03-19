@@ -99,6 +99,13 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
             config = update_celery_config(CeleryConfig(), executor_configs)
             app.config_from_object(config)
 
+            # Celery permanently caches queues and router object using @cached_property
+            # decorator. This requires application restart when a new queue is created
+            # at runtime. To work around this issue, we delete internal cache entries
+            # in Celery every time new config is received.
+            app.amqp.__dict__.pop("queues", None)
+            app.amqp.__dict__.pop("router", None)
+
             if "predefined_queues" in app.conf.broker_transport_options:
                 for q in app.conf.broker_transport_options["predefined_queues"].keys():
                     if q not in current_queues:

@@ -11,6 +11,10 @@ configurations {
 dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
+    implementation platform("software.amazon.awssdk:bom:$awsSdk2Version")
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:sqs'
+
     implementation project(':li-utils')
     implementation(project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
@@ -69,6 +73,11 @@ task avroSchemaSources(type: Copy) {
     }
     into("src/main/resources/")
     include("avro/com/linkedin/mxe/")
+}
+
+test {
+  testLogging.exceptionFormat = 'full'
+  testLogging.showStandardStreams = true
 }
 
 compileJava.dependsOn avroSchemaSources
