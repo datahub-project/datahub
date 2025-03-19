@@ -25,7 +25,7 @@ describe("incidents", () => {
   it("can view v1 incident", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents"
     );
     cy.get(`[data-testid="incident-row-${EXISTING_INCIDENT_TITLE}"]`)
       .contains(EXISTING_INCIDENT_TITLE)
@@ -35,11 +35,11 @@ describe("incidents", () => {
   it("create a v2 incident with all fields set", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents"
     );
     cy.get('[data-testid="create-incident-btn-main"]').click();
     cy.get('[data-testid="incident-name-input"]').type(
-      newIncidentNameWithTimeStamp,
+      newIncidentNameWithTimeStamp
     );
 
     cy.get(".remirror-editor")
@@ -72,13 +72,13 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-create-button"]').click();
     cy.wait(3000);
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`
     ).should("exist");
     cy.get(`[data-testid="${newIncidentNameWithTimeStamp}"]`)
       .scrollIntoView()
       .should("be.visible");
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`
     ).within(() => {
       cy.get('[data-testid="incident-stage"]')
         .invoke("text")
@@ -95,7 +95,7 @@ describe("incidents", () => {
   it("can update incident & resolve incident", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents"
     );
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`)
       .should("exist")
@@ -138,6 +138,7 @@ describe("incidents", () => {
     cy.get('[data-testid="nested-options-dropdown-container"]').click();
     cy.get('[data-testid="child-option-RESOLVED"]').click();
     cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="incident-group-HIGH"]').scrollIntoView();
     cy.get('[data-testid="incident-group-HIGH"]').within(() => {
       cy.get('[data-testid="group-header-collapsed-icon"]')
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
@@ -149,11 +150,11 @@ describe("incidents", () => {
           }
         });
     });
+    cy.get(`[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`)
+      .scrollIntoView()
+      .should("exist");
     cy.get(
-      `[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`,
-    ).should("exist");
-    cy.get(
-      `[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`,
+      `[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`
     ).within(() => {
       cy.get('[data-testid="incident-stage"]')
         .invoke("text")
@@ -163,7 +164,7 @@ describe("incidents", () => {
         .should("include", EDITED_INCIDENT_VALUES.TYPE);
       cy.get('[data-testid="incident-resolve-button-container"]').should(
         "contain.text",
-        "Me",
+        "Me"
       );
     });
   });
