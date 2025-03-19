@@ -90,7 +90,7 @@ class SlackInstance(BaseModel):
             platform=DATA_PLATFORM_SLACK_URN, instance=self.id
         )
 
-    def update_with_team_info(self, team_info: dict) -> None:
+    def with_slack_team_info(self, team_info: dict) -> "SlackInstance":
         """
         team_info looks like this
         {'id': 'T22BUCL1LKW', 'name': 'DataHub', 'url': 'https://datahubspace.slack.com/', 'domain': 'datahub', 'email_domain': '', 'icon': {'image_default': False, 'image_34': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_34.png', 'image_44': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_44.png', 'image_68': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_68.png', 'image_88': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_88.png', 'image_102': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_102.png', 'image_230': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_230.png', 'image_132': 'https://avatars.slack-edge.com/2021-07-05/2228585180071_63e6f300a919abc488bb_132.png'}, 'avatar_base_url': 'https://ca.slack-edge.com/', 'is_verified': False, 'external_org_migrations': {'date_updated': 1722672564, 'current': []}, 'discoverable': 'closed', 'enterprise_id': 'E06TPM5T1G9', 'enterprise_name': 'DataHub', 'enterprise_domain': 'datahubspace', 'lob_sales_home_enabled': False}
@@ -109,6 +109,7 @@ class SlackInstance(BaseModel):
             }.items()
             if v is not None
         }
+        return self
 
     def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         return [
@@ -345,14 +346,16 @@ class SlackSource(StatefulIngestionSourceBase):
             if team_response and "team" in team_response:
                 team_info = team_response["team"]
                 slack_instance = SlackInstance(id=team_info.get("id"))
-                slack_instance.update_with_team_info(team_info)
+                slack_instance = slack_instance.with_slack_team_info(team_info)
 
         if slack_instance:
             for mcp in slack_instance.to_mcps():
                 yield mcp.as_workunit()
         else:
             logger.error("Failed to fetch team information")
-            raise Exception("Failed to fetch team information")
+            self.report.report_failure(
+                "team_info", "Failed to fetch team information for users"
+            )
 
         assert slack_instance
 
