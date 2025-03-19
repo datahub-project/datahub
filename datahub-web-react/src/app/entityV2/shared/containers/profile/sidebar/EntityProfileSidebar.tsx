@@ -6,6 +6,7 @@ import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
+import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -106,6 +107,7 @@ interface Props {
     backgroundColor?: string;
     contextType?: TabContextType;
     width?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
     className?: string;
 }
 
@@ -116,6 +118,7 @@ export default function EntityProfileSidebar({
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
     width,
+    headerDropdownItems: _headerDropdownItems,
     className,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
