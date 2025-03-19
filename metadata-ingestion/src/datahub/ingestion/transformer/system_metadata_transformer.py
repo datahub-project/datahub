@@ -20,9 +20,10 @@ def auto_system_metadata(
 
     for workunit in stream:
         if set_system_metadata:
-            workunit.metadata.systemMetadata = SystemMetadataClass(
-                lastObserved=get_sys_time(), runId=ctx.run_id
-            )
+            if not workunit.metadata.systemMetadata:
+                workunit.metadata.systemMetadata = SystemMetadataClass(runId=ctx.run_id)
+            if not workunit.metadata.systemMetadata.lastObserved:
+                workunit.metadata.systemMetadata.lastObserved = get_sys_time()
             if set_pipeline_name:
                 workunit.metadata.systemMetadata.pipelineName = ctx.pipeline_name
 
