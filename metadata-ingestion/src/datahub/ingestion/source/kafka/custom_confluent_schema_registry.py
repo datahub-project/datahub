@@ -165,9 +165,7 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                 )
                 dataset_metadata_list.append(schema_metadata)
 
-        if (
-            len(subjects) > 1 or not dataset_metadata_list
-        ):  # 1:N 일때도 토픽 추출되도록 추가
+        if len(subjects) > 1:  # 1:N 일때도 토픽 추출되도록 추가
             dataset_metadata_list.append(
                 SchemaMetadata(
                     schemaName=topic,
