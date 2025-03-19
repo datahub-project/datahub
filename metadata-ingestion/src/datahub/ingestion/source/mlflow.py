@@ -217,14 +217,13 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
         for experiment in experiments:
-            if experiment.name == "lineage_test_v10_experiment":
-                yield from self._get_experiment_container_workunit(experiment)
+            yield from self._get_experiment_container_workunit(experiment)
 
-                runs = self._get_mlflow_runs_from_experiment(experiment)
-                if runs:
-                    for run in runs:
-                        yield from self._get_run_workunits(experiment, run)
-                        yield from self._get_dataset_input_workunits(run)
+            runs = self._get_mlflow_runs_from_experiment(experiment)
+            if runs:
+                for run in runs:
+                    yield from self._get_run_workunits(experiment, run)
+                    yield from self._get_dataset_input_workunits(run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
