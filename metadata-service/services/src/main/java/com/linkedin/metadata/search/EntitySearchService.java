@@ -510,7 +510,7 @@ public interface EntitySearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets);
+      @Nonnull List<String> facets);
 
   @Nonnull
   ScrollResult predicateScroll(

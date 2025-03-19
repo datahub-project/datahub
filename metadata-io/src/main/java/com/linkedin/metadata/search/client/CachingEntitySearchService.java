@@ -447,7 +447,7 @@ public class CachingEntitySearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets,
+      @Nonnull List<String> facets,
       @Nullable String predicateJson) {
     return getCachedPredicateSearchResults(
         opContext, entityNames, query, filters, sortCriteria, from, size, facets, predicateJson);
@@ -467,7 +467,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets,
+      @Nonnull List<String> facets,
       @Nullable String predicateJson) {
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
@@ -507,7 +507,7 @@ public class CachingEntitySearchService {
       final List<SortCriterion> sortCriteria,
       final int start,
       final int count,
-      @Nullable final List<String> facets,
+      @Nonnull final List<String> facets,
       @Nullable String predicateJson) {
     try {
       Predicate finalFilterPredicate =

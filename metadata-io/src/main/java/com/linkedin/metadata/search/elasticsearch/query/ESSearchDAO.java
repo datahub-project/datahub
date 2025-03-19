@@ -936,7 +936,7 @@ public class ESSearchDAO {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
 
     List<EntitySpec> entitySpecs =
@@ -1038,7 +1038,7 @@ public class ESSearchDAO {
             entitySpecs,
             finalInput,
             sortCriteria,
-            null);
+            Collections.emptyList());
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
     // we only specify if not using PIT
@@ -1060,7 +1060,7 @@ public class ESSearchDAO {
       List<EntitySpec> entitySpecs,
       String finalInput,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {

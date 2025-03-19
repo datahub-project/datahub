@@ -109,7 +109,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        null,
+        List.of(),
         null);
   }
 
@@ -323,7 +323,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        null,
+        List.of(),
         predicateJson);
   }
 

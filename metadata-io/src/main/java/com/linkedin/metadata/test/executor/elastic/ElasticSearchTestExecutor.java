@@ -19,6 +19,7 @@ import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -79,7 +80,7 @@ public class ElasticSearchTestExecutor {
             null,
             0,
             executionLimit,
-            null);
+            Collections.emptyList());
     if (searchResult.getNumEntities() >= executionLimit) {
       throw abortBeyondLimitExecution(testDefinition, searchResult.getNumEntities());
     }
@@ -120,7 +121,14 @@ public class ElasticSearchTestExecutor {
         passingFilters);
     SearchResult passingSearchResult =
         searchService.predicateSearch(
-            opContext, entityTypes, query, passingFilters, null, 0, executionLimit, null);
+            opContext,
+            entityTypes,
+            query,
+            passingFilters,
+            null,
+            0,
+            executionLimit,
+            Collections.emptyList());
     if (!shouldExecuteBatchBeyondLimit && passingSearchResult.getNumEntities() >= executionLimit) {
       throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
     }
@@ -153,7 +161,7 @@ public class ElasticSearchTestExecutor {
                   null,
                   0,
                   executionLimit,
-                  null)
+                  Collections.emptyList())
               .getEntities()
               .stream();
     } else {
@@ -166,7 +174,7 @@ public class ElasticSearchTestExecutor {
               null,
               0,
               executionLimit,
-              null);
+              Collections.emptyList());
       failingEntities =
           selectionSearchResult.getEntities().stream()
               .filter(entity -> !passingUrns.contains(entity.getEntity()));

@@ -151,7 +151,9 @@ public class VersionsSearchResolverTest {
                 List.of(
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
-                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))));
+                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
+            any(List.class),
+            nullable(String.class));
   }
 
   @Test
@@ -246,7 +248,9 @@ public class VersionsSearchResolverTest {
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.ASCENDING),
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
-                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))));
+                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
+            any(List.class),
+            nullable(String.class));
   }
 
   @Test

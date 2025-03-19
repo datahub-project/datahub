@@ -489,7 +489,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Searching FullText Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, from: %s, size: %s",

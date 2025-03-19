@@ -161,7 +161,7 @@ public class SearchService {
               sortCriteria,
               from,
               size,
-              facets,
+              finalFacets,
               predicateJson);
     } else {
       result =
