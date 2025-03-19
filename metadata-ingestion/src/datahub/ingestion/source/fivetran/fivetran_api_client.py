@@ -166,6 +166,97 @@ class FivetranAPIClient:
             )
             return connector_data
 
+    def get_table_columns(
+        self, connector_id: str, schema_name: str, table_name: str
+    ) -> List[Dict]:
+        """
+        Get detailed column information for a specific table using the tables API endpoint.
+        This is more reliable for column information than the schemas endpoint.
+
+        Args:
+            connector_id: The Fivetran connector ID
+            schema_name: The schema name
+            table_name: The table name
+
+        Returns:
+            List of column dictionaries with name, type, and other properties
+        """
+        try:
+            # URL-encode the schema and table names to handle special characters
+            import urllib.parse
+
+            encoded_schema = urllib.parse.quote(schema_name)
+            encoded_table = urllib.parse.quote(table_name)
+
+            logger.info(f"Fetching column info directly for {schema_name}.{table_name}")
+
+            # Make the API request for detailed table information
+            response = self._make_request(
+                "GET",
+                f"/connectors/{connector_id}/schemas/{encoded_schema}/tables/{encoded_table}",
+            )
+
+            # Extract column information
+            table_data = response.get("data", {})
+            logger.debug(f"Table API response structure: {list(table_data.keys())}")
+
+            columns_data = table_data.get("columns", {})
+
+            # Convert column data to a list format if it's a dictionary
+            columns = []
+            if isinstance(columns_data, dict):
+                for col_name, col_info in columns_data.items():
+                    if isinstance(col_info, dict):
+                        col_entry = (
+                            col_info.copy()
+                        )  # Create a copy to avoid modifying the original
+                        col_entry["name"] = col_name
+
+                        # Ensure there's an enabled field
+                        if "enabled" not in col_entry:
+                            col_entry["enabled"] = True
+
+                        # Add the column if it's enabled
+                        if col_entry.get("enabled", True):
+                            columns.append(col_entry)
+                    else:
+                        # Simple case where we just have column names
+                        columns.append({"name": col_name, "enabled": True})
+            elif isinstance(columns_data, list):
+                columns = [col for col in columns_data if col.get("enabled", True)]
+
+            # Check if we have name_in_destination info
+            for col in columns:
+                if (
+                    isinstance(col, dict)
+                    and "name_in_destination" not in col
+                    and "name" in col
+                ):
+                    # Add name_in_destination based on destination platform
+                    destination = self.detect_destination_platform(
+                        table_data.get("destination_id", "")
+                    )
+                    if destination.lower() == "bigquery":
+                        # Convert to snake_case for BigQuery
+                        import re
+
+                        name = col["name"]
+                        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+                        s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+                        col["name_in_destination"] = s2.lower()
+                    elif destination.lower() in ["snowflake", "redshift"]:
+                        # Convert to uppercase for Snowflake/Redshift
+                        col["name_in_destination"] = col["name"].upper()
+
+            logger.info(
+                f"Retrieved {len(columns)} columns for {schema_name}.{table_name} via direct table API"
+            )
+            return columns
+
+        except Exception as e:
+            logger.warning(f"Failed to get columns for {schema_name}.{table_name}: {e}")
+            return []
+
     def _enrich_salesforce_connector(
         self, connector_id: str, connector_data: Dict
     ) -> None:
@@ -254,12 +345,21 @@ class FivetranAPIClient:
         Normalize schema information into a consistent format regardless of API response structure.
         """
         schemas = []
+
+        # Log what we're working with
         logger.debug(f"Raw schema response type: {type(raw_schemas)}")
+        if isinstance(raw_schemas, dict):
+            logger.debug(f"Schema keys: {list(raw_schemas.keys())}")
+        elif isinstance(raw_schemas, list):
+            logger.debug(f"Schema list length: {len(raw_schemas)}")
+            if raw_schemas:
+                logger.debug(f"First schema item type: {type(raw_schemas[0])}")
+        else:
+            logger.debug(f"Unexpected schema format: {str(raw_schemas)[:100]}...")
 
         # Handle different response formats
         if isinstance(raw_schemas, dict):
             # Handle nested object format (older API versions)
-            logger.debug(f"Schema keys: {list(raw_schemas.keys())}")
             logger.info(f"Converting nested schema format for connector {connector_id}")
             for schema_name, schema_data in raw_schemas.items():
                 # Convert to the expected format
@@ -308,10 +408,6 @@ class FivetranAPIClient:
 
                 schemas.append(schema_obj)
         elif isinstance(raw_schemas, list):
-            logger.debug(f"Schema list length: {len(raw_schemas)}")
-            if raw_schemas:
-                logger.debug(f"First schema item type: {type(raw_schemas[0])}")
-
             # Already in the expected list format
             schemas = raw_schemas
 
@@ -324,7 +420,6 @@ class FivetranAPIClient:
                     if "columns" not in table:
                         table["columns"] = []
         else:
-            logger.debug(f"Unexpected schema format: {raw_schemas[:100]}...")
             logger.warning(
                 f"Unexpected schema format type for connector {connector_id}: {type(raw_schemas)}"
             )
@@ -688,58 +783,6 @@ class FivetranAPIClient:
         logger.info(
             f"After retrieval attempts, {tables_still_missing} tables still missing column information"
         )
-
-    def get_table_columns(
-        self, connector_id: str, schema_name: str, table_name: str
-    ) -> List[Dict]:
-        """
-        Get detailed column information for a specific table using the tables API endpoint.
-        This is more reliable for column information than the schemas endpoint.
-        """
-        try:
-            # URL-encode the schema and table names to handle special characters
-            import urllib.parse
-
-            encoded_schema = urllib.parse.quote(schema_name)
-            encoded_table = urllib.parse.quote(table_name)
-
-            # Make the API request for detailed table information
-            response = self._make_request(
-                "GET",
-                f"/connectors/{connector_id}/schemas/{encoded_schema}/tables/{encoded_table}",
-            )
-
-            # Extract column information
-            table_data = response.get("data", {})
-            columns_data = table_data.get("columns", {})
-
-            # Convert column data to a list format if it's a dictionary
-            columns = []
-            if isinstance(columns_data, dict):
-                for col_name, col_info in columns_data.items():
-                    if isinstance(col_info, dict):
-                        col_info = (
-                            col_info.copy()
-                        )  # Create a copy to avoid modifying the original
-                        col_info["name"] = col_name
-                        if col_info.get(
-                            "enabled", True
-                        ):  # Only include enabled columns
-                            columns.append(col_info)
-                    else:
-                        # Simple case where we just have column names
-                        columns.append({"name": col_name, "enabled": True})
-            elif isinstance(columns_data, list):
-                columns = [col for col in columns_data if col.get("enabled", True)]
-
-            logger.info(
-                f"Retrieved {len(columns)} columns for {schema_name}.{table_name} via direct table API"
-            )
-            return columns
-
-        except Exception as e:
-            logger.warning(f"Failed to get columns for {schema_name}.{table_name}: {e}")
-            return []
 
     def _process_column_data(self, columns: Any) -> List[Dict]:
         """
@@ -1348,20 +1391,15 @@ class FivetranAPIClient:
         Uses a generic approach that works for any connector type and properly handles name_in_destination.
         """
         try:
-            # Get the connector schemas first
-            schemas = self.list_connector_schemas(connector_id)
+            # Get the connector details first
+            connector_details = self.get_connector(connector_id)
 
-            # Log more details about what we retrieved
-            table_count = sum(len(schema.get("tables", [])) for schema in schemas)
-            logger.info(
-                f"Got {len(schemas)} schemas with {table_count} tables for connector {connector_id}"
-            )
-
-            # Get destination information for naming
-            connector = self.get_connector(connector_id)
-            destination_id = connector.get("group", {}).get("id", "")
+            # Get destination information
+            destination_id = connector_details.get("group", {}).get("id", "")
             destination_platform = self.detect_destination_platform(destination_id)
 
+            # Get schema information
+            schemas = self.list_connector_schemas(connector_id)
             lineage_list = []
 
             # Handle cases where schemas might be a string or invalid format
@@ -1581,9 +1619,14 @@ class FivetranAPIClient:
         """
         if destination_platform.lower() == "bigquery":
             # BigQuery column names are case-sensitive and typically lowercase
-            return column_name.lower()
+            # Also convert camelCase to snake_case
+            import re
+
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+            return s2.lower()
         else:
-            # For most other systems (Snowflake, Redshift, etc.), column names are uppercased
+            # For other platforms like Snowflake, typically uppercase
             return column_name.upper()
 
     def _build_lineage_from_schemas(

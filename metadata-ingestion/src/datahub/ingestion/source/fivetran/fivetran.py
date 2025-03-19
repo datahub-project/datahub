@@ -356,12 +356,16 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _transform_column_name_for_platform(
         self, column_name: str, is_bigquery: bool
     ) -> str:
-        """Transform column name based on the destination platform."""
+        """Transform column name based on the destination platform with better handling of edge cases."""
+        if not column_name:
+            return ""
+
         if is_bigquery:
             # For BigQuery:
             # 1. Convert to lowercase
             # 2. Replace camelCase with snake_case
             # 3. Clean up any invalid characters
+            import re
 
             # Step 1: Convert camelCase to snake_case with regex
             s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
@@ -372,6 +376,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             # Step 3: Remove leading/trailing underscores and collapse multiple underscores
             transformed = re.sub(r"_+", "_", transformed).strip("_")
+
+            # Log the transformation for debugging
+            if transformed != column_name.lower():
+                logger.debug(f"Transformed column: {column_name} -> {transformed}")
 
             return transformed
         else:
@@ -444,135 +452,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         dest_urn: Optional[DatasetUrn],
         fine_grained_lineage: List[FineGrainedLineage],
     ) -> None:
-        """Create column-level lineage between source and destination tables with fuzzy matching."""
+        """Create column-level lineage between source and destination tables with better diagnostics."""
         if not source_urn or not dest_urn:
             return
 
-        # Log details for debugging
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
 
-        # Get destination platform
         dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
         is_bigquery = dest_platform.lower() == "bigquery"
 
-        # If there are explicit column mappings, use them directly
-        if lineage.column_lineage:
-            # Extract and normalize all source and destination columns
-            source_columns = []
-            dest_columns = []
-            original_mappings = {}
-
-            for column_lineage in lineage.column_lineage:
-                if (
-                    not column_lineage.source_column
-                    or not column_lineage.destination_column
-                    or column_lineage.destination_column.startswith("_fivetran")
-                ):
-                    continue
-
-                source_col = column_lineage.source_column
-                dest_col = column_lineage.destination_column
-
-                # Transform destination column based on platform
-                transformed_dest = self._transform_column_name_for_platform(
-                    dest_col, is_bigquery
-                )
-
-                # Store original and normalized versions
-                source_norm = self._normalize_column_name(source_col)
-                dest_norm = self._normalize_column_name(transformed_dest)
-
-                source_columns.append((source_col, source_norm))
-                dest_columns.append((transformed_dest, dest_norm))
-
-                # Keep track of original mappings
-                original_mappings[(source_col, dest_col)] = (
-                    source_col,
-                    transformed_dest,
-                )
-
-            # Apply fuzzy matching to find best matches where needed
-            best_matches = {}
-
-            for source_col, source_norm in source_columns:
-                # First try exact match with normalized column name
-                exact_match = None
-                for dest_col, dest_norm in dest_columns:
-                    if source_norm == dest_norm:
-                        exact_match = dest_col
-                        break
-
-                if exact_match:
-                    best_matches[source_col] = exact_match
-                    continue
-
-                # If no exact match, try fuzzy matching
-                best_match = self._find_best_fuzzy_match(
-                    source_col, source_norm, dest_columns
-                )
-                if best_match:
-                    best_matches[source_col] = best_match
-                    logger.info(f"Fuzzy matched: {source_col} -> {best_match}")
-
-            # Create lineage for each matched column
-            for source_col, dest_col in best_matches.items():
-                try:
-                    # Create field URNs
-                    source_field_urn = builder.make_schema_field_urn(
-                        str(source_urn),
-                        source_col,
-                    )
-
-                    dest_field_urn = builder.make_schema_field_urn(
-                        str(dest_urn),
-                        dest_col,
-                    )
-
-                    # Add to fine-grained lineage
-                    fine_grained_lineage.append(
-                        FineGrainedLineage(
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=[source_field_urn],
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[dest_field_urn],
-                        )
-                    )
-
-                    logger.debug(
-                        f"Added field lineage: {source_field_urn} -> {dest_field_urn}"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to create column lineage for {source_col} -> {dest_col}: {e}"
-                    )
-
-            # Log the total number of lineage entries created
-            if fine_grained_lineage:
-                logger.info(
-                    f"Created {len(fine_grained_lineage)} field lineage entries for {source_urn} -> {dest_urn}"
-                )
-            else:
-                logger.warning(
-                    f"No valid column lineage mappings found for {source_urn} -> {dest_urn}"
-                )
-        else:
-            # No column mappings provided - log a warning
+        if not lineage.column_lineage:
             logger.warning(
-                f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}. "
-                f"This may indicate an issue with schema retrieval from the Fivetran API."
+                f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}"
             )
-
-            # Add a special note in the report
-            self.report.warning(
-                title="Missing column lineage",
-                message=(
-                    "No column lineage information was available for some tables. "
-                    "This may indicate an issue with schema retrieval from the Fivetran API."
-                ),
-                context=f"{lineage.source_table} → {lineage.destination_table}",
-            )
-
-            # Add a placeholder entry to indicate table-level lineage only
             fine_grained_lineage.append(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -581,6 +473,68 @@ class FivetranSource(StatefulIngestionSourceBase):
                     downstreams=[str(dest_urn)],
                 )
             )
+            return
+
+        logger.info(f"Processing {len(lineage.column_lineage)} column mappings")
+
+        valid_lineage = []
+        for column_lineage in lineage.column_lineage:
+            if (
+                not column_lineage.source_column
+                or not column_lineage.destination_column
+            ):
+                continue
+
+            if column_lineage.destination_column.startswith("_fivetran"):
+                continue
+
+            valid_lineage.append(column_lineage)
+
+        if not valid_lineage:
+            logger.warning("No valid column mappings found after filtering")
+            return
+
+        # Process valid column mappings
+        for column_lineage in valid_lineage:
+            try:
+                # Log what we're processing
+                logger.debug(
+                    f"Processing: {column_lineage.source_column} -> {column_lineage.destination_column}"
+                )
+
+                # Create field URNs
+                source_field_urn = builder.make_schema_field_urn(
+                    str(source_urn),
+                    column_lineage.source_column,
+                )
+
+                # For BigQuery, ensure proper case and format
+                dest_column = column_lineage.destination_column
+                if is_bigquery:
+                    dest_column = dest_column.lower()
+
+                dest_field_urn = builder.make_schema_field_urn(
+                    str(dest_urn),
+                    dest_column,
+                )
+
+                # Add to fine-grained lineage
+                fine_grained_lineage.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=[source_field_urn],
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[dest_field_urn],
+                    )
+                )
+
+                logger.debug(
+                    f"Added field lineage: {source_field_urn} -> {dest_field_urn}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create column lineage for {column_lineage.source_column} -> {column_lineage.destination_column}: {e}"
+                )
 
     def _create_field_lineage_mcp(
         self,
