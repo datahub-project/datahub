@@ -6,6 +6,7 @@ import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -62,19 +63,26 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
         createNamespaceRequest);
 
     OperationContext operationContext = opContext(request);
-
-    // TODO TBD
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_NAMESPACES, false);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    Namespace namespace = createNamespaceRequest.namespace();
+
+    if (namespace.length() > 1) {
+      String[] parentLevels = Arrays.copyOfRange(namespace.levels(), 0, namespace.length() - 1);
+      Namespace parentNamespace = Namespace.of(parentLevels);
+      authorize(
+          operationContext, warehouse, parentNamespace, DataOperation.MANAGE_NAMESPACES, false);
+    } else {
+      authorize(operationContext, platformInstance, DataOperation.MANAGE_NAMESPACES, false);
+    }
+
     CreateNamespaceResponse createNamespaceResponse =
         catalogOperation(
             warehouse,
             operationContext,
             catalog -> {
               CatalogHandlers.createNamespace(catalog, createNamespaceRequest);
-              return CreateNamespaceResponse.builder()
-                  .withNamespace(createNamespaceRequest.namespace())
-                  .build();
+              return CreateNamespaceResponse.builder().withNamespace(namespace).build();
             });
 
     log.info("CREATE NAMESPACE RESPONSE {}", createNamespaceResponse);
