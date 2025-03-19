@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { colors, Icon } from '@components';
 import theme from '@components/theme';
@@ -7,6 +7,8 @@ import { Checkbox } from 'antd';
 
 import { OptionLabel } from '../components';
 import { SelectOption } from './types';
+import useNestedOption from './useSelectOption';
+import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
 
 const ParentOption = styled.div`
     display: flex;
@@ -50,29 +52,6 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
 	`}
 `;
 
-function getChildrenRecursively(
-    directChildren: SelectOption[],
-    parentValueToOptions: { [parentValue: string]: SelectOption[] },
-) {
-    const visitedParents = new Set<string>();
-    let allChildren: SelectOption[] = [];
-
-    function getChildren(parentValue: string) {
-        const newChildren = parentValueToOptions[parentValue] || [];
-        if (visitedParents.has(parentValue) || !newChildren.length) {
-            return;
-        }
-
-        visitedParents.add(parentValue);
-        allChildren = [...allChildren, ...newChildren];
-        newChildren.forEach((child) => getChildren(child.value || child.value));
-    }
-
-    directChildren.forEach((c) => getChildren(c.value || c.value));
-
-    return allChildren;
-}
-
 interface OptionProps {
     option: SelectOption;
     selectedOptions: SelectOption[];
@@ -86,6 +65,8 @@ interface OptionProps {
     isLoadingParentChildList?: boolean;
     setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
     hideParentCheckbox?: boolean;
+    isParentOptionLabelExpanded?: boolean;
+    implicitlySelectChildren: boolean;
 }
 
 export const NestedOption = ({
@@ -101,116 +82,32 @@ export const NestedOption = ({
     isLoadingParentChildList,
     setSelectedOptions,
     hideParentCheckbox,
+    isParentOptionLabelExpanded,
+    implicitlySelectChildren,
 }: OptionProps) => {
-    const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
-    const directChildren = useMemo(
-        () => parentValueToOptions[option.value] || [],
-        [parentValueToOptions, option.value],
-    );
+    const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
 
-    const recursiveChildren = useMemo(
-        () => getChildrenRecursively(directChildren, parentValueToOptions),
-        [directChildren, parentValueToOptions],
-    );
+    const { children, selectableChildren, directChildren, setAutoSelectChildren } = useNestedSelectOptionChildren({
+        parentValueToOptions,
+        option,
+        areParentsSelectable,
+        addOptions,
+    });
 
-    const children = useMemo(() => [...directChildren, ...recursiveChildren], [directChildren, recursiveChildren]);
-    const selectableChildren = useMemo(
-        () => (areParentsSelectable ? children : children.filter((c) => !c.isParent)),
-        [areParentsSelectable, children],
-    );
-    const parentChildren = useMemo(() => children.filter((c) => c.isParent), [children]);
-
-    useEffect(() => {
-        if (autoSelectChildren && selectableChildren.length) {
-            addOptions(selectableChildren);
-            setAutoSelectChildren(false);
-        }
-    }, [autoSelectChildren, selectableChildren, addOptions]);
-
-    const areAllChildrenSelected = useMemo(
-        () => selectableChildren.every((child) => selectedOptions.find((o) => o.value === child.value)),
-        [selectableChildren, selectedOptions],
-    );
-
-    const areAnyChildrenSelected = useMemo(
-        () => selectableChildren.some((child) => selectedOptions.find((o) => o.value === child.value)),
-        [selectableChildren, selectedOptions],
-    );
-
-    const areAnyUnselectableChildrenUnexpanded = !!parentChildren.find(
-        (parent) => !selectableChildren.find((child) => child.parentValue === parent.value),
-    );
-
-    const isSelected = useMemo(
-        () =>
-            !!selectedOptions.find((o) => o.value === option.value) ||
-            (!areParentsSelectable &&
-                !!option.isParent &&
-                !!selectableChildren.length &&
-                areAllChildrenSelected &&
-                !areAnyUnselectableChildrenUnexpanded),
-        [
+    const { selectOption, isSelected, isImplicitlySelected, isPartialSelected, isParentMissingChildren } =
+        useNestedOption({
             selectedOptions,
-            areAllChildrenSelected,
-            areAnyUnselectableChildrenUnexpanded,
-            areParentsSelectable,
-            option.isParent,
-            option.value,
-            selectableChildren.length,
-        ],
-    );
-
-    const isImplicitlySelected = useMemo(
-        () => !option.isParent && !!selectedOptions.find((o) => o.value === option.parentValue),
-        [selectedOptions, option.isParent, option.parentValue],
-    );
-
-    const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
-
-    const isPartialSelected = useMemo(
-        () =>
-            (!areAllChildrenSelected && areAnyChildrenSelected) ||
-            (isSelected && isParentMissingChildren) ||
-            (isSelected && areAnyUnselectableChildrenUnexpanded) ||
-            (areAnyUnselectableChildrenUnexpanded && areAnyChildrenSelected) ||
-            (isSelected && !!children.length && !areAnyChildrenSelected),
-        [
-            isSelected,
+            option,
             children,
-            areAllChildrenSelected,
-            areAnyChildrenSelected,
-            areAnyUnselectableChildrenUnexpanded,
-            isParentMissingChildren,
-        ],
-    );
-
-    const selectOption = () => {
-        if (areParentsSelectable && option.isParent) {
-            const existingSelectedOptions = new Set(selectedOptions.map((opt) => opt.value));
-            const existingChildSelectedOptions =
-                selectedOptions.filter((opt) => opt.parentValue === option.value) || [];
-            if (existingSelectedOptions.has(option.value)) {
-                removeOptions([option]);
-            } else {
-                // filter out the childrens of parent selection as we are allowing implicitly selection
-                const filteredOptions = selectedOptions.filter(
-                    (selectedOption) => !existingChildSelectedOptions.find((o) => o.value === selectedOption.value),
-                );
-                const newSelectedOptions = [...filteredOptions, option];
-
-                setSelectedOptions(newSelectedOptions);
-            }
-        } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
-            const optionsToAdd = option.isParent && !areParentsSelectable ? selectableChildren : [option];
-            addOptions(optionsToAdd);
-        } else if (areAllChildrenSelected) {
-            removeOptions([option, ...selectableChildren]);
-        } else {
-            handleOptionChange(option);
-        }
-    };
+            selectableChildren,
+            areParentsSelectable,
+            implicitlySelectChildren,
+            addOptions,
+            removeOptions,
+            setSelectedOptions,
+            handleOptionChange,
+        });
 
     // one loader variable for fetching data for expanded parents and their respective child nodes
     useEffect(() => {
@@ -244,10 +141,12 @@ export const NestedOption = ({
                     // added hack to show cursor in wait untill we get the inline spinner
                     style={{
                         width: '100%',
-                        cursor: loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
+                        cursor:
+                            isLoadingParentChildList && loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
                         display: 'flex',
                         justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
                     }}
+                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >
                     {option.isParent && <strong>{option.label}</strong>}
                     {!option.isParent && <>{option.label}</>}
@@ -272,9 +171,7 @@ export const NestedOption = ({
                     {!(hideParentCheckbox && option.isParent) && (
                         <StyledCheckbox
                             checked={isImplicitlySelected || isSelected}
-                            indeterminate={
-                                areParentsSelectable && option.isParent ? areAnyChildrenSelected : isPartialSelected
-                            }
+                            indeterminate={isPartialSelected}
                             onClick={(e) => {
                                 e.preventDefault();
                                 if (isImplicitlySelected) {
@@ -295,7 +192,7 @@ export const NestedOption = ({
                 </OptionLabel>
             </ParentOption>
             {isOpen && (
-                <ChildOptions>
+                <ChildOptions data-testid="children-option-container">
                     {directChildren.map((child) => (
                         <NestedOption
                             key={child.value}
@@ -309,6 +206,7 @@ export const NestedOption = ({
                             isMultiSelect={isMultiSelect}
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
+                            implicitlySelectChildren={implicitlySelectChildren}
                         />
                     ))}
                 </ChildOptions>
