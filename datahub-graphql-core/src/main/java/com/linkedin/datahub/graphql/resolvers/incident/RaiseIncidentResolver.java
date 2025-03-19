@@ -16,6 +16,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RaiseIncidentInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
@@ -67,11 +68,11 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           for (Urn urn : resourceUrns) {
-            // if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
-            //   throw new AuthorizationException(
-            //       "Unauthorized to perform this action. Please contact your DataHub
-            // administrator.");
-            // }
+            if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub
+            administrator.");
+            }
           }
 
           try {
