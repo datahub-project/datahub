@@ -667,7 +667,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable String predicateJson)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null, predicateJson);
+        opContext, entities, input, filter, start, count, sortCriteria, Collections.emptyList(), predicateJson);
   }
 
   /**

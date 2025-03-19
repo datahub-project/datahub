@@ -43,6 +43,8 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -152,7 +154,6 @@ public class VersionsSearchResolverTest {
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
-            any(List.class),
             nullable(String.class));
   }
 
@@ -249,7 +250,6 @@ public class VersionsSearchResolverTest {
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
-            any(List.class),
             nullable(String.class));
   }
 
@@ -293,12 +293,12 @@ public class VersionsSearchResolverTest {
                 any(OperationContext.class),
                 any(),
                 Mockito.anyString(),
-                any(Filter.class),
+                nullable(Filter.class),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 anyList(),
                 anyList(),
-                anyString()))
+                nullable(String.class)))
         .thenReturn(result);
 
     Mockito.when(
@@ -306,10 +306,22 @@ public class VersionsSearchResolverTest {
                 any(OperationContext.class),
                 any(),
                 anyString(),
-                any(Filter.class),
+                nullable(Filter.class),
                 anyInt(),
                 anyInt(),
                 anyList()))
+        .thenReturn(result);
+
+    Mockito.when(
+        client.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            anyInt(),
+            anyInt(),
+            nullable(List.class),
+            nullable(String.class)))
         .thenReturn(result);
 
     return client;

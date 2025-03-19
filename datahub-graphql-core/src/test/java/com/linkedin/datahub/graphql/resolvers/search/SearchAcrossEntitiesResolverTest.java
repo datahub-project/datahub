@@ -442,7 +442,7 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null),
+                anyList(),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -499,7 +499,7 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null),
+                anyList(),
                 Mockito.eq(null)))
         .thenReturn(result);
     return client;
@@ -526,7 +526,7 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(start),
             Mockito.eq(limit),
             Mockito.eq(Collections.emptyList()),
-            Mockito.eq(null),
+            anyList(),
             Mockito.eq(null));
   }
 

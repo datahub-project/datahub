@@ -17,6 +17,7 @@ validateSchemaAnnotation.dependsOn copyMetadataModels
 mainTranslateSchemas.dependsOn copyMetadataModels
 generateDataTemplate.dependsOn copyMetadataModels
 mainCopySchemas.dependsOn copyMetadataModels
+generateTestDataTemplate.dependsOn spotlessJava
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 task renameNamespace(type: Copy, dependsOn: generateAvroSchema) {
