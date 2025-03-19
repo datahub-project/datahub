@@ -381,16 +381,26 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         schema_metadata_list = self.schema_registry_client.get_schema_metadata(
             topic, platform_urn, is_subject
         )
-
+        # 스키마를 못 가져와도 토픽에 대한 dataset 생성
         if not schema_metadata_list:
-            logger.warning(
+            logger.debug(
                 f"[extract_record] No schema metadata found for {topic} with is_subject={is_subject}"
             )
+            yield from self._set_schema_metadata(
+                None,
+                topic,
+                is_subject,
+                topic_detail,
+                extra_topic_config,
+                platform_urn,
+            )
+            return
 
         # default confluent_schema_registry 는 list 로 생성되지 않아 형 변환
         if not isinstance(schema_metadata_list, list):
             schema_metadata_list = [schema_metadata_list]
 
+        # 스키마가 있을 때만 진행
         for schema_metadata in schema_metadata_list:
             yield from self._set_schema_metadata(
                 schema_metadata,
@@ -411,8 +421,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         platform_urn,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = (
-            schema_metadata.schemaName
+            topic if schema_metadata is None else schema_metadata.schemaName
         )  # Now in topic or topic.RecordName format
+
         # 2. Create the default dataset snapshot for the topic.
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
