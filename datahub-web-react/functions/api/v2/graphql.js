@@ -1,1 +1,1 @@
-export { onRequest } from "./cloudflare_proxy.js";
+export { onRequest } from "../../cloudflare_proxy.js";
