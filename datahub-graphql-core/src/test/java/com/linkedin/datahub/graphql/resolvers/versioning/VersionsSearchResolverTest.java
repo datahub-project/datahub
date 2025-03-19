@@ -293,7 +293,8 @@ public class VersionsSearchResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 anyList(),
-                anyList()))
+                anyList(),
+                anyString()))
         .thenReturn(result);
 
     Mockito.when(
