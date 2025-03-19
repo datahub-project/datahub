@@ -171,7 +171,7 @@ class DremioSource(StatefulIngestionSourceBase):
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
-        logger.debug(f"Full source map: {source_map}")
+        logger.info(f"Full source map: {source_map}")
 
         return source_map
 
@@ -516,7 +516,7 @@ class DremioSource(StatefulIngestionSourceBase):
         if not platform:
             return None
 
-        platform_instance = mapping.platform_instance or self.config.platform_instance
+        platform_instance = mapping.platform_instance
         env = mapping.env or self.config.env
 
         root_path = ""
