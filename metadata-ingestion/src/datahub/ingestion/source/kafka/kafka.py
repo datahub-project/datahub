@@ -298,6 +298,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             self.source_config.strip_user_ids_from_email,
             match_nested_props=True,
         )
+        self.topic_list = self.consumer.list_topics().topics.keys()
 
     def init_kafka_admin_client(self) -> None:
         try:
@@ -379,7 +380,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # 하나의 토픽에 여러개 데이터셋을 만들 수 있도록 수정
         # 1. Retrieve multiple schemaMetadata aspects From SchemaRegistry
         schema_metadata_list = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn, is_subject
+            topic, platform_urn, is_subject, self.topic_list
         )
         # 스키마를 못 가져와도 토픽에 대한 dataset 생성
         if not schema_metadata_list:
