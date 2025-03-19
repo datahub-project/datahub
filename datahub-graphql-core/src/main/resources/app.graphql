@@ -1343,8 +1343,6 @@ type FeatureFlagsConfig {
   """
   displayExecutorPools: Boolean!
 
-  entityVersioningEnabled: Boolean!
-
   """
   If turned on, show the redesigned search bar's autocomplete
   """
