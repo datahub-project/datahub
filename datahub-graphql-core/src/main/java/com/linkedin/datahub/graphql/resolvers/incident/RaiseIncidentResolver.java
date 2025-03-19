@@ -70,8 +70,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
           for (Urn urn : resourceUrns) {
             if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
               throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub
-            administrator.");
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
           }
 
