@@ -1,6 +1,9 @@
 from typing import Any, Union
 
+import h5py
 import numpy as np
+
+from datahub.ingestion.source.hdf5.config import HDF5SourceConfig
 
 
 def decode_type(f_type: Union[str, tuple, np.dtype]) -> str:
@@ -19,31 +22,51 @@ def decode_type(f_type: Union[str, tuple, np.dtype]) -> str:
 
 
 def numpy_value_to_string(value: Any) -> str:
-    # Handle bytes
     if isinstance(value, (bytes, np.bytes_)):
         return value.decode("utf-8")
 
-    # If it's already a string or string-like, just convert to Python string
     if isinstance(value, (str, np.str_, np.string_)):
         return str(value)
 
-    # Handle NaN and Infinity specially
     if np.issubdtype(type(value), np.floating):
         if np.isnan(value):
             return "NaN"
         elif np.isinf(value):
             return "Infinity" if value > 0 else "-Infinity"
 
-    # Handle arrays
     if isinstance(value, np.ndarray):
         if value.size == 1:  # Single-element array
             return numpy_value_to_string(value.item())
         else:
             return np.array2string(value, separator=", ")
 
-    # Handle datetime types
     if np.issubdtype(type(value), np.datetime64):
         return str(value)
 
-    # Handle other scalar types
     return str(value)
+
+
+def get_column_name(config: HDF5SourceConfig, index: int) -> str:
+    return f"col{index}" if config.row_orientation is False else f"row{index}"
+
+
+def get_column_count(config: HDF5SourceConfig, shape: tuple) -> int:
+    if len(shape) == 1:
+        return 1
+    else:
+        rows = shape[0]
+        columns = shape[1]
+        return columns if config.row_orientation is False else rows
+
+
+def get_column_values(
+    config: HDF5SourceConfig, dataset: h5py.Dataset, index: int
+) -> list:
+    if len(dataset.shape) == 1:
+        return dataset[:].tolist()
+    else:
+        return (
+            dataset[:, index].tolist()
+            if config.row_orientation is False
+            else dataset[index, :].tolist()
+        )

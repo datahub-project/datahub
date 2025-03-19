@@ -1,4 +1,4 @@
-# DataHub HDF5 Source
+## DataHub HDF5 Source
 
 The DataHub HDF5 Source provides functionality for ingesting datasets from HDF5 files into DataHub as structured tables. This source supports various types of datasets present within HDF5 files, translating hierarchical and structured data into tabular schemas suitable for DataHub.
 
@@ -20,7 +20,7 @@ Nested groups within an HDF5 file are represented in DataHub as hierarchical pat
 The ingestion behavior varies based on the dimensionality (`shape`) of the datasets:
 - **One-dimensional (1D) Compound Datasets**: Ingested as a table schema using the fields present in the compound data type directly.
 - **Other 1D Datasets**: Ingested as a table consisting of a single column named `col0`.
-- **Two-dimensional (2D) Datasets**: Each row of the dataset is translated into a distinct table column. Column names reflect the row index and the number of elements within the row (e.g., `row_1_with_10000_values`), with column values populated by corresponding row data.
+- **Two-dimensional (2D) Datasets**: Each column or row of the dataset is translated into a distinct table column. Column or row orientation is controlled by the `row_orientation` parameter. The default is column orientation. Column names reflect the column or row index and the number of elements within the column or row (e.g., `col0` or `row0`), with column values populated by corresponding column or row data.
 - **Three-dimensional (3D) and Higher Datasets**: Only the first two dimensions are ingested. Additional dimensions beyond the second are excluded to conform to a manageable schema within DataHub.
 
 ---
@@ -54,6 +54,6 @@ The ingested metadata representation on DataHub would look as follows:
 - `/datafile/group1/1D_compound_dataset`: Compound fields become distinct schema columns.
 - `/datafile/group1/3D_numeric_dataset`: Only first two dimensions ingested.
 - `/datafile/group2/1D_numeric_dataset`: Single-column table (`col0`).
-- `/datafile/group2/2D_numeric_dataset`: Multiple columns derived from rows.
+- `/datafile/group2/2D_numeric_dataset`: Multiple columns derived from columns or rows.
 
 ---

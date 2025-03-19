@@ -31,6 +31,13 @@ class HDF5SourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=100, description="Maximum number of fields to include in the schema."
     )
 
+    row_orientation: bool = Field(
+        default=False,
+        description="Ingest multidimensional dataset columns derived from rows in the dataset. "
+        "Use when there are large datasets stored horizontally as opposed to vertically. "
+        "For example a dataset with shape (4,10000)",
+    )
+
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset paths to profile",

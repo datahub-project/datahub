@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import PurePath
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import h5py
 
@@ -26,7 +26,12 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerW
 from datahub.ingestion.source.hdf5.config import HDF5SourceConfig
 from datahub.ingestion.source.hdf5.profiling import HDF5Profiler
 from datahub.ingestion.source.hdf5.report import HDF5SourceReport
-from datahub.ingestion.source.hdf5.util import decode_type, numpy_value_to_string
+from datahub.ingestion.source.hdf5.util import (
+    decode_type,
+    get_column_count,
+    get_column_name,
+    numpy_value_to_string,
+)
 from datahub.ingestion.source.s3.source import BrowsePath
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -51,32 +56,32 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-field_type_mapping = {
-    "bool_": BooleanTypeClass(),
-    "int8": NumberTypeClass(),
-    "int16": NumberTypeClass(),
-    "int32": NumberTypeClass(),
-    "int64": NumberTypeClass(),
-    "uint8": NumberTypeClass(),
-    "uint16": NumberTypeClass(),
-    "uint32": NumberTypeClass(),
-    "uint64": NumberTypeClass(),
-    "intp": NumberTypeClass(),
-    "uintp": NumberTypeClass(),
-    "float16": NumberTypeClass(),
-    "float32": NumberTypeClass(),
-    "float64": NumberTypeClass(),
-    "float128": NumberTypeClass(),
-    "complex64": NumberTypeClass(),
-    "complex128": NumberTypeClass(),
-    "complex256": NumberTypeClass(),
-    "str_": StringTypeClass(),
-    "unicode_": StringTypeClass(),
-    "string_": StringTypeClass(),
-    "object_": RecordTypeClass(),
-    "datetime64": DateTypeClass(),
-    "timedelta64": DateTypeClass(),
-    "void": NullTypeClass(),
+field_type_mapping: Dict[str, Type] = {
+    "bool_": BooleanTypeClass,
+    "int8": NumberTypeClass,
+    "int16": NumberTypeClass,
+    "int32": NumberTypeClass,
+    "int64": NumberTypeClass,
+    "uint8": NumberTypeClass,
+    "uint16": NumberTypeClass,
+    "uint32": NumberTypeClass,
+    "uint64": NumberTypeClass,
+    "intp": NumberTypeClass,
+    "uintp": NumberTypeClass,
+    "float16": NumberTypeClass,
+    "float32": NumberTypeClass,
+    "float64": NumberTypeClass,
+    "float128": NumberTypeClass,
+    "complex64": NumberTypeClass,
+    "complex128": NumberTypeClass,
+    "complex256": NumberTypeClass,
+    "str_": StringTypeClass,
+    "unicode_": StringTypeClass,
+    "string_": StringTypeClass,
+    "object_": RecordTypeClass,
+    "datetime64": DateTypeClass,
+    "timedelta64": DateTypeClass,
+    "void": NullTypeClass,
 }
 
 
@@ -90,6 +95,7 @@ class HDF5ContainerKey(ContainerKey):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class HDF5Source(StatefulIngestionSourceBase):
     config: HDF5SourceConfig
     report: HDF5SourceReport
@@ -101,6 +107,10 @@ class HDF5Source(StatefulIngestionSourceBase):
         self.ctx = ctx
         self.config = config
         self.report: HDF5SourceReport = HDF5SourceReport()
+
+        self.max_schema_size = (
+            self.config.max_schema_size if self.config.max_schema_size else 100
+        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "HDF5Source":
@@ -158,13 +168,17 @@ class HDF5Source(StatefulIngestionSourceBase):
         return path.split("/")[-1]
 
     @staticmethod
-    def construct_schema_field(f_name: str, f_type: str) -> SchemaField:
+    def get_field_type(field_type: str) -> SchemaFieldDataType:
+        type_class = field_type_mapping.get(field_type, NullTypeClass)
+        return SchemaFieldDataType(type=type_class())
+
+    def construct_schema_field(self, f_name: str, f_type: str) -> SchemaField:
         dtype = decode_type(f_type)
         logger.debug(f"Field: {f_name} Type: {dtype}")
         return SchemaField(
             fieldPath=f_name,
             nativeDataType=dtype,
-            type=SchemaFieldDataType(type=field_type_mapping.get(dtype)),
+            type=self.get_field_type(dtype),
             description=None,
             nullable=False,
             recursive=False,
@@ -178,31 +192,22 @@ class HDF5Source(StatefulIngestionSourceBase):
         canonical_schema: List[SchemaField] = []
         dropped_fields = set()
 
-        if len(dataset.shape) == 1:
-            logger.info(
-                f"Attempting to extract fields from 1-dimensional dataset {name}"
-            )
-            if dataset.dtype.names is not None:
-                logger.info(f"Dataset {name} is a compound datatype")
-                for n, (f_name, f_type) in enumerate(dataset.dtype.descr):
-                    if 0 < self.config.max_schema_size <= n:
-                        dropped_fields.add(f_name)
-                        continue
-                    canonical_schema.append(self.construct_schema_field(f_name, f_type))
-            else:
-                f_name = "col0"
-                f_type = dataset.dtype
+        if dataset.dtype.names is not None:
+            logger.info(f"Attempting to extract fields from compound dataset {name}")
+            for n, (f_name, f_type) in enumerate(dataset.dtype.descr):
+                if 0 < self.max_schema_size <= n:
+                    dropped_fields.add(f_name)
+                    continue
                 canonical_schema.append(self.construct_schema_field(f_name, f_type))
         else:
             logger.info(
-                f"Attempting to extract fields from multidimensional dataset {name} shape {dataset.shape}"
+                f"Attempting to extract fields from dataset {name} shape {dataset.shape} "
+                f"row orientation is {self.config.row_orientation}"
             )
-            rows = dataset.shape[0]
-            columns = dataset.shape[1]
-            logger.info(f"Found {rows} rows")
-            for n in range(rows):
-                f_name = f"row_{n + 1}_with_{columns}_values"
-                if 0 < self.config.max_schema_size <= n:
+            column_count = get_column_count(self.config, dataset.shape)
+            for n in range(column_count):
+                f_name = get_column_name(self.config, n)
+                if 0 < self.max_schema_size <= n:
                     dropped_fields.add(f_name)
                     continue
                 f_type = dataset.dtype

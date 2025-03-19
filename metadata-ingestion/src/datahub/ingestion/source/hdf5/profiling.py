@@ -10,7 +10,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hdf5.config import HDF5SourceConfig
 from datahub.ingestion.source.hdf5.report import HDF5SourceReport
-from datahub.ingestion.source.hdf5.util import decode_type, numpy_value_to_string
+from datahub.ingestion.source.hdf5.util import (
+    decode_type,
+    get_column_count,
+    get_column_name,
+    get_column_values,
+    numpy_value_to_string,
+)
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -179,41 +185,30 @@ class HDF5Profiler:
         dropped_fields = set()
         dataset_name = self.dataset.name
 
-        if len(self.dataset.shape) == 1:
-            logger.info(f"Attempting to profile 1-dimensional dataset {dataset_name}")
-            if self.dataset.dtype.names is not None:
-                for n, (f_name, f_type) in enumerate(self.dataset.dtype.descr):
-                    if 0 < self.sample_fields <= n:
-                        dropped_fields.add(f_name)
-                        continue
-                    profile_data.column_metrics[f_name] = ColumnMetric()
-                    profile_data.column_metrics[f_name].values.extend(
-                        self.dataset[f_name].tolist()
-                    )
-                    profile_data.column_metrics[f_name].col_type = decode_type(f_type)
-            else:
-                f_name = "col0"
-                profile_data.column_metrics[f_name] = ColumnMetric()
-                profile_data.column_metrics[f_name].values.extend(
-                    self.dataset[:].tolist()
-                )
-                profile_data.column_metrics[f_name].col_type = decode_type(
-                    self.dataset.dtype
-                )
-        else:
-            logger.info(
-                f"Attempting to profile multidimensional dataset {dataset_name} type {self.dataset.dtype}"
-            )
-            rows = self.dataset.shape[0]
-            columns = self.dataset.shape[1]
-            for n in range(rows):
-                f_name = f"row_{n + 1}_with_{columns}_values"
+        if self.dataset.dtype.names is not None:
+            logger.info(f"Attempting to profile compound dataset {dataset_name}")
+            for n, (f_name, f_type) in enumerate(self.dataset.dtype.descr):
                 if 0 < self.sample_fields <= n:
                     dropped_fields.add(f_name)
                     continue
-                row_values = self.dataset[n, :].tolist()
                 profile_data.column_metrics[f_name] = ColumnMetric()
-                profile_data.column_metrics[f_name].values.extend(row_values)
+                profile_data.column_metrics[f_name].values.extend(
+                    self.dataset[f_name].tolist()
+                )
+                profile_data.column_metrics[f_name].col_type = decode_type(f_type)
+        else:
+            logger.info(
+                f"Attempting to profile dataset {dataset_name} shape {self.dataset.shape} type {self.dataset.dtype}"
+            )
+            column_count = get_column_count(self.config, self.dataset.shape)
+            for n in range(column_count):
+                f_name = get_column_name(self.config, n)
+                if 0 < self.sample_fields <= n:
+                    dropped_fields.add(f_name)
+                    continue
+                values = get_column_values(self.config, self.dataset, n)
+                profile_data.column_metrics[f_name] = ColumnMetric()
+                profile_data.column_metrics[f_name].values.extend(values)
                 profile_data.column_metrics[f_name].col_type = decode_type(
                     self.dataset.dtype
                 )
@@ -221,7 +216,8 @@ class HDF5Profiler:
         if len(dropped_fields) > 0:
             if self.config.profiling.report_dropped_profiles:
                 self.report.report_dropped(
-                    f"The max_number_of_fields_to_profile={self.sample_fields} reached. Dropped fields for {dataset_name} ({', '.join(sorted(dropped_fields))})"
+                    f"The max_number_of_fields_to_profile={self.sample_fields} reached. "
+                    f"Dropped fields for {dataset_name} ({', '.join(sorted(dropped_fields))})"
                 )
 
         profile_data.row_count = self.dataset.shape[0]
