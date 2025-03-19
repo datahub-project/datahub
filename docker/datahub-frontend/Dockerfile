@@ -20,7 +20,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl sqlite libc6-compat snappy \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
-    && wget ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
+    && wget ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
     && wget ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
@@ -45,6 +45,11 @@ VOLUME [ "/datahub-frontend" ]
 FROM ${APP_ENV}-install AS final
 COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 USER datahub
+
+ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
+    OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
+    OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
 
 ARG SERVER_PORT=9002
 ENV SERVER_PORT=$SERVER_PORT
