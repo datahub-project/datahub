@@ -40,7 +40,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import UpstreamClass
 from datahub.metadata._urns.urn_defs import DatasetUrn
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -65,6 +64,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TagPropertiesClass,
     TimeStampClass,
+    UpstreamClass,
     UpstreamLineageClass,
     VersionPropertiesClass,
     VersionTagClass,
@@ -217,13 +217,14 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
         for experiment in experiments:
-            yield from self._get_experiment_container_workunit(experiment)
+            if experiment.name == "lineage_test_v15_experiment":
+                yield from self._get_experiment_container_workunit(experiment)
 
-            runs = self._get_mlflow_runs_from_experiment(experiment)
-            if runs:
-                for run in runs:
-                    yield from self._get_run_workunits(experiment, run)
-                    yield from self._get_dataset_input_workunits(run)
+                runs = self._get_mlflow_runs_from_experiment(experiment)
+                if runs:
+                    for run in runs:
+                        yield from self._get_run_workunits(experiment, run)
+                        yield from self._get_dataset_input_workunits(run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
