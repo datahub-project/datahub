@@ -124,7 +124,6 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.platform: str = "iceberg"
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
-        self.ctx = ctx
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
