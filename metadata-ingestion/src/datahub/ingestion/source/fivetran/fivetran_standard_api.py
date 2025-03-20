@@ -785,7 +785,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         source_table_columns: Dict[str, Dict[str, str]],
     ) -> List[ColumnLineage]:
         """
-        Extract column-level lineage for a table with improved debugging, fuzzy matching, and fallback.
+        Extract column-level lineage for a table with improved matching techniques.
 
         Args:
             table: Table data from API
@@ -805,110 +805,213 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # Get columns from the API response
         columns = table.get("columns", [])
 
-        # DIAGNOSTIC: Print details about what we got
-        self._log_column_diagnostics(columns)
-
-        # CRITICAL FIX: Convert dict format to list if needed
-        if isinstance(columns, dict):
-            columns = self._convert_column_dict_to_list(columns)
+        # Log what we're working with
+        if isinstance(columns, list):
+            logger.info(f"Found {len(columns)} columns in list format")
+        elif isinstance(columns, dict):
+            logger.info(f"Found {len(columns)} columns in dict format")
+            # Convert dict format to list if needed
+            columns_list = []
+            for col_name, col_data in columns.items():
+                if isinstance(col_data, dict):
+                    col_data = col_data.copy()
+                    col_data["name"] = col_name
+                    columns_list.append(col_data)
+                else:
+                    columns_list.append({"name": col_name})
+            columns = columns_list
+            logger.info(f"Converted dict format to list with {len(columns)} columns")
+        else:
+            logger.warning(f"Columns in unexpected format: {type(columns)}")
 
         is_bigquery = destination_platform.lower() == "bigquery"
         column_lineage = []
 
-        # If we have columns, create lineage mappings
+        # First try direct mapping from columns if available
         if isinstance(columns, list) and columns:
-            try:
-                # Prepare normalized source columns
-                source_columns = []
-                for col in columns:
-                    if isinstance(col, dict):
-                        col_name = col.get("name", "")
-                    else:
-                        col_name = str(col)
+            for column in columns:
+                col_name = None
+                if isinstance(column, dict):
+                    col_name = column.get("name")
+                elif isinstance(column, str):
+                    col_name = column
 
-                    if col_name and not col_name.startswith("_fivetran"):
-                        # Check if name_in_destination is directly provided
-                        if isinstance(col, dict) and "name_in_destination" in col:
-                            dest_name = col.get("name_in_destination")
-                            if dest_name:
-                                column_lineage.append(
-                                    ColumnLineage(
-                                        source_column=col_name,
-                                        destination_column=dest_name,
-                                    )
-                                )
-                                continue
+                if not col_name or col_name.startswith("_fivetran"):
+                    continue
 
-                        norm_name = self._normalize_column_name(col_name)
-                        source_columns.append((col_name, norm_name))
+                # Get destination column name - prefer name_in_destination if available
+                dest_col_name = None
+                if isinstance(column, dict) and "name_in_destination" in column:
+                    dest_col_name = column.get("name_in_destination")
+                    logger.debug(
+                        f"Using name_in_destination: {col_name} -> {dest_col_name}"
+                    )
 
-                # If we already have exact mappings from name_in_destination, skip fuzzy matching
-                if not column_lineage:
-                    # Get potential destination columns based on platform and transformation rules
-                    dest_columns = []
-                    for src_col, _ in source_columns:
-                        # Try standard transformation first
-                        transformed = self._transform_column_name_for_platform(
-                            src_col, is_bigquery
-                        )
-                        if transformed:
-                            norm_transformed = self._normalize_column_name(transformed)
-                            dest_columns.append((transformed, norm_transformed))
+                # If no name_in_destination, transform based on platform
+                if not dest_col_name:
+                    dest_col_name = self._transform_column_name_for_platform(
+                        col_name, is_bigquery
+                    )
+                    logger.debug(f"Transformed name: {col_name} -> {dest_col_name}")
 
-                    # Generate column lineage using fuzzy matching
-                    for src_col, src_norm in source_columns:
-                        # First check if column should be skipped
-                        if src_col.startswith("_fivetran"):
-                            continue
-
-                        # Try fuzzy matching
-                        dest_col = self._find_best_fuzzy_match(
-                            src_col, src_norm, dest_columns
-                        )
-
-                        # If no match found, fall back to simple transformation
-                        if not dest_col:
-                            dest_col = self._transform_column_name_for_platform(
-                                src_col, is_bigquery
-                            )
-
-                        if dest_col:
-                            column_lineage.append(
-                                ColumnLineage(
-                                    source_column=src_col,
-                                    destination_column=dest_col,
-                                )
-                            )
-
-            except Exception as e:
-                logger.warning(f"Error during fuzzy matching for {source_table}: {e}")
-                # Fall back to standard transformation method
-                column_lineage = self._process_columns_from_list(
-                    columns, is_bigquery, source_table
+                # Add to lineage
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name,
+                        destination_column=dest_col_name,
+                    )
                 )
-        else:
-            # No column information from API, try other methods
-            logger.warning(f"No usable column information for {source_table} from API")
 
-            # Use source_table_columns if available (fallback method)
-            source_columns_dict = source_table_columns.get(source_table, {})
-            if source_columns_dict:
-                column_lineage = self._process_columns_from_source(
-                    source_columns_dict, is_bigquery, source_table
-                )
-            else:
-                # Try to use column mapping from config if available
-                column_lineage = self._try_get_column_mapping_from_config(source_table)
-
-        # Final check and log
+        # If we got column lineage, return it
         if column_lineage:
             logger.info(
-                f"Returning {len(column_lineage)} column lineage mappings for {source_table}"
+                f"Created {len(column_lineage)} column lineage entries using direct mapping"
+            )
+            return column_lineage
+
+        # No direct column mapping, try to derive from source_table_columns
+        if source_table in source_table_columns:
+            logger.info(
+                f"Attempting to derive column lineage from source_table_columns for {source_table}"
+            )
+            source_cols = source_table_columns[source_table]
+
+            for col_name in source_cols:
+                if col_name.startswith("_fivetran"):
+                    continue
+
+                # Transform destination column name based on platform
+                dest_col_name = self._transform_column_name_for_platform(
+                    col_name, is_bigquery
+                )
+
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name,
+                        destination_column=dest_col_name,
+                    )
+                )
+
+            logger.info(
+                f"Created {len(column_lineage)} column lineage entries using source_table_columns"
             )
         else:
-            logger.warning(f"No column lineage mappings created for {source_table}")
+            logger.warning(f"No source_table_columns available for {source_table}")
+
+        # If we still have no lineage, warn about it
+        if not column_lineage:
+            logger.warning(f"Could not create any column lineage for {source_table}")
 
         return column_lineage
+
+    def _transform_column_name_for_platform(
+        self, column_name: str, is_bigquery: bool
+    ) -> str:
+        """
+        Transform column name based on the destination platform with better handling of edge cases.
+
+        Args:
+            column_name: Source column name
+            is_bigquery: Whether the destination is BigQuery
+
+        Returns:
+            Transformed column name
+        """
+        if not column_name:
+            return ""
+
+        if is_bigquery:
+            # For BigQuery:
+            # 1. Convert to lowercase
+            # 2. Replace camelCase with snake_case
+            # 3. Clean up any invalid characters
+            import re
+
+            # Step 1: Convert camelCase to snake_case with regex
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+
+            # Step 2: lowercase and replace non-alphanumeric with underscore
+            transformed = re.sub(r"[^a-zA-Z0-9_]", "_", s2.lower())
+
+            # Step 3: Remove leading/trailing underscores and collapse multiple underscores
+            transformed = re.sub(r"_+", "_", transformed).strip("_")
+
+            # Log the transformation for debugging
+            if transformed != column_name.lower():
+                logger.debug(f"Transformed column: {column_name} -> {transformed}")
+
+            return transformed
+        else:
+            # For other platforms like Snowflake, typically uppercase
+            return column_name.upper()
+
+    def _normalize_column_name(self, column_name: str) -> str:
+        """Normalize column name for comparison by removing non-alphanumeric chars and converting to lowercase."""
+        # Remove non-alphanumeric characters and convert to lowercase
+        normalized = re.sub(r"[^a-zA-Z0-9]", "", column_name).lower()
+        return normalized
+
+    def _find_best_fuzzy_match(
+        self, source_col: str, source_norm: str, dest_columns: List[Tuple[str, str]]
+    ) -> Optional[str]:
+        """Find best fuzzy match for a source column from destination columns.
+
+        Args:
+            source_col: Original source column name
+            source_norm: Normalized source column name
+            dest_columns: List of (original_dest, normalized_dest) tuples
+
+        Returns:
+            Best matching destination column name or None if no good match found
+        """
+        import difflib
+
+        # First try to match normalized versions with high cutoff
+        dest_norms = [dest_norm for _, dest_norm in dest_columns]
+        matches = difflib.get_close_matches(source_norm, dest_norms, n=1, cutoff=0.8)
+
+        if matches:
+            # Find original dest column with this normalized value
+            matched_norm = matches[0]
+            for dest_col, dest_norm in dest_columns:
+                if dest_norm == matched_norm:
+                    return dest_col
+
+        # If no high-quality match found, try a lower threshold on original names
+        # This helps with acronyms and abbreviated field names
+        dest_cols = [dest_col for dest_col, _ in dest_columns]
+        matches = difflib.get_close_matches(source_col, dest_cols, n=1, cutoff=0.6)
+
+        if matches:
+            return matches[0]
+
+        # Try special patterns like converting "someField" to "some_field"
+        snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", source_col).lower()
+        for dest_col, _ in dest_columns:
+            if dest_col.lower() == snake_case:
+                return dest_col
+
+        # If source_col contains words that are also in a destination column, consider it a match
+        # This helps with "BillingStreet" matching "billing_street" or "street_billing"
+        words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", source_col)
+        if words:
+            word_matches = {}
+            for dest_col, _ in dest_columns:
+                # Count how many words from source appear in destination
+                dest_words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", dest_col)
+                common_words = len(
+                    set(w.lower() for w in words) & set(w.lower() for w in dest_words)
+                )
+                if common_words > 0:
+                    word_matches[dest_col] = common_words
+
+            # If we found matches based on common words, return the one with most matches
+            if word_matches:
+                return max(word_matches.items(), key=lambda x: x[1])[0]
+
+        # No good match found
+        return None
 
     def _log_column_diagnostics(self, columns: Any) -> None:
         """Log diagnostic information about column data."""
@@ -1051,104 +1154,3 @@ class FivetranStandardAPI(FivetranAccessInterface):
         else:
             # For most other systems (Snowflake, Redshift, etc.), table names are uppercased
             return table_name.upper()
-
-    def _transform_column_name_for_platform(
-        self, column_name: str, is_bigquery: bool
-    ) -> str:
-        """
-        Transform column name based on the destination platform with better handling of edge cases.
-        """
-        if not column_name:
-            return ""
-
-        if is_bigquery:
-            # For BigQuery:
-            # 1. Convert to lowercase
-            # 2. Replace camelCase with snake_case
-            # 3. Clean up any invalid characters
-
-            # Step 1: Convert camelCase to snake_case with regex
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
-            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-
-            # Step 2: lowercase and replace non-alphanumeric with underscore
-            transformed = re.sub(r"[^a-zA-Z0-9_]", "_", s2.lower())
-
-            # Step 3: Remove leading/trailing underscores and collapse multiple underscores
-            transformed = re.sub(r"_+", "_", transformed).strip("_")
-
-            # Log the transformation for debugging
-            if transformed != column_name.lower():
-                logger.debug(f"Transformed column: {column_name} -> {transformed}")
-
-            return transformed
-        else:
-            # For other platforms like Snowflake, typically uppercase
-            return column_name.upper()
-
-    def _normalize_column_name(self, column_name: str) -> str:
-        """Normalize column name for comparison by removing non-alphanumeric chars and converting to lowercase."""
-        # Remove non-alphanumeric characters and convert to lowercase
-        normalized = re.sub(r"[^a-zA-Z0-9]", "", column_name).lower()
-        return normalized
-
-    def _find_best_fuzzy_match(
-        self, source_col: str, source_norm: str, dest_columns: List[Tuple[str, str]]
-    ) -> Optional[str]:
-        """Find best fuzzy match for a source column from destination columns.
-
-        Args:
-            source_col: Original source column name
-            source_norm: Normalized source column name
-            dest_columns: List of (original_dest, normalized_dest) tuples
-
-        Returns:
-            Best matching destination column name or None if no good match found
-        """
-        import difflib
-
-        # First try to match normalized versions with high cutoff
-        dest_norms = [dest_norm for _, dest_norm in dest_columns]
-        matches = difflib.get_close_matches(source_norm, dest_norms, n=1, cutoff=0.8)
-
-        if matches:
-            # Find original dest column with this normalized value
-            matched_norm = matches[0]
-            for dest_col, dest_norm in dest_columns:
-                if dest_norm == matched_norm:
-                    return dest_col
-
-        # If no high-quality match found, try a lower threshold on original names
-        # This helps with acronyms and abbreviated field names
-        dest_cols = [dest_col for dest_col, _ in dest_columns]
-        matches = difflib.get_close_matches(source_col, dest_cols, n=1, cutoff=0.6)
-
-        if matches:
-            return matches[0]
-
-        # Try special patterns like converting "someField" to "some_field"
-        snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", source_col).lower()
-        for dest_col, _ in dest_columns:
-            if dest_col.lower() == snake_case:
-                return dest_col
-
-        # If source_col contains words that are also in a destination column, consider it a match
-        # This helps with "BillingStreet" matching "billing_street" or "street_billing"
-        words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", source_col)
-        if words:
-            word_matches = {}
-            for dest_col, _ in dest_columns:
-                # Count how many words from source appear in destination
-                dest_words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", dest_col)
-                common_words = len(
-                    set(w.lower() for w in words) & set(w.lower() for w in dest_words)
-                )
-                if common_words > 0:
-                    word_matches[dest_col] = common_words
-
-            # If we found matches based on common words, return the one with most matches
-            if word_matches:
-                return max(word_matches.items(), key=lambda x: x[1])[0]
-
-        # No good match found
-        return None
