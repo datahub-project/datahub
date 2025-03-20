@@ -518,7 +518,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_from_chart_data(self, chart_data: dict) -> Tuple[MetadataChangeEvent, MetadataWorkUnit]:
+    def construct_chart_from_chart_data(self, chart_data: dict) -> Iterable[MetadataWorkUnit]:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=str(chart_data["id"]),
@@ -629,7 +629,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
             )
 
-        cll = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=InputFields(
                 fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
@@ -648,9 +648,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
-        mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        yield MetadataWorkUnit(id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot))
 
-        return mce, cll
+        yield from self._get_domain_wu(
+            title=chart_data.get("slice_name", ""),
+            entity_urn=chart_urn,
+        )
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
@@ -679,19 +682,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                             self.report.warning(
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
-                mce, cll = self.construct_chart_from_chart_data(chart_data)
+                yield from self.construct_chart_from_chart_data(chart_data)
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
                 continue
-            yield cll
-            yield MetadataWorkUnit(id=mce.proposedSnapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=chart_data.get("slice_name", ""),
-                entity_urn=mce.proposedSnapshot.urn,
-            )
-            # Emit the chart
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
