@@ -113,7 +113,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                 {
                                     "expressionType": "SQL",
                                     "label": "test_label",
-                                    "sqlExpression": ""
+                                    "sqlExpression": "",
                                 },
                                 "test_column1",
                                 "test_column2",
@@ -651,7 +651,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_superset_ingest(pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock):
+def test_superset_ingest(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -691,7 +693,11 @@ def test_superset_ingest(pytestconfig: pytest.Config, tmp_path: Path, mock_time:
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
-    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock, mock_datahub_graph: Any
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    mock_time: None,
+    requests_mock,
+    mock_datahub_graph: Any,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
@@ -789,7 +795,7 @@ def test_superset_stateful_ingest(
                                 {
                                     "expressionType": "SQL",
                                     "label": "test_label",
-                                    "sqlExpression": ""
+                                    "sqlExpression": "",
                                 },
                                 "test_column1",
                                 "test_column2",

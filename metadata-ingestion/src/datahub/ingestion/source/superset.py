@@ -517,7 +517,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_from_chart_data(self, chart_data: dict) -> Iterable[MetadataWorkUnit]:
+    def construct_chart_from_chart_data(
+        self, chart_data: dict
+    ) -> Iterable[MetadataWorkUnit]:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=str(chart_data["id"]),
@@ -605,8 +607,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
-        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get("all_columns", [])
-        columns: List[str] = [column if isinstance(column, str) else column.get("label", "") for column in column_data]
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
+            "all_columns", []
+        )
+        columns: List[str] = [
+            column if isinstance(column, str) else column.get("label", "")
+            for column in column_data
+        ]
         input_fields: List[InputField] = []
 
         for column in columns:
@@ -625,7 +632,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                         nativeDataType="UNKNOWN",
                         globalTags=None,
                         nullable=True,
-                    )
+                    ),
                 )
             )
 
@@ -648,7 +655,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
-        yield MetadataWorkUnit(id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot))
+        yield MetadataWorkUnit(
+            id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        )
 
         yield from self._get_domain_wu(
             title=chart_data.get("slice_name", ""),
