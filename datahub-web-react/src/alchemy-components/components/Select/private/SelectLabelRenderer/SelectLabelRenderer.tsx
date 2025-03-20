@@ -4,6 +4,8 @@ import MultiSelectDefault from './variants/MultiSelectDefault';
 import MultiSelectLabeled from './variants/MultiSelectLabeled';
 import SingleSelectDefault from './variants/SingleSelectDefault';
 import SingleSelectLabeled from './variants/SingleSelectLabeled';
+import SingleSelectCustom from './variants/SingleSelectCustom';
+import MultiSelectCustom from './variants/MultiSelectCustom';
 
 export default function SelectLabelRenderer({ variant, ...props }: SelectLabelDisplayProps) {
     const { isMultiSelect, options, selectedValues } = props;
@@ -18,6 +20,8 @@ export default function SelectLabelRenderer({ variant, ...props }: SelectLabelDi
             switch (variant) {
                 case 'labeled':
                     return MultiSelectLabeled;
+                case 'custom':
+                    return MultiSelectCustom;
                 default:
                     return MultiSelectDefault;
             }
@@ -26,6 +30,8 @@ export default function SelectLabelRenderer({ variant, ...props }: SelectLabelDi
         switch (variant) {
             case 'labeled':
                 return SingleSelectLabeled;
+            case 'custom':
+                return SingleSelectCustom;
             default:
                 return SingleSelectDefault;
         }
