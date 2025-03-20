@@ -1,10 +1,10 @@
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
     display: flex;
