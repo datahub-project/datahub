@@ -35,7 +35,7 @@ export const TableHeader = styled.thead({
 export const TableHeaderCell = styled.th<{ width?: string; maxWidth?: string; shouldAddRightBorder?: boolean }>(
     ({ width, maxWidth, shouldAddRightBorder }) => ({
         padding: `${spacing.sm} ${spacing.md}`,
-        color: colors.gray[600],
+        color: colors.gray[1700],
         fontSize: typography.fontSizes.sm,
         fontWeight: typography.fontWeights.medium,
         textAlign: 'start',
@@ -75,8 +75,9 @@ export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolea
         },
 
         '& td:first-child': {
-            fontWeight: typography.fontWeights.medium,
+            fontWeight: typography.fontWeights.bold,
             color: colors.gray[600],
+            fontSize: '12px',
         },
     }),
 );
@@ -98,7 +99,7 @@ export const TableCell = styled.td<{
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     maxWidth: width || 'unset',
-    textAlign: alignment || 'left',
+    textAlign: (alignment as AlignmentOptions) || 'left',
 }));
 
 export const SortIconsContainer = styled.div({

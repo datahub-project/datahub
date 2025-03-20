@@ -25,11 +25,21 @@ const meta: Meta<typeof IncidentStagePill> = {
                 defaultValue: { summary: 'TRIAGE' },
             },
         },
+        showLabel: {
+            description: 'Controls whether the label should be displayed.',
+            table: {
+                defaultValue: { summary: 'true' }, // Assuming true is the default
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
     },
 
     // Default props
     args: {
         stage: 'WORK_IN_PROGRESS',
+        showLabel: true,
     },
 };
 

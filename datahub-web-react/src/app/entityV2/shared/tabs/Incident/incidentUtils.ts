@@ -1,6 +1,7 @@
 import { GetEntityIncidentsDocument } from '../../../../../graphql/incident.generated';
 
 import { IncidentType, IncidentState, Incident } from '../../../../../types.generated';
+import { getExistingIncidents } from './utils';
 
 export const PAGE_SIZE = 100;
 
@@ -52,7 +53,7 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
             didUpdate = true;
             return newIncidents;
         }
-        return { incident, siblings: null };
+        return incident;
     });
     return didUpdate ? updatedIncidents : [newIncidents, ...existingIncidents];
 };
@@ -75,8 +76,9 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
         return;
     }
 
+    const existingIncidents = getExistingIncidents(currData);
+
     // Add our new incidents into the existing list.
-    const existingIncidents = [...(currData?.entity?.incidents?.incidents || [])];
     const newIncidents = addOrUpdateIncidentInList(existingIncidents, incident);
     const didAddIncident = newIncidents.length > existingIncidents.length;
 
@@ -104,7 +106,7 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
                 },
                 // Add the missing 'siblings' field with the appropriate data
                 siblings: currData?.entity?.siblings || null,
-                siblingsSearch: currData?.entity?.siblingsSearch || null,
+                siblingsSearch: null,
             },
         },
     });
@@ -137,7 +139,7 @@ export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
 /**
  * Add raised incident to cache
  */
-export const addActiveIncidentToCache = (client, urn, incident, pageSize) => {
+export const updateActiveIncidentInCache = (client, urn, incident, pageSize) => {
     // Add to active and overall list
     updateListIncidentsCache(client, urn, incident, pageSize);
 };

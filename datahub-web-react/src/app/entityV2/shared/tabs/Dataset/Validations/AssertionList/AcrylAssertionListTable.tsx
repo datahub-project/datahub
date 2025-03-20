@@ -3,10 +3,11 @@ import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@src/app/entityV2/shared/hooks';
 
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
-import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 import { AssertionTable, AssertionListFilter } from './types';
 import { useAssertionsTableColumns } from './hooks';
 import { StyledTableContainer } from './StyledComponents';
@@ -38,9 +39,11 @@ export const AcrylAssertionListTable = ({
         sortOrder: SortingState.ORIGINAL,
     });
 
-    const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
+    const { expandedGroupIds, setExpandedGroupIds } = useGetExpandedTableGroupsFromEntityUrnInUrl(
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
         { isGroupBy: !!groupBy },
+        'assertion_urn',
+        (group) => group.assertions,
     );
 
     // get columns data from the custom hooks
@@ -75,7 +78,7 @@ export const AcrylAssertionListTable = ({
 
     const onAssertionExpand = (record) => {
         const key = record.name;
-        setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+        setExpandedGroupIds((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     };
 
     const getGroupData = () => {
@@ -153,7 +156,7 @@ export const AcrylAssertionListTable = ({
                         },
                         rowExpandable: () => !!groupBy,
                         expandIconPosition: 'end',
-                        expandedRowKeys,
+                        expandedGroupIds,
                     }}
                     onExpand={onAssertionExpand}
                 />

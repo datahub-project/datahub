@@ -1,9 +1,9 @@
 import React from 'react';
 import { Checkbox } from '@components';
-import { useRowSelection } from './useRowSelection';
 import { Column, RowSelectionProps } from './types';
 import { CheckboxWrapper } from './components';
 import { getRowKey } from './utils';
+import { useRowSelection } from './useRowSelection';
 
 export const useGetSelectionColumn = <T,>(
     data: T[],
