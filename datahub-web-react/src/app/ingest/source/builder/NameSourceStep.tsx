@@ -4,15 +4,12 @@ import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-`;
-
-const SaveButton = styled(Button)`
-    margin-right: 15px;
 `;
 
 const ExtraEnvKey = 'extra_env_vars';
@@ -259,15 +256,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 <Button variant="outline" color="gray" onClick={prev}>
                     Previous
                 </Button>
-                <div>
-                    <SaveButton
+                <ModalButtonContainer>
+                    <Button
                         variant="outline"
                         data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
                         Save
-                    </SaveButton>
+                    </Button>
                     <Tooltip showArrow={false} title="Save and starting syncing data source">
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
@@ -276,7 +273,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             Save & Run
                         </Button>
                     </Tooltip>
-                </div>
+                </ModalButtonContainer>
             </ControlsContainer>
         </>
     );
