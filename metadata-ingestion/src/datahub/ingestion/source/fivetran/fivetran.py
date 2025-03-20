@@ -977,13 +977,12 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Now process job history for each table
         sorted_jobs = sorted(connector.jobs, key=lambda j: j.end_time, reverse=True)[
-            :5
-        ]  # Limit to 5 recent jobs
+            :MAX_JOBS_PER_CONNECTOR
+        ]
 
         # For each job in connector's history, create DPIs for each table
         for job in sorted_jobs:
             for table_key, datajob in table_job_map.items():
-                # Create a unique job ID for this table-specific job run
                 table_job_id = f"{job.job_id}_{hash(table_key)}"
 
                 # Create a DPI specific to this table
