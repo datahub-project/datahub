@@ -923,4 +923,3 @@ def test_jsonProps_propagation():
     assert fields[1].jsonProps is not None
     assert "logicalType" in json.loads(fields[1].jsonProps)
     assert json.loads(fields[1].jsonProps)["logicalType"] == "timestamp-millis"
-
