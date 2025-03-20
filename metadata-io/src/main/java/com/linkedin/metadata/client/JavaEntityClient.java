@@ -473,7 +473,15 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String predicateJson)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, Collections.emptyList(), predicateJson);
+        opContext,
+        entities,
+        input,
+        filter,
+        start,
+        count,
+        sortCriteria,
+        Collections.emptyList(),
+        predicateJson);
   }
 
   /**
