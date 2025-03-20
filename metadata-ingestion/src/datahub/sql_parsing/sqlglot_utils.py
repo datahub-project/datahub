@@ -1,7 +1,6 @@
 from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
-import hashlib
 import logging
 import re
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -9,6 +8,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 
 assert SQLGLOT_PATCHED
 
@@ -249,11 +250,6 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         return node
 
     return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
-
-
-def generate_hash(text: str) -> str:
-    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def get_query_fingerprint_debug(

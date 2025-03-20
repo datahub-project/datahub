@@ -10,12 +10,19 @@ from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
+from datahub.utilities.ordered_set import OrderedSet
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 logger = logging.getLogger(__name__)
+
+_empty_audit_stamp = models.AuditStampClass(
+    time=0,
+    actor=DEFAULT_ACTOR_URN,
+)
 
 
 class LineageClient:
@@ -33,16 +40,29 @@ class LineageClient:
         upstream = DatasetUrn.from_string(upstream)
         downstream = DatasetUrn.from_string(downstream)
 
+        cll = None
+        if column_lineage is not None:
+            cll = parse_cll_mapping(
+                upstream=upstream,
+                downstream=downstream,
+                cll_mapping=column_lineage,
+            )
+
+        fields_involved = OrderedSet([str(upstream), str(downstream)])
+        if cll is not None:
+            for c in cll:
+                for field in c.upstreams or []:
+                    fields_involved.add(field)
+                for field in c.downstreams or []:
+                    fields_involved.add(field)
+
         query_urn = None
         query_entity = None
         if query_text:
-            # TODO fingerprint query text
-            query_urn = QueryUrn(query_text).urn()
+            # Eventually we might want to use our regex-based fingerprinting instead.
+            fingerprint = generate_hash(query_text)
+            query_urn = QueryUrn(fingerprint).urn()
 
-            empty_audit_stamp = models.AuditStampClass(
-                time=0,
-                actor=DEFAULT_ACTOR_URN,
-            )
             query_entity = MetadataChangeProposalWrapper.construct_many(
                 query_urn,
                 aspects=[
@@ -52,29 +72,14 @@ class LineageClient:
                             language=models.QueryLanguageClass.SQL,
                         ),
                         source=models.QuerySourceClass.SYSTEM,
-                        created=empty_audit_stamp,
-                        lastModified=empty_audit_stamp,
+                        created=_empty_audit_stamp,
+                        lastModified=_empty_audit_stamp,
                     ),
-                    make_query_subjects(
-                        [
-                            # TODO: Add field urns
-                            str(upstream),
-                            str(downstream),
-                        ]
-                    ),
+                    make_query_subjects(list(fields_involved)),
                 ],
             )
 
-        cll = None
-        if column_lineage is not None:
-            cll = parse_cll_mapping(
-                upstream=upstream,
-                downstream=downstream,
-                cll_mapping=column_lineage,
-            )
-
-        if query_urn and cll:
-            for c in cll:
+            for c in cll or []:
                 c.query = query_urn
 
         updater = DatasetPatchBuilder(str(downstream))
