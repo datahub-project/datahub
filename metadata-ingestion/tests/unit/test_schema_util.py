@@ -881,6 +881,7 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
         ["urn:li:glossaryTerm:Address"]
     )
 
+
 def test_jsonProps_propagation():
     jsonProps_schema = """
 {
@@ -918,7 +919,8 @@ def test_jsonProps_propagation():
     assert fields[0].jsonProps is not None
     assert "logicalType" in json.loads(fields[0].jsonProps)
     assert json.loads(fields[0].jsonProps)["logicalType"] == "decimal"
-    #optional field
+    # optional field
     assert fields[1].jsonProps is not None
     assert "logicalType" in json.loads(fields[1].jsonProps)
     assert json.loads(fields[1].jsonProps)["logicalType"] == "timestamp-millis"
+
