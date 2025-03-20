@@ -1,0 +1,210 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "owner": "root",
+                "created-at": "2025-03-19T21:17:06.624715545Z",
+                "write.format.default": "parquet",
+                "location": "s3a://warehouse/wh/nyc/taxis",
+                "format-version": "1",
+                "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
+                "snapshot-id": "3974925306106521667",
+                "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-3974925306106521667-1-12108a06-7bab-4fe4-b7a2-97029eefb051.avro"
+            },
+            "name": "taxis",
+            "qualifiedName": "nyc.taxis",
+            "created": {
+                "time": 1742419026624
+            },
+            "lastModified": {
+                "time": 1742419028234
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:root",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpGroup:root",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "nyc.taxis",
+            "platform": "urn:li:dataPlatform:iceberg",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "table {\n  1: vendor_id: optional long\n  2: trip_date: optional timestamptz\n  3: trip_id: optional long\n  4: trip_distance: optional float\n  5: fare_amount: optional double\n  6: store_and_fwd_flag: optional string\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=long].vendor_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "long",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=long].trip_date",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamptz",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=long].trip_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "long",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=float].trip_distance",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=double].fare_amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=string].store_and_fwd_flag",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

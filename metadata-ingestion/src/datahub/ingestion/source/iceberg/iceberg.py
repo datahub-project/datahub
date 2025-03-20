@@ -69,8 +69,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchema,
     SchemaField,
@@ -298,67 +296,35 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[Status(removed=False)],
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=Status(removed=False)
+            ).as_workunit()
 
-            # Dataset properties aspect.
-            additional_properties = {}
-            custom_properties = table.metadata.properties.copy()
-            custom_properties["location"] = table.metadata.location
-            custom_properties["format-version"] = str(table.metadata.format_version)
-            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
-            if table.current_snapshot():
-                custom_properties["snapshot-id"] = str(
-                    table.current_snapshot().snapshot_id
-                )
-                custom_properties["manifest-list"] = (
-                    table.current_snapshot().manifest_list
-                )
-                additional_properties["lastModified"] = TimeStampClass(
-                    int(table.current_snapshot().timestamp_ms)
-                )
-            if "created-at" in custom_properties:
-                try:
-                    dt = dateutil_parser.isoparse(custom_properties["created-at"])
-                    additional_properties["created"] = TimeStampClass(
-                        int(dt.timestamp() * 1000)
-                    )
-                except Exception as ex:
-                    LOGGER.warning(
-                        f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
-                    )
-
-            dataset_properties = DatasetPropertiesClass(
-                name=table.name()[-1],
-                description=table.metadata.properties.get("comment", None),
-                customProperties=custom_properties,
-                lastModified=additional_properties.get("lastModified"),
-                created=additional_properties.get("created"),
-                qualifiedName=dataset_name,
+            dataset_properties = self._get_dataset_properties_aspect(
+                dataset_name, table
             )
-            dataset_snapshot.aspects.append(dataset_properties)
-            # Dataset ownership aspect.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=dataset_properties
+            ).as_workunit()
+
             dataset_ownership = self._get_ownership_aspect(table)
             if dataset_ownership:
                 LOGGER.debug(
                     f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
                 )
-                dataset_snapshot.aspects.append(dataset_ownership)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=dataset_ownership
+                ).as_workunit()
 
             schema_metadata = self._create_schema_metadata(dataset_name, table)
-            dataset_snapshot.aspects.append(schema_metadata)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=schema_metadata
+            ).as_workunit()
+            yield self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
         )
-        yield MetadataWorkUnit(id=dataset_name, mce=mce)
-
-        dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
 
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
@@ -407,6 +373,40 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _get_dataset_properties_aspect(
+        self, dataset_name: str, table: Table
+    ) -> DatasetPropertiesClass:
+        additional_properties = {}
+        custom_properties = table.metadata.properties.copy()
+        custom_properties["location"] = table.metadata.location
+        custom_properties["format-version"] = str(table.metadata.format_version)
+        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        if table.current_snapshot():
+            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
+            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+            additional_properties["lastModified"] = TimeStampClass(
+                int(table.current_snapshot().timestamp_ms)
+            )
+        if "created-at" in custom_properties:
+            try:
+                dt = dateutil_parser.isoparse(custom_properties["created-at"])
+                additional_properties["created"] = TimeStampClass(
+                    int(dt.timestamp() * 1000)
+                )
+            except Exception as ex:
+                LOGGER.warning(
+                    f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
+                )
+
+        return DatasetPropertiesClass(
+            name=table.name()[-1],
+            description=table.metadata.properties.get("comment", None),
+            customProperties=custom_properties,
+            lastModified=additional_properties.get("lastModified"),
+            created=additional_properties.get("created"),
+            qualifiedName=dataset_name,
+        )
+
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
         if self.config.user_ownership_property:
@@ -435,22 +435,18 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
         return OwnershipClass(owners=owners) if owners else None
 
-    def _get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[MetadataWorkUnit]:
-        # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
-
-        return None
+    def _get_dataplatform_instance_aspect(self, dataset_urn: str) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None,
+            ),
+        ).as_workunit()
 
     def _create_schema_metadata(
         self, dataset_name: str, table: Table

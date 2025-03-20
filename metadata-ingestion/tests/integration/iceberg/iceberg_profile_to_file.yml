@@ -21,4 +21,4 @@ source:
 sink:
   type: file
   config:
-    filename: "./iceberg_mces.json"
+    filename: "./iceberg_mcps.json"
