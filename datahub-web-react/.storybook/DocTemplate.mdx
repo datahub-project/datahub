@@ -6,37 +6,39 @@ import { GlobalStyle } from './styledComponents';
 import { Meta, Title, Subtitle, Description, Primary, Controls, Stories } from '@storybook/blocks';
 import { CodeBlock } from '../src/alchemy-components/.docs/mdx-components';
 
-{/* 
-  * 👇 The isTemplate property is required to tell Storybook that this is a template
-  * See https://storybook.js.org/docs/api/doc-block-meta
-  * to learn how to use
-*/}
+{/\*
+
+-   👇 The isTemplate property is required to tell Storybook that this is a template
+-   See https://storybook.js.org/docs/api/doc-block-meta
+-   to learn how to use
+    \*/}
 
 <Meta isTemplate />
 
 <ThemeProvider theme={{}}>
 	<GlobalStyle />
 
-	<Title />
+    <Title />
 
-	<Subtitle />
+    <Subtitle />
 
-	<div className="docsDescription">
-		<Description />
-	</div>
+    <div className="docsDescription">
+    	<Description />
+    </div>
 
-	<br />
+    <br />
 
-	### Import
+    ### Import
 
-	<CodeBlock />
+    <CodeBlock />
 
-	<br/>
+    <br/>
 
-	### Customize
+    ### Customize
 
-	<Primary />
-	<Controls />
+    <Primary />
+    <Controls />
 
-	<Stories />
+    <Stories />
+
 </ThemeProvider>
