@@ -20,11 +20,11 @@ basicAuditStamp = models.AuditStampClass(
 
 
 @pytest.mark.parametrize(
-    "record,path,snapshot",
+    "get_record,path,snapshot",
     [
         (
             # Simple test.
-            models.MetadataChangeEventClass(
+            lambda: models.MetadataChangeEventClass(
                 proposedSnapshot=models.DatasetSnapshotClass(
                     urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
                     aspects=[
@@ -91,7 +91,7 @@ basicAuditStamp = models.AuditStampClass(
         ),
         (
             # Verify the serialization behavior with chart type enums.
-            models.MetadataChangeEventClass(
+            lambda: models.MetadataChangeEventClass(
                 proposedSnapshot=models.ChartSnapshotClass(
                     urn="urn:li:chart:(superset,227)",
                     aspects=[
@@ -149,7 +149,7 @@ basicAuditStamp = models.AuditStampClass(
         ),
         (
             # Verify that DataJobInfo is serialized properly (particularly it's union type).
-            models.MetadataChangeEventClass(
+            lambda: models.MetadataChangeEventClass(
                 proposedSnapshot=models.DataJobSnapshotClass(
                     urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
                     aspects=[
@@ -193,7 +193,7 @@ basicAuditStamp = models.AuditStampClass(
         ),
         (
             # Usage stats ingestion test.
-            models.UsageAggregationClass(
+            lambda: models.UsageAggregationClass(
                 bucket=1623826800000,
                 duration="DAY",
                 resource="urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
@@ -239,7 +239,7 @@ basicAuditStamp = models.AuditStampClass(
             },
         ),
         (
-            MetadataChangeProposalWrapper(
+            lambda: MetadataChangeProposalWrapper(
                 entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
                 aspect=models.OwnershipClass(
                     owners=[
@@ -280,7 +280,7 @@ basicAuditStamp = models.AuditStampClass(
     ],
 )
 @freeze_time(datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc))
-def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
+def test_datahub_rest_emitter(requests_mock, get_record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
         assert requested_snapshot == snapshot, (
@@ -295,4 +295,4 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     )
 
     emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT)
-    emitter.emit(record)
+    emitter.emit(get_record())
