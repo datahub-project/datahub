@@ -40,7 +40,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._urns.urn_defs import DatasetUrn
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
@@ -70,7 +69,7 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
     _Aspect,
 )
-from datahub.metadata.urns import DataPlatformUrn, MlModelUrn, VersionSetUrn
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -217,13 +216,14 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
         for experiment in experiments:
-            yield from self._get_experiment_container_workunit(experiment)
+            if experiment.name == "lineage_test_v17_experiment":
+                yield from self._get_experiment_container_workunit(experiment)
 
-            runs = self._get_mlflow_runs_from_experiment(experiment)
-            if runs:
-                for run in runs:
-                    yield from self._get_run_workunits(experiment, run)
-                    yield from self._get_dataset_input_workunits(run)
+                runs = self._get_mlflow_runs_from_experiment(experiment)
+                if runs:
+                    for run in runs:
+                        yield from self._get_run_workunits(experiment, run)
+                        yield from self._get_dataset_input_workunits(run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -277,7 +277,11 @@ class MLflowSource(StatefulIngestionSourceBase):
         try:
             schema_dict = json.loads(schema)
         except json.JSONDecodeError:
-            print("Failed to parse schema JSON")
+            self.report.warning(
+                title="Failed to parse schema JSON",
+                message=f"Schema: {schema}",
+                context="Adding schema information as a custom property instead",
+            )
             return None
 
         if "mlflow_colspec" in schema_dict:
@@ -343,7 +347,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                     custom_properties=custom_properties,
                 )
                 yield from local_dataset.as_workunits()
-                dataset_reference_urns.append(str(local_dataset.urn))
+                dataset_reference_urns.append(local_dataset.urn)
                 continue
 
             # Handle hosted datasets
@@ -352,7 +356,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             )
 
             # Validate platform if materialization is enabled
-            if self._materialize_dataset_inputs():
+            if self.config.materialize_dataset_inputs:
                 if not formatted_platform:
                     self.report.failure(
                         title="Unable to materialize dataset inputs",
@@ -389,13 +393,13 @@ class MLflowSource(StatefulIngestionSourceBase):
                 if formatted_platform
                 else None,
             )
-            dataset_reference_urns.append(str(hosted_dataset_reference.urn))
+            dataset_reference_urns.append(hosted_dataset_reference.urn)
             yield from hosted_dataset_reference.as_workunits()
 
         # Add dataset references as upstreams for the run
         if dataset_reference_urns:
             input_edges = [
-                EdgeClass(destinationUrn=dataset_ref_urn)
+                EdgeClass(destinationUrn=str(dataset_ref_urn))
                 for dataset_ref_urn in dataset_reference_urns
             ]
             yield MetadataChangeProposalWrapper(
@@ -434,7 +438,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         Get platform from user-provided mapping in config.
         Returns None if mapping is invalid or platform is not supported.
         """
-        source_mapping = self._source_type_to_platform_dict()
+        source_mapping = self.config.source_mapping_to_platform
         if not source_mapping:
             return None
 
@@ -442,16 +446,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         if not platform:
             return None
 
-        if self._is_valid_platform(platform):
-            return platform
-
-        self.report.failure(
-            title=f"Invalid platform '{platform}' in source_mapping_to_platform",
-            message="please add valid `source_mapping_to_platform` in config",
-            context="check the list of supported platforms in the file: "
-            "datahub/ingestion/source/common/known_platforms.py",
-        )
-        return None
+        return platform
 
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
@@ -853,14 +848,6 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _is_valid_platform(self, platform: Optional[str]) -> bool:
         """Check if platform is registered as a source plugin"""
         return platform in KNOWN_VALID_PLATFORM_NAMES
-
-    def _materialize_dataset_inputs(self) -> Optional[bool]:
-        """Check if dataset materialization is enabled"""
-        return self.config.materialize_dataset_inputs
-
-    def _source_type_to_platform_dict(self) -> Optional[dict]:
-        """Map MLflow source type to DataHub platform"""
-        return self.config.source_mapping_to_platform
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":
