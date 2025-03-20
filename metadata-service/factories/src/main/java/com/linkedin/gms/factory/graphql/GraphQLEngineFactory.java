@@ -341,8 +341,11 @@ public class GraphQLEngineFactory {
     args.setActionRequestService(actionRequestService);
 
     // Saas Only
-    StsClient stsClient = StsClient.create();
-    args.setStsClient(stsClient);
+    try {
+      StsClient stsClient = StsClient.create();
+      args.setStsClient(stsClient);
+    } catch (Exception e) {
+    }
 
     return new GmsGraphQLEngine(args).builder().build();
   }
