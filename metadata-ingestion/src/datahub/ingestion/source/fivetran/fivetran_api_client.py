@@ -163,7 +163,7 @@ class FivetranAPIClient:
         self, connector_id: str, schema_name: str, table_name: str
     ) -> List[Dict]:
         """
-        Get detailed column information for a specific table by directly querying the columns endpoint.
+        Get detailed column information for a specific table using the direct columns endpoint.
 
         Args:
             connector_id: The Fivetran connector ID
@@ -189,7 +189,7 @@ class FivetranAPIClient:
             response = self._make_request("GET", url)
 
             # Extract columns from the response
-            columns_data = response.get("data", {}).get("items", [])
+            columns_data = response.get("data", {}).get("columns", [])
 
             logger.info(
                 f"Retrieved {len(columns_data)} columns directly from columns endpoint for {schema_name}.{table_name}"
@@ -200,39 +200,6 @@ class FivetranAPIClient:
             logger.warning(
                 f"Failed to get columns from direct endpoint for {schema_name}.{table_name}: {e}"
             )
-
-            # Try fallback approaches if the direct endpoint fails
-            try:
-                # First try the tables endpoint
-                encoded_schema = urllib.parse.quote(schema_name)
-                url = f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
-                response = self._make_request("GET", url)
-
-                # Find the requested table
-                tables_data = response.get("data", {}).get("items", [])
-                for table in tables_data:
-                    if table.get("name") == table_name:
-                        columns = table.get("columns", [])
-                        logger.info(
-                            f"Found {len(columns)} columns from tables endpoint for {schema_name}.{table_name}"
-                        )
-                        return columns
-
-                # If still no columns, try the full schemas endpoint
-                schemas = self.list_connector_schemas(connector_id)
-                for schema in schemas:
-                    if schema.get("name") == schema_name:
-                        for table in schema.get("tables", []):
-                            if table.get("name") == table_name:
-                                columns = table.get("columns", [])
-                                logger.info(
-                                    f"Found {len(columns)} columns from schemas endpoint for {schema_name}.{table_name}"
-                                )
-                                return columns
-
-            except Exception as fallback_error:
-                logger.warning(f"Fallback attempts also failed: {fallback_error}")
-
             return []
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
