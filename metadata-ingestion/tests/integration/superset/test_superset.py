@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Dict, Optional
 from unittest.mock import patch
 
@@ -107,6 +108,17 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "url": "/explore/test_chart_url_10",
                         "datasource_id": "20",
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                {
+                                    "expressionType": "SQL",
+                                    "label": "test_label",
+                                    "sqlExpression": ""
+                                },
+                                "test_column1",
+                                "test_column2",
+                            ],
+                        },
                     },
                     {
                         "id": 11,
@@ -639,7 +651,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
+def test_superset_ingest(pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -679,7 +691,7 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock, mock_datahub_graph: Any
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
@@ -772,6 +784,17 @@ def test_superset_stateful_ingest(
                         "url": "/explore/test_chart_url_10",
                         "datasource_id": "20",
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                {
+                                    "expressionType": "SQL",
+                                    "label": "test_label",
+                                    "sqlExpression": ""
+                                },
+                                "test_column1",
+                                "test_column2",
+                            ],
+                        },
                     },
                     {
                         "id": 11,

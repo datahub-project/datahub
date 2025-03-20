@@ -132,6 +132,71 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_column1)",
+                    "schemaField": {
+                        "fieldPath": "test_column1",
+                        "nullable": true,
+                        "description": "",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "UNKNOWN",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_column2)",
+                    "schemaField": {
+                        "fieldPath": "test_column2",
+                        "nullable": true,
+                        "description": "",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "UNKNOWN",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_label)",
+                    "schemaField": {
+                        "fieldPath": "test_label",
+                        "nullable": true,
+                        "description": "",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "UNKNOWN",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(superset,10)",
@@ -180,6 +245,22 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
         }
     },
     "systemMetadata": {
@@ -246,6 +327,22 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(superset,12)",
@@ -294,6 +391,22 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
         }
     },
     "systemMetadata": {

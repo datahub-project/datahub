@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union, Tuple
 
 import dateutil.parser as dp
 import requests
@@ -26,6 +26,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
     make_user_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -36,6 +37,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
@@ -52,6 +54,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
     Status,
     TimeStamp,
+    InputField,
+    InputFields,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -83,6 +87,9 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    NumberTypeClass,
+    StringTypeClass,
+    NullTypeClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -511,7 +518,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
+    def construct_chart_from_chart_data(self, chart_data: dict) -> Tuple[MetadataChangeEvent, MetadataWorkUnit]:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=str(chart_data["id"]),
@@ -598,6 +605,37 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get("all_columns", [])
+        columns: List[str] = [column if isinstance(column, str) else column.get("label", "") for column in column_data]
+        input_fields: List[InputField] = []
+
+        for column in columns:
+            if not column:
+                continue
+            input_fields.append(
+                InputField(
+                    schemaFieldUrn=builder.make_schema_field_urn(
+                        parent_urn=datasource_urn,
+                        field_path=column,
+                    ),
+                    schemaField=SchemaField(
+                        fieldPath=column,
+                        type=SchemaFieldDataType(type=NullTypeClass()),
+                        description="",
+                        nativeDataType="UNKNOWN",
+                        globalTags=None,
+                        nullable=True,
+                    )
+                )
+            )
+
+        cll = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=InputFields(
+                fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+            ),
+        ).as_workunit()
+
         chart_owners_list = self.build_owner_urn(chart_data)
         owners_info = OwnershipClass(
             owners=[
@@ -610,7 +648,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
-        return chart_snapshot
+        mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+
+        return mce, cll
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
@@ -639,21 +679,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                             self.report.warning(
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
-
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
-
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                mce, cll = self.construct_chart_from_chart_data(chart_data)
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
                 continue
-            # Emit the chart
-            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+            yield cll
+            yield MetadataWorkUnit(id=mce.proposedSnapshot.urn, mce=mce)
             yield from self._get_domain_wu(
                 title=chart_data.get("slice_name", ""),
-                entity_urn=chart_snapshot.urn,
+                entity_urn=mce.proposedSnapshot.urn,
             )
+            # Emit the chart
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
