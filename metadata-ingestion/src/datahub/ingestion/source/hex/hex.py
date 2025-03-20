@@ -75,11 +75,11 @@ class HexSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
         default=True,
         description="Emit Hex Category as tags",
     )
-    project_titles_pattern: AllowDenyPattern = Field(
+    project_title_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for project titles to filter in ingestion.",
     )
-    component_titles_pattern: AllowDenyPattern = Field(
+    component_title_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for component titles to filter in ingestion.",
     )
@@ -145,7 +145,7 @@ class HexSource(StatefulIngestionSourceBase):
 
         for project_or_component in self.hex_api.fetch_projects():
             if isinstance(project_or_component, Project):
-                if self.source_config.project_titles_pattern.allowed(
+                if self.source_config.project_title_pattern.allowed(
                     project_or_component.title
                 ):
                     yield from self.mapper.map_project(project=project_or_component)
@@ -153,7 +153,7 @@ class HexSource(StatefulIngestionSourceBase):
                 isinstance(project_or_component, Component)
                 and self.source_config.include_components
             ):
-                if self.source_config.component_titles_pattern.allowed(
+                if self.source_config.component_title_pattern.allowed(
                     project_or_component.title
                 ):
                     yield from self.mapper.map_component(component=project_or_component)

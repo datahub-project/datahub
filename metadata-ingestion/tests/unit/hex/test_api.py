@@ -229,7 +229,3 @@ class TestHexAPI(unittest.TestCase):
             list(hex_api.fetch_projects())
 
         assert self.report.fetch_projects_page_calls == 1
-
-
-if __name__ == "__main__":
-    unittest.main()
