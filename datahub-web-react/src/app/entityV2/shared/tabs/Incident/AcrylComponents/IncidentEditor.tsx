@@ -38,7 +38,12 @@ export const IncidentEditor = ({
     mode = IncidentAction.ADD,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
-    const isFormValid = Boolean(data?.title?.length && data?.description && data?.type && data?.customType);
+    const isFormValid = Boolean(
+        data?.title?.length &&
+            data?.description &&
+            data?.type &&
+            (data?.type !== IncidentType.Custom || data?.customType),
+    );
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
@@ -47,7 +52,7 @@ export const IncidentEditor = ({
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
-        mode === IncidentAction.VIEW ? !isFormValid : false,
+        mode === IncidentAction.VIEW ? isFormValid : false,
     );
 
     const { handleSubmit, form, isLoading } = useIncidentHandler({
@@ -171,6 +176,7 @@ export const IncidentEditor = ({
                             styles={{
                                 width: '50%',
                             }}
+                            isDisabled={mode === IncidentAction.VIEW}
                             id="custom-incident-type-input"
                         />
                     </SelectFormItem>
