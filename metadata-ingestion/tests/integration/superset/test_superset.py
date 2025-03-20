@@ -652,8 +652,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_ingest(
-    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock
-):
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -696,9 +696,10 @@ def test_superset_stateful_ingest(
     pytestconfig: pytest.Config,
     tmp_path: Path,
     mock_time: None,
-    requests_mock,
+    requests_mock: Any,
     mock_datahub_graph: Any,
-):
+) -> None:
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
