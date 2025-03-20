@@ -1,7 +1,5 @@
-import difflib
 import logging
-import re
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -347,104 +345,6 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             return None
 
-    def _normalize_column_name(self, column_name: str) -> str:
-        """Normalize column name for comparison by removing non-alphanumeric chars and converting to lowercase."""
-        # Remove non-alphanumeric characters and convert to lowercase
-        normalized = re.sub(r"[^a-zA-Z0-9]", "", column_name).lower()
-        return normalized
-
-    def _transform_column_name_for_platform(
-        self, column_name: str, is_bigquery: bool
-    ) -> str:
-        """Transform column name based on the destination platform with better handling of edge cases."""
-        if not column_name:
-            return ""
-
-        if is_bigquery:
-            # For BigQuery:
-            # 1. Convert to lowercase
-            # 2. Replace camelCase with snake_case
-            # 3. Clean up any invalid characters
-            import re
-
-            # Step 1: Convert camelCase to snake_case with regex
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
-            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-
-            # Step 2: lowercase and replace non-alphanumeric with underscore
-            transformed = re.sub(r"[^a-zA-Z0-9_]", "_", s2.lower())
-
-            # Step 3: Remove leading/trailing underscores and collapse multiple underscores
-            transformed = re.sub(r"_+", "_", transformed).strip("_")
-
-            # Log the transformation for debugging
-            if transformed != column_name.lower():
-                logger.debug(f"Transformed column: {column_name} -> {transformed}")
-
-            return transformed
-        else:
-            # For other platforms like Snowflake, typically uppercase
-            return column_name.upper()
-
-    def _find_best_fuzzy_match(
-        self, source_col: str, source_norm: str, dest_columns: List[Tuple[str, str]]
-    ) -> Optional[str]:
-        """Find best fuzzy match for a source column from destination columns.
-
-        Args:
-            source_col: Original source column name
-            source_norm: Normalized source column name
-            dest_columns: List of (original_dest, normalized_dest) tuples
-
-        Returns:
-            Best matching destination column name or None if no good match found
-        """
-        # First try to match normalized versions with high cutoff
-        dest_norms = [dest_norm for _, dest_norm in dest_columns]
-        matches = difflib.get_close_matches(source_norm, dest_norms, n=1, cutoff=0.8)
-
-        if matches:
-            # Find original dest column with this normalized value
-            matched_norm = matches[0]
-            for dest_col, dest_norm in dest_columns:
-                if dest_norm == matched_norm:
-                    return dest_col
-
-        # If no high-quality match found, try a lower threshold on original names
-        # This helps with acronyms and abbreviated field names
-        dest_cols = [dest_col for dest_col, _ in dest_columns]
-        matches = difflib.get_close_matches(source_col, dest_cols, n=1, cutoff=0.6)
-
-        if matches:
-            return matches[0]
-
-        # Try special patterns like converting "someField" to "some_field"
-        snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", source_col).lower()
-        for dest_col, _ in dest_columns:
-            if dest_col.lower() == snake_case:
-                return dest_col
-
-        # If source_col contains words that are also in a destination column, consider it a match
-        # This helps with "BillingStreet" matching "billing_street" or "street_billing"
-        words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", source_col)
-        if words:
-            word_matches = {}
-            for dest_col, _ in dest_columns:
-                # Count how many words from source appear in destination
-                dest_words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", dest_col)
-                common_words = len(
-                    set(w.lower() for w in words) & set(w.lower() for w in dest_words)
-                )
-                if common_words > 0:
-                    word_matches[dest_col] = common_words
-
-            # If we found matches based on common words, return the one with most matches
-            if word_matches:
-                return max(word_matches.items(), key=lambda x: x[1])[0]
-
-        # No good match found
-        return None
-
     def _create_column_lineage(
         self,
         lineage: TableLineage,
@@ -535,70 +435,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                 logger.warning(
                     f"Failed to create column lineage for {column_lineage.source_column} -> {column_lineage.destination_column}: {e}"
                 )
-
-    def _create_field_lineage_mcp(
-        self,
-        source_urn: DatasetUrn,
-        dest_urn: DatasetUrn,
-        lineage_field_map: Dict[str, List[str]],
-    ) -> Optional[MetadataWorkUnit]:
-        """
-        Create field-level lineage between datasets using MetadataChangeProposal.
-
-        Args:
-            source_urn: Source dataset URN
-            dest_urn: Destination dataset URN
-            lineage_field_map: Map of destination field URNs to lists of source field URNs
-        """
-        try:
-            from datahub.emitter.mcp import MetadataChangeProposalWrapper
-            from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-                DatasetLineageType,
-                FineGrainedLineage,
-                FineGrainedLineageDownstreamType,
-                FineGrainedLineageUpstreamType,
-                Upstream,
-                UpstreamLineage,
-            )
-
-            # Create the upstream relationship
-            upstream = Upstream(
-                dataset=str(source_urn), type=DatasetLineageType.TRANSFORMED
-            )
-
-            # Create fine-grained lineages for each field mapping
-            fine_grained_lineages = []
-
-            for dest_field, source_fields in lineage_field_map.items():
-                fine_grained_lineages.append(
-                    FineGrainedLineage(
-                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                        upstreams=source_fields,
-                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                        downstreams=[dest_field],
-                    )
-                )
-
-            # Create the lineage aspect
-            upstream_lineage = UpstreamLineage(
-                upstreams=[upstream], fineGrainedLineages=fine_grained_lineages
-            )
-
-            # Create and emit the MCP
-            lineage_mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(dest_urn),
-                aspect=upstream_lineage,
-            )
-
-            # Now create a workunit from this MCP
-            wu = MetadataWorkUnit(id=f"{dest_urn}-field-lineage", mcp=lineage_mcp)
-
-            # Return the workunit - it will be collected and emitted by the main process
-            return wu
-
-        except Exception as e:
-            logger.error(f"Error creating field-level lineage MCP: {e}", exc_info=True)
-            return None
 
     def _build_lineage_properties(
         self,
