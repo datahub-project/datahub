@@ -11,16 +11,18 @@ from google.cloud.aiplatform import (
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
     Endpoint,
-    ExperimentRun,
+    ExperimentRun, PipelineJob,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.metadata.execution import Execution
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
+from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.oauth2 import service_account
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -35,6 +37,7 @@ from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.gc.dataprocess_cleanup import DataFlowEntity
 from datahub.ingestion.source.mlflow import ContainerKeyWithId
 from datahub.ingestion.source.vertexai.config import VertexAIConfig
 from datahub.ingestion.source.vertexai.result_type_utils import (
@@ -42,6 +45,7 @@ from datahub.ingestion.source.vertexai.result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
+from datahub.metadata._urns.urn_defs import DataFlowUrn
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
 )
@@ -114,12 +118,13 @@ class VertexAISource(Source):
         self.report = SourceReport()
 
         creds = self.config.get_credentials()
+        breakpoint()
         credentials = (
-            service_account.Credentials.from_service_account_info(**creds)
+            service_account.Credentials.from_service_account_info(creds)
             if creds
             else None
         )
-
+        breakpoint()
         aiplatform.init(
             project=config.project_id, location=config.region, credentials=credentials
         )
@@ -138,16 +143,75 @@ class VertexAISource(Source):
         - Training Jobs
         """
 
-        # Ingest Project
-        yield from self._gen_project_workunits()
-        # Fetch and Ingest Models, Model Versions a from Model Registry
-        yield from auto_workunit(self._get_ml_models_mcps())
-        # Fetch and Ingest Training Jobs
-        yield from auto_workunit(self._get_training_jobs_mcps())
-        # Fetch and Ingest Experiments
-        yield from self._get_experiments_workunits()
-        # Fetch and Ingest Experiment Runs
-        yield from auto_workunit(self._get_experiment_runs_mcps())
+        # # Ingest Project
+        # yield from self._gen_project_workunits()
+        # # Fetch and Ingest Models, Model Versions a from Model Registry
+        # yield from auto_workunit(self._get_ml_models_mcps())
+        # # Fetch and Ingest Training Jobs
+        # yield from auto_workunit(self._get_training_jobs_mcps())
+        # # Fetch and Ingest Experiments
+        # yield from self._get_experiments_workunits()
+        # # Fetch and Ingest Experiment Runs
+        # yield from auto_workunit(self._get_experiment_runs_mcps())
+        # Fetch Pipelines and Tasks
+        yield from auto_workunit(self._get_pipelines_mcps())
+
+    def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        """
+        Fetches pipelines from Vertex AI and generates corresponding mcps.
+        """
+
+        pipeline_jobs = self.client.PipelineJob.list()
+        for pipeline in pipeline_jobs:
+            yield from self._get_pipeline_mcps(pipeline)
+            for task in pipeline.task_details:
+                yield from self._get_pipeline_task_mcps(pipeline, task)
+
+    def _get_pipeline_task_mcps(self, pipeline:PipelineJob, task: PipelineTaskDetail) -> Iterable[MetadataChangeProposalWrapper]:
+
+        dataflow_urn = self._gen_data_flow(pipeline).urn
+        datajob = DataJob(
+            id=self._make_vertexai_pipeline_task_name(str(task.task_id)),
+            flow_urn=dataflow_urn,
+            name=task.task_name,
+            owners={"urn:li:corpuser:datahub"},
+            upstream_urns=[]
+        )
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(datajob.urn),
+            aspects=[
+                ContainerClass(container=self._get_project_container().as_urn()),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK])
+            ]
+        )
+        yield from datajob.generate_mcp()
+
+
+    def _gen_data_flow(self, pipeline:PipelineJob) -> DataFlow:
+        return DataFlow(
+            orchestrator=self.platform,
+            id=self._make_vertexai_pipeline_name(str(pipeline.name)),
+            env=self.config.env,
+            name=pipeline.display_name,
+            platform_instance=self.platform,
+        )
+
+
+
+    def _get_pipeline_mcps(self, pipeline: PipelineJob)  -> Iterable[MetadataChangeProposalWrapper]:
+
+        dataflow = self._gen_data_flow(pipeline)
+
+        yield from dataflow.generate_mcp()
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(dataflow.urn),
+            aspects=[
+                ContainerClass(container=self._get_project_container().as_urn()),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE])
+            ]
+        )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
         # List all experiments
@@ -975,6 +1039,12 @@ class VertexAISource(Source):
 
     def _make_vertexai_run_execution_name(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.execution.{entity_id}"
+
+    def _make_vertexai_pipeline_name(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.pipeline.{entity_id}"
+
+    def _make_vertexai_pipeline_task_name(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.pipeline_task.{entity_id}"
 
     def _make_artifact_external_url(
         self, experiment: Experiment, run: ExperimentRun
