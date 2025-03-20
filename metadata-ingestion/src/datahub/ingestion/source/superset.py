@@ -617,7 +617,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         input_fields: List[InputField] = []
 
         for column in columns:
-            if not column:
+            if not column or not datasource_urn:
                 continue
             input_fields.append(
                 InputField(

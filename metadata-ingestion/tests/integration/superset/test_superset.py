@@ -699,7 +699,6 @@ def test_superset_stateful_ingest(
     requests_mock: Any,
     mock_datahub_graph: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
