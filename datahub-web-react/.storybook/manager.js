@@ -5,7 +5,7 @@ import acrylTheme from './storybook-theme.js';
 
 // Theme setup
 addons.setConfig({
-    theme: acrylTheme,
+	theme: acrylTheme,
 });
 
 // Favicon

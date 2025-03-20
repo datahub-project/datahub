@@ -55,12 +55,12 @@ module.exports = {
             version: 'detect', // Tells eslint-plugin-react to automatically detect the version of React to use
         },
     },
-    overrides: [
-        {
-            files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
-            rules: {
-                'import/no-cycle': 'off',
-            },
-        },
-    ],
+	overrides: [
+		{
+			files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
+			rules: {
+				'import/no-cycle': 'off',
+			},
+		},
+	],
 };
