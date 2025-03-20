@@ -392,7 +392,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             futures = {mock_future1: self.sample_urn, mock_future2: self.sample_urn}
 
             # Process the futures
-            result = self.cleanup._process_futures(futures) # type: ignore
+            result = self.cleanup._process_futures(futures)  # type: ignore
 
             # Check result contains only the not_done future
             self.assertEqual(len(result), 1)
