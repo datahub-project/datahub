@@ -144,7 +144,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                         </Button>
                         {shouldShowInferenceButton && (
                             <InferDocsButton
-                                style={{ display: 'inline-block', top: 3, marginLeft: 8, height: 40 }}
+                                style={{ height: 38 }}
                                 surface="entity-docs-tab"
                                 onClick={() =>
                                     routeToTab({
