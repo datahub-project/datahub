@@ -691,6 +691,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                             self.report.warning(
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
+
                 yield from self.construct_chart_from_chart_data(chart_data)
             except Exception as e:
                 self.report.warning(

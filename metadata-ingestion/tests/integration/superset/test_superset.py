@@ -106,7 +106,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "slice_name": "test_chart_title_1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
-                        "datasource_id": "20",
+                        "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
                         "form_data": {
                             "all_columns": [
@@ -789,7 +789,7 @@ def test_superset_stateful_ingest(
                         "slice_name": "test_chart_title_1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
-                        "datasource_id": "20",
+                        "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
                         "form_data": {
                             "all_columns": [

@@ -140,7 +140,7 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_column1)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD),test_column1)",
                     "schemaField": {
                         "fieldPath": "test_column1",
                         "nullable": true,
@@ -156,7 +156,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_column2)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD),test_column2)",
                     "schemaField": {
                         "fieldPath": "test_column2",
                         "nullable": true,
@@ -172,7 +172,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD),test_label)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD),test_label)",
                     "schemaField": {
                         "fieldPath": "test_label",
                         "nullable": true,
@@ -228,7 +228,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
                             }
                         ],
                         "type": "BAR"
