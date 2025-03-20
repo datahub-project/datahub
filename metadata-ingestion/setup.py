@@ -703,6 +703,7 @@ full_test_dev_requirements = {
             "druid",
             "feast",
             "hana",
+            "hdf5",
             "hive",
             "iceberg",
             "iceberg-catalog",
