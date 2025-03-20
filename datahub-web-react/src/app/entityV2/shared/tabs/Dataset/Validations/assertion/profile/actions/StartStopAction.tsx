@@ -1,31 +1,14 @@
 import React from 'react';
 
-import styled from 'styled-components';
 import { Modal, message } from 'antd';
-import { CaretRightOutlined } from '@ant-design/icons';
-
+import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { Play, Stop } from 'phosphor-react';
+import { colors } from '@src/alchemy-components';
 import analytics, { EventType } from '../../../../../../../../analytics';
-import { ActionItem } from './ActionItem';
 import { useUpdateMonitorStatusMutation } from '../../../../../../../../../graphql/monitor.generated';
 import { Assertion, Monitor, MonitorMode } from '../../../../../../../../../types.generated';
 import { isMonitorActive } from '../../../acrylUtils';
-
-const StyledStopOutlined = styled.div`
-    && {
-        display: flex;
-        background-color: #fff;
-        width: 8px;
-        height: 8px;
-    }
-`;
-
-const StyledCaretOutlined = styled(CaretRightOutlined)`
-    && {
-        font-size: 16px;
-        display: flex;
-        padding-left: 2px;
-    }
-`;
 
 type Props = {
     assertion: Assertion;
@@ -106,13 +89,16 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
     const authorizedTip = isActive ? 'Stop' : 'Start';
     const unauthorizedTip = canEdit ? undefined : 'You do not have permission to start or stop this assertion';
     return (
-        <ActionItem
-            key="0"
-            tip={canEdit ? authorizedTip : unauthorizedTip}
-            disabled={!canEdit}
-            onClick={isActive ? onStopMonitor : onConfirmStartMonitor}
-            icon={isActive ? <StyledStopOutlined /> : <StyledCaretOutlined />}
-            dataTestId="assertion-start-stop-action"
-        />
+        <Tooltip2 title={canEdit ? authorizedTip : unauthorizedTip}>
+            <ActionMenuItem
+                key="0"
+                disabled={!canEdit}
+                onClick={isActive ? onStopMonitor : onConfirmStartMonitor}
+                icon={
+                    isActive ? <Stop weight="fill" color={colors.violet[500]} /> : <Play color={colors.violet[500]} />
+                }
+                data-testid="assertion-start-stop-action"
+            />
+        </Tooltip2>
     );
 };

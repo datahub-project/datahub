@@ -188,10 +188,12 @@ export default function EditStructuredPropertyModal({
             width={650}
             footer={
                 <ModalButtonContainer>
-                    <Button variant="text" onClick={closeModal} color="gray">
+                    <Button variant="text" type="button" onClick={closeModal} color="gray">
                         Cancel
                     </Button>
                     <Button
+                        variant="outline"
+                        type="button"
                         onClick={proposeProperties}
                         disabled={!selectedValues.length}
                         data-testid="propose-update-structured-prop-on-entity-button"

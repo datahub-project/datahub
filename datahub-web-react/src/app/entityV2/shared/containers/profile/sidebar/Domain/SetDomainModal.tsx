@@ -212,10 +212,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             onCancel={onModalClose}
             footer={
                 <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
+                    <Button variant="text" type="button" color="gray" onClick={onModalClose}>
                         Cancel
                     </Button>
                     <Button
+                        type="button"
+                        variant="outline"
                         onClick={proposeDomain}
                         disabled={!selectedDomain}
                         data-testid="propose-domain-on-entity-button"

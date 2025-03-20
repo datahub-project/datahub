@@ -25,11 +25,23 @@ export const DescriptionEditorToolbar = ({
 }: DescriptionEditorToolbarProps) => {
     return (
         <StyledTabToolbar>
-            <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
+            <Button
+                variant="text"
+                type="button"
+                color="gray"
+                data-testid="description-editor-cancel-button"
+                onClick={onCancel}
+            >
                 Cancel
             </Button>
             {showPropose && (
-                <Button data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
+                <Button
+                    variant="outline"
+                    type="button"
+                    data-testid="propose-description"
+                    onClick={onPropose}
+                    disabled={disableSave}
+                >
                     Propose
                 </Button>
             )}
