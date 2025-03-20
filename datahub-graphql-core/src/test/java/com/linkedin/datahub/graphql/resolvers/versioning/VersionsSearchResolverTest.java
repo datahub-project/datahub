@@ -43,8 +43,6 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -313,15 +311,15 @@ public class VersionsSearchResolverTest {
         .thenReturn(result);
 
     Mockito.when(
-        client.searchAcrossEntities(
-            any(OperationContext.class),
-            anyList(),
-            anyString(),
-            nullable(Filter.class),
-            anyInt(),
-            anyInt(),
-            nullable(List.class),
-            nullable(String.class)))
+            client.searchAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                nullable(List.class),
+                nullable(String.class)))
         .thenReturn(result);
 
     return client;
