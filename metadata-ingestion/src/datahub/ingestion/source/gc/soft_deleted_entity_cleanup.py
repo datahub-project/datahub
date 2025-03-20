@@ -103,6 +103,9 @@ class SoftDeletedEntitiesReport(SourceReport):
     num_entities_found: Dict[str, int] = field(default_factory=dict)
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
+    num_soft_deleted_retained_due_to_age_by_type: TopKDict[str, int] = field(
+        default_factory=TopKDict
+    )
     num_soft_deleted_entity_removal_started: int = 0
     num_hard_deleted: int = 0
     num_hard_deleted_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
@@ -133,7 +136,7 @@ class SoftDeletedEntitiesCleanup:
         self.config = config
         self.report = report
         self.dry_run = dry_run
-        self.start_time = 0.0
+        self.start_time = time.time()
         self._report_lock: Lock = Lock()
         self.last_print_time = 0.0
 
@@ -141,6 +144,14 @@ class SoftDeletedEntitiesCleanup:
         """Thread-safe method to update report fields"""
         with self._report_lock:
             self.report.num_soft_deleted_retained_due_to_age += 1
+
+    def _increment_retained_by_type(self, type: str) -> None:
+        """Thread-safe method to update report fields"""
+        with self._report_lock:
+            self.report.num_soft_deleted_retained_due_to_age_by_type[type] = (
+                self.report.num_soft_deleted_retained_due_to_age_by_type.get(type, 0)
+                + 1
+            )
 
     def _increment_removal_started_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -160,10 +171,9 @@ class SoftDeletedEntitiesCleanup:
                 )
             self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 
-    def delete_entity(self, urn: str) -> None:
+    def delete_entity(self, urn: Urn) -> None:
         assert self.ctx.graph
 
-        entity_urn = Urn.from_string(urn)
         if self.dry_run:
             logger.info(
                 f"Dry run is on otherwise it would have deleted {urn} with hard deletion"
@@ -172,14 +182,14 @@ class SoftDeletedEntitiesCleanup:
         if self._deletion_limit_reached() or self._times_up():
             return
         self._increment_removal_started_count()
-        self.ctx.graph.delete_entity(urn=urn, hard=True)
+        self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
         self.ctx.graph.delete_references_to_urn(
-            urn=urn,
+            urn=urn.urn(),
             dry_run=False,
         )
-        self._update_report(urn, entity_urn.entity_type)
+        self._update_report(urn.urn(), urn.entity_type)
 
-    def delete_soft_deleted_entity(self, urn: str) -> None:
+    def delete_soft_deleted_entity(self, urn: Urn) -> None:
         assert self.ctx.graph
 
         retention_time = (
@@ -187,7 +197,7 @@ class SoftDeletedEntitiesCleanup:
             - self.config.retention_days * 24 * 60 * 60
         )
 
-        aspect = self.ctx.graph.get_entity_raw(entity_urn=urn, aspects=["status"])
+        aspect = self.ctx.graph.get_entity_raw(entity_urn=urn.urn(), aspects=["status"])
         if "status" in aspect["aspects"]:
             if aspect["aspects"]["status"]["value"]["removed"] and aspect["aspects"][
                 "status"
@@ -196,6 +206,7 @@ class SoftDeletedEntitiesCleanup:
                 self.delete_entity(urn)
             else:
                 self._increment_retained_count()
+                self._increment_retained_by_type(urn.entity_type)
 
     def _print_report(self) -> None:
         time_taken = round(time.time() - self.last_print_time, 1)
@@ -204,7 +215,7 @@ class SoftDeletedEntitiesCleanup:
             self.last_print_time = time.time()
             logger.info(f"\n{self.report.as_string()}")
 
-    def _process_futures(self, futures: Dict[Future, str]) -> Dict[Future, str]:
+    def _process_futures(self, futures: Dict[Future, Urn]) -> Dict[Future, Urn]:
         done, not_done = wait(futures, return_when=FIRST_COMPLETED)
         futures = {future: urn for future, urn in futures.items() if future in not_done}
 
@@ -214,7 +225,7 @@ class SoftDeletedEntitiesCleanup:
                 self.report.failure(
                     title="Failed to delete entity",
                     message="Failed to delete entity",
-                    context=futures[future],
+                    context=futures[future].urn(),
                     exc=future.exception(),
                 )
             self.report.num_soft_deleted_entity_processed += 1
@@ -229,74 +240,6 @@ class SoftDeletedEntitiesCleanup:
                     time.sleep(self.config.delay)
         return futures
 
-    def _get_soft_deleted(self, graphql_query: str, entity_type: str) -> Iterable[str]:
-        assert self.ctx.graph
-        scroll_id: Optional[str] = None
-
-        batch_size = self.config.batch_size
-        if entity_type == "DATA_PROCESS_INSTANCE":
-            # Due to a bug in Data process instance querying this is a temp workaround
-            # to avoid a giant stacktrace by having a smaller batch size in first call
-            # This will be remove in future version after server with fix has been
-            # around for a while
-            batch_size = 10
-
-        while True:
-            try:
-                if entity_type not in self.report.num_calls_made:
-                    self.report.num_calls_made[entity_type] = 1
-                else:
-                    self.report.num_calls_made[entity_type] += 1
-                self._print_report()
-                result = self.ctx.graph.execute_graphql(
-                    graphql_query,
-                    {
-                        "input": {
-                            "types": [entity_type],
-                            "query": "*",
-                            "scrollId": scroll_id if scroll_id else None,
-                            "count": batch_size,
-                            "orFilters": [
-                                {
-                                    "and": [
-                                        {
-                                            "field": "removed",
-                                            "values": ["true"],
-                                            "condition": "EQUAL",
-                                        }
-                                    ]
-                                }
-                            ],
-                        }
-                    },
-                )
-            except Exception as e:
-                self.report.failure(
-                    f"While trying to get {entity_type} with {scroll_id}", exc=e
-                )
-                break
-            scroll_across_entities = result.get("scrollAcrossEntities")
-            if not scroll_across_entities:
-                break
-            search_results = scroll_across_entities.get("searchResults")
-            count = scroll_across_entities.get("count")
-            if not count or not search_results:
-                # Due to a server bug we cannot rely on just count as it was returning response like this
-                # {'count': 1, 'nextScrollId': None, 'searchResults': []}
-                break
-            if entity_type == "DATA_PROCESS_INSTANCE":
-                # Temp workaround. See note in beginning of the function
-                # We make the batch size = config after call has succeeded once
-                batch_size = self.config.batch_size
-            scroll_id = scroll_across_entities.get("nextScrollId")
-            if entity_type not in self.report.num_entities_found:
-                self.report.num_entities_found[entity_type] = 0
-            self.report.num_entities_found[entity_type] += scroll_across_entities.get(
-                "count"
-            )
-            for query in search_results:
-                yield query["entity"]["urn"]
-
     def _get_urns(self) -> Iterable[str]:
         assert self.ctx.graph
         yield from self.ctx.graph.get_urns_by_filter(
@@ -307,8 +250,6 @@ class SoftDeletedEntitiesCleanup:
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
         )
-        yield from self._get_soft_deleted(QUERY_ENTITIES, "QUERY")
-        yield from self._get_soft_deleted(QUERY_ENTITIES, "DATA_PROCESS_INSTANCE")
 
     def _times_up(self) -> bool:
         if (
@@ -335,16 +276,24 @@ class SoftDeletedEntitiesCleanup:
             return
         self.start_time = time.time()
 
-        futures: Dict[Future, str] = dict()
+        futures: Dict[Future, Urn] = dict()
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             for urn in self._get_urns():
+                try:
+                    soft_deleted_urn = Urn.from_string(urn)
+                except Exception as e:
+                    logger.error(f"Failed to parse urn {urn} with error {e}")
+                    continue
+
                 self._print_report()
                 while len(futures) >= self.config.futures_max_at_time:
                     futures = self._process_futures(futures)
                 if self._deletion_limit_reached() or self._times_up():
                     break
-                future = executor.submit(self.delete_soft_deleted_entity, urn)
-                futures[future] = urn
+                future = executor.submit(
+                    self.delete_soft_deleted_entity, soft_deleted_urn
+                )
+                futures[future] = soft_deleted_urn
 
             logger.info(f"Waiting for {len(futures)} futures to complete")
             while len(futures) > 0:
