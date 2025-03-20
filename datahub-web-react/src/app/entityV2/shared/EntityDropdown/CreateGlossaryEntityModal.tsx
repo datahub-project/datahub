@@ -152,10 +152,15 @@ function CreateGlossaryEntityModal(props: Props) {
             onCancel={onClose}
             footer={
                 <ButtonContainer>
-                    <Button color="gray" onClick={onClose} variant="text">
+                    <Button color="gray" type="button" onClick={onClose} variant="text">
                         Cancel
                     </Button>
-                    <Button onClick={proposeGlossaryEntity} disabled={createButtonDisabled}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={proposeGlossaryEntity}
+                        disabled={createButtonDisabled}
+                    >
                         Propose
                     </Button>
                     <Button

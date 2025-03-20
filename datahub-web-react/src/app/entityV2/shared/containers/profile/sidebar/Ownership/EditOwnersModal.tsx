@@ -407,10 +407,12 @@ export const EditOwnersModal = ({
             keyboard
             footer={
                 <ModalButtonContainer>
-                    <Button color="gray" variant="text" onClick={onModalClose}>
+                    <Button color="gray" type="button" variant="text" onClick={onModalClose}>
                         Cancel
                     </Button>
                     <Button
+                        variant="outline"
+                        type="button"
                         onClick={proposeOwners}
                         disabled={!selectedOwners?.length}
                         data-testid="propose-owners-on-entity-button"

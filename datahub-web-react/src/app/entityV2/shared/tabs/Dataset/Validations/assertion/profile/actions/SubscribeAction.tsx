@@ -1,26 +1,15 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { BellFilled, BellOutlined } from '@ant-design/icons';
+import { BellSimple } from 'phosphor-react';
+import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+import { colors } from '@src/alchemy-components';
 import { Dropdown } from 'antd';
-import { ActionItem } from './ActionItem';
 import useSubscription from '../../../../../../../../shared/subscribe/useSubscription';
 import SubscriptionDrawer from '../../../../../../../../shared/subscribe/drawer/SubscriptionDrawer';
 import { Assertion, EntityType } from '../../../../../../../../../types.generated';
 import useGroupRelationships from '../../../../../../../../shared/subscribe/useGroupRelationships';
 import { checkIsAssetLevelAssertionSubscription } from '../../../../../../../../shared/subscribe/drawer/section/utils';
 import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
-
-const StyledBellFilled = styled(BellFilled)`
-    && {
-        color: #5280e8;
-    }
-`;
-
-const StyledBellOutlined = styled(BellOutlined)`
-    && {
-        color: #5280e8;
-    }
-`;
 
 const StyledDropdown = styled(Dropdown)`
     && {
@@ -173,10 +162,16 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
         <div>
             <StyledDropdown menu={{ items }}>
                 <span>
-                    <ActionItem
+                    <ActionMenuItem
                         key="subscribe-urn"
                         onClick={() => {}}
-                        icon={isSubscribedToThisAssertionGenerally ? <StyledBellFilled /> : <StyledBellOutlined />}
+                        icon={
+                            isSubscribedToThisAssertionGenerally ? (
+                                <BellSimple weight="fill" color={colors.gray[400]} />
+                            ) : (
+                                <BellSimple color={colors.gray[400]} />
+                            )
+                        }
                     />
                 </span>
             </StyledDropdown>

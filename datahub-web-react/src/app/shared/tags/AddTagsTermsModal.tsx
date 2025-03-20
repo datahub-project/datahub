@@ -558,11 +558,13 @@ export default function EditTagTermsModal({
             onCancel={onCloseModal}
             footer={
                 <ModalButtonContainer>
-                    <Button variant="text" onClick={onCloseModal} color="gray">
+                    <Button variant="text" type="button" onClick={onCloseModal} color="gray">
                         Cancel
                     </Button>
                     {showPropose && (
                         <Button
+                            variant="outline"
+                            type="button"
                             onClick={() => onOkProposal()}
                             disabled={urns.length === 0 || urns.length > 1 || disableAction}
                             data-testid="create-proposal-btn"
