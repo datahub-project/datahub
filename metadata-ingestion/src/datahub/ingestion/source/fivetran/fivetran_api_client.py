@@ -143,7 +143,6 @@ class FivetranAPIClient:
 
         # Try to get metadata about connector type
         try:
-            connector_type = connector_data.get("service", "").lower()
             # Get configuration details for the connector
             config_response = self._make_request(
                 "GET", f"/connectors/{connector_id}/config"
@@ -152,12 +151,6 @@ class FivetranAPIClient:
 
             # Add additional info to connector data
             connector_data["config"] = config
-
-            # For known connector types, extract specific useful metadata
-            if connector_type == "salesforce":
-                self._enrich_salesforce_connector(connector_id, connector_data)
-            elif connector_type == "google_bigquery":
-                self._enrich_bigquery_connector(connector_id, connector_data)
 
             return connector_data
         except Exception as e:
@@ -170,7 +163,7 @@ class FivetranAPIClient:
         self, connector_id: str, schema_name: str, table_name: str
     ) -> List[Dict]:
         """
-        Get detailed column information for a specific table by querying the schema's tables endpoint.
+        Get detailed column information for a specific table by directly querying the columns endpoint.
 
         Args:
             connector_id: The Fivetran connector ID
@@ -181,77 +174,66 @@ class FivetranAPIClient:
             List of column dictionaries with name, type, and other properties
         """
         try:
-            # URL-encode the schema name to handle special characters
+            # URL-encode the schema name and table name to handle special characters
             import urllib.parse
 
             encoded_schema = urllib.parse.quote(schema_name)
+            encoded_table = urllib.parse.quote(table_name)
 
             logger.info(
-                f"Fetching column info for {schema_name}.{table_name} from schema tables endpoint"
+                f"Fetching column info for {schema_name}.{table_name} using direct columns endpoint"
             )
 
-            # Request all tables for this schema
-            response = self._make_request(
-                "GET", f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
+            # Make direct request to the columns endpoint
+            url = f"/connectors/{connector_id}/schemas/{encoded_schema}/tables/{encoded_table}/columns"
+            response = self._make_request("GET", url)
+
+            # Extract columns from the response
+            columns_data = response.get("data", {}).get("items", [])
+
+            logger.info(
+                f"Retrieved {len(columns_data)} columns directly from columns endpoint for {schema_name}.{table_name}"
             )
+            return columns_data
 
-            # Extract tables from the response
-            tables_data = response.get("data", {}).get("items", [])
-
-            # Find the requested table
-            for table in tables_data:
-                if table.get("name") == table_name:
-                    # Extract column information
-                    columns = table.get("columns", [])
-                    logger.info(
-                        f"Found {len(columns)} columns for {schema_name}.{table_name}"
-                    )
-                    return columns
-
+        except Exception as e:
             logger.warning(
-                f"Table {table_name} not found in schema {schema_name} response"
+                f"Failed to get columns from direct endpoint for {schema_name}.{table_name}: {e}"
             )
-            return []
 
-        except Exception as e:
-            logger.warning(f"Failed to get columns for {schema_name}.{table_name}: {e}")
-            return []
+            # Try fallback approaches if the direct endpoint fails
+            try:
+                # First try the tables endpoint
+                encoded_schema = urllib.parse.quote(schema_name)
+                url = f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
+                response = self._make_request("GET", url)
 
-    def _enrich_salesforce_connector(
-        self, connector_id: str, connector_data: Dict
-    ) -> None:
-        """Add Salesforce-specific details to connector data."""
-        try:
-            # Try to get Salesforce schema information
-            schema_info = self.list_connector_schemas(connector_id)
-            salesforce_objects = []
-
-            for schema in schema_info:
-                schema_name = schema.get("name", "")
-                for table in schema.get("tables", []):
-                    if table.get("enabled", False):
-                        salesforce_objects.append(
-                            f"{schema_name}.{table.get('name', '')}"
+                # Find the requested table
+                tables_data = response.get("data", {}).get("items", [])
+                for table in tables_data:
+                    if table.get("name") == table_name:
+                        columns = table.get("columns", [])
+                        logger.info(
+                            f"Found {len(columns)} columns from tables endpoint for {schema_name}.{table_name}"
                         )
+                        return columns
 
-            if salesforce_objects:
-                connector_data["salesforce_objects"] = salesforce_objects
-        except Exception as e:
-            logger.warning(f"Failed to enrich Salesforce connector {connector_id}: {e}")
+                # If still no columns, try the full schemas endpoint
+                schemas = self.list_connector_schemas(connector_id)
+                for schema in schemas:
+                    if schema.get("name") == schema_name:
+                        for table in schema.get("tables", []):
+                            if table.get("name") == table_name:
+                                columns = table.get("columns", [])
+                                logger.info(
+                                    f"Found {len(columns)} columns from schemas endpoint for {schema_name}.{table_name}"
+                                )
+                                return columns
 
-    def _enrich_bigquery_connector(
-        self, connector_id: str, connector_data: Dict
-    ) -> None:
-        """Add BigQuery-specific details to connector data."""
-        try:
-            config = connector_data.get("config", {})
-            project = config.get("project_id", "")
-            dataset = config.get("dataset", "")
+            except Exception as fallback_error:
+                logger.warning(f"Fallback attempts also failed: {fallback_error}")
 
-            if project and dataset:
-                connector_data["bigquery_location"] = f"{project}.{dataset}"
-        except Exception as e:
-            logger.warning(f"Failed to enrich BigQuery connector {connector_id}: {e}")
+            return []
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
         """

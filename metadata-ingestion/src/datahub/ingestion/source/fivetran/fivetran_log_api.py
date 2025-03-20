@@ -45,6 +45,31 @@ class FivetranLogAPI(FivetranAccessInterface):
     def fivetran_log_database(self) -> Optional[str]:
         return self._fivetran_log_database
 
+    def test_connection(self) -> bool:
+        """
+        Test database connectivity by executing a simple query.
+        Raises an exception if the connection fails.
+        """
+        try:
+            # Execute a simple query that should work on any database
+            test_query = "SELECT 1 as test"
+            if self.fivetran_log_config.destination_platform != "snowflake":
+                test_query = sqlglot.parse_one(test_query, dialect="snowflake").sql(
+                    dialect=self.fivetran_log_config.destination_platform, pretty=True
+                )
+
+            self.engine.execute(test_query)
+            logger.info("Successfully tested database connection")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"Database connection test failed: {e}")
+            raise ConfigurationError(f"Failed to connect to the database: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during connection test: {e}")
+            raise ConfigurationError(
+                f"Unexpected error during connection test: {e}"
+            ) from e
+
     def _initialize_fivetran_variables(
         self,
     ) -> Tuple[Any, FivetranLogQuery, str]:
@@ -89,31 +114,6 @@ class FivetranLogAPI(FivetranAccessInterface):
             fivetran_log_query,
             fivetran_log_database,
         )
-
-    def test_connection(self) -> bool:
-        """
-        Test database connectivity by executing a simple query.
-        Raises an exception if the connection fails.
-        """
-        try:
-            # Execute a simple query that should work on any database
-            test_query = "SELECT 1 as test"
-            if self.fivetran_log_config.destination_platform != "snowflake":
-                test_query = sqlglot.parse_one(test_query, dialect="snowflake").sql(
-                    dialect=self.fivetran_log_config.destination_platform, pretty=True
-                )
-
-            self.engine.execute(test_query)
-            logger.info("Successfully tested database connection")
-            return True
-        except SQLAlchemyError as e:
-            logger.error(f"Database connection test failed: {e}")
-            raise ConfigurationError(f"Failed to connect to the database: {e}") from e
-        except Exception as e:
-            logger.error(f"Unexpected error during connection test: {e}")
-            raise ConfigurationError(
-                f"Unexpected error during connection test: {e}"
-            ) from e
 
     def _query(self, query: str) -> List[Dict]:
         # Automatically transpile snowflake query syntax to the target dialect.

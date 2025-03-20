@@ -803,6 +803,36 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return columns
 
+    def _get_columns_from_api(self, source_table: str) -> List[Dict]:
+        """Get columns directly from Fivetran API for a table."""
+        # Parse schema and table name
+        if "." not in source_table:
+            logger.warning(
+                f"Source table {source_table} doesn't contain schema name, cannot query API"
+            )
+            return []
+
+        schema_name, table_name = source_table.split(".", 1)
+
+        # Find the connector ID for this source table
+        connector_id = self._find_connector_id_for_source_table(source_table)
+        if not connector_id:
+            logger.warning(
+                f"Could not find connector ID for source table {source_table}"
+            )
+            return []
+
+        # Call the API to get columns using the direct columns endpoint
+        try:
+            columns = self.api_client.get_table_columns(
+                connector_id, schema_name, table_name
+            )
+            logger.info(f"Retrieved {len(columns)} columns from API for {source_table}")
+            return columns
+        except Exception as e:
+            logger.warning(f"Failed to get columns from API for {source_table}: {e}")
+            return []
+
     def _find_connector_id_for_source_table(self, source_table: str) -> Optional[str]:
         """Find the connector ID for a source table."""
         for conn in getattr(self, "_connector_cache", []):
