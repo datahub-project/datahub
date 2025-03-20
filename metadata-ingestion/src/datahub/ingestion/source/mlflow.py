@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from mlflow import MlflowClient
-from mlflow.entities import Experiment, Run
+from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
@@ -272,14 +272,16 @@ class MLflowSource(StatefulIngestionSourceBase):
                 type="SKIPPED", nativeResultType=self.platform
             )
 
-    def _get_dataset_schema(self, schema: str) -> Optional[List[Tuple[str, str]]]:
+    def _get_dataset_schema(
+        self, dataset: MlflowDataset
+    ) -> Optional[List[Tuple[str, str]]]:
         try:
-            schema_dict = json.loads(schema)
+            schema_dict = json.loads(dataset.schema)
         except json.JSONDecodeError:
             self.report.warning(
-                title="Failed to parse schema JSON",
-                message=f"Schema: {schema}",
-                context="Adding schema information as a custom property instead",
+                title="Failed to load dataset schema",
+                message="Schema metadata will be missing due to a JSON parsing error.",
+                context=f"Dataset: {dataset.name}, Schema: {dataset.schema}",
             )
             return None
 
@@ -333,7 +335,7 @@ class MLflowSource(StatefulIngestionSourceBase):
 
             # Prepare dataset properties
             custom_properties = dataset_tags
-            formatted_schema = self._get_dataset_schema(dataset.schema)
+            formatted_schema = self._get_dataset_schema(dataset)
             if formatted_schema is None:
                 custom_properties["schema"] = dataset.schema
 
