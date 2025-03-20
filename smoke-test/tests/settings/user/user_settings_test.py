@@ -32,6 +32,7 @@ def test_get_user_notification_settings(auth_session):
     }
     variables = {"input": {"notificationSettings": new_settings}}
     response = execute_gql(auth_session, mutation, variables)
+    print(response)
     assert "errors" not in response, response.get("errors")
     updated_settings = response["data"]["updateUserNotificationSettings"]
     assert updated_settings["sinkTypes"] == ["EMAIL", "SLACK"]  # Basic validity check.
