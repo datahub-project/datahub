@@ -15,7 +15,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.hex.api import HexAPI, HexAPIReport
+from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
@@ -89,7 +89,7 @@ class HexSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
     )
 
 
-class HexReport(StaleEntityRemovalSourceReport, HexAPIReport):
+class HexReport(StaleEntityRemovalSourceReport, HexApiReport):
     pass
 
 
@@ -107,7 +107,7 @@ class HexSource(StatefulIngestionSourceBase):
         self.source_config = config
         self.report = HexReport()
         self.platform = HEX_PLATFORM_NAME
-        self.hex_api = HexAPI(
+        self.hex_api = HexApi(
             report=self.report,
             token=self.source_config.token.get_secret_value(),
             base_url=self.source_config.base_url,

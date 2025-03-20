@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from datahub.ingestion.source.hex.api import HexAPI, HexAPIReport
+from datahub.ingestion.source.hex.api import (
+    HexApi,
+    HexApiProjectApiResource,
+    HexApiReport,
+)
 from datahub.ingestion.source.hex.model import (
     Component,
     Project,
@@ -25,7 +29,7 @@ def load_json_data(filename):
 class TestHexAPI(unittest.TestCase):
     def setUp(self):
         self.token = "test-token"
-        self.report = HexAPIReport()
+        self.report = HexApiReport()
         self.base_url = "https://test.hex.tech/api/v1"
         self.page_size = 8  # Small page size to test pagination
 
@@ -41,7 +45,7 @@ class TestHexAPI(unittest.TestCase):
 
         mock_get.side_effect = [mock_response1, mock_response2]
 
-        hex_api = HexAPI(
+        hex_api = HexApi(
             token=self.token,
             report=self.report,
             base_url=self.base_url,
@@ -109,14 +113,14 @@ class TestHexAPI(unittest.TestCase):
             },
         }
 
-        hex_api = HexAPI(
+        hex_api = HexApi(
             token=self.token,
             report=self.report,
             base_url=self.base_url,
         )
 
-        # Test mapping a project
-        result = hex_api._map_data(project_data)
+        hex_api_project = HexApiProjectApiResource.parse_obj(project_data)
+        result = hex_api._map_data_from_model(hex_api_project)
 
         # Verify the result
         assert isinstance(result, Project)
@@ -173,14 +177,14 @@ class TestHexAPI(unittest.TestCase):
             },
         }
 
-        hex_api = HexAPI(
+        hex_api = HexApi(
             token=self.token,
             report=self.report,
             base_url=self.base_url,
         )
 
-        # Test mapping a component
-        result = hex_api._map_data(component_data)
+        hex_api_component = HexApiProjectApiResource.parse_obj(component_data)
+        result = hex_api._map_data_from_model(hex_api_component)
 
         # Verify the result
         assert isinstance(result, Component)
@@ -219,7 +223,7 @@ class TestHexAPI(unittest.TestCase):
         )
         mock_get.return_value = mock_response
 
-        hex_api = HexAPI(
+        hex_api = HexApi(
             token=self.token,
             report=self.report,
             base_url=self.base_url,
