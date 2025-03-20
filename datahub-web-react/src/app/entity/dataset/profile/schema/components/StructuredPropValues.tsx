@@ -16,7 +16,7 @@ const MoreIndicator = styled.span`
 `;
 
 interface Props {
-    schemaFieldEntity: SchemaFieldEntity;
+    schemaFieldEntity: SchemaFieldEntity | undefined;
     propColumn: SearchResult | undefined;
 }
 
