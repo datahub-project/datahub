@@ -553,9 +553,28 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         f"Table {schema_name}.{table_name} has {len(columns)} columns"
                     )
 
-                    # DIAGNOSTIC: Print a sample of column names
-                    column_names = [col.get("name", "unknown") for col in columns[:5]]
-                    logger.info(f"Sample columns: {column_names}")
+                    # DIAGNOSTIC: Print a sample of column names with more robust type checking
+                    try:
+                        if isinstance(columns, list) and columns:
+                            # Get up to 5 columns, but check they're the right type first
+                            sample_columns = columns[: min(5, len(columns))]
+                            column_names = []
+                            for col in sample_columns:
+                                if isinstance(col, dict) or hasattr(col, "get"):
+                                    column_names.append(col.get("name", "unknown"))
+                                elif isinstance(col, str):
+                                    column_names.append(col)
+                                else:
+                                    column_names.append(f"({type(col).__name__})")
+                            logger.info(f"Sample columns: {column_names}")
+                        elif isinstance(columns, dict):
+                            # Handle dictionary of columns
+                            sample_keys = list(columns.keys())[: min(5, len(columns))]
+                            logger.info(f"Sample column keys: {sample_keys}")
+                        else:
+                            logger.info(f"Columns type: {type(columns).__name__}")
+                    except Exception as e:
+                        logger.warning(f"Error sampling columns: {e}")
                 else:
                     logger.warning(f"Table {schema_name}.{table_name} has NO columns")
 
@@ -811,35 +830,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return column_lineage
 
-    def _get_columns_from_sources(
-        self,
-        table: Dict,
-        source_table: str,
-        source_table_columns: Dict[str, Dict[str, str]],
-    ) -> List[Dict]:
-        """Get columns from various sources."""
-        # 1. First try to get columns from the table data
-        columns = table.get("columns", [])
-
-        # Handle different column formats
-        if isinstance(columns, dict):
-            # Convert dict format to list
-            columns = self._convert_column_dict_to_list(columns)
-
-        # 2. If no columns found, try to retrieve them from the schemas endpoint
-        if not columns:
-            columns = self._get_columns_from_schemas_endpoint(source_table)
-
-        # 3. If still no columns, try source_table_columns
-        if not columns and source_table in source_table_columns:
-            logger.info(f"Using columns from source_table_columns for {source_table}")
-            columns = [
-                {"name": col_name, "type": col_type}
-                for col_name, col_type in source_table_columns[source_table].items()
-            ]
-
-        return columns
-
     def _convert_column_dict_to_list(self, columns_dict: Dict) -> List[Dict]:
         """Convert column dictionary to list format."""
         columns_list = []
@@ -851,34 +841,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
             else:
                 columns_list.append({"name": col_name})
         return columns_list
-
-    def _get_columns_from_schemas_endpoint(self, source_table: str) -> List[Dict]:
-        """Try to get columns from the schemas endpoint."""
-        columns: List[Dict] = []
-
-        if not hasattr(self.api_client, "get_table_columns"):
-            return columns
-
-        logger.info("No columns found in table data, trying schemas endpoint")
-        schema_name, table_name = None, None
-        if "." in source_table:
-            schema_name, table_name = source_table.split(".", 1)
-
-        if not (schema_name and table_name):
-            return columns
-
-        try:
-            connector_id = self._find_connector_id_for_source_table(source_table)
-
-            if connector_id:
-                columns = self.api_client.get_table_columns(
-                    connector_id, schema_name, table_name
-                )
-                logger.info(f"Retrieved {len(columns)} columns from schemas endpoint")
-        except Exception as e:
-            logger.warning(f"Failed to get columns from schemas endpoint: {e}")
-
-        return columns
 
     def _get_columns_from_api(self, source_table: str) -> List[Dict]:
         """Get columns directly from Fivetran API for a table."""
@@ -941,51 +903,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return None
 
-    def _create_column_lineage_from_columns(
-        self,
-        columns: List[Dict],
-        source_table: str,
-        destination_platform: str,
-    ) -> List[ColumnLineage]:
-        """Create column lineage objects from column data."""
-        column_lineage = []
-        is_bigquery = destination_platform.lower() == "bigquery"
-
-        for column in columns:
-            col_name = None
-            if isinstance(column, dict):
-                col_name = column.get("name")
-            elif isinstance(column, str):
-                col_name = column
-
-            if not col_name or col_name.startswith("_fivetran"):
-                continue
-
-            # Get destination column name - prefer name_in_destination if available
-            dest_col_name = None
-            if isinstance(column, dict) and "name_in_destination" in column:
-                dest_col_name = column.get("name_in_destination")
-                logger.debug(
-                    f"Using name_in_destination: {col_name} -> {dest_col_name}"
-                )
-
-            # If no name_in_destination, transform based on platform
-            if not dest_col_name:
-                dest_col_name = self._transform_column_name_for_platform(
-                    col_name, is_bigquery
-                )
-                logger.debug(f"Transformed name: {col_name} -> {dest_col_name}")
-
-            # Add to lineage
-            column_lineage.append(
-                ColumnLineage(
-                    source_column=col_name,
-                    destination_column=dest_col_name,
-                )
-            )
-
-        return column_lineage
-
     def _transform_column_name_for_platform(
         self, column_name: str, is_bigquery: bool
     ) -> str:
@@ -1033,67 +950,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # Remove non-alphanumeric characters and convert to lowercase
         normalized = re.sub(r"[^a-zA-Z0-9]", "", column_name).lower()
         return normalized
-
-    def _find_best_fuzzy_match(
-        self, source_col: str, source_norm: str, dest_columns: List[Tuple[str, str]]
-    ) -> Optional[str]:
-        """Find best fuzzy match for a source column from destination columns.
-
-        Args:
-            source_col: Original source column name
-            source_norm: Normalized source column name
-            dest_columns: List of (original_dest, normalized_dest) tuples
-
-        Returns:
-            Best matching destination column name or None if no good match found
-        """
-        import difflib
-
-        # First try to match normalized versions with high cutoff
-        dest_norms = [dest_norm for _, dest_norm in dest_columns]
-        matches = difflib.get_close_matches(source_norm, dest_norms, n=1, cutoff=0.8)
-
-        if matches:
-            # Find original dest column with this normalized value
-            matched_norm = matches[0]
-            for dest_col, dest_norm in dest_columns:
-                if dest_norm == matched_norm:
-                    return dest_col
-
-        # If no high-quality match found, try a lower threshold on original names
-        # This helps with acronyms and abbreviated field names
-        dest_cols = [dest_col for dest_col, _ in dest_columns]
-        matches = difflib.get_close_matches(source_col, dest_cols, n=1, cutoff=0.6)
-
-        if matches:
-            return matches[0]
-
-        # Try special patterns like converting "someField" to "some_field"
-        snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", source_col).lower()
-        for dest_col, _ in dest_columns:
-            if dest_col.lower() == snake_case:
-                return dest_col
-
-        # If source_col contains words that are also in a destination column, consider it a match
-        # This helps with "BillingStreet" matching "billing_street" or "street_billing"
-        words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", source_col)
-        if words:
-            word_matches = {}
-            for dest_col, _ in dest_columns:
-                # Count how many words from source appear in destination
-                dest_words = re.findall(r"[A-Z][a-z]+|[a-z]+|[0-9]+", dest_col)
-                common_words = len(
-                    set(w.lower() for w in words) & set(w.lower() for w in dest_words)
-                )
-                if common_words > 0:
-                    word_matches[dest_col] = common_words
-
-            # If we found matches based on common words, return the one with most matches
-            if word_matches:
-                return max(word_matches.items(), key=lambda x: x[1])[0]
-
-        # No good match found
-        return None
 
     def _log_column_diagnostics(self, columns: Any) -> None:
         """Log diagnostic information about column data."""

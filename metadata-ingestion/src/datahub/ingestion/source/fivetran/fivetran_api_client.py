@@ -1220,7 +1220,7 @@ class FivetranAPIClient:
 
             # If we're missing end time but have start time, use current time for recent jobs
             if started_at and not completed_at:
-                if (time.time() - started_at) < (24 * 60 * 60):  # Within last 24 hours
+                if (time.time() - started_at) < (24 * 60 * 60 * 7):
                     completed_at = int(time.time())
                 else:
                     # Skip old jobs without completion times
@@ -1411,86 +1411,6 @@ class FivetranAPIClient:
             logger.error(f"Failed to extract lineage for connector {connector_id}: {e}")
             return []
 
-    def _extract_lineage_with_special_handling(
-        self, connector: Connector, source_platform: str
-    ) -> List[TableLineage]:
-        """
-        Extract lineage with special handling for certain source platforms
-        like Salesforce that need additional processing.
-        """
-        connector_id = connector.connector_id
-        lineage_list = []
-
-        try:
-            schemas = self.list_connector_schemas(connector_id)
-
-            # Get destination details
-            destination_platform_value = connector.additional_properties.get(
-                "destination_platform", ""
-            )
-            # Ensure destination_platform is a string
-            destination_platform = (
-                str(destination_platform_value)
-                if destination_platform_value is not None
-                else ""
-            )
-            if not destination_platform:
-                destination_platform = "snowflake"
-
-            for schema in schemas:
-                schema_name = schema.get("name", "")
-                tables = schema.get("tables", [])
-
-                for table in tables:
-                    table_name = table.get("name", "")
-                    enabled = table.get("enabled", False)
-
-                    if not enabled:
-                        continue
-
-                    # Create source table name for Salesforce
-                    source_table = f"{schema_name}.{table_name}"
-
-                    # Create destination table name based on destination platform
-                    destination_schema = self._get_destination_schema_name(
-                        schema_name, destination_platform
-                    )
-                    destination_table = self._get_destination_table_name(
-                        table_name, destination_platform
-                    )
-                    destination_table_full = f"{destination_schema}.{destination_table}"
-
-                    # Extract column information
-                    columns = table.get("columns", [])
-                    column_lineage = []
-
-                    for column in columns:
-                        column_name = column.get("name", "")
-                        # Adjust destination column name based on platform
-                        dest_column_name = self._get_destination_column_name(
-                            column_name, destination_platform
-                        )
-
-                        column_lineage.append(
-                            ColumnLineage(
-                                source_column=column_name,
-                                destination_column=dest_column_name,
-                            )
-                        )
-
-                    lineage_list.append(
-                        TableLineage(
-                            source_table=source_table,
-                            destination_table=destination_table_full,
-                            column_lineage=column_lineage,
-                        )
-                    )
-
-            return lineage_list
-        except Exception as e:
-            logger.error(f"Failed to extract special lineage for {connector_id}: {e}")
-            return []
-
     def _get_destination_schema_name(
         self, schema_name: str, destination_platform: str
     ) -> str:
@@ -1537,66 +1457,3 @@ class FivetranAPIClient:
         else:
             # For other platforms like Snowflake, typically uppercase
             return column_name.upper()
-
-    def _build_lineage_from_schemas(
-        self, schemas: List[Dict], connector: Connector
-    ) -> List[TableLineage]:
-        """
-        Build lineage information from schemas for a generic connector.
-        """
-        destination_platform = connector.additional_properties.get(
-            "destination_platform", ""
-        )
-
-        lineage_list = []
-
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            tables = schema.get("tables", [])
-
-            for table in tables:
-                table_name = table.get("name", "")
-                enabled = table.get("enabled", False)
-
-                if not enabled:
-                    continue
-
-                # Create source table name
-                source_table = f"{schema_name}.{table_name}"
-
-                # Create destination table name based on destination platform
-                destination_schema = self._get_destination_schema_name(
-                    schema_name, destination_platform
-                )
-                destination_table = self._get_destination_table_name(
-                    table_name, destination_platform
-                )
-                destination_table_full = f"{destination_schema}.{destination_table}"
-
-                # Extract column information
-                columns = table.get("columns", [])
-                column_lineage = []
-
-                for column in columns:
-                    column_name = column.get("name", "")
-                    # Adjust destination column name based on platform
-                    dest_column_name = self._get_destination_column_name(
-                        column_name, destination_platform
-                    )
-
-                    column_lineage.append(
-                        ColumnLineage(
-                            source_column=column_name,
-                            destination_column=dest_column_name,
-                        )
-                    )
-
-                lineage_list.append(
-                    TableLineage(
-                        source_table=source_table,
-                        destination_table=destination_table_full,
-                        column_lineage=column_lineage,
-                    )
-                )
-
-        return lineage_list

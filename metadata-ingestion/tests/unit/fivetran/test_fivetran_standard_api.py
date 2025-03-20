@@ -156,50 +156,6 @@ class FivetranStandardAPITests(unittest.TestCase):
         transformed = self.api._transform_column_name_for_platform(column_name, False)
         self.assertEqual(transformed, "USER.FIRST-NAME")
 
-    def test_find_best_fuzzy_match(self):
-        """Test fuzzy matching for column names"""
-        # Set up difflib mock to control behavior
-        with patch("difflib.get_close_matches") as mock_get_close_matches:
-            # For the first call, return a close match
-            mock_get_close_matches.return_value = ["firstname"]
-
-            # Test exact normalized match
-            source_col = "firstName"
-            source_norm = "firstname"
-            dest_columns = [("first_name", "firstname"), ("last_name", "lastname")]
-            match = self.api._find_best_fuzzy_match(
-                source_col, source_norm, dest_columns
-            )
-            self.assertEqual(match, "first_name")
-
-            # For the second call (no normalized match, but original match)
-            mock_get_close_matches.side_effect = [[], ["home_address"]]
-
-            # Test camelCase to snake_case conversion
-            source_col = "homeAddress"
-            source_norm = "homeaddress"
-            dest_columns = [("home_address", "homeaddress"), ("address", "address")]
-            match = self.api._find_best_fuzzy_match(
-                source_col, source_norm, dest_columns
-            )
-            self.assertEqual(match, "home_address")
-
-            # For no matches at all
-            mock_get_close_matches.side_effect = [[], []]
-
-            # Test no match
-            source_col = "uniqueField"
-            source_norm = "uniquefield"
-            dest_columns = [
-                ("other_field", "otherfield"),
-                ("another_field", "anotherfield"),
-            ]
-            match = self.api._find_best_fuzzy_match(
-                source_col, source_norm, dest_columns
-            )
-            # Allow for None or a fallback default
-            self.assertTrue(match is None or match in ("other_field", "another_field"))
-
     def test_normalize_column_name(self):
         """Test column name normalization"""
         # Test lowercasing and removing special chars
