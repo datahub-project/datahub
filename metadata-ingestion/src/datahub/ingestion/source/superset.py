@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Union, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import dateutil.parser as dp
 import requests
@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -37,7 +38,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
@@ -52,10 +52,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
-    Status,
-    TimeStamp,
     InputField,
     InputFields,
+    Status,
+    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -81,15 +81,13 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    NullTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
-    NumberTypeClass,
-    StringTypeClass,
-    NullTypeClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
