@@ -9,13 +9,15 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
+@Slf4j
 public class ExecutorPools implements BlockingSystemUpgrade {
 
-  private final List<UpgradeStep> _steps;
+  private List<UpgradeStep> _steps;
 
   public ExecutorPools(
       OperationContext opContext,
@@ -25,28 +27,30 @@ public class ExecutorPools implements BlockingSystemUpgrade {
       boolean reprocessEnabled,
       Integer batchSize,
       String customerId) {
+    _steps = ImmutableList.of();
+
     if (enabled) {
-      // Create SQS client
-      SqsClient sqsClient = SqsClient.create();
-      Region region = DefaultAwsRegionProviderChain.builder().build().getRegion();
-
-      final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
-
-      _steps =
-          ImmutableList.of(
-              new ExecutorPoolsStep(
-                  opContext,
-                  entityService,
-                  searchService,
-                  sqsClient,
-                  enabled,
-                  reprocessEnabled,
-                  batchSize,
-                  customerId,
-                  region,
-                  auditStamp));
-    } else {
-      _steps = ImmutableList.of();
+      try {
+        // Create SQS client
+        Region region = DefaultAwsRegionProviderChain.builder().build().getRegion();
+        SqsClient sqsClient = SqsClient.builder().region(region).build();
+        final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+        _steps =
+            ImmutableList.of(
+                new ExecutorPoolsStep(
+                    opContext,
+                    entityService,
+                    searchService,
+                    sqsClient,
+                    enabled,
+                    reprocessEnabled,
+                    batchSize,
+                    customerId,
+                    region,
+                    auditStamp));
+      } catch (Exception e) {
+        log.error("Error while creating SQS client. Skipping ExecutorPools upgrade", e);
+      }
     }
   }
 

@@ -36,7 +36,10 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     /**
      * Set default window for fetching assertion history.
      */
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.MONTH);
+    const [selectedTimeWindow, setSelectedTimeWindow] = useState({
+        window: getFixedLookbackWindow(LOOKBACK_WINDOWS.MONTH.windowSize),
+        windowName: LOOKBACK_WINDOWS.MONTH.text,
+    });
 
     /**
      * Track whether we've triggered a data fetch yet
@@ -53,7 +56,10 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
 
         const maybeWindow = allRunEvents && calculateInitialLookbackWindowFromRunEvents(allRunEvents, monitor);
         if (maybeWindow) {
-            setLookbackWindow(maybeWindow);
+            setSelectedTimeWindow({
+                window: getFixedLookbackWindow(maybeWindow.windowSize),
+                windowName: maybeWindow.text,
+            });
         }
         if (!loading && hasInitialDataFetchTriggered) {
             // Update initialization state on the next tick so the UI has a tick to react to the new lookback window
@@ -67,17 +73,16 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
      */
     useEffect(() => {
         getAssertionRuns({
-            variables: { assertionUrn: assertion.urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
+            variables: { assertionUrn: assertion.urn, ...selectedTimeWindow.window },
         });
 
         // Next tick so the UI has a moment to respond to the graphql query starting
         setTimeout(() => setHasInitialDataFetchTriggered(true), 0);
-    }, [assertion.urn, lookbackWindow, getAssertionRuns]);
+    }, [assertion.urn, selectedTimeWindow, getAssertionRuns]);
 
-    const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
     const selectedWindowTimeRange = {
-        startMs: selectedWindow.startTime,
-        endMs: selectedWindow.endTime,
+        startMs: selectedTimeWindow.window.startTime,
+        endMs: selectedTimeWindow.window.endTime,
     };
     const results = data?.assertion?.runEvents;
     const isInitializing = !hasInitializedLookbackWindow;
@@ -106,7 +111,7 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
                     results={results as any}
                 />
             )}
-            <TimeSelect lookbackWindow={lookbackWindow} setLookbackWindow={setLookbackWindow} />
+            <TimeSelect timeWindow={selectedTimeWindow} setTimeWindow={setSelectedTimeWindow} />
         </Container>
     );
 };
