@@ -622,7 +622,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             input_fields.append(
                 InputField(
                     schemaFieldUrn=builder.make_schema_field_urn(
-                        parent_urn=datasource_urn,
+                        parent_urn=str(datasource_urn),
                         field_path=column,
                     ),
                     schemaField=SchemaField(
