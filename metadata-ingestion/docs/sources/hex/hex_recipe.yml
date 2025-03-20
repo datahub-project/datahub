@@ -1,0 +1,8 @@
+source:
+  type: hex
+  config:
+    workspace_name: # Your Hex Worksapce name
+    token: # Your PAT or Workspace token
+
+sink:
+  # sink configs
