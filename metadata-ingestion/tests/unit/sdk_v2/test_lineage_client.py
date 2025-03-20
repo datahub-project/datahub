@@ -24,9 +24,7 @@ def client(mock_graph: Mock) -> DataHubClient:
 
 
 def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> None:
-    mcps = []
-    for args, _kwargs in client._graph.emit_mcps.call_args_list:  # type: ignore
-        mcps.extend(args[0])
+    mcps = client._graph.emit_mcps.call_args[0][0]  # type: ignore
 
     mce_helpers.check_goldens_stream(
         outputs=mcps,
