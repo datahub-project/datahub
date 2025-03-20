@@ -2,15 +2,8 @@ import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { UserOutlined } from '@ant-design/icons';
-<<<<<<< HEAD
-import { Button, message, Modal, Select, Typography } from 'antd';
-import { Tooltip } from '@components';
-||||||| f14c42d2ef7
-import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
-=======
 import { message, Modal, Select, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
->>>>>>> master
 import styled from 'styled-components/macro';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';

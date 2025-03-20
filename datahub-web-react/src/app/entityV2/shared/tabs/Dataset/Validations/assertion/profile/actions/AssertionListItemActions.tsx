@@ -1,11 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
-
+import { Dropdown, Menu } from 'antd';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { Button, colors } from '@src/alchemy-components';
+import { DotsThreeVertical } from 'phosphor-react';
 
 import { StartStopAction } from './StartStopAction';
 import {
@@ -16,17 +15,6 @@ import {
     Monitor,
 } from '../../../../../../../../../types.generated';
 import { DeleteAction } from './DeleteAction';
-||||||| f14c42d2ef7
-import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
-
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
-=======
-import { Dropdown, Menu } from 'antd';
-import { Button, colors } from '@src/alchemy-components';
-import { DotsThreeVertical } from 'phosphor-react';
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
->>>>>>> master
 import { ContractAction } from './ContractAction';
 import { CopyLinkAction } from './CopyLinkAction';
 import { CopyUrnAction } from './CopyUrnAction';

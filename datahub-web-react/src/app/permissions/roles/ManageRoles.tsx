@@ -1,13 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-<<<<<<< HEAD
-import { Button, Empty, message, Pagination, Typography } from 'antd';
-import { Tooltip } from '@components';
-||||||| f14c42d2ef7
-import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
-=======
 import { Empty, message, Pagination, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
->>>>>>> master
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';

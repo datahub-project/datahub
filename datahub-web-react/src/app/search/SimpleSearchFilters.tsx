@@ -15,18 +15,12 @@ import {
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
-<<<<<<< HEAD
-const FILTERS_TO_EXCLUDE = [LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME];
-||||||| f14c42d2ef7
-const FILTERS_TO_EXCLUDE = [LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME];
-=======
 const FILTERS_TO_EXCLUDE = [
     LEGACY_ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
 ];
->>>>>>> master
 
 interface Props {
     facets: Array<FacetMetadata>;

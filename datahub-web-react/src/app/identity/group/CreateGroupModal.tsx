@@ -99,24 +99,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Button onClick={onClose} variant="text" color="gray">
                         Cancel
                     </Button>
-<<<<<<< HEAD
-                    <Button
-                        type="primary"
-                        id="createGroupButton"
-                        data-testid="modal-create-group-button"
-                        onClick={onCreateGroup}
-                        disabled={createButtonEnabled}
-                    >
-||||||| f14c42d2ef7
-                    <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-=======
                     <Button
                         id="createGroupButton"
                         data-testid="modal-create-group-button"
                         onClick={onCreateGroup}
                         disabled={createButtonEnabled}
                     >
->>>>>>> master
                         Create
                     </Button>
                 </ModalButtonContainer>

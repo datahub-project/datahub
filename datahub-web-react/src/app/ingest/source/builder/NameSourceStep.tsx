@@ -1,12 +1,5 @@
-<<<<<<< HEAD
-import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import { Tooltip } from '@components';
-||||||| f14c42d2ef7
-import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
-=======
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
->>>>>>> master
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';

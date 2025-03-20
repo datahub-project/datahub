@@ -108,7 +108,6 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
     return (
         <ActionItem
             key="0"
-            primary
             tip={canEdit ? authorizedTip : unauthorizedTip}
             disabled={!canEdit}
             onClick={isActive ? onStopMonitor : onConfirmStartMonitor}

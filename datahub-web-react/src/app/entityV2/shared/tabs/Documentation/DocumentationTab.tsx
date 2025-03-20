@@ -141,8 +141,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <PlusOutlined /> Add Documentation
-<<<<<<< HEAD
-                        </PrimaryButton>
+                        </Button>
                         {shouldShowInferenceButton && (
                             <InferDocsButton
                                 style={{ display: 'inline-block', top: 3, marginLeft: 8, height: 40 }}
@@ -155,11 +154,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 }
                             />
                         )}
-||||||| f14c42d2ef7
-                        </PrimaryButton>
-=======
-                        </Button>
->>>>>>> master
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}

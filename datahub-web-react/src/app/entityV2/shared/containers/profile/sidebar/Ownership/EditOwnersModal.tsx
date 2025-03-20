@@ -4,14 +4,10 @@ import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
-<<<<<<< HEAD
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-||||||| f14c42d2ef7
-=======
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
->>>>>>> master
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -414,21 +410,14 @@ export const EditOwnersModal = ({
                     <Button color="gray" variant="text" onClick={onModalClose}>
                         Cancel
                     </Button>
-<<<<<<< HEAD
                     <Button
-                        type="default"
                         onClick={proposeOwners}
                         disabled={!selectedOwners?.length}
                         data-testid="propose-owners-on-entity-button"
                     >
                         Propose
                     </Button>
-                    <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-||||||| f14c42d2ef7
-                    <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-=======
                     <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
->>>>>>> master
                         Add
                     </Button>
                 </ModalButtonContainer>

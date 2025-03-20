@@ -1,11 +1,5 @@
 import React from 'react';
-<<<<<<< HEAD
-import { Button, Modal, Typography, message } from 'antd';
-||||||| f14c42d2ef7
-import { Button, Modal, Typography } from 'antd';
-=======
-import { Modal, Typography } from 'antd';
->>>>>>> master
+import { Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';

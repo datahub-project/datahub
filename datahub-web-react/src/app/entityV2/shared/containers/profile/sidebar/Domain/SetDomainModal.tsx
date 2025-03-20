@@ -1,16 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Form, message, Modal, Select, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
-<<<<<<< HEAD
 import { useProposeDomainMutation } from '@src/graphql/domain.generated';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import analytics, { EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-||||||| f14c42d2ef7
-=======
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
->>>>>>> master
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -219,21 +215,14 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     <Button variant="text" color="gray" onClick={onModalClose}>
                         Cancel
                     </Button>
-<<<<<<< HEAD
                     <Button
-                        type="default"
                         onClick={proposeDomain}
                         disabled={!selectedDomain}
                         data-testid="propose-domain-on-entity-button"
                     >
                         Propose
                     </Button>
-                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-||||||| f14c42d2ef7
-                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-=======
                     <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
->>>>>>> master
                         Save
                     </Button>
                 </ModalButtonContainer>

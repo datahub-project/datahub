@@ -333,16 +333,8 @@ export const SearchBar = ({
                 value: 'explore-all-unique-key',
                 type: '',
                 label: (
-<<<<<<< HEAD
-                    <Button type="link" onClick={onClickExploreAll}>
-                        View all →
-||||||| f14c42d2ef7
-                    <Button type="link" onClick={onClickExploreAll}>
-                        Explore all →
-=======
                     <Button variant="text" onClick={onClickExploreAll}>
-                        Explore all →
->>>>>>> master
+                        View all →
                     </Button>
                 ),
                 style: { marginLeft: 'auto', cursor: 'auto' },

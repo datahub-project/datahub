@@ -27,21 +27,13 @@ export const DescriptionEditorToolbar = ({
         <StyledTabToolbar>
             <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
                 Cancel
-<<<<<<< HEAD
-            </StyledButton>
-            {showPropose && (
-                <StyledButton data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
-                    Propose
-                </StyledButton>
-            )}
-            <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-||||||| f14c42d2ef7
-            </StyledButton>
-            <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-=======
             </Button>
+            {showPropose && (
+                <Button data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
+                    Propose
+                </Button>
+            )}
             <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
->>>>>>> master
                 Publish
             </Button>
         </StyledTabToolbar>
