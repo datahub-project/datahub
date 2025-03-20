@@ -51,6 +51,7 @@ def test_get_user_notification_settings(auth_session):
     """
     response = execute_gql(auth_session, query)
     assert "errors" not in response, response.get("errors")
+    print(response)
     settings = response["data"]["getUserNotificationSettings"]
     assert settings is not None
     assert settings["sinkTypes"] == ["EMAIL", "SLACK"]
