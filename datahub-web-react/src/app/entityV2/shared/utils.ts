@@ -13,12 +13,14 @@ import {
     DatasetProperties,
     ChartProperties,
     Operation,
+    Dataset,
 } from '../../../types.generated';
 
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
 import { TimeWindowSize } from '../../shared/time/timeUtils';
+import { TITLE_CASE_EXCEPTION_WORDS } from './constants';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -101,7 +103,7 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
     // Scoping these constants
     const GITHUB_LINK = 'github.com';
     const GITHUB_NAME = 'GitHub';
-    const GITLAB_LINK = 'gitlab.com';
+    const GITLAB_LINK = 'gitlab.';
     const GITLAB_NAME = 'GitLab';
 
     const externalUrl = entity?.properties?.externalUrl;
@@ -294,3 +296,34 @@ export function getDashboardLastUpdatedMs(
     if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
     return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }
+
+// return title case of the string with handling exceptions
+export const toProperTitleCase = (str: string) => {
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) =>
+            index === 0 || !TITLE_CASE_EXCEPTION_WORDS.includes(word)
+                ? word.charAt(0).toUpperCase() + word.slice(1)
+                : word,
+        )
+        .join(' ');
+};
+
+/**
+ * Attempts to extract a description for a sub-resource of an entity, if it exists.
+ * @param entity ie dataset
+ * @param subResource ie field name
+ * @returns the description of the sub-resource if it exists, otherwise undefined
+ */
+export const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
+    // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
+    // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
+    const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(
+        (field) => field.fieldPath === subResource,
+    )?.description;
+    const maybeSchemaMetadataDescription = (entity as Dataset).schemaMetadata?.fields?.find(
+        (field) => field.fieldPath === subResource,
+    )?.description;
+    return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
+};

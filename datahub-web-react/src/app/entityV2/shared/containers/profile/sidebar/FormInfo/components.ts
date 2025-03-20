@@ -93,6 +93,7 @@ export const StyledArrow = styled(KeyboardArrowDownOutlinedIcon)<{ isOpen: boole
 export const StyledButtonWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    padding-top: 12px;
 `;
 
 export const StyledImgIcon = styled.img<{ addLineHeight?: boolean; disable?: boolean }>`

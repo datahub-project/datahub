@@ -276,6 +276,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
@@ -593,6 +598,11 @@ type FeatureFlagsConfig {
   If turned on, exposes the versioning feature by allowing users to link entities in the UI.
   """
   entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
 }
 
 """

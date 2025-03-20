@@ -3,6 +3,7 @@ import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ErrorRounded } from '@mui/icons-material';
+import { isUnhealthy } from '@src/app/shared/health/healthUtils';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { Dataset, EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
@@ -123,7 +124,7 @@ export default function UpstreamHealth() {
     );
 
     useEffect(() => {
-        if (directUpstreamData?.searchAcrossLineage?.searchResults.length && !directUpstreamEntities.length) {
+        if (directUpstreamData?.searchAcrossLineage?.searchResults?.length && !directUpstreamEntities.length) {
             setDirectUpstreamEntities(
                 directUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );
@@ -136,7 +137,7 @@ export default function UpstreamHealth() {
     ]);
 
     useEffect(() => {
-        if (indirectUpstreamData?.searchAcrossLineage?.searchResults.length && !indirectUpstreamEntities.length) {
+        if (indirectUpstreamData?.searchAcrossLineage?.searchResults?.length && !indirectUpstreamEntities.length) {
             setIndirectUpstreamEntities(
                 indirectUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );
@@ -184,7 +185,10 @@ export default function UpstreamHealth() {
         setIndirectUpstreamsDataStart(newStart);
     }
 
-    const hasUnhealthyUpstreams = directUpstreamEntities.length || indirectUpstreamEntities.length;
+    const unhealthyDirectUpstreams = directUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
+    const unhealthyIndirectUpstreams = indirectUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
+
+    const hasUnhealthyUpstreams = unhealthyDirectUpstreams.length || unhealthyIndirectUpstreams.length;
 
     if (!hasUnhealthyUpstreams) return null;
 
@@ -200,13 +204,13 @@ export default function UpstreamHealth() {
                 </TitleWrapper>
                 {isOpen && (
                     <UpstreamEntitiesList
-                        directEntities={directUpstreamEntities}
+                        directEntities={unhealthyDirectUpstreams}
                         loadMoreDirectEntities={loadMoreDirectUpstreamData}
                         remainingDirectEntities={Math.max(
                             directUpstreamsDataTotal - (directUpstreamsDataStart + DATASET_COUNT),
                             0,
                         )}
-                        indirectEntities={indirectUpstreamEntities}
+                        indirectEntities={unhealthyIndirectUpstreams}
                         loadMoreIndirectEntities={loadMoreIndirectUpstreamData}
                         remainingIndirectEntities={Math.max(
                             indirectUpstreamsDataTotal - (indirectUpstreamsDataStart + DATASET_COUNT),

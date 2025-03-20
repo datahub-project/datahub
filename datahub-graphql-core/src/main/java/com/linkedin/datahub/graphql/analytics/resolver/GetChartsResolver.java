@@ -186,7 +186,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   private AnalyticsChart getNewUsersChart(OperationContext opContext) {
     try {
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
-      final String newUsersTitle = "Active Users (Last 30 Days)";
+      final String newUsersTitle = "New Users (Last 30 Days)";
       final SearchResult result = searchForNewUsers(opContext);
       final List<Row> newUserRows = new ArrayList<>();
       for (SearchEntity entity : result.getEntities()) {

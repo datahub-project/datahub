@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=63.0.0", "wheel"]
+requires = ["setuptools >= 71.1", "wheel"]
 
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
@@ -29,19 +29,27 @@ extend-select = [
     "G010", # logging.warn -> logging.warning
     "I",    # isort
     "TID",  # flake8-tidy-imports
+    "RUF100",  # unused-noqa
+    "SIM",   # flake8-simplify
 ]
 extend-ignore = [
     "E501",  # Handled by formatter
     "E111",  # Handled by formatter
     "E114",  # Handled by formatter
     "E117",  # Handled by formatter
-    "E203",  # Ignore whitespace before ':' (matches Black)
     "B019",  # Allow usages of functools.lru_cache
     "B008",  # Allow function call in argument defaults
-    # TODO: Enable these later
-    "B006",  # Mutable args
-    "B017",  # Do not assert blind exception
-    "B904",  # Checks for raise statements in exception handlers that lack a from clause
+    "RUF012", # mutable-class-default; incompatible with pydantic
+    "RUF015", # unnecessary-iterable-allocation-for-first-element
+    
+    # Can be enabled later if someone wants to fix existing cases or an auto-fix becomes available
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
+    "SIM103", # Return the condition directly
+    "SIM105", # Use `contextlib.suppress(...)` instead of `try`-`except`-`pass`
+    "SIM115", # Use a context manager for opening files
+    "SIM116", # Use a dictionary instead of consecutive `if` statements
+    "SIM117", # Use a single with statement with multiple contexts instead of nested with statements
+    "SIM118", # Use key {operator} dict instead of key {operator} dict.keys()
 ]
 
 [tool.ruff.lint.mccabe]

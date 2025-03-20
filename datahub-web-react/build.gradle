@@ -93,7 +93,7 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', 'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
 
   outputs.cacheIf { true }
   inputs.files(
@@ -111,14 +111,13 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.dir('dist')
 }
 
-task cleanExtraDirs {
+clean {
   delete 'node_modules/.yarn-integrity'
   delete 'dist'
   delete 'tmp'
   delete 'just'
   delete fileTree(dir: 'src', include: '*.generated.ts')
 }
-clean.finalizedBy(cleanExtraDirs)
 
 configurations {
   assets

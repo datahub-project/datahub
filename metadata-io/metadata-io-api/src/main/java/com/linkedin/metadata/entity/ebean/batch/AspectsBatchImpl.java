@@ -13,17 +13,19 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -62,7 +64,8 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Override
   public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
       Map<String, Map<String, SystemAspect>> latestAspects,
-      Map<String, Map<String, Long>> nextVersions) {
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert) {
 
     // Process proposals to change items
     Stream<? extends BatchItem> mutatedProposalsStream =
@@ -100,7 +103,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                   }
 
                   return AspectsBatch.incrementBatchVersion(
-                      upsertItem, latestAspects, nextVersions);
+                      upsertItem, latestAspects, nextVersions, databaseUpsert);
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
@@ -149,10 +152,11 @@ public class AspectsBatchImpl implements AspectsBatch {
 
   private static BatchItem patchDiscriminator(MCPItem mcpItem, AspectRetriever aspectRetriever) {
     if (ChangeType.PATCH.equals(mcpItem.getChangeType())) {
-      return PatchItemImpl.PatchItemImplBuilder.build(
-          mcpItem.getMetadataChangeProposal(),
-          mcpItem.getAuditStamp(),
-          aspectRetriever.getEntityRegistry());
+      return PatchItemImpl.builder()
+          .build(
+              mcpItem.getMetadataChangeProposal(),
+              mcpItem.getAuditStamp(),
+              aspectRetriever.getEntityRegistry());
     }
     return ChangeItemImpl.builder()
         .build(mcpItem.getMetadataChangeProposal(), mcpItem.getAuditStamp(), aspectRetriever);
@@ -191,22 +195,18 @@ public class AspectsBatchImpl implements AspectsBatch {
                   mcp -> {
                     try {
                       if (alternateMCPValidation) {
-                        EntitySpec entitySpec =
-                            retrieverContext
-                                .getAspectRetriever()
-                                .getEntityRegistry()
-                                .getEntitySpec(mcp.getEntityType());
                         return ProposedItem.builder()
-                            .metadataChangeProposal(mcp)
-                            .entitySpec(entitySpec)
-                            .auditStamp(auditStamp)
-                            .build();
+                            .build(
+                                mcp,
+                                auditStamp,
+                                retrieverContext.getAspectRetriever().getEntityRegistry());
                       }
                       if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                        return PatchItemImpl.PatchItemImplBuilder.build(
-                            mcp,
-                            auditStamp,
-                            retrieverContext.getAspectRetriever().getEntityRegistry());
+                        return PatchItemImpl.builder()
+                            .build(
+                                mcp,
+                                auditStamp,
+                                retrieverContext.getAspectRetriever().getEntityRegistry());
                       } else {
                         return ChangeItemImpl.builder()
                             .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
@@ -238,12 +238,15 @@ public class AspectsBatchImpl implements AspectsBatch {
     }
 
     public AspectsBatchImpl build() {
+      if (this.items == null) {
+        this.items = Collections.emptyList();
+      }
       this.nonRepeatedItems = filterRepeats(this.items);
 
       ValidationExceptionCollection exceptions =
           AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext);
       if (!exceptions.isEmpty()) {
-        throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
+        throw new ValidationException("Failed to validate MCP due to: " + exceptions);
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);

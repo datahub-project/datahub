@@ -26,7 +26,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -45,6 +44,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -59,6 +59,8 @@ import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -160,8 +162,12 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
-      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepALive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+          @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -218,7 +224,7 @@ public class EntityController
             null,
             sortCriteria,
             scrollId,
-            pitKeepALive,
+            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
@@ -626,7 +632,7 @@ public class EntityController
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
-                EntityApiUtils.parseSystemMetadata(
+                SystemMetadataUtils.parseSystemMetadata(
                     objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
             ((ObjectNode) aspect.getValue()).remove("systemMetadata");
           }
@@ -640,9 +646,9 @@ public class EntityController
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (opContext.getValidationContext().isAlternateValidation()) {
-            ProposedItem.ProposedItemBuilder builder =
+            items.add(
                 ProposedItem.builder()
-                    .metadataChangeProposal(
+                    .build(
                         new MetadataChangeProposal()
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
@@ -652,14 +658,9 @@ public class EntityController
                             .setHeaders(
                                 headers != null ? new StringMap(headers) : null,
                                 SetMode.IGNORE_NULL)
-                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL))
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .entitySpec(
-                        opContext
-                            .getAspectRetriever()
-                            .getEntityRegistry()
-                            .getEntitySpec(entityUrn.getEntityType()));
-            items.add(builder.build());
+                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL),
+                        AuditStampUtils.createAuditStamp(actor.toUrnStr()),
+                        entityRegistry));
           } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
@@ -712,7 +713,7 @@ public class EntityController
     SystemMetadata systemMetadata = null;
     if (jsonNode.has("systemMetadata")) {
       systemMetadata =
-          EntityApiUtils.parseSystemMetadata(
+          SystemMetadataUtils.parseSystemMetadata(
               objectMapper.writeValueAsString(jsonNode.get("systemMetadata")));
     }
     Map<String, String> headers = null;

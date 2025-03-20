@@ -67,7 +67,7 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class HiveMetastoreConfigMode(StrEnum):
-    hive: str = "hive"  # noqa: F811
+    hive: str = "hive"
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"
     trino: str = "trino"
@@ -893,8 +893,9 @@ class HiveMetastoreSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
+            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
             description=(
-                column["col_description"] if "col_description" in column else ""
+                column["col_description"] if "col_description" in column else ""  # noqa: SIM401
             ),
             default_nullable=True,
         )

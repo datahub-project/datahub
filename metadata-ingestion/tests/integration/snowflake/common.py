@@ -244,6 +244,9 @@ def default_query_results(  # noqa: C901
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
                 "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_ICEBERG": "YES" if tbl_idx == 1 else "NO",
+                "IS_DYNAMIC": "YES" if tbl_idx == 2 else "NO",
+                "IS_HYBRID": "YES" if tbl_idx == 3 else "NO",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]

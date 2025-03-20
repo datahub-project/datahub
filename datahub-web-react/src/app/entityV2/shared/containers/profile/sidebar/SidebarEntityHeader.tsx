@@ -1,3 +1,4 @@
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
@@ -91,6 +92,10 @@ const SidebarEntityHeader = () => {
                     )}
                     {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
                     <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
+                    <VersioningBadge
+                        versionProperties={entityData?.versionProperties ?? undefined}
+                        showPopover={false}
+                    />
                 </NameWrapper>
                 <ContextPath
                     instanceId={entityData?.dataPlatformInstance?.instanceId}

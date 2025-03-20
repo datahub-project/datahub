@@ -34,18 +34,6 @@ The Remote Ingestion Executor can be deployed on several different platforms, in
 
 ### Deploying on Amazon ECS
 
-:::note
-
-Customers migrating from the legacy DataHub Executor: migration to the new executor requires a configuration change on Acryl side. Please contact your Acryl representative for detailed guidance.
-
-Steps you will need to perform on your end when instructed by your Acryl representative:
-1. Temporarily stop your legacy DataHub Remote Executor instance (e.g. `aws ecs update-service --desired-count 0 --cluster "cluster-name" --service "service-name"`)
-2. Deploy new DataHub Executor using steps below.
-3. Trigger an ingestion to make sure the new executor is working as expected.
-4. Tear down legacy executor ECS deployment.
-
-:::
-
 1. **Provide AWS account ID**: Provide Acryl with the ID of the AWS account in which the remote executor will be hosted. This will be used to grant access to the private Acryl ECR registry. The account ID can be provided to your Acryl representative via Email or [One Time Secret](https://onetimesecret.com/).
 
 2. **Provision an Acryl Executor** (ECS)**:** Acryl team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
@@ -66,9 +54,9 @@ Steps you will need to perform on your end when instructed by your Acryl represe
     2.  When working with "secret" fields (passwords, keys, etc), you can refer to any "self-managed" secrets by name: `${SECRET_NAME}:`
 
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
-</p>
+    <p align="center">
+      <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
+    </p>
 
     3. In the 'Finish Up' step, click '**Advanced'**.
     4. Update the '**Executor Id**' form field to be  '**remote**'. This indicates that you'd like to use the remote executor.
@@ -125,6 +113,50 @@ The Helm chart [datahub-executor-worker](https://executor-helm.acryl.io/index.ya
     --set image.tag=v0.3.1 \
     acryl datahub-executor-worker
   ```
+9. As of DataHub Cloud `v0.3.8.2` It is possible to pass secrets to ingestion recipes using Kubernetes Secret CRDs as shown below. This allows to update secrets at runtime without restarting Remote Executor process.
+  ```
+    # 1. Create K8s Secret object in remote executor namespace, e.g.
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: datahub-secret-store
+    data:
+      REDSHIFT_PASSWORD: cmVkc2hpZnQtc2VjcmV0Cg==
+      SNOWFLAKE_PASSWORD: c25vd2ZsYWtlLXNlY3JldAo=
+    # 2. Add secret into your Remote Executor deployment:
+    extraVolumes:
+      - name: datahub-secret-store
+        secret:
+          secretName: datahub-secret-store
+    # 3. Mount it under /mnt/secrets directory
+    extraVolumeMounts:
+    - mountPath: /mnt/secrets
+      name: datahub-secret-store
+  ```
+You can then reference the mounted secrets directly in the ingestion recipe:
+```yaml
+source:
+    type: redshift
+    config:
+        host_port: '<redshift host:port>'
+        username: connector_test
+        table_lineage_mode: mixed
+        include_table_lineage: true
+        include_tables: true
+        include_views: true
+        profiling:
+            enabled: true
+            profile_table_level_only: false
+        stateful_ingestion:
+            enabled: true
+        password: '${REDSHIFT_PASSWORD}'
+``` 
+
+By default the executor will look for files mounted in `/mnt/secrets`, this is override-able by setting the env var: 
+`DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR` to a different location (default: `/mnt/secrets`)
+
+These files are expected to be under 1MB in data by default. To increase this limit set a higher value using:
+`DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN` (default: `1024768`, size in bytes)
 
 ## FAQ
 

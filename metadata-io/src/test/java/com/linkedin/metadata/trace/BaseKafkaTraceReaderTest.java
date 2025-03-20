@@ -3,6 +3,8 @@ package com.linkedin.metadata.trace;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -19,6 +21,7 @@ import io.datahubproject.openapi.v1.models.TraceStorageStatus;
 import io.datahubproject.openapi.v1.models.TraceWriteStatus;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -235,5 +238,305 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
     assertTrue(result.get(TEST_URN).containsKey(ASPECT_NAME));
     assertEquals(result.get(TEST_URN).get(ASPECT_NAME).getFirst(), mockRecord);
     assertEquals(result.get(TEST_URN).get(ASPECT_NAME).getSecond(), systemMetadata);
+  }
+
+  @Test
+  public void testGetAllPartitionOffsets_WithCache() {
+    // Arrange
+    Node mockNode = new Node(0, "localhost", 9092);
+
+    // Setup multiple partitions for testing
+    TopicPartitionInfo partitionInfo0 =
+        new TopicPartitionInfo(
+            0, mockNode, Collections.singletonList(mockNode), Collections.singletonList(mockNode));
+    TopicPartitionInfo partitionInfo1 =
+        new TopicPartitionInfo(
+            1, mockNode, Collections.singletonList(mockNode), Collections.singletonList(mockNode));
+
+    List<TopicPartitionInfo> partitionInfos = Arrays.asList(partitionInfo0, partitionInfo1);
+    TopicDescription topicDescription = new TopicDescription(TOPIC_NAME, false, partitionInfos);
+
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.all())
+        .thenReturn(
+            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Setup consumer group offsets for multiple partitions
+    TopicPartition topicPartition0 = new TopicPartition(TOPIC_NAME, 0);
+    TopicPartition topicPartition1 = new TopicPartition(TOPIC_NAME, 1);
+
+    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartition0, new OffsetAndMetadata(100L));
+    offsetMap.put(topicPartition1, new OffsetAndMetadata(200L));
+
+    ListConsumerGroupOffsetsResult mockOffsetResult = mock(ListConsumerGroupOffsetsResult.class);
+    when(adminClient.listConsumerGroupOffsets(CONSUMER_GROUP)).thenReturn(mockOffsetResult);
+    when(mockOffsetResult.partitionsToOffsetAndMetadata())
+        .thenReturn(KafkaFuture.completedFuture(offsetMap));
+
+    // Act
+    Map<TopicPartition, OffsetAndMetadata> result1 = traceReader.getAllPartitionOffsets(false);
+
+    // Assert
+    assertEquals(result1.size(), 2);
+    assertEquals(result1.get(topicPartition0).offset(), 100L);
+    assertEquals(result1.get(topicPartition1).offset(), 200L);
+
+    // Act again - this should use cache
+    Map<TopicPartition, OffsetAndMetadata> result2 = traceReader.getAllPartitionOffsets(false);
+
+    // Assert again
+    assertEquals(result2.size(), 2);
+    assertEquals(result2.get(topicPartition0).offset(), 100L);
+    assertEquals(result2.get(topicPartition1).offset(), 200L);
+
+    // The implementation actually calls describeTopics for each getAllPartitionOffsets call
+    // This is because the topicPartitionCache in KafkaTraceReader doesn't cache the topic
+    // description
+    verify(adminClient, times(2)).describeTopics(anyCollection());
+  }
+
+  @Test
+  public void testGetAllPartitionOffsets_SkipCache() {
+    // Arrange
+    Node mockNode = new Node(0, "localhost", 9092);
+    TopicPartitionInfo partitionInfo =
+        new TopicPartitionInfo(
+            0, mockNode, Collections.singletonList(mockNode), Collections.singletonList(mockNode));
+
+    TopicDescription topicDescription =
+        new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
+
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.all())
+        .thenReturn(
+            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+
+    // First call returns offset 100
+    ListConsumerGroupOffsetsResult mockOffsetResult1 = mock(ListConsumerGroupOffsetsResult.class);
+    when(adminClient.listConsumerGroupOffsets(CONSUMER_GROUP))
+        .thenReturn(mockOffsetResult1)
+        .thenReturn(mockOffsetResult1); // Return same mock for second call
+
+    Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
+    offsetMap1.put(topicPartition, new OffsetAndMetadata(100L));
+
+    when(mockOffsetResult1.partitionsToOffsetAndMetadata())
+        .thenReturn(KafkaFuture.completedFuture(offsetMap1));
+
+    // Act - first call should populate cache
+    Map<TopicPartition, OffsetAndMetadata> result1 = traceReader.getAllPartitionOffsets(false);
+
+    // Assert first result
+    assertEquals(result1.size(), 1);
+    assertEquals(result1.get(topicPartition).offset(), 100L);
+
+    // Change the mock to return a different offset for the next call
+    ListConsumerGroupOffsetsResult mockOffsetResult2 = mock(ListConsumerGroupOffsetsResult.class);
+    when(adminClient.listConsumerGroupOffsets(CONSUMER_GROUP)).thenReturn(mockOffsetResult2);
+
+    Map<TopicPartition, OffsetAndMetadata> offsetMap2 = new HashMap<>();
+    offsetMap2.put(topicPartition, new OffsetAndMetadata(200L));
+
+    when(mockOffsetResult2.partitionsToOffsetAndMetadata())
+        .thenReturn(KafkaFuture.completedFuture(offsetMap2));
+
+    // Act - second call with skipCache=true should bypass cache
+    Map<TopicPartition, OffsetAndMetadata> result2 = traceReader.getAllPartitionOffsets(true);
+
+    // Assert second result
+    assertEquals(result2.size(), 1);
+    assertEquals(result2.get(topicPartition).offset(), 200L);
+
+    // Verify that listConsumerGroupOffsets was called twice
+    verify(adminClient, times(2)).listConsumerGroupOffsets(CONSUMER_GROUP);
+  }
+
+  @Test
+  public void testGetEndOffsets_WithCache() {
+    // Arrange
+    Node mockNode = new Node(0, "localhost", 9092);
+    TopicPartitionInfo partitionInfo =
+        new TopicPartitionInfo(
+            0, mockNode, Collections.singletonList(mockNode), Collections.singletonList(mockNode));
+
+    TopicDescription topicDescription =
+        new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
+
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.all())
+        .thenReturn(
+            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Setup consumer to return end offsets
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+    Map<TopicPartition, Long> endOffsets = Collections.singletonMap(topicPartition, 500L);
+    when(consumer.endOffsets(anyCollection())).thenReturn(endOffsets);
+
+    // Act
+    Map<TopicPartition, Long> result1 = traceReader.getEndOffsets(false);
+
+    // Assert
+    assertEquals(result1.size(), 1);
+    assertEquals(result1.get(topicPartition).longValue(), 500L);
+
+    // Act again - this should use cache
+    Map<TopicPartition, Long> result2 = traceReader.getEndOffsets(false);
+
+    // Assert again
+    assertEquals(result2.size(), 1);
+    assertEquals(result2.get(topicPartition).longValue(), 500L);
+
+    // Verify that endOffsets was called only once
+    verify(consumer, times(1)).endOffsets(anyCollection());
+  }
+
+  @Test
+  public void testGetEndOffsets_SkipCache() {
+    // Arrange
+    Node mockNode = new Node(0, "localhost", 9092);
+    TopicPartitionInfo partitionInfo =
+        new TopicPartitionInfo(
+            0, mockNode, Collections.singletonList(mockNode), Collections.singletonList(mockNode));
+
+    TopicDescription topicDescription =
+        new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
+
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.all())
+        .thenReturn(
+            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Setup consumer to return end offsets
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+    Map<TopicPartition, Long> endOffsets1 = Collections.singletonMap(topicPartition, 500L);
+    Map<TopicPartition, Long> endOffsets2 = Collections.singletonMap(topicPartition, 600L);
+
+    when(consumer.endOffsets(anyCollection())).thenReturn(endOffsets1).thenReturn(endOffsets2);
+
+    // Act
+    Map<TopicPartition, Long> result1 = traceReader.getEndOffsets(false);
+
+    // Assert
+    assertEquals(result1.size(), 1);
+    assertEquals(result1.get(topicPartition).longValue(), 500L);
+
+    // Act again with skipCache=true
+    Map<TopicPartition, Long> result2 = traceReader.getEndOffsets(true);
+
+    // Assert again
+    assertEquals(result2.size(), 1);
+    assertEquals(result2.get(topicPartition).longValue(), 600L);
+
+    // Verify that endOffsets was called twice
+    verify(consumer, times(2)).endOffsets(anyCollection());
+  }
+
+  @Test
+  public void testGetEndOffsets_SpecificPartitions() {
+    // Arrange
+    Node mockNode = new Node(0, "localhost", 9092);
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+    TopicPartition topicPartition2 = new TopicPartition(TOPIC_NAME, 1);
+    List<TopicPartition> partitions = Arrays.asList(topicPartition, topicPartition2);
+
+    // Setup consumer to return end offsets
+    Map<TopicPartition, Long> endOffsets = new HashMap<>();
+    endOffsets.put(topicPartition, 500L);
+    endOffsets.put(topicPartition2, 600L);
+
+    when(consumer.endOffsets(anyCollection())).thenReturn(endOffsets);
+
+    // Act
+    Map<TopicPartition, Long> result = traceReader.getEndOffsets(partitions, false);
+
+    // Assert
+    assertEquals(result.size(), 2);
+    assertEquals(result.get(topicPartition).longValue(), 500L);
+    assertEquals(result.get(topicPartition2).longValue(), 600L);
+
+    // Verify that endOffsets was called once
+    verify(consumer, times(1)).endOffsets(anyCollection());
+
+    // Verify that assign was called with the correct partitions
+    verify(consumer, times(1)).assign(partitions);
+  }
+
+  @Test
+  public void testGetEndOffsets_SpecificPartitions_WithCache() {
+    // Arrange
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+    TopicPartition topicPartition2 = new TopicPartition(TOPIC_NAME, 1);
+    List<TopicPartition> partitions = Arrays.asList(topicPartition, topicPartition2);
+
+    // Setup consumer to return end offsets
+    Map<TopicPartition, Long> endOffsets = new HashMap<>();
+    endOffsets.put(topicPartition, 500L);
+    endOffsets.put(topicPartition2, 600L);
+
+    when(consumer.endOffsets(anyCollection())).thenReturn(endOffsets);
+
+    // Act - first call to populate cache
+    Map<TopicPartition, Long> result1 = traceReader.getEndOffsets(partitions, false);
+
+    // Assert first result
+    assertEquals(result1.size(), 2);
+    assertEquals(result1.get(topicPartition).longValue(), 500L);
+    assertEquals(result1.get(topicPartition2).longValue(), 600L);
+
+    // Act - second call should use cache
+    Map<TopicPartition, Long> result2 = traceReader.getEndOffsets(partitions, false);
+
+    // Assert second result
+    assertEquals(result2.size(), 2);
+    assertEquals(result2.get(topicPartition).longValue(), 500L);
+    assertEquals(result2.get(topicPartition2).longValue(), 600L);
+
+    // Verify that endOffsets was called only once
+    verify(consumer, times(1)).endOffsets(anyCollection());
+  }
+
+  @Test
+  public void testGetEndOffsets_SpecificPartitions_SkipCache() {
+    // Arrange
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+    TopicPartition topicPartition2 = new TopicPartition(TOPIC_NAME, 1);
+    List<TopicPartition> partitions = Arrays.asList(topicPartition, topicPartition2);
+
+    // Setup consumer to return different end offsets on each call
+    Map<TopicPartition, Long> endOffsets1 = new HashMap<>();
+    endOffsets1.put(topicPartition, 500L);
+    endOffsets1.put(topicPartition2, 600L);
+
+    Map<TopicPartition, Long> endOffsets2 = new HashMap<>();
+    endOffsets2.put(topicPartition, 700L);
+    endOffsets2.put(topicPartition2, 800L);
+
+    when(consumer.endOffsets(anyCollection())).thenReturn(endOffsets1).thenReturn(endOffsets2);
+
+    // Act - first call to populate cache
+    Map<TopicPartition, Long> result1 = traceReader.getEndOffsets(partitions, false);
+
+    // Assert first result
+    assertEquals(result1.size(), 2);
+    assertEquals(result1.get(topicPartition).longValue(), 500L);
+    assertEquals(result1.get(topicPartition2).longValue(), 600L);
+
+    // Act - second call with skipCache=true should bypass cache
+    Map<TopicPartition, Long> result2 = traceReader.getEndOffsets(partitions, true);
+
+    // Assert second result
+    assertEquals(result2.size(), 2);
+    assertEquals(result2.get(topicPartition).longValue(), 700L);
+    assertEquals(result2.get(topicPartition2).longValue(), 800L);
+
+    // Verify that endOffsets was called twice
+    verify(consumer, times(2)).endOffsets(anyCollection());
   }
 }

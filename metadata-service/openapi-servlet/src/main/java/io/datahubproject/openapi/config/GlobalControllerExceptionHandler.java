@@ -1,6 +1,8 @@
 package io.datahubproject.openapi.config;
 
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -8,6 +10,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
@@ -32,7 +36,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   }
 
   public GlobalControllerExceptionHandler() {
-    setOrder(Ordered.HIGHEST_PRECEDENCE);
+    setOrder(Ordered.LOWEST_PRECEDENCE - 1);
     setWarnLogCategory(getClass().getName());
   }
 
@@ -41,8 +45,8 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
   }
 
-  @ExceptionHandler(InvalidUrnException.class)
-  public static ResponseEntity<Map<String, String>> handleUrnException(InvalidUrnException e) {
+  @ExceptionHandler({IllegalArgumentException.class, InvalidUrnException.class})
+  public static ResponseEntity<Map<String, String>> handleUrnException(Exception e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
 
@@ -72,21 +76,39 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
 
   @Override
   protected void logException(Exception ex, HttpServletRequest request) {
-    log.error("Error while resolving request: " + request.getRequestURI(), ex);
+    log.error("Error while resolving request: {}", request.getRequestURI(), ex);
   }
 
   @Override
   protected void sendServerError(
-      Exception ex, HttpServletRequest request, HttpServletResponse response) throws IOException {
-    log.error("Error while resolving request: " + request.getRequestURI(), ex);
+      @Nullable Exception ex, HttpServletRequest request, HttpServletResponse response)
+      throws IOException {
+    log.error("Error while resolving request: {}", request.getRequestURI(), ex);
     request.setAttribute("jakarta.servlet.error.exception", ex);
-    response.sendError(500);
+    response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value());
+  }
+
+  @ExceptionHandler(ValidationException.class)
+  public ResponseEntity<Map<String, String>> handleValidationException(
+      ValidationException e, HttpServletRequest request) {
+    log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
+    if (e.getValidationExceptionCollection() != null
+        && e.getValidationExceptionCollection()
+            .getSubTypes()
+            .equals(Set.of(ValidationSubType.PRECONDITION))) {
+      return new ResponseEntity<>(
+          Map.of("error", "Validation Error", "message", e.getMessage()),
+          HttpStatus.PRECONDITION_FAILED);
+    } else {
+      return new ResponseEntity<>(
+          Map.of("error", "Validation Error", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+    }
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, String>> handleGenericException(
       Exception e, HttpServletRequest request) {
-    log.error("Unhandled exception occurred for request: " + request.getRequestURI(), e);
+    log.error("Unhandled exception occurred for request: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
   }
@@ -96,7 +118,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       NoHandlerFoundException ex, HttpServletRequest request) {
     String message = String.format("No endpoint %s %s.", ex.getHttpMethod(), ex.getRequestURL());
 
-    log.error("No handler found for request: " + request.getRequestURI());
+    log.error("No handler found for request: {}", request.getRequestURI());
     return new ResponseEntity<>(Map.of("error", message), HttpStatus.NOT_FOUND);
   }
 }

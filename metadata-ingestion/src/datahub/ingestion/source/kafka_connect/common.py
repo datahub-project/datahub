@@ -110,7 +110,7 @@ class ConnectorManifest:
 
     name: str
     type: str
-    config: Dict
+    config: Dict[str, str]
     tasks: Dict
     url: Optional[str] = None
     flow_property_bag: Optional[Dict[str, str]] = None
@@ -141,12 +141,7 @@ def get_dataset_name(
     database_name: Optional[str],
     source_table: str,
 ) -> str:
-    if database_name:
-        dataset_name = database_name + "." + source_table
-    else:
-        dataset_name = source_table
-
-    return dataset_name
+    return database_name + "." + source_table if database_name else source_table
 
 
 def get_platform_instance(

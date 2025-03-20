@@ -2,17 +2,15 @@ import React from 'react';
 import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import styled from 'styled-components';
-import { ActionItemButton } from './styledComponents';
+import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
 
 const StyledActionButtonContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #46507b;
 `;
 
 type Props = {
-    primary?: boolean;
     tip?: string;
     disabled?: boolean;
     onClick: () => void;
@@ -21,10 +19,10 @@ type Props = {
     placement?: TooltipPlacement;
     isExpandedView?: boolean;
     actionName?: string;
+    dataTestId?: string;
 };
 
 export const ActionItem = ({
-    primary = false,
     tip,
     disabled = false,
     onClick,
@@ -33,26 +31,25 @@ export const ActionItem = ({
     placement = 'top',
     isExpandedView = false,
     actionName,
+    dataTestId,
 }: Props) => {
     return (
         <Tooltip placement={placement} title={isExpandedView ? '' : tip}>
             <StyledActionButtonContainer
-                style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
                 onClick={(e) => {
                     e.stopPropagation();
                     if (disabled) return;
                     onClick();
                 }}
             >
-                <ActionItemButton
-                    primary={primary}
+                <ActionMenuItem
                     key={key}
                     disabled={disabled}
                     title={!isExpandedView ? tip : undefined}
-                    isExpandedView={isExpandedView}
+                    data-testid={dataTestId}
                 >
                     {icon}
-                </ActionItemButton>
+                </ActionMenuItem>
                 {isExpandedView && actionName && <span>{actionName}</span>}
             </StyledActionButtonContainer>
         </Tooltip>

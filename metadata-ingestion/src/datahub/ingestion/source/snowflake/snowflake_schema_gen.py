@@ -21,7 +21,6 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
-    DatasetSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -467,7 +466,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 context=f"{db_name}.{schema_name}",
             )
 
-    def _process_tags(self, snowflake_schema, schema_name, db_name, domain):
+    def _process_tags(
+        self,
+        snowflake_schema: SnowflakeSchema,
+        schema_name: str,
+        db_name: str,
+        domain: str,
+    ) -> None:
         snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
             schema_name=schema_name, db_name=db_name, domain=domain
         )
@@ -837,15 +842,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if dpi_aspect:
             yield dpi_aspect
 
-        subTypes = SubTypes(
-            typeNames=(
-                [DatasetSubTypes.SNOWFLAKE_STREAM]
-                if isinstance(table, SnowflakeStream)
-                else [DatasetSubTypes.VIEW]
-                if isinstance(table, SnowflakeView)
-                else [DatasetSubTypes.TABLE]
-            )
-        )
+        subTypes = SubTypes(typeNames=[table.get_subtype()])
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subTypes
@@ -932,9 +929,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         "OWNER_ROLE_TYPE": table.owner_role_type,
                         "TABLE_NAME": table.table_name,
                         "BASE_TABLES": table.base_tables,
-                        "STALE_AFTER": table.stale_after.isoformat()
-                        if table.stale_after
-                        else None,
+                        "STALE_AFTER": (
+                            table.stale_after.isoformat() if table.stale_after else None
+                        ),
                     }.items()
                     if v
                 }

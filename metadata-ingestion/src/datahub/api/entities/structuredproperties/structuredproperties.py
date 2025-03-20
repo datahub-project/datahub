@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 
 import yaml
 from pydantic import validator
@@ -38,7 +38,7 @@ class AllowedTypes(Enum):
 
 
 class AllowedValue(ConfigModel):
-    value: str
+    value: Union[int, float, str]
     description: Optional[str] = None
 
 

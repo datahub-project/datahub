@@ -6,14 +6,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class ProposedItem implements MCPItem {
+  @Nonnull private final Urn urn;
   @Nonnull private final MetadataChangeProposal metadataChangeProposal;
   @Nonnull private final AuditStamp auditStamp;
   // derived
@@ -64,26 +65,10 @@ public class ProposedItem implements MCPItem {
     return null;
   }
 
-  @Nonnull
-  @Override
-  public Urn getUrn() {
-    Urn urn = metadataChangeProposal.getEntityUrn();
-    if (urn == null) {
-      urn =
-          EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
-    }
-    return urn;
-  }
-
   @Nullable
   @Override
   public SystemMetadata getSystemMetadata() {
     return metadataChangeProposal.getSystemMetadata();
-  }
-
-  @Override
-  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
-    metadataChangeProposal.setSystemMetadata(systemMetadata);
   }
 
   @Nonnull
@@ -119,16 +104,37 @@ public class ProposedItem implements MCPItem {
   }
 
   public static class ProposedItemBuilder {
-    public ProposedItem build() {
-      // Ensure systemMetadata
+    // Ensure use of other builders
+    private ProposedItem build() {
+      return null;
+    }
+
+    public ProposedItem build(
+        @Nonnull MetadataChangeProposal metadataChangeProposal,
+        AuditStamp auditStamp,
+        @Nonnull EntityRegistry entityRegistry) {
+
+      // Validation includes: Urn, Entity, Aspect
+      this.metadataChangeProposal =
+          ValidationApiUtils.validateMCP(entityRegistry, metadataChangeProposal);
+      this.auditStamp = auditStamp;
+      this.metadataChangeProposal.setSystemMetadata(
+          SystemMetadataUtils.generateSystemMetadataIfEmpty(
+              this.metadataChangeProposal.getSystemMetadata()));
+
+      this.urn = metadataChangeProposal.getEntityUrn(); // validation ensures existence
+      log.debug("entity type = {}", this.urn.getEntityType());
+
+      entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType())); // prior validation
+      log.debug("entity spec = {}", this.entitySpec);
+
+      aspectSpec(
+          entitySpec.getAspectSpec(
+              this.metadataChangeProposal.getAspectName())); // prior validation
+      log.debug("aspect spec = {}", this.aspectSpec);
+
       return new ProposedItem(
-          Objects.requireNonNull(this.metadataChangeProposal)
-              .setSystemMetadata(
-                  SystemMetadataUtils.generateSystemMetadataIfEmpty(
-                      this.metadataChangeProposal.getSystemMetadata())),
-          this.auditStamp,
-          this.entitySpec,
-          this.aspectSpec);
+          this.urn, this.metadataChangeProposal, this.auditStamp, this.entitySpec, this.aspectSpec);
     }
   }
 }

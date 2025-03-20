@@ -23,7 +23,9 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -137,7 +139,10 @@ class ModeAPIConfig(ConfigModel):
     )
 
 
-class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
+class ModeConfig(
+    StatefulIngestionConfigBase,
+    DatasetLineageProviderConfigBase,
+):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
     connect_uri: str = Field(
@@ -154,7 +159,12 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     )
 
     workspace: str = Field(
-        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+        description="The Mode workspace username. If you navigate to Workspace Settings > Details, "
+        "the url will be `https://app.mode.com/organizations/<workspace-username>`. "
+        # The lowercase comment is derived from a comment in a Mode API example.
+        # https://mode.com/developer/api-cookbook/management/get-all-reports/
+        # > "Note: workspace_name value should be all lowercase"
+        "This is distinct from the workspace's display name, and should be all lowercase."
     )
     _default_schema = pydantic_removed_field("default_schema")
 
@@ -372,7 +382,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
@@ -759,9 +769,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 return platform, database
         else:
             self.report.report_warning(
-                title="Failed to create Data Platform Urn",
-                message=f"Cannot create datasource urn for datasource id: "
-                f"{data_source_id}",
+                title="Unable to construct upstream lineage",
+                message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
+                context=f"Data Source ID: {data_source_id}",
             )
         return None, None
 
@@ -1489,7 +1499,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429
+                    raise HTTPError429 from None
 
                 raise http_error
 

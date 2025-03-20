@@ -55,7 +55,7 @@ try:
 except ImportError:
     _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 
-    def override(f: _F, /) -> _F:  # noqa: F811
+    def override(f: _F, /) -> _F:
         return f
 
 
@@ -104,7 +104,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             return "\n".join([r for r in res])
 
     @typing.no_type_check
-    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:  # noqa: C901
+    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:
         """Derives the data type of the Athena column.
 
         This method is overwritten to extend the behavior of PyAthena.
@@ -396,7 +396,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location", None)
+        location: Optional[str] = custom_properties.get("location")
         if location is not None:
             if location.startswith("s3://"):
                 location = make_s3_urn(location, self.config.env)
@@ -538,21 +538,15 @@ class AthenaSource(SQLAlchemySource):
             column_name=column["name"],
             column_type=column["type"],
             inspector=inspector,
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column.get("nullable", True),
-            is_part_of_key=(
-                True
-                if (
-                    pk_constraints is not None
-                    and isinstance(pk_constraints, dict)
-                    and column["name"] in pk_constraints.get("constrained_columns", [])
-                )
-                else False
+            is_part_of_key=bool(
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
             ),
-            is_partitioning_key=(
-                True
-                if (partition_keys is not None and column["name"] in partition_keys)
-                else False
+            is_partitioning_key=bool(
+                partition_keys is not None and column["name"] in partition_keys
             ),
         )
 

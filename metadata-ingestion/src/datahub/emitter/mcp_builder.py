@@ -36,7 +36,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
-from datahub.metadata.urns import StructuredPropertyUrn
+from datahub.metadata.urns import ContainerUrn, StructuredPropertyUrn
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
@@ -86,6 +86,9 @@ class ContainerKey(DatahubKey):
 
     def property_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
+
+    def as_urn_typed(self) -> ContainerUrn:
+        return ContainerUrn.from_string(self.as_urn())
 
     def as_urn(self) -> str:
         return make_container_urn(guid=self.guid())

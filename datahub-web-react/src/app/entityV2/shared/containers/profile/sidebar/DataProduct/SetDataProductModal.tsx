@@ -1,12 +1,14 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import Modal from 'antd/lib/modal/Modal';
-import { Button, Empty, Select, message } from 'antd';
+import { Empty, Select, message } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -62,7 +64,7 @@ export default function SetDataProductModal({
 
     const displayedDataProducts: Entity[] =
         !showRecommendations && data?.autoCompleteForMultiple?.suggestions
-            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
+            ? data?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities)
             : recommendedDataProducts;
 
     const handleSearch = useMemo(() => {
@@ -167,14 +169,14 @@ export default function SetDataProductModal({
             onCancel={onModalClose}
             getContainer={getModalDomContainer}
             footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" color="gray" onClick={onModalClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
+                    <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
                         Save
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Select

@@ -834,7 +834,7 @@ class S3Source(StatefulIngestionSourceBase):
                         min=min,
                     )
                     folders.extend(folders_list)
-                    if not path_spec.traversal_method == FolderTraversalMethod.ALL:
+                    if path_spec.traversal_method != FolderTraversalMethod.ALL:
                         return folders
             if folders:
                 return folders
@@ -847,7 +847,7 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec: PathSpec,
         bucket: "Bucket",
         prefix: str,
-    ) -> List[Folder]:
+    ) -> Iterable[Folder]:
         """
         Retrieves all the folders in a path by listing all the files in the prefix.
         If the prefix is a full path then only that folder will be extracted.
@@ -866,52 +866,40 @@ class S3Source(StatefulIngestionSourceBase):
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
-        partitions: List[Folder] = []
-        s3_objects = bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+
+        def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
+            allowed = path_spec_.allowed(s3_uri)
+            if not allowed:
+                logger.debug(f"File {s3_uri} not allowed and skipping")
+                self.report.report_file_dropped(s3_uri)
+            return allowed
+
+        s3_objects = (
+            obj
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+            if _is_allowed_path(
+                path_spec, self.create_s3_path(obj.bucket_name, obj.key)
+            )
+        )
         grouped_s3_objects_by_dirname = groupby_unsorted(
             s3_objects,
             key=lambda obj: obj.key.rsplit("/", 1)[0],
         )
-        for key, group in grouped_s3_objects_by_dirname:
-            file_size = 0
-            creation_time = None
-            modification_time = None
+        for _, group in grouped_s3_objects_by_dirname:
+            max_file = max(group, key=lambda x: x.last_modified)
+            max_file_s3_path = self.create_s3_path(max_file.bucket_name, max_file.key)
 
-            for item in group:
-                file_path = self.create_s3_path(item.bucket_name, item.key)
-                if not path_spec.allowed(file_path):
-                    logger.debug(f"File {file_path} not allowed and skipping")
-                    continue
-                file_size += item.size
-                if creation_time is None or item.last_modified < creation_time:
-                    creation_time = item.last_modified
-                if modification_time is None or item.last_modified > modification_time:
-                    modification_time = item.last_modified
-                    max_file = item
+            # If partition_id is None, it means the folder is not a partition
+            partition_id = path_spec.get_partition_from_path(max_file_s3_path)
 
-            if modification_time is None:
-                logger.warning(
-                    f"Unable to find any files in the folder {key}. Skipping..."
-                )
-                continue
-
-            id = path_spec.get_partition_from_path(
-                self.create_s3_path(max_file.bucket_name, max_file.key)
+            yield Folder(
+                partition_id=partition_id,
+                is_partition=bool(partition_id),
+                creation_time=min(obj.last_modified for obj in group),
+                modification_time=max_file.last_modified,
+                sample_file=max_file_s3_path,
+                size=sum(obj.size for obj in group),
             )
-
-            # If id is None, it means the folder is not a partition
-            partitions.append(
-                Folder(
-                    partition_id=id,
-                    is_partition=bool(id),
-                    creation_time=creation_time if creation_time else None,  # type: ignore[arg-type]
-                    modification_time=modification_time,
-                    sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
-                    size=file_size,
-                )
-            )
-
-        return partitions
 
     def s3_browser(self, path_spec: PathSpec, sample_size: int) -> Iterable[BrowsePath]:
         if self.source_config.aws_config is None:
@@ -991,7 +979,7 @@ class S3Source(StatefulIngestionSourceBase):
                                     min=True,
                                 )
                                 dirs_to_process.append(dirs_to_process_min[0])
-                        folders = []
+                        folders: List[Folder] = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
                             prefix_to_process = urlparse(dir).path.lstrip("/")

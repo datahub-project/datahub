@@ -1,4 +1,5 @@
-import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
 import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 import { EntityType, MlModelGroup, SearchResult } from '../../../types.generated';
@@ -24,7 +25,11 @@ import { Preview } from './preview/Preview';
 import ModelGroupModels from './profile/ModelGroupModels';
 import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -70,8 +75,10 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getCollectionName = () => 'ML Groups';
 
-    getOverridePropertiesFromEntity = (_?: MlModelGroup | null): GenericEntityProperties => {
-        return {};
+    getOverridePropertiesFromEntity = (mlModelGroup?: MlModelGroup | null): GenericEntityProperties => {
+        return {
+            name: mlModelGroup && this.displayName(mlModelGroup),
+        };
     };
 
     useEntityQuery = useGetMlModelGroupQuery;
@@ -92,6 +99,11 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    name: 'Lineage',
+                    component: LineageTab,
+                    icon: PartitionOutlined,
                 },
                 {
                     name: 'Properties',
@@ -129,10 +141,10 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
@@ -175,8 +187,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     getLineageVizConfig = (entity: MlModelGroup) => {
         return {
             urn: entity.urn,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            name: entity.properties?.['propertiesName'] || entity.name,
+            name: entity && this.displayName(entity),
             type: EntityType.MlmodelGroup,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
@@ -185,14 +196,15 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     };
 
     displayName = (data: MlModelGroup) => {
-        return data.properties?.name || data.name || data.urn;
+        // eslint-disable-next-line @typescript-eslint/dot-notation
+        return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {
         return getDataForEntityType({
             data: mlModelGroup,
             entityType: this.type,
-            getOverrideProperties: (data) => data,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
     };
 

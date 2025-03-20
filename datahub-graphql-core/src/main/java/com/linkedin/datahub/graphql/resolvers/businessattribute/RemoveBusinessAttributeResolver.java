@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils.validateInputResources;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
 
 import com.linkedin.businessattribute.BusinessAttributes;
@@ -40,6 +41,7 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            validateInputResources(resourceRefInputs, context);
             removeBusinessAttribute(
                 context.getOperationContext(),
                 resourceRefInputs,

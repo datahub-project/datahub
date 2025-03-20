@@ -163,12 +163,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                 key: DatahubIngestionRunSummaryProvider._convert_sets_to_lists(value)
                 for key, value in obj.items()
             }
-        elif isinstance(obj, list):
-            return [
-                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
-                for element in obj
-            ]
-        elif isinstance(obj, set):
+        elif isinstance(obj, (list, set)):
             return [
                 DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
                 for element in obj

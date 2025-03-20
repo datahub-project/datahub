@@ -33,7 +33,14 @@ This technique makes maintaining your GraphQL queries much more doable. For exam
 
 `search*` APIs such as [`searchAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#searchacrossentities) are designed for minimal pagination (< ~50). They do not perform well for deep pagination requests. Use the equivalent `scroll*` APIs such as [`scrollAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#scrollacrossentities) when expecting the need to paginate deeply into the result set.
 
-Note: that it is impossible to use `search*` for paginating beyond 10k results.
+:::note
+It is impossible to use `search*` for paginating beyond 10k results.
+:::
+
+:::caution
+In order to `scroll*` through the entire result set it is required to use a stable sort order. This means using `_score` as
+the first sort order cannot be used. Use the `urn` field as the sort order instead.
+:::
 
 #### Examples
 
@@ -54,7 +61,15 @@ Page 1 Request:
       orFilters: [
         { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
-      ]
+      ],
+      sortInput: {
+        sortCriteria: [
+          {
+            field: "urn",
+            sortOrder: ASCENDING
+          }
+        ]
+      }
     }
   ) {
     nextScrollId
@@ -110,7 +125,15 @@ Page 2 Request:
       orFilters: [
         { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
-      ]
+      ],
+      sortInput: {
+        sortCriteria: [
+          {
+            field: "urn",
+            sortOrder: ASCENDING
+          }
+        ]
+      }
     }
   ) {
     nextScrollId
@@ -282,7 +305,20 @@ Example for skipping highlighting and aggregates, typically used for scrolling s
 ```graphql
 {
   scrollAcrossEntities(
-    input: {types: [DATASET], count: 2, query: "pet", searchFlags: {skipAggregates: true, skipHighlighting: true}}
+    input: {
+      types: [DATASET], 
+      count: 2, 
+      query: "pet", 
+      searchFlags: {skipAggregates: true, skipHighlighting: true},
+      sortInput: {
+        sortCriteria: [
+          {
+            field: "urn",
+            sortOrder: ASCENDING
+          }
+        ]
+      },
+    }
   ) {
     searchResults {
       entity {

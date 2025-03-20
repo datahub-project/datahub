@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import List, Optional, Set, cast
 
@@ -10,8 +11,11 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+from datahub.utilities.urns._urn_base import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 
-_USER_URN_PREFIX: str = "urn:li:corpuser:"
+logger = logging.getLogger(__name__)
 
 
 class PatternCleanUpOwnershipConfig(ConfigModel):
@@ -49,6 +53,11 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         else:
             return set()
 
+    def _process_owner(self, name: str) -> str:
+        for value in self.config.pattern_for_cleanup:
+            name = re.sub(value, "", name)
+        return name
+
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
     ) -> Optional[builder.Aspect]:
@@ -58,14 +67,23 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         # clean all the owners based on the parameters received from config
         cleaned_owner_urns: List[str] = []
         for owner_urn in current_owner_urns:
-            user_id: str = owner_urn.split(_USER_URN_PREFIX)[1]
-            for value in self.config.pattern_for_cleanup:
-                user_id = re.sub(value, "", user_id)
-
-            cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
+            username = ""
+            try:
+                owner: Urn = Urn.from_string(owner_urn)
+                if isinstance(owner, CorpUserUrn):
+                    username = str(CorpUserUrn(self._process_owner(owner.username)))
+                elif isinstance(owner, CorpGroupUrn):
+                    username = str(CorpGroupUrn(self._process_owner(owner.name)))
+                else:
+                    logger.warning(f"{owner_urn} is not a supported owner type.")
+                    username = owner_urn
+            except InvalidUrnError:
+                logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
+                username = owner_urn
+            cleaned_owner_urns.append(username)
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
-            OwnershipTypeClass.DATAOWNER
+            OwnershipTypeClass.TECHNICAL_OWNER
         )
         owners = [
             OwnerClass(

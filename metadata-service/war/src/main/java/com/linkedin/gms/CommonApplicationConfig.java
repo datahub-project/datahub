@@ -2,7 +2,10 @@ package com.linkedin.gms;
 
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
+import java.util.Set;
 import javax.management.MBeanServer;
+import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.jmx.MBeanContainer;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
@@ -65,12 +68,27 @@ public class CommonApplicationConfig {
   @Bean
   public WebServerFactoryCustomizer<JettyServletWebServerFactory> jettyCustomizer() {
     return factory -> {
+
       // Configure HTTP
       factory.addServerCustomizers(
           server -> {
+
             // HTTP Configuration
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
+
+            // See https://github.com/jetty/jetty.project/issues/11890
+            // Configure URI compliance to allow encoded slashes
+            httpConfig.setUriCompliance(
+                UriCompliance.from(
+                    Set.of(
+                        UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING,
+                        UriCompliance.Violation.SUSPICIOUS_PATH_CHARACTERS)));
+            // set this for Servlet 6+
+            server
+                .getContainedBeans(ServletHandler.class)
+                .forEach(handler -> handler.setDecodeAmbiguousURIs(true));
 
             // HTTP Connector
             ServerConnector connector =

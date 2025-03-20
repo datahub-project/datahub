@@ -323,6 +323,7 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
+from typing import Literal
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
@@ -332,6 +333,13 @@ class AspectBag(TypedDict, total=False):
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+ENTITY_TYPE_NAMES: List[str] = [
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
+]
+EntityTypeName = Literal[
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
+]
 """
     )
 
@@ -346,7 +354,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union, Literal
 
 import functools
 from deprecated.sphinx import deprecated as _sphinx_deprecated
@@ -518,6 +526,36 @@ def get_notebook_id(self) -> str:
 """
     ],
     "tag": [_create_from_id.format(class_name="TagUrn")],
+    "chart": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "ChartUrn":
+    return ChartUrn(
+        dashboard_tool=platform,
+        chart_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
+    "dashboard": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "DashboardUrn":
+    return DashboardUrn(
+        dashboard_tool=platform,
+        dashboard_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
 }
 
 
@@ -672,7 +710,7 @@ if TYPE_CHECKING:
     from datahub.metadata.schema_classes import {key_aspect_class}
 
 class {class_name}(_SpecificUrn):
-    ENTITY_TYPE: ClassVar[str] = "{entity_type}"
+    ENTITY_TYPE: ClassVar[Literal["{entity_type}"]] = "{entity_type}"
     _URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
@@ -714,7 +752,7 @@ class {class_name}(_SpecificUrn):
         code += f"""
     @property
     def {field_name(field)}(self) -> {field_type(field)}:
-        return self.entity_ids[{i}]
+        return self._entity_ids[{i}]
 """
 
     return code

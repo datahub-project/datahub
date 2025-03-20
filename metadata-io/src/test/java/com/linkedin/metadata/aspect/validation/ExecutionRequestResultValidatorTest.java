@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ABORTED;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_CANCELLED;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_DUPLICATE;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_FAILURE;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ROLLING_BACK;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_RUNNING;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_SUCCESS;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_TIMEOUT;
@@ -162,5 +163,132 @@ public class ExecutionRequestResultValidatorTest {
         result.size(),
         deniedUpdateStates.size() * destinationStates.size(),
         "Expected ALL items to be denied.");
+  }
+
+  @Test
+  public void testRollingBackTransitionAllowed() {
+    ExecutionRequestResultValidator test = new ExecutionRequestResultValidator();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    Set<String> immutableStates =
+        Set.of(
+            EXECUTION_REQUEST_STATUS_ABORTED,
+            EXECUTION_REQUEST_STATUS_CANCELLED,
+            EXECUTION_REQUEST_STATUS_SUCCESS,
+            EXECUTION_REQUEST_STATUS_DUPLICATE);
+
+    List<ChangeMCP> testItems =
+        new ArrayList<>(
+            immutableStates.stream()
+                .map(
+                    prevState -> {
+                      SystemAspect prevData = mock(SystemAspect.class);
+                      when(prevData.getRecordTemplate())
+                          .thenReturn(new ExecutionRequestResult().setStatus(prevState));
+                      return ChangeItemImpl.builder()
+                          .changeType(ChangeType.UPSERT)
+                          .urn(TEST_URN)
+                          .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                          .recordTemplate(
+                              new ExecutionRequestResult()
+                                  .setStatus(EXECUTION_REQUEST_STATUS_ROLLING_BACK))
+                          .previousSystemAspect(prevData)
+                          .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                          .build(TEST_CONTEXT.getAspectRetriever());
+                    })
+                .toList());
+
+    List<AspectValidationException> result =
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
+
+    assertTrue(result.isEmpty(), "Expected all transitions to ROLLING_BACK to be allowed");
+  }
+
+  @Test
+  public void testRollingBackToOtherStatesDenied() {
+    ExecutionRequestResultValidator test = new ExecutionRequestResultValidator();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    Set<String> destinationStates =
+        new HashSet<>(
+            Set.of(
+                EXECUTION_REQUEST_STATUS_RUNNING,
+                EXECUTION_REQUEST_STATUS_FAILURE,
+                EXECUTION_REQUEST_STATUS_TIMEOUT,
+                EXECUTION_REQUEST_STATUS_ABORTED,
+                EXECUTION_REQUEST_STATUS_CANCELLED,
+                EXECUTION_REQUEST_STATUS_SUCCESS,
+                EXECUTION_REQUEST_STATUS_DUPLICATE));
+
+    List<ChangeMCP> testItems =
+        new ArrayList<>(
+            destinationStates.stream()
+                .map(
+                    destState -> {
+                      SystemAspect prevData = mock(SystemAspect.class);
+                      when(prevData.getRecordTemplate())
+                          .thenReturn(new ExecutionRequestResult().setStatus(destState));
+                      return ChangeItemImpl.builder()
+                          .changeType(ChangeType.UPSERT)
+                          .urn(TEST_URN)
+                          .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                          .recordTemplate(
+                              new ExecutionRequestResult()
+                                  .setStatus(EXECUTION_REQUEST_STATUS_ROLLING_BACK))
+                          .previousSystemAspect(prevData)
+                          .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                          .build(TEST_CONTEXT.getAspectRetriever());
+                    })
+                .toList());
+
+    List<AspectValidationException> result =
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
+
+    assertEquals(result.size(), 0, "Expected all transitions to ROLLING_BACK to be allowed");
+  }
+
+  @Test
+  public void testSameStatusUpdateFiltered() {
+    ExecutionRequestResultValidator test = new ExecutionRequestResultValidator();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    Set<String> immutableStates =
+        Set.of(
+            EXECUTION_REQUEST_STATUS_ABORTED,
+            EXECUTION_REQUEST_STATUS_CANCELLED,
+            EXECUTION_REQUEST_STATUS_SUCCESS,
+            EXECUTION_REQUEST_STATUS_DUPLICATE);
+
+    List<ChangeMCP> testItems =
+        new ArrayList<>(
+            immutableStates.stream()
+                .map(
+                    state -> {
+                      SystemAspect prevData = mock(SystemAspect.class);
+                      when(prevData.getRecordTemplate())
+                          .thenReturn(new ExecutionRequestResult().setStatus(state));
+                      return ChangeItemImpl.builder()
+                          .changeType(ChangeType.UPSERT)
+                          .urn(TEST_URN)
+                          .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                          .recordTemplate(new ExecutionRequestResult().setStatus(state))
+                          .previousSystemAspect(prevData)
+                          .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                          .build(TEST_CONTEXT.getAspectRetriever());
+                    })
+                .toList());
+
+    List<AspectValidationException> result =
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
+
+    assertEquals(
+        result.size(), immutableStates.size(), "Expected all same-status updates to be filtered");
+
+    // Verify that all exceptions are of type "filter"
+    for (AspectValidationException exception : result) {
+      assertTrue(
+          exception.getMessage().contains("Ignored update"),
+          "Expected filter type exception with 'Ignored update' message");
+    }
   }
 }
