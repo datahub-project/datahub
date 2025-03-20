@@ -3338,6 +3338,21 @@ type InstitutionalMemoryMetadata {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Settings for this record of institutional memory
+  """
+  settings: InstitutionalMemoryMetadataSettings
+}
+
+"""
+Settings for an institutional memory record
+"""
+type InstitutionalMemoryMetadataSettings {
+  """
+  Show record in asset preview like on entity header and search previews
+  """
+  showInAssetPreview: Boolean!
 }
 
 """
@@ -9191,6 +9206,18 @@ input AddLinkInput {
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
+}
+
+input LinkSettingsInput {
+  """
+  Determines whether this link should be shown in the asset preview like entity header and search result cards
+  """
+  showInAssetPreview: Boolean
 }
 
 """
