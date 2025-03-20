@@ -55,10 +55,10 @@ public class ListExecutorConfigsResolver
 
   public ListExecutorConfigsResolver(
       @Nonnull final EntityClient entityClient,
-      @Nonnull final StsClient stsClient,
+      final StsClient stsClient,
       @Nonnull final ExecutorConfiguration executorConfiguration) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
-    _stsClient = Objects.requireNonNull(stsClient, "stsClient must not be null");
+    _stsClient = stsClient;
     _executorConfiguration =
         Objects.requireNonNull(executorConfiguration, "executorConfiguration must not be null");
   }
@@ -168,6 +168,12 @@ public class ListExecutorConfigsResolver
         () -> {
           List<ExecutorConfigs> executorConfigList = new ArrayList<>();
           try {
+            // If AWS_* variables are not passed or incorrect, do not hard fail.
+            // Instead, log a descriptive error and return empty config.
+            if (_stsClient == null) {
+              throw new IllegalArgumentException(
+                  "STS client is null. Make sure AWS_REGION is configured correctly.");
+            }
             AssumeRoleRequest roleRequest =
                 AssumeRoleRequest.builder()
                     .roleArn(this._executorConfiguration.executorRoleArn)
