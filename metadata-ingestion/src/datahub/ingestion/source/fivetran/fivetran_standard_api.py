@@ -596,26 +596,59 @@ class FivetranStandardAPI(FivetranAccessInterface):
         )
 
     def _fetch_missing_columns(self, connector_id: str, schemas: List[Dict]) -> None:
-        """Attempt to fetch missing column information directly for each table."""
+        """Fetch missing column information for tables by schema."""
+        tables_processed = 0
+        tables_updated = 0
+
         for schema in schemas:
             schema_name = schema.get("name", "")
+            tables_needing_columns = []
+
+            # First identify which tables need columns
             for table in schema.get("tables", []):
-                table_name = table.get("name", "")
                 if not table.get("columns") and table.get("enabled", True):
-                    try:
-                        # Try direct column fetching
-                        columns = self.api_client.get_table_columns(
-                            connector_id, schema_name, table_name
-                        )
-                        if columns:
-                            table["columns"] = columns
-                            logger.info(
-                                f"Directly fetched {len(columns)} columns for {schema_name}.{table_name}"
-                            )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to directly fetch columns for {schema_name}.{table_name}: {e}"
-                        )
+                    tables_needing_columns.append(table)
+
+            # If any tables need columns in this schema, fetch them all at once
+            if tables_needing_columns:
+                try:
+                    # URL-encode the schema name
+                    import urllib.parse
+
+                    encoded_schema = urllib.parse.quote(schema_name)
+
+                    # Get all tables for this schema in one request
+                    logger.info(f"Fetching all tables for schema {schema_name}")
+                    response = self.api_client._make_request(
+                        "GET",
+                        f"/connectors/{connector_id}/schemas/{encoded_schema}/tables",
+                    )
+
+                    # Process the response
+                    tables_data = response.get("data", {}).get("items", [])
+                    tables_dict = {table.get("name"): table for table in tables_data}
+
+                    # Update our tables with column information
+                    for table in tables_needing_columns:
+                        tables_processed += 1
+                        table_name = table.get("name", "")
+                        if table_name in tables_dict:
+                            table_data = tables_dict[table_name]
+                            if "columns" in table_data:
+                                table["columns"] = table_data["columns"]
+                                tables_updated += 1
+                                logger.info(
+                                    f"Updated columns for {schema_name}.{table_name}"
+                                )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch tables for schema {schema_name}: {e}"
+                    )
+
+        logger.info(
+            f"Column update complete: {tables_updated}/{tables_processed} tables updated with column information"
+        )
 
     def _collect_source_columns(self, schemas: List[Dict]) -> Dict[str, Dict[str, str]]:
         """

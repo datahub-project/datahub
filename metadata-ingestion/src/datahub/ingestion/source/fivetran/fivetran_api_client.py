@@ -170,88 +170,48 @@ class FivetranAPIClient:
         self, connector_id: str, schema_name: str, table_name: str
     ) -> List[Dict]:
         """
-        Get detailed column information for a specific table using the tables API endpoint.
-        This is more reliable for column information than the schemas endpoint.
+        Get detailed column information for a specific table by querying the schema's tables endpoint.
 
         Args:
             connector_id: The Fivetran connector ID
             schema_name: The schema name
-            table_name: The table name
+            table_name: The table name to find columns for
 
         Returns:
             List of column dictionaries with name, type, and other properties
         """
         try:
-            # URL-encode the schema and table names to handle special characters
+            # URL-encode the schema name to handle special characters
             import urllib.parse
 
             encoded_schema = urllib.parse.quote(schema_name)
-            encoded_table = urllib.parse.quote(table_name)
-
-            logger.info(f"Fetching column info directly for {schema_name}.{table_name}")
-
-            # Make the API request for detailed table information
-            response = self._make_request(
-                "GET",
-                f"/connectors/{connector_id}/schemas/{encoded_schema}/tables/{encoded_table}",
-            )
-
-            # Extract column information
-            table_data = response.get("data", {})
-            logger.debug(f"Table API response structure: {list(table_data.keys())}")
-
-            columns_data = table_data.get("columns", {})
-
-            # Convert column data to a list format if it's a dictionary
-            columns = []
-            if isinstance(columns_data, dict):
-                for col_name, col_info in columns_data.items():
-                    if isinstance(col_info, dict):
-                        col_entry = (
-                            col_info.copy()
-                        )  # Create a copy to avoid modifying the original
-                        col_entry["name"] = col_name
-
-                        # Ensure there's an enabled field
-                        if "enabled" not in col_entry:
-                            col_entry["enabled"] = True
-
-                        # Add the column if it's enabled
-                        if col_entry.get("enabled", True):
-                            columns.append(col_entry)
-                    else:
-                        # Simple case where we just have column names
-                        columns.append({"name": col_name, "enabled": True})
-            elif isinstance(columns_data, list):
-                columns = [col for col in columns_data if col.get("enabled", True)]
-
-            # Check if we have name_in_destination info
-            for col in columns:
-                if (
-                    isinstance(col, dict)
-                    and "name_in_destination" not in col
-                    and "name" in col
-                ):
-                    # Add name_in_destination based on destination platform
-                    destination = self.detect_destination_platform(
-                        table_data.get("destination_id", "")
-                    )
-                    if destination.lower() == "bigquery":
-                        # Convert to snake_case for BigQuery
-                        import re
-
-                        name = col["name"]
-                        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-                        s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-                        col["name_in_destination"] = s2.lower()
-                    elif destination.lower() in ["snowflake", "redshift"]:
-                        # Convert to uppercase for Snowflake/Redshift
-                        col["name_in_destination"] = col["name"].upper()
 
             logger.info(
-                f"Retrieved {len(columns)} columns for {schema_name}.{table_name} via direct table API"
+                f"Fetching column info for {schema_name}.{table_name} from schema tables endpoint"
             )
-            return columns
+
+            # Request all tables for this schema
+            response = self._make_request(
+                "GET", f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
+            )
+
+            # Extract tables from the response
+            tables_data = response.get("data", {}).get("items", [])
+
+            # Find the requested table
+            for table in tables_data:
+                if table.get("name") == table_name:
+                    # Extract column information
+                    columns = table.get("columns", [])
+                    logger.info(
+                        f"Found {len(columns)} columns for {schema_name}.{table_name}"
+                    )
+                    return columns
+
+            logger.warning(
+                f"Table {table_name} not found in schema {schema_name} response"
+            )
+            return []
 
         except Exception as e:
             logger.warning(f"Failed to get columns for {schema_name}.{table_name}: {e}")
