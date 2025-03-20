@@ -132,6 +132,22 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(preset,10)",
@@ -180,6 +196,22 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
         }
     },
     "systemMetadata": {
@@ -246,6 +278,22 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(preset,12)",
@@ -294,6 +342,22 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
         }
     },
     "systemMetadata": {
