@@ -2,25 +2,29 @@ import React, { useMemo, useState } from 'react';
 import { message, Typography } from 'antd';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { navigateWithFilters } from '@src/app/sharedV2/filters/navigateWithFilters';
-import { useHistory, useLocation } from 'react-router';
 import { SearchBar, Pagination } from '@src/alchemy-components';
 import FilterSection from '@src/app/sharedV2/filters/FilterSection';
-import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
-import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
+import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import ProposalsTable from './proposalsTable/ProposalsTable';
-import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput } from '../../../types.generated';
+import { ActionRequest, ActionRequestAssignee, EntityType } from '../../../types.generated';
+import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import ActionsBar from './ActionsBar';
 import { ACTION_REQUEST_DEFAULT_FACETS, PROPOSALS_FILTER_LABELS } from '../utils/constants';
 import { MY_PROPOSALS_GROUP_NAME } from './utils';
+import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
 
-const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+const DEFAULT_PAGE_SIZE = 25;
+
+const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean; $height?: string }>`
     overflow: hidden;
     flex: 1;
     display: flex;
     flex-direction: column;
-    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 200px);'}
-    margin: 20px;
+    // TODO: Test this in old UI
+    ${(props) =>
+        `
+        height: ${props.$height ? props.$height : '100%'};
+    `}
 `;
 
 const Container = styled.div`
@@ -28,7 +32,6 @@ const Container = styled.div`
 `;
 
 const FooterContainer = styled.div`
-    margin-top: 15px;
     position: relative;
 `;
 
@@ -37,8 +40,6 @@ const ActionRequestsTitle = styled(Typography.Title)`
         margin-bottom: 24px;
     }
 `;
-
-const DEFAULT_PAGE_SIZE = 25;
 
 const ProposalsTableHeader = styled.div`
     display: flex;
@@ -51,18 +52,27 @@ type Props = {
     onProposalClick?: (record: ActionRequest) => void;
     groupName?: string;
     userUrn?: string;
+    resourceUrn?: string;
+    showFilters?: boolean;
+    useUrlParams?: boolean;
+    height?: string;
 };
 
-export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalClick }: Props) => {
-    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+export const ProposalList = ({
+    title,
+    assignee,
+    onProposalClick,
+    groupName,
+    userUrn,
+    resourceUrn,
+    showFilters = false,
+    useUrlParams = true,
+    height,
+}: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { page, orFilters, filters } = useGetActionRequestsQueryInputs();
-    const history = useHistory();
-    const location = useLocation();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
-
-    // Policy list paging.
-    const start = (page - 1) * pageSize;
+    const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
+    const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({ useUrlParams });
 
     const { loading, error, data, refetch } = useListActionRequestsQuery({
         variables: {
@@ -71,30 +81,13 @@ export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalCl
                 count: pageSize,
                 orFilters,
                 assignee,
-                // This can be converted to prop if needed.
+                resourceUrn,
+                // facets can be converted to prop if needed.
                 facets: ACTION_REQUEST_DEFAULT_FACETS,
             },
         },
         fetchPolicy: 'no-cache',
     });
-
-    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateWithFilters({
-            filters: newFilters,
-            page,
-            history,
-            location,
-        });
-    };
-
-    const onChangePage = (newPage: number) => {
-        navigateWithFilters({
-            filters,
-            page: newPage,
-            history,
-            location,
-        });
-    };
 
     // TODO: Remove this filtering if we are passing facets to the API
     const facets =
@@ -104,7 +97,7 @@ export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalCl
 
     let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
 
-    // TODO: Should we do fetch by resource Urn instead? We have to reset the filters anyway
+    // TODO: Should we do fetch by userUrn instead? We have to reset the filters anyway
     if (groupName === MY_PROPOSALS_GROUP_NAME) {
         actionRequests = actionRequests.filter((request) => request.created.actor?.urn === userUrn);
     }
@@ -119,21 +112,23 @@ export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalCl
     return (
         <FinalContainer>
             {error && message.error('Failed to load proposals. An unknown error occurred!')}
-            <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign} $height={height}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
-                <ProposalsTableHeader>
-                    {/* TODO: Repleace SearchBar with Entity Search option here */}
-                    <SearchBar />
-                    <FilterSection
-                        name="proposals"
-                        loading={loading}
-                        availableFilters={facets || []}
-                        activeFilters={filters}
-                        onChangeFilters={onChangeFilters}
-                        customFilterLabels={PROPOSALS_FILTER_LABELS}
-                        aggregationsEntityTypes={[EntityType.ActionRequest]}
-                    />
-                </ProposalsTableHeader>
+                {showFilters && (
+                    <ProposalsTableHeader>
+                        {/* TODO: Repleace SearchBar with Entity Search option here */}
+                        <SearchBar />
+                        <FilterSection
+                            name="proposals"
+                            loading={loading}
+                            availableFilters={facets || []}
+                            activeFilters={filters}
+                            onChangeFilters={onChangeFilters}
+                            customFilterLabels={PROPOSALS_FILTER_LABELS}
+                            aggregationsEntityTypes={[EntityType.ActionRequest]}
+                        />
+                    </ProposalsTableHeader>
+                )}
                 <ProposalsTable
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
@@ -154,7 +149,7 @@ export const ProposalList = ({ title, assignee, groupName, userUrn, onProposalCl
                         currentPage={page}
                         itemsPerPage={pageSize}
                         totalPages={totalActionRequests}
-                        onPageChange={onChangePage}
+                        onPageChange={(newPage) => setPage(newPage)}
                         showSizeChanger
                         onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
                         loading={loading}

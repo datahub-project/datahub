@@ -1,7 +1,12 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { ProposalList } from '@src/app/taskCenterV2/proposalsV2/ProposalList';
+import { ListChecks } from '@phosphor-icons/react';
+import { colors, Modal } from '@src/alchemy-components';
+import { entityHasProposals } from '@src/app/taskCenterV2/proposalsV2/utils';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import { EntitySidebarTab } from '../../../types';
@@ -54,6 +59,21 @@ const RightActions = styled.div`
     gap: 3px;
 `;
 
+const TasksIcon = styled.span`
+    position: relative;
+`;
+
+const PillDot = styled.div<{ $isSelected?: boolean }>`
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: ${colors.violet[500]};
+    border-radius: 6px;
+    border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
+    top: -2px;
+    left: 14px;
+`;
+
 interface Props {
     currentTab?: EntitySidebarTab;
     headerDropdownItems?: Set<EntityMenuItems>;
@@ -61,6 +81,9 @@ interface Props {
 
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
     const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
+    const [showProposalsModal, setShowProposalsModal] = useState(false);
 
     const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
     const currentTabDescription = currentTab?.description;
@@ -77,6 +100,15 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
+                            {showTaskCenterRedesign && entityHasProposals(entityData) && (
+                                <Tooltip title="Tasks" placement="right">
+                                    <TasksIcon>
+                                        <ListChecks onClick={() => setShowProposalsModal(true)} size={20} />
+                                        {/* Always show the PillDot for now */}
+                                        <PillDot />
+                                    </TasksIcon>
+                                </Tooltip>
+                            )}
                             {actionType && <TitleAction actionType={actionType} icon={icon} />}
                             {forLineage && (
                                 <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
@@ -95,6 +127,12 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     </Top>
 
                     {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
+                    {showProposalsModal && (
+                        // TODO: Add Proposals count Badge in the Modal title
+                        <Modal buttons={[]} width="90%" title="Proposals" onCancel={() => setShowProposalsModal(false)}>
+                            <ProposalList resourceUrn={urn} useUrlParams={false} height="700px" />
+                        </Modal>
+                    )}
                 </Title>
             )}
         </Controls>

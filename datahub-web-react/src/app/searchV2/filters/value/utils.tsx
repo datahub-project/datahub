@@ -40,7 +40,17 @@ export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
  *
  * TODO: Determine if we need to provide an option context that would help with filtering.
  */
-export const useLoadAggregationOptions = (field: FilterField, visible: boolean, includeCounts: boolean) => {
+export const useLoadAggregationOptions = ({
+    field,
+    visible,
+    includeCounts,
+    aggregationsEntityTypes,
+}: {
+    field: FilterField;
+    visible: boolean;
+    includeCounts: boolean;
+    aggregationsEntityTypes?: Array<EntityType>;
+}) => {
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [field.field], [field.field]),
     );
@@ -53,7 +63,7 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_COUNT,
                 },
-                types: field.field === ENTITY_FILTER_NAME ? null : entityFilters,
+                types: aggregationsEntityTypes || (field.field === ENTITY_FILTER_NAME ? null : entityFilters),
                 orFilters,
                 viewUrn,
             },

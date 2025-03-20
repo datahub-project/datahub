@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
-import { FacetFilterInput } from '@src/types.generated';
+import { EntityType, FacetFilterInput } from '@src/types.generated';
 import React, { useEffect, useRef, useState } from 'react';
 import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
 import TextValueMenu from './TextValueMenu';
@@ -21,6 +21,7 @@ interface Props {
     includeCount?: boolean;
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function ValueMenu({
@@ -33,6 +34,7 @@ export default function ValueMenu({
     includeCount,
     className,
     manuallyUpdateFilters,
+    aggregationsEntityTypes,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
@@ -121,6 +123,7 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
         case FieldType.ENUM:
@@ -134,6 +137,7 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
         case FieldType.BUCKETED_TIMESTAMP:

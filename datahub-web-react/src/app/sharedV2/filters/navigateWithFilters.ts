@@ -4,19 +4,16 @@ import filtersToQueryStringParams from '../../searchV2/utils/filtersToQueryStrin
 
 export const navigateWithFilters = ({
     filters,
-    page = 1,
     history,
     location,
 }: {
     filters?: Array<FacetFilterInput>;
-    page?: number;
     history: any;
     location: any;
 }) => {
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(filters || []),
-            page,
         },
         { arrayFormat: 'comma' },
     );

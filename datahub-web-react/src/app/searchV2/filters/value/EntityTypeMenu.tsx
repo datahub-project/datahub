@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import React, { useState } from 'react';
+import { EntityType } from '@src/types.generated';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -18,6 +19,7 @@ interface Props {
     includeSubTypes?: boolean;
     includeCount?: boolean;
     className?: string;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function EntityTypeMenu({
@@ -30,6 +32,7 @@ export default function EntityTypeMenu({
     includeSubTypes = true,
     includeCount = false,
     className,
+    aggregationsEntityTypes,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -38,7 +41,12 @@ export default function EntityTypeMenu({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
+    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
+        field,
+        visible: true,
+        includeCounts: includeCount,
+        aggregationsEntityTypes,
+    });
 
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 

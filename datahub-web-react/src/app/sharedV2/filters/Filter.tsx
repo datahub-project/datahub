@@ -91,6 +91,7 @@ export default function Filter({
             values={currentFilterPredicate?.values}
             defaultOptions={finalAggregations}
             onChangeValues={updateFilters}
+            aggregationsEntityTypes={aggregationsEntityTypes}
         >
             <FilterLabel
                 $isActive={!!numActiveFilters}
