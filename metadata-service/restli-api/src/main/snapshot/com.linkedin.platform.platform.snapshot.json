@@ -45,7 +45,7 @@
     "type" : "record",
     "name" : "ChartInfo",
     "namespace" : "com.linkedin.chart",
-    "doc" : "Information about a chart",
+    "doc" : "Information about a chart\r",
     "include" : [ {
       "type" : "record",
       "name" : "CustomProperties",
@@ -92,7 +92,7 @@
     "fields" : [ {
       "name" : "title",
       "type" : "string",
-      "doc" : "Title of the chart",
+      "doc" : "Title of the chart\r",
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
@@ -102,7 +102,7 @@
     }, {
       "name" : "description",
       "type" : "string",
-      "doc" : "Detailed description about the chart",
+      "doc" : "Detailed description about the chart\r",
       "Searchable" : { }
     }, {
       "name" : "lastModified",
@@ -169,11 +169,11 @@
           "optional" : true
         } ]
       },
-      "doc" : "Captures information about who created/last modified/deleted this chart and when"
+      "doc" : "Captures information about who created/last modified/deleted this chart and when\r"
     }, {
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
-      "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
+      "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart\r",
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD"
@@ -184,7 +184,7 @@
         "type" : "array",
         "items" : "ChartDataSourceType"
       },
-      "doc" : "Data sources for the chart\nDeprecated! Use inputEdges instead.",
+      "doc" : "Data sources for the chart\r\nDeprecated! Use inputEdges instead.\r",
       "optional" : true,
       "Relationship" : {
         "/*/string" : {
@@ -233,7 +233,7 @@
           } ]
         }
       },
-      "doc" : "Data sources for the chart",
+      "doc" : "Data sources for the chart\r",
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -262,7 +262,7 @@
           "TEXT" : "Chart showing Markdown formatted text"
         }
       },
-      "doc" : "Type of the chart",
+      "doc" : "Type of the chart\r",
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
@@ -282,7 +282,7 @@
           "PUBLIC" : "Publicly available access level"
         }
       },
-      "doc" : "Access level for the chart",
+      "doc" : "Access level for the chart\r",
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
@@ -292,7 +292,7 @@
     }, {
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
-      "doc" : "The time when this chart last refreshed",
+      "doc" : "The time when this chart last refreshed\r",
       "optional" : true
     } ],
     "Aspect" : {
@@ -797,11 +797,11 @@
     "type" : "record",
     "name" : "Deprecation",
     "namespace" : "com.linkedin.common",
-    "doc" : "Deprecation status of an entity",
+    "doc" : "Deprecation status of an entity\r",
     "fields" : [ {
       "name" : "deprecated",
       "type" : "boolean",
-      "doc" : "Whether the entity is deprecated.",
+      "doc" : "Whether the entity is deprecated.\r",
       "Searchable" : {
         "fieldType" : "BOOLEAN",
         "weightsPerFieldValue" : {
@@ -811,16 +811,16 @@
     }, {
       "name" : "decommissionTime",
       "type" : "Time",
-      "doc" : "The time user plan to decommission this entity.",
+      "doc" : "The time user plan to decommission this entity.\r",
       "optional" : true
     }, {
       "name" : "note",
       "type" : "string",
-      "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
+      "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB.\r"
     }, {
       "name" : "actor",
       "type" : "Urn",
-      "doc" : "The user URN which will be credited for modifying this deprecation content."
+      "doc" : "The user URN which will be credited for modifying this deprecation content.\r"
     }, {
       "name" : "replacement",
       "type" : "Urn",
@@ -1007,7 +1007,7 @@
     "type" : "record",
     "name" : "GlossaryTermAssociation",
     "namespace" : "com.linkedin.common",
-    "doc" : "Properties of an applied glossary term.",
+    "doc" : "Properties of an applied glossary term.\r",
     "fields" : [ {
       "name" : "urn",
       "type" : {
@@ -1037,7 +1037,7 @@
           }
         }
       },
-      "doc" : "Urn of the applied glossary term",
+      "doc" : "Urn of the applied glossary term\r",
       "Relationship" : {
         "entityTypes" : [ "glossaryTerm" ],
         "name" : "TermedWith"
@@ -1054,17 +1054,17 @@
     }, {
       "name" : "actor",
       "type" : "Urn",
-      "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "doc" : "The user URN which will be credited for adding associating this term to the entity\r",
       "optional" : true
     }, {
       "name" : "context",
       "type" : "string",
-      "doc" : "Additional context about the association",
+      "doc" : "Additional context about the association\r",
       "optional" : true
     }, {
       "name" : "attribution",
       "type" : "MetadataAttribution",
-      "doc" : "Information about who, why, and how this metadata was applied",
+      "doc" : "Information about who, why, and how this metadata was applied\r",
       "optional" : true,
       "Searchable" : {
         "/actor" : {
@@ -1411,7 +1411,7 @@
     "type" : "record",
     "name" : "VersionTag",
     "namespace" : "com.linkedin.common",
-    "doc" : "A resource-defined string representing the resource state for the purpose of concurrency control",
+    "doc" : "A resource-defined string representing the resource state for the purpose of concurrency control\r",
     "fields" : [ {
       "name" : "versionTag",
       "type" : "string",
@@ -1425,12 +1425,12 @@
     "type" : "record",
     "name" : "DashboardInfo",
     "namespace" : "com.linkedin.dashboard",
-    "doc" : "Information about a dashboard",
+    "doc" : "Information about a dashboard\r",
     "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
       "name" : "title",
       "type" : "string",
-      "doc" : "Title of the dashboard",
+      "doc" : "Title of the dashboard\r",
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
@@ -1440,7 +1440,7 @@
     }, {
       "name" : "description",
       "type" : "string",
-      "doc" : "Detailed description about the dashboard",
+      "doc" : "Detailed description about the dashboard\r",
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription"
@@ -1451,7 +1451,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.ChartUrn"
       },
-      "doc" : "Charts in a dashboard\nDeprecated! Use chartEdges instead.",
+      "doc" : "Charts in a dashboard\r\nDeprecated! Use chartEdges instead.\r",
       "default" : [ ],
       "Relationship" : {
         "/*" : {
@@ -1467,7 +1467,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Edge"
       },
-      "doc" : "Charts in a dashboard",
+      "doc" : "Charts in a dashboard\r",
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -1487,7 +1487,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Datasets consumed by a dashboard\nDeprecated! Use datasetEdges instead.",
+      "doc" : "Datasets consumed by a dashboard\r\nDeprecated! Use datasetEdges instead.\r",
       "default" : [ ],
       "Relationship" : {
         "/*" : {
@@ -1503,7 +1503,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Edge"
       },
-      "doc" : "Datasets consumed by a dashboard",
+      "doc" : "Datasets consumed by a dashboard\r",
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -1523,7 +1523,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Edge"
       },
-      "doc" : "Dashboards included by this dashboard.\nSome dashboard entities (e.g. PowerBI Apps) can contain other dashboards.\n\nThe Edge's sourceUrn should never be set, as it will always be the base dashboard.",
+      "doc" : "Dashboards included by this dashboard.\r\nSome dashboard entities (e.g. PowerBI Apps) can contain other dashboards.\r\n\r\nThe Edge's sourceUrn should never be set, as it will always be the base dashboard.\r",
       "default" : [ ],
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -1540,11 +1540,11 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when\r"
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
-      "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
+      "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard\r",
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD"
@@ -1552,7 +1552,7 @@
     }, {
       "name" : "access",
       "type" : "com.linkedin.common.AccessLevel",
-      "doc" : "Access level for the dashboard",
+      "doc" : "Access level for the dashboard\r",
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
@@ -1562,7 +1562,7 @@
     }, {
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
-      "doc" : "The time when this dashboard last refreshed",
+      "doc" : "The time when this dashboard last refreshed\r",
       "optional" : true
     } ],
     "Aspect" : {
@@ -2740,12 +2740,12 @@
                   "type" : "record",
                   "name" : "CorpUserInfo",
                   "namespace" : "com.linkedin.identity",
-                  "doc" : "Linkedin corp user information",
+                  "doc" : "Linkedin corp user information\r",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
-                    "doc" : "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                    "doc" : "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools\r",
                     "Searchable" : {
                       "fieldType" : "BOOLEAN",
                       "weightsPerFieldValue" : {
@@ -2755,7 +2755,7 @@
                   }, {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
+                    "doc" : "displayName of this user ,  e.g.  Hang Zhang(DataHQ)\r",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -2767,7 +2767,7 @@
                   }, {
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
-                    "doc" : "email address of this user",
+                    "doc" : "email address of this user\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "KEYWORD",
@@ -2776,7 +2776,7 @@
                   }, {
                     "name" : "title",
                     "type" : "string",
-                    "doc" : "title of this user",
+                    "doc" : "title of this user\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "KEYWORD",
@@ -2785,7 +2785,7 @@
                   }, {
                     "name" : "managerUrn",
                     "type" : "com.linkedin.common.CorpuserUrn",
-                    "doc" : "direct manager of this user",
+                    "doc" : "direct manager of this user\r",
                     "optional" : true,
                     "Relationship" : {
                       "entityTypes" : [ "corpuser" ],
@@ -2799,27 +2799,27 @@
                   }, {
                     "name" : "departmentId",
                     "type" : "long",
-                    "doc" : "department id this user belong to",
+                    "doc" : "department id this user belong to\r",
                     "optional" : true
                   }, {
                     "name" : "departmentName",
                     "type" : "string",
-                    "doc" : "department name this user belong to",
+                    "doc" : "department name this user belong to\r",
                     "optional" : true
                   }, {
                     "name" : "firstName",
                     "type" : "string",
-                    "doc" : "first name of this user",
+                    "doc" : "first name of this user\r",
                     "optional" : true
                   }, {
                     "name" : "lastName",
                     "type" : "string",
-                    "doc" : "last name of this user",
+                    "doc" : "last name of this user\r",
                     "optional" : true
                   }, {
                     "name" : "fullName",
                     "type" : "string",
-                    "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
+                    "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)\r",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -2830,12 +2830,12 @@
                   }, {
                     "name" : "countryCode",
                     "type" : "string",
-                    "doc" : "two uppercase letters country code. e.g.  US",
+                    "doc" : "two uppercase letters country code. e.g.  US\r",
                     "optional" : true
                   }, {
                     "name" : "system",
                     "type" : "boolean",
-                    "doc" : "Whether the corpUser is a system user.",
+                    "doc" : "Whether the corpUser is a system user.\r",
                     "default" : false,
                     "optional" : true,
                     "Searchable" : {
@@ -3748,15 +3748,15 @@
                       "items" : {
                         "type" : "record",
                         "name" : "EditableSchemaFieldInfo",
-                        "doc" : "SchemaField to describe metadata related to dataset schema.",
+                        "doc" : "SchemaField to describe metadata related to dataset schema.\r",
                         "fields" : [ {
                           "name" : "fieldPath",
                           "type" : "string",
-                          "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                          "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with\r"
                         }, {
                           "name" : "description",
                           "type" : "string",
-                          "doc" : "Description",
+                          "doc" : "Description\r",
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.1,
@@ -3766,7 +3766,7 @@
                         }, {
                           "name" : "globalTags",
                           "type" : "com.linkedin.common.GlobalTags",
-                          "doc" : "Tags associated with the field",
+                          "doc" : "Tags associated with the field\r",
                           "optional" : true,
                           "Relationship" : {
                             "/tags/*/tag" : {
@@ -3798,7 +3798,7 @@
                         }, {
                           "name" : "glossaryTerms",
                           "type" : "com.linkedin.common.GlossaryTerms",
-                          "doc" : "Glossary terms associated with the field",
+                          "doc" : "Glossary terms associated with the field\r",
                           "optional" : true,
                           "Relationship" : {
                             "/terms/*/urn" : {
@@ -4001,18 +4001,18 @@
                   "type" : "record",
                   "name" : "MLModelProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with a ML Model",
+                  "doc" : "Properties associated with a ML Model\r",
                   "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
                     "type" : "record",
                     "name" : "MLModelLineageInfo",
-                    "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
+                    "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
                     "fields" : [ {
                       "name" : "trainingJobs",
                       "type" : {
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
+                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
@@ -4027,7 +4027,7 @@
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) that use the model or group.",
+                      "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
@@ -4042,7 +4042,7 @@
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Display name of the MLModel",
+                    "doc" : "Display name of the MLModel\r",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -4053,7 +4053,7 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModel",
+                    "doc" : "Documentation of the MLModel\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -4062,28 +4062,28 @@
                   }, {
                     "name" : "date",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModel was developed",
+                    "doc" : "Date when the MLModel was developed\r",
                     "optional" : true,
                     "deprecated" : true
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Audit stamp containing who created this and when",
+                    "doc" : "Audit stamp containing who created this and when\r",
                     "optional" : true
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModel was last modified",
+                    "doc" : "Date when the MLModel was last modified\r",
                     "optional" : true
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModel",
+                    "doc" : "Version of the MLModel\r",
                     "optional" : true
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
+                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
@@ -4099,7 +4099,7 @@
                         "ref" : [ "string", "int", "float", "double", "boolean" ]
                       }
                     },
-                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+                    "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
                     "optional" : true
                   }, {
                     "name" : "hyperParams",
@@ -4134,7 +4134,7 @@
                         }
                       }
                     },
-                    "doc" : "Hyperparameters of the MLModel",
+                    "doc" : "Hyperparameters of the MLModel\r",
                     "optional" : true
                   }, {
                     "name" : "trainingMetrics",
@@ -4169,7 +4169,7 @@
                         }
                       }
                     },
-                    "doc" : "Metrics of the MLModel used in training",
+                    "doc" : "Metrics of the MLModel used in training\r",
                     "optional" : true
                   }, {
                     "name" : "onlineMetrics",
@@ -4177,7 +4177,7 @@
                       "type" : "array",
                       "items" : "MLMetric"
                     },
-                    "doc" : "Metrics of the MLModel used in production",
+                    "doc" : "Metrics of the MLModel used in production\r",
                     "optional" : true
                   }, {
                     "name" : "mlFeatures",
@@ -4185,7 +4185,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.MLFeatureUrn"
                     },
-                    "doc" : "List of features used for MLModel training",
+                    "doc" : "List of features used for MLModel training\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -4200,7 +4200,7 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "Tags for the MLModel",
+                    "doc" : "Tags for the MLModel\r",
                     "default" : [ ]
                   }, {
                     "name" : "deployments",
@@ -4208,7 +4208,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Deployments for the MLModel",
+                    "doc" : "Deployments for the MLModel\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -4222,7 +4222,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Groups the model belongs to",
+                    "doc" : "Groups the model belongs to\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -5025,12 +5025,12 @@
                   "type" : "record",
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with an ML Model Group",
-                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo" ],
+                  "doc" : "Properties associated with an ML Model Group\r",
+                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Display name of the MLModelGroup",
+                    "doc" : "Display name of the MLModelGroup\r",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -5041,7 +5041,7 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModelGroup",
+                    "doc" : "Documentation of the MLModelGroup\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -5050,23 +5050,23 @@
                   }, {
                     "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModelGroup was developed",
+                    "doc" : "Date when the MLModelGroup was developed\r",
                     "optional" : true,
                     "deprecated" : true
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Time and Actor who created the MLModelGroup",
+                    "doc" : "Time and Actor who created the MLModelGroup\r",
                     "optional" : true
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModelGroup was last modified",
+                    "doc" : "Date when the MLModelGroup was last modified\r",
                     "optional" : true
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModelGroup",
+                    "doc" : "Version of the MLModelGroup\r",
                     "optional" : true
                   } ],
                   "Aspect" : {
