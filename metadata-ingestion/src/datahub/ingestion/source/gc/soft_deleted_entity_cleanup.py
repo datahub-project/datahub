@@ -19,25 +19,6 @@ from datahub.utilities.urns._urn_base import Urn
 
 logger = logging.getLogger(__name__)
 
-QUERY_ENTITIES = """
-query listEntities($input: ScrollAcrossEntitiesInput!) {
-  scrollAcrossEntities(input: $input) {
-    nextScrollId
-    count
-    searchResults {
-      entity {
-        ... on QueryEntity {
-          urn
-        }
-        ... on DataProcessInstance {
-          urn
-        }
-      }
-    }
-  }
-}
-"""
-
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     enabled: bool = Field(
@@ -66,30 +47,30 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     entity_types: Optional[List[str]] = Field(
         # A default value is required otherwise QUERY and DATAPROCESS_INSTANCE won't be included
         default=[
-            "DATASET",
-            "DASHBOARD",
-            "CHART",
-            "MLMODEL",
-            "MLMODEL_GROUP",
-            "MLFEATURE_TABLE",
-            "MLFEATURE",
-            "MLPRIMARY_KEY",
-            "DATA_FLOW",
-            "DATA_JOB",
-            "GLOSSARY_TERM",
-            "GLOSSARY_NODE",
-            "TAG",
-            "ROLE",
-            "CORP_USER",
-            "CORP_GROUP",
-            "CONTAINER",
-            "DOMAIN",
-            "DATA_PRODUCT",
-            "NOTEBOOK",
-            "BUSINESS_ATTRIBUTE",
-            "SCHEMA_FIELD",
-            "QUERY",
-            "DATA_PROCESS_INSTANCE",
+            "dataset",
+            "dashboard",
+            "chart",
+            "mlmodel",
+            "mlmodelGroup",
+            "mlfeatureTable",
+            "mlfeature",
+            "mlprimaryKey",
+            "dataFlow",
+            "dataJob",
+            "glossaryTerm",
+            "glossaryNode",
+            "tag",
+            "role",
+            "corpuser",
+            "corpGroup",
+            "container",
+            "domain",
+            "dataProduct",
+            "notebook",
+            "businessAttribute",
+            "schemaField",
+            "query",
+            "dataProcessInstance",
         ],
         description="List of entity types to cleanup",
     )
