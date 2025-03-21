@@ -122,7 +122,9 @@ export default function MLModelSummary() {
                     </InfoItem>
                     {model?.deployedTo?.relationships && (
                         <InfoItem title="Deployment">
-                            <InfoItemContent>{model?.deployedTo?.relationships?.map((relationship) => relationship.entity)}</InfoItemContent>
+                            <InfoItemContent>
+                                {model?.deployedTo?.relationships?.map((relationship) => relationship.entity)}
+                            </InfoItemContent>
                         </InfoItem>
                     )}
                 </InfoItemContainer>

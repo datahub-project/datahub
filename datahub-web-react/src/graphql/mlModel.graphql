@@ -45,7 +45,7 @@ query getMLModel($urn: String!) {
                 type
                 direction
                 entity {
-                    ...on MLModelDeployment {
+                    ... on MLModelDeployment {
                         urn
                         name
                         platform
