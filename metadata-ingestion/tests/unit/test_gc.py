@@ -2,7 +2,8 @@ import time
 import unittest
 from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from typing import Dict, List
+from unittest.mock import MagicMock, call, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
@@ -543,6 +544,249 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         self.assertEqual(
             self.report.num_soft_deleted_retained_due_to_age, 1
         )  # Should increment
+
+
+class TestCleanupSoftDeletedEntities(unittest.TestCase):
+    """Tests for the cleanup_soft_deleted_entities method."""
+
+    def setUp(self) -> None:
+        # Create mocks for dependencies
+        self.mock_graph: MagicMock = MagicMock(spec=DataHubGraph)
+        self.mock_ctx: MagicMock = MagicMock(spec=PipelineContext)
+        self.mock_ctx.graph = self.mock_graph
+
+        # Create a default config
+        self.config: SoftDeletedEntitiesCleanupConfig = (
+            SoftDeletedEntitiesCleanupConfig(
+                enabled=True,
+                retention_days=10,
+                batch_size=100,
+                max_workers=5,
+                futures_max_at_time=10,
+            )
+        )
+
+        # Create a report
+        self.report: SoftDeletedEntitiesReport = SoftDeletedEntitiesReport()
+
+        # Create the test instance
+        self.cleanup: SoftDeletedEntitiesCleanup = SoftDeletedEntitiesCleanup(
+            ctx=self.mock_ctx,
+            config=self.config,
+            report=self.report,
+        )
+
+        # Sample URNs for testing
+        self.sample_urns: List[str] = [
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,PageViewEvent,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,PageViewEvent2,PROD)",
+            "urn:li:dashboard:(looker,dashboard1)",
+        ]
+
+        # Parsed URN objects
+        self.parsed_urns: List[Urn] = [Urn.from_string(urn) for urn in self.sample_urns]
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_disabled(self, mock_executor_class: MagicMock) -> None:
+        """Test that cleanup doesn't run when disabled."""
+        # Disable cleanup
+        self.config.enabled = False
+
+        # Mock methods to check they're not called
+        with patch.object(self.cleanup, "_get_urns") as mock_get_urns:
+            self.cleanup.cleanup_soft_deleted_entities()
+
+            # Verify that nothing happens when disabled
+            mock_get_urns.assert_not_called()
+            mock_executor_class.assert_not_called()
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_with_valid_urns(self, mock_executor_class: MagicMock) -> None:
+        """Test the main cleanup method with valid URNs."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Mock futures
+        mock_futures: List[MagicMock] = [
+            MagicMock(spec=Future) for _ in range(len(self.sample_urns))
+        ]
+        mock_executor.submit.side_effect = mock_futures
+
+        # Set up _get_urns to return our sample URNs
+        with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
+            # Mock _process_futures to simulate completion
+            with patch.object(self.cleanup, "_process_futures", return_value={}):
+                # Mock _print_report to avoid timing issues
+                with patch.object(self.cleanup, "_print_report"):
+                    # Run cleanup
+                    self.cleanup.cleanup_soft_deleted_entities()
+
+                    # Verify executor was created with correct workers
+                    mock_executor_class.assert_called_once_with(
+                        max_workers=self.config.max_workers
+                    )
+
+                    # Verify submit was called for each urn
+                    self.assertEqual(
+                        mock_executor.submit.call_count, len(self.sample_urns)
+                    )
+
+                    # Check that the correct method and parameters were used
+                    expected_calls: List = [
+                        call(
+                            self.cleanup.delete_soft_deleted_entity,
+                            Urn.from_string(urn),
+                        )
+                        for urn in self.sample_urns
+                    ]
+
+                    mock_executor.submit.assert_has_calls(expected_calls)
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_with_invalid_urns(self, mock_executor_class: MagicMock) -> None:
+        """Test how the cleanup handles invalid URNs."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Valid and invalid URNs
+        mixed_urns: List[str] = self.sample_urns + ["invalid:urn:format"]
+
+        # Set up _get_urns to return mixed URNs
+        with patch.object(self.cleanup, "_get_urns", return_value=mixed_urns):
+            # Mock _process_futures to simulate completion
+            with patch.object(self.cleanup, "_process_futures", return_value={}):
+                # Mock _print_report to avoid timing issues
+                with patch.object(self.cleanup, "_print_report"):
+                    # Mock logger to capture log messages
+                    with self.assertLogs(level="ERROR") as log_context:
+                        # Run cleanup
+                        self.cleanup.cleanup_soft_deleted_entities()
+
+                        # Verify error was logged for invalid URN
+                        self.assertTrue(
+                            any(
+                                "Failed to parse urn" in msg
+                                for msg in log_context.output
+                            )
+                        )
+
+                        # Verify submit was called only for valid URNs
+                        self.assertEqual(
+                            mock_executor.submit.call_count, len(self.sample_urns)
+                        )
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_with_max_futures_limit(
+        self, mock_executor_class: MagicMock
+    ) -> None:
+        """Test that the cleanup respects the max futures limit."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Set max futures to 1 to force processing after each submission
+        self.config.futures_max_at_time = 1
+
+        # Keep track of how many times _process_futures is called
+        process_futures_call_count = 0
+
+        # Define a side effect function that simulates the behavior of _process_futures
+        # It needs to clear the futures dictionary once per call to prevent infinite loops
+        def process_futures_side_effect(
+            futures: Dict[Future, Urn],
+        ) -> Dict[Future, Urn]:
+            nonlocal process_futures_call_count
+            process_futures_call_count += 1
+            # Return an empty dict to simulate that all futures are processed
+            return {}
+
+        # Set up _get_urns to return sample URNs
+        with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
+            # Mock _process_futures with our side effect function
+            with patch.object(
+                self.cleanup,
+                "_process_futures",
+                side_effect=process_futures_side_effect,
+            ):
+                # Mock _print_report to avoid timing issues
+                with patch.object(self.cleanup, "_print_report"):
+                    # Run cleanup
+                    self.cleanup.cleanup_soft_deleted_entities()
+
+                    # Verify _process_futures was called for each URN (since max_futures=1)
+                    self.assertEqual(process_futures_call_count, len(self.sample_urns))
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_respects_deletion_limit(
+        self, mock_executor_class: MagicMock
+    ) -> None:
+        """Test that cleanup stops when deletion limit is reached."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Set up to hit deletion limit after first URN
+        with patch.object(self.cleanup, "_deletion_limit_reached") as mock_limit:
+            # Return False for first URN, True for others
+            mock_limit.side_effect = [False, True, True]
+
+            # Set up _get_urns to return sample URNs
+            with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
+                # Mock _process_futures to simulate completion
+                with patch.object(self.cleanup, "_process_futures", return_value={}):
+                    # Mock _print_report to avoid timing issues
+                    with patch.object(self.cleanup, "_print_report"):
+                        # Run cleanup
+                        self.cleanup.cleanup_soft_deleted_entities()
+
+                        # Should only process the first URN before hitting limit
+                        self.assertEqual(mock_executor.submit.call_count, 1)
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_respects_time_limit(self, mock_executor_class: MagicMock) -> None:
+        """Test that cleanup stops when time limit is reached."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Set up to hit time limit after first URN
+        with patch.object(self.cleanup, "_times_up") as mock_times_up:
+            # Return False for first URN, True for others
+            mock_times_up.side_effect = [False, True, True]
+
+            # Set up _get_urns to return sample URNs
+            with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
+                # Mock _process_futures to simulate completion
+                with patch.object(self.cleanup, "_process_futures", return_value={}):
+                    # Mock _print_report to avoid timing issues
+                    with patch.object(self.cleanup, "_print_report"):
+                        # Run cleanup
+                        self.cleanup.cleanup_soft_deleted_entities()
+
+                        # Should only process the first URN before hitting time limit
+                        self.assertEqual(mock_executor.submit.call_count, 1)
+
+    @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
+    def test_cleanup_handles_empty_urn_list(
+        self, mock_executor_class: MagicMock
+    ) -> None:
+        """Test cleanup when no URNs are returned."""
+        # Setup mock for executor
+        mock_executor: MagicMock = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Set up _get_urns to return empty list
+        with patch.object(self.cleanup, "_get_urns", return_value=[]):
+            # Mock other methods to prevent errors
+            with patch.object(self.cleanup, "_process_futures"):
+                with patch.object(self.cleanup, "_print_report"):
+                    # Run cleanup
+                    self.cleanup.cleanup_soft_deleted_entities()
+
+                    # Verify submit was not called
+                    mock_executor.submit.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -114,6 +114,8 @@ class SoftDeletedEntitiesReport(SourceReport):
     )
     runtime_limit_reached: bool = False
     deletion_limit_reached: bool = False
+    num_soft_deleted_entity_found: int = 0
+    num_soft_deleted_entity_invalid_urn: int = 0
 
 
 class SoftDeletedEntitiesCleanup:
@@ -280,9 +282,11 @@ class SoftDeletedEntitiesCleanup:
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             for urn in self._get_urns():
                 try:
+                    self.report.num_soft_deleted_entity_found += 1
                     soft_deleted_urn = Urn.from_string(urn)
                 except Exception as e:
                     logger.error(f"Failed to parse urn {urn} with error {e}")
+                    self.report.num_soft_deleted_entity_invalid_urn += 1
                     continue
 
                 self._print_report()
