@@ -157,7 +157,7 @@ class _EnvFilter(_BaseFilter):
 
 
 class _CustomCondition(_BaseFilter):
-    """Represents a single field condition"""
+    """Represents a single field condition."""
 
     field: str
     condition: str
@@ -173,7 +173,7 @@ class _CustomCondition(_BaseFilter):
 
 
 class _And(_BaseFilter):
-    """Represents an AND conjunction of filters"""
+    """Represents an AND conjunction of filters."""
 
     and_: Sequence["Filter"] = pydantic.Field(alias="and")
     # TODO: Add validator to ensure that the "and" field is not empty
@@ -221,7 +221,7 @@ class _And(_BaseFilter):
 
 
 class _Or(_BaseFilter):
-    """Represents an OR conjunction of filters"""
+    """Represents an OR conjunction of filters."""
 
     or_: Sequence["Filter"] = pydantic.Field(alias="or")
     # TODO: Add validator to ensure that the "or" field is not empty
@@ -234,7 +234,7 @@ class _Or(_BaseFilter):
 
 
 class _Not(_BaseFilter):
-    """Represents a NOT filter"""
+    """Represents a NOT filter."""
 
     not_: "Filter" = pydantic.Field(alias="not")
 
