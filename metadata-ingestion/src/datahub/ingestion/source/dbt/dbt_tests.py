@@ -43,6 +43,9 @@ class DBTTestResult:
 
     native_results: Dict[str, str]
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
     """
@@ -249,7 +252,7 @@ def make_assertion_result_from_test(
         result=AssertionResultClass(
             type=(
                 AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
+                if test_result.has_success_status()
                 or (not test_warnings_are_errors and test_result.status == "warn")
                 else AssertionResultTypeClass.FAILURE
             ),
