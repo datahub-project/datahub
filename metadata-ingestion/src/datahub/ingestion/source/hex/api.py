@@ -6,6 +6,7 @@ from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
 from pydantic import BaseModel, Field, validator
+from typing_extensions import assert_never
 
 from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
@@ -364,4 +365,4 @@ class HexApi:
                 analytics=analytics,
             )
         else:
-            raise ValueError(f"Unknown type: {hex_item.type}")
+            assert_never(hex_item.type)

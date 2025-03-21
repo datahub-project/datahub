@@ -1,6 +1,7 @@
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, SecretStr
+from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
@@ -149,13 +150,13 @@ class HexSource(StatefulIngestionSourceBase):
                     project_or_component.title
                 ):
                     yield from self.mapper.map_project(project=project_or_component)
-            elif (
-                isinstance(project_or_component, Component)
-                and self.source_config.include_components
-            ):
-                if self.source_config.component_title_pattern.allowed(
-                    project_or_component.title
+            elif isinstance(project_or_component, Component):
+                if (
+                    self.source_config.include_components
+                    and self.source_config.component_title_pattern.allowed(
+                        project_or_component.title
+                    )
                 ):
                     yield from self.mapper.map_component(component=project_or_component)
             else:
-                raise ValueError(f"Unexpected type: {type(project_or_component)}")
+                assert_never(project_or_component)
