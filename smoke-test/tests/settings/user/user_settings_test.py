@@ -1,6 +1,5 @@
 import time
 
-from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import execute_gql
 
 
@@ -34,12 +33,10 @@ def test_get_user_notification_settings(auth_session):
     }
     variables = {"input": {"notificationSettings": new_settings}}
     response = execute_gql(auth_session, mutation, variables)
-    print(response)
+
     assert "errors" not in response, response.get("errors")
     updated_settings = response["data"]["updateUserNotificationSettings"]
     assert updated_settings["sinkTypes"] == ["EMAIL", "SLACK"]  # Basic validity check.
-
-    wait_for_writes_to_sync()
 
     # Step 2: Verify the getUserNotificationSettings API returns updated values
     query = """
@@ -53,13 +50,12 @@ def test_get_user_notification_settings(auth_session):
     }
     """
     max_retries = 5
-    for attempt in range(max_retries):
+    for _ in range(max_retries):
         response = execute_gql(auth_session, query)
         settings = response["data"]["getUserNotificationSettings"]
         if settings is not None:
             break
         time.sleep(2)  # Wait 2 seconds between retries
-        print(f"Retry {attempt + 1}/{max_retries} for getUserNotificationSettings")
 
     assert settings is not None
     assert settings["sinkTypes"] == ["EMAIL", "SLACK"]
