@@ -529,7 +529,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def build_input_fields(self, chart_columns: List[Tuple[str, str, str]], datasource_urn: str) -> List[InputField]:
+    def build_input_fields(
+        self, chart_columns: List[Tuple[str, str, str]], datasource_urn: str
+    ) -> List[InputField]:
         input_fields: List[InputField] = []
 
         for column in chart_columns:
@@ -550,17 +552,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                     schemaField=SchemaField(
                         fieldPath=col_name,
                         type=SchemaFieldDataType(type=type_class()),
-                        description=(
-                            description if description != "null"
-                            else ""
-                        ),
+                        description=(description if description != "null" else ""),
                         nativeDataType=col_type,
                         globalTags=None,
                         nullable=True,
                     ),
                 )
             )
-        
+
         return input_fields
 
     def construct_chart_cll(
@@ -572,7 +571,9 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # 0 represents a string column name, and 1 represents a SQL expression
         chart_columns: List[str] = [
-            (column, False) if isinstance(column, str) else (column.get("label", ""), True)
+            (column, False)
+            if isinstance(column, str)
+            else (column.get("label", ""), True)
             for column in column_data
         ]
 
@@ -594,7 +595,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         for index, chart_col in enumerate(chart_columns):
             chart_col_name, is_sql = chart_col
-            # if its a SQL expression, do not need to 
+            # if its a SQL expression, do not need to
             # look for it in the upstream dataset
             if is_sql:
                 chart_columns[index] = (
@@ -605,7 +606,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 continue
 
             for dataset_col in dataset_columns:
-                dataset_col_name, dataset_col_type, dataset_col_description = dataset_col
+                dataset_col_name, dataset_col_type, dataset_col_description = (
+                    dataset_col
+                )
                 if dataset_col_name == chart_col_name:
                     chart_columns[index] = (
                         chart_col_name,
