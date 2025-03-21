@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union, Tuple
 
 import dateutil.parser as dp
 import requests
@@ -529,62 +529,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_cll(
-        self, chart_data: dict, datasource_urn: str, datasource_id: int
-    ) -> List[InputField]:
-        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
-            "all_columns", []
-        )
-
-        # 0 represents a string column name, and 1 represents a SQL expression
-        chart_columns: List[str] = [
-            (column, 0) if isinstance(column, str) else (column.get("label", ""), 1)
-            for column in column_data
-        ]
-
-        if datasource_id:
-            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
-            dataset_column_info = dataset_info.get("columns", [])
-            dataset_columns: List[str] = [
-                (
-                    column.get("column_name", ""),
-                    column.get("type", ""),
-                    column.get("description", ""),
-                )
-                for column in dataset_column_info
-            ]
-        else:
-            # no datasource_id means no upstream dataset
-            dataset_columns: List[str] = []
-
-        for index, chart_col in enumerate(chart_columns):
-            # if its a SQL expression, do not need to 
-            # look for it in the upstream dataset
-            if chart_col[1] == 1:
-                chart_columns[index] = (
-                    chart_col[0],
-                    "SQL",
-                    "",
-                )
-                continue
-
-            for dataset_col in dataset_columns:
-                if dataset_col[0] == chart_col[0]:
-                    chart_columns[index] = (
-                        chart_col[0],
-                        dataset_col[1],
-                        dataset_col[2],
-                    )  # column name, column type, description
-                    break
-            if not isinstance(chart_columns[index], tuple):
-                chart_columns[index] = (
-                    chart_col[0],
-                    "",
-                    "",
-                )  # if no datasource id, default to blank
-
-        print(f'\n\nchart col: {chart_columns}\n\n')
-
+    def build_input_fields(self, chart_columns: List[Tuple[str, str, str]], datasource_urn: str) -> List[InputField]:
         input_fields: List[InputField] = []
 
         for column in chart_columns:
@@ -615,8 +560,67 @@ class SupersetSource(StatefulIngestionSourceBase):
                     ),
                 )
             )
-
+        
         return input_fields
+
+    def construct_chart_cll(
+        self, chart_data: dict, datasource_urn: str, datasource_id: int
+    ) -> List[InputField]:
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
+            "all_columns", []
+        )
+
+        # 0 represents a string column name, and 1 represents a SQL expression
+        chart_columns: List[str] = [
+            (column, False) if isinstance(column, str) else (column.get("label", ""), True)
+            for column in column_data
+        ]
+
+        # parses the superset dataset's column info, to build type and description info
+        if datasource_id:
+            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+            dataset_column_info = dataset_info.get("columns", [])
+            dataset_columns: List[str] = [
+                (
+                    column.get("column_name", ""),
+                    column.get("type", ""),
+                    column.get("description", ""),
+                )
+                for column in dataset_column_info
+            ]
+        else:
+            # no datasource_id means no upstream dataset
+            dataset_columns: List[str] = []
+
+        for index, chart_col in enumerate(chart_columns):
+            chart_col_name, is_sql = chart_col
+            # if its a SQL expression, do not need to 
+            # look for it in the upstream dataset
+            if is_sql:
+                chart_columns[index] = (
+                    chart_col_name,
+                    "SQL",
+                    "",
+                )
+                continue
+
+            for dataset_col in dataset_columns:
+                dataset_col_name, dataset_col_type, dataset_col_description = dataset_col
+                if dataset_col_name == chart_col_name:
+                    chart_columns[index] = (
+                        chart_col_name,
+                        dataset_col_type,
+                        dataset_col_description,
+                    )  # column name, column type, description
+                    break
+            if not isinstance(chart_columns[index], tuple):
+                chart_columns[index] = (
+                    chart_col_name,
+                    "",
+                    "",
+                )  # if no datasource id, default to blank
+
+        return self.build_input_fields(chart_columns, datasource_urn)
 
     def construct_chart_from_chart_data(
         self, chart_data: dict
