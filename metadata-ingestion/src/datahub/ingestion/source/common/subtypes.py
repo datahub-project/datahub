@@ -69,7 +69,7 @@ class FlowContainerSubTypes(StrEnum):
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
-    MSSQL_STORED_PROCEDURE = "Stored Procedure"
+    STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
