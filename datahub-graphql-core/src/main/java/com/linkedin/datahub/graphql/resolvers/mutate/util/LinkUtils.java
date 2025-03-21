@@ -8,16 +8,19 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.InstitutionalMemoryMetadataSettings;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -34,6 +37,7 @@ public class LinkUtils {
       String linkLabel,
       Urn resourceUrn,
       Urn actor,
+      @Nullable LinkSettingsInput settingsInput,
       EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
@@ -43,7 +47,7 @@ public class LinkUtils {
                 Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 entityService,
                 new InstitutionalMemory());
-    addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor);
+    addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor, settingsInput);
     persistAspect(
         opContext,
         resourceUrn,
@@ -78,7 +82,11 @@ public class LinkUtils {
   }
 
   private static void addLink(
-      InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor) {
+      InstitutionalMemory institutionalMemoryAspect,
+      String linkUrl,
+      String linkLabel,
+      Urn actor,
+      @Nullable LinkSettingsInput settingsInput) {
     if (!institutionalMemoryAspect.hasElements()) {
       institutionalMemoryAspect.setElements(new InstitutionalMemoryMetadataArray());
     }
@@ -94,6 +102,9 @@ public class LinkUtils {
     newLink.setUrl(new Url(linkUrl));
     newLink.setCreateStamp(EntityUtils.getAuditStamp(actor));
     newLink.setDescription(linkLabel); // We no longer support, this is really a label.
+    if (settingsInput != null) {
+      newLink.setSettings(mapSettings(settingsInput));
+    }
     linksArray.add(newLink);
   }
 
@@ -141,5 +152,13 @@ public class LinkUtils {
     }
 
     return true;
+  }
+
+  private static InstitutionalMemoryMetadataSettings mapSettings(LinkSettingsInput settingsInput) {
+    InstitutionalMemoryMetadataSettings settings = new InstitutionalMemoryMetadataSettings();
+    if (settingsInput.getShowInAssetPreview() != null) {
+      settings.setShowInAssetPreview(settingsInput.getShowInAssetPreview());
+    }
+    return settings;
   }
 }
