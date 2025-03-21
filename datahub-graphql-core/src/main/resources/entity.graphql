@@ -12845,7 +12845,7 @@ input CreateOwnershipTypeInput {
     """
     The description of the Custom Ownership Type
     """
-    description: String
+    description: String!
 }
 
 
@@ -13337,4 +13337,3 @@ extend type DataProcessInstance {
     """
     parentTemplate: Entity
 }
-
