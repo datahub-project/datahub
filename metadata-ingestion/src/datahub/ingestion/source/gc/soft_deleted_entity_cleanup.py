@@ -16,6 +16,7 @@ from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRul
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns._urn_base import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +308,7 @@ class SoftDeletedEntitiesCleanup:
                 try:
                     self.report.num_soft_deleted_entity_found += 1
                     soft_deleted_urn = Urn.from_string(urn)
-                except Exception as e:
+                except InvalidUrnError as e:
                     logger.error(f"Failed to parse urn {urn} with error {e}")
                     self.report.num_soft_deleted_entity_invalid_urn += 1
                     continue
