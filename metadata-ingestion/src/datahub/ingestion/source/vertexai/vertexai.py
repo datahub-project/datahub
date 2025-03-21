@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -20,6 +21,7 @@ from google.cloud.aiplatform.models import Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.oauth2 import service_account
+from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -45,7 +47,7 @@ from datahub.ingestion.source.vertexai.result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
-from datahub.metadata._urns.urn_defs import DataFlowUrn
+from datahub.metadata._urns.urn_defs import DataFlowUrn, DataJobUrn
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
 )
@@ -92,7 +94,6 @@ class TrainingJobMetadata:
     output_model: Optional[Model] = None
     output_model_version: Optional[VersionInfo] = None
 
-
 @dataclasses.dataclass
 class ModelMetadata:
     model: Model
@@ -100,6 +101,11 @@ class ModelMetadata:
     training_job_urn: Optional[str] = None
     endpoints: Optional[List[Endpoint]] = None
 
+@dataclasses.dataclass
+class PipelineMetadata:
+    pipeline: PipelineJob
+    tasks: List[str]
+    task_dependencies: Dict[str, List[str]]
 
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
@@ -118,13 +124,12 @@ class VertexAISource(Source):
         self.report = SourceReport()
 
         creds = self.config.get_credentials()
-        breakpoint()
         credentials = (
             service_account.Credentials.from_service_account_info(creds)
             if creds
             else None
         )
-        breakpoint()
+
         aiplatform.init(
             project=config.project_id, location=config.region, credentials=credentials
         )
@@ -143,16 +148,16 @@ class VertexAISource(Source):
         - Training Jobs
         """
 
-        # # Ingest Project
-        # yield from self._gen_project_workunits()
-        # # Fetch and Ingest Models, Model Versions a from Model Registry
-        # yield from auto_workunit(self._get_ml_models_mcps())
-        # # Fetch and Ingest Training Jobs
-        # yield from auto_workunit(self._get_training_jobs_mcps())
-        # # Fetch and Ingest Experiments
-        # yield from self._get_experiments_workunits()
-        # # Fetch and Ingest Experiment Runs
-        # yield from auto_workunit(self._get_experiment_runs_mcps())
+        # Ingest Project
+        yield from self._gen_project_workunits()
+        # Fetch and Ingest Models, Model Versions a from Model Registry
+        yield from auto_workunit(self._get_ml_models_mcps())
+        # Fetch and Ingest Training Jobs
+        yield from auto_workunit(self._get_training_jobs_mcps())
+        # Fetch and Ingest Experiments
+        yield from self._get_experiments_workunits()
+        # Fetch and Ingest Experiment Runs
+        yield from auto_workunit(self._get_experiment_runs_mcps())
         # Fetch Pipelines and Tasks
         yield from auto_workunit(self._get_pipelines_mcps())
 
@@ -163,29 +168,70 @@ class VertexAISource(Source):
 
         pipeline_jobs = self.client.PipelineJob.list()
         for pipeline in pipeline_jobs:
-            yield from self._get_pipeline_mcps(pipeline)
-            for task in pipeline.task_details:
-                yield from self._get_pipeline_task_mcps(pipeline, task)
+            logger.info(f"fetching {pipeline.name}")
+            pipeline_meta = self._get_pipeline_metadata(pipeline)
+            yield from self._get_pipeline_mcps(pipeline_meta)
+            # for task in pipeline.task_details:
+            yield from self._gen_pipeline_task_mcps(pipeline_meta)
 
-    def _get_pipeline_task_mcps(self, pipeline:PipelineJob, task: PipelineTaskDetail) -> Iterable[MetadataChangeProposalWrapper]:
+    def _get_pipeline_metadata(self, pipeline:PipelineJob) -> PipelineMetadata:
 
+        tasks = []
+        task_deps = {}
+
+        resource = pipeline.gca_resource
+        if isinstance(resource, PipelineJobType):
+            if "parameters" in resource.runtime_config:
+                print(f"pipeline run config parameters : {resource.runtime_config['parameters']}")
+            components = resource.pipeline_spec["components"]
+            # for component in components:
+            #     print(f"component {component}")
+            #     if "outputDefinitions" in components[component]:
+            #         print(f"parameters: {components[component]['inputDefinitions']['parameters']}")
+
+            tasks.extend(resource.pipeline_spec['root']['dag']['tasks'])
+
+            for task_name in tasks:
+                if "dependentTasks" in resource.pipeline_spec['root']['dag']['tasks'][task_name]:
+                    upstream = resource.pipeline_spec['root']['dag']['tasks'][task_name]['dependentTasks']
+                    if task_name not in task_deps:
+                        task_deps[task_name] = []
+                    task_deps[task_name].extend(upstream)
+                    print(f"dependentTasks {resource.pipeline_spec['root']['dag']['tasks'][task_name]['dependentTasks']}")
+
+        return PipelineMetadata(pipeline=pipeline, tasks=tasks, task_dependencies=task_deps)
+
+    def _gen_pipeline_task_mcps(self, pipe_meta: PipelineMetadata) -> Iterable[MetadataChangeProposalWrapper]:
+
+        pipeline = pipe_meta.pipeline
         dataflow_urn = self._gen_data_flow(pipeline).urn
-        datajob = DataJob(
-            id=self._make_vertexai_pipeline_task_name(str(task.task_id)),
-            flow_urn=dataflow_urn,
-            name=task.task_name,
-            owners={"urn:li:corpuser:datahub"},
-            upstream_urns=[]
-        )
 
-        yield from MetadataChangeProposalWrapper.construct_many(
-            entityUrn=str(datajob.urn),
-            aspects=[
-                ContainerClass(container=self._get_project_container().as_urn()),
-                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK])
-            ]
-        )
-        yield from datajob.generate_mcp()
+        logger.info(f"fetching dataflow  {dataflow_urn}")
+
+        tasks = pipe_meta.tasks
+        logger.info(f"parsing through tasks  {tasks}")
+
+        for task_name in tasks:
+            logger.info(f"fetching task {task_name} in pipeline {pipeline.name}")
+            upstream_tasks = pipe_meta.task_dependencies.get(task_name, [])
+            upstream_urns = [DataJobUrn.create_from_ids(
+                data_flow_urn=str(dataflow_urn),
+                job_id=self._make_vertexai_pipeline_task_name(upstream_task)) for upstream_task in upstream_tasks]
+            datajob = DataJob(
+                id=self._make_vertexai_pipeline_task_name(task_name),
+                flow_urn=dataflow_urn,
+                name=task_name,
+                owners={"urn:li:corpuser:datahub"},
+                upstream_urns=upstream_urns
+            )
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=str(datajob.urn),
+                aspects=[
+                    ContainerClass(container=self._get_project_container().as_urn()),
+                    SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK])
+                ]
+            )
+            yield from datajob.generate_mcp()
 
 
     def _gen_data_flow(self, pipeline:PipelineJob) -> DataFlow:
@@ -193,15 +239,15 @@ class VertexAISource(Source):
             orchestrator=self.platform,
             id=self._make_vertexai_pipeline_name(str(pipeline.name)),
             env=self.config.env,
-            name=pipeline.display_name,
+            name=pipeline.name,
             platform_instance=self.platform,
         )
 
 
 
-    def _get_pipeline_mcps(self, pipeline: PipelineJob)  -> Iterable[MetadataChangeProposalWrapper]:
+    def _get_pipeline_mcps(self, pipe_meta: PipelineMetadata)  -> Iterable[MetadataChangeProposalWrapper]:
 
-        dataflow = self._gen_data_flow(pipeline)
+        dataflow = self._gen_data_flow(pipe_meta.pipeline)
 
         yield from dataflow.generate_mcp()
 
