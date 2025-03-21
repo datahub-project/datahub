@@ -61,7 +61,7 @@ class HexSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
         description="Number of items to fetch per Hex API call.",
     )
     patch_metadata: bool = Field(
-        default=True,
+        default=False,
         description="Emit metadata as patch events",
     )
     collections_as_tags: bool = Field(

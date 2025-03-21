@@ -6,10 +6,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
+from pydantic import ValidationError
 
 from datahub.ingestion.source.hex.api import (
     HexApi,
     HexApiProjectApiResource,
+    HexApiProjectsListResponse,
     HexApiReport,
 )
 from datahub.ingestion.source.hex.model import (
@@ -216,7 +218,7 @@ class TestHexAPI(unittest.TestCase):
         )
 
     @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_fetch_projects_http_error(self, mock_get):
+    def test_fetch_projects_failure_http_error(self, mock_get):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "500 Server Error: Internal Server Error"
@@ -229,7 +231,116 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        with self.assertRaises(requests.exceptions.HTTPError):
-            list(hex_api.fetch_projects())
+        # No exception should be raised; gracefully finish with no results and proper error reporting
+        results = list(hex_api.fetch_projects())
+
+        # Verify results are empty and error was reported
+        assert len(results) == 0
+        assert self.report.fetch_projects_page_calls == 1
+        failures = list(self.report.failures)
+        assert len(failures) == 1
+        assert failures[0].title and failures[0].title == "Request error"
+        assert (
+            failures[0].message
+            and failures[0].message == "Error fetching projects page"
+        )
+        assert failures[0].context
+
+    @patch("datahub.ingestion.source.hex.api.requests.get")
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
+    def test_fetch_projects_failure_response_validation(self, mock_parse_obj, mock_get):
+        # Create a dummy http response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"whatever": "json"}
+        mock_get.return_value = mock_response
+        # and simulate ValidationError when parsing the response
+        mock_parse_obj.side_effect = ValidationError([], model=HexApiProjectApiResource)
+
+        hex_api = HexApi(
+            token=self.token,
+            report=self.report,
+            base_url=self.base_url,
+        )
+
+        # No exception should be raised; gracefully finish with no results and proper error reporting
+        results = list(hex_api.fetch_projects())
+
+        # Verify results are empty and error was reported
+        assert len(results) == 0
+        assert self.report.fetch_projects_page_calls == 1
+        failures = list(self.report.failures)
+        assert len(failures) == 1
+        assert failures[0].title and failures[0].title == "API response parsing error"
+        assert (
+            failures[0].message and failures[0].message == "Error parsing API response"
+        )
+        assert failures[0].context
+
+    @patch("datahub.ingestion.source.hex.api.requests.get")
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
+    @patch("datahub.ingestion.source.hex.api.HexApi._map_data_from_model")
+    def test_fetch_projects_warning_model_mapping(
+        self, mock_map_data_from_model, mock_parse_obj, mock_get
+    ):
+        # Create a dummy http response
+        mock_get_response = MagicMock()
+        mock_get_response.json.return_value = {"values": [{"whatever": "json"}]}
+        mock_get.return_value = mock_get_response
+        # create a couple of dummy project items
+        mock_parse_obj.return_value = HexApiProjectsListResponse(
+            values=[
+                HexApiProjectApiResource(
+                    id="problem_item", title="Problem Item", type="PROJECT"
+                ),
+                HexApiProjectApiResource(
+                    id="valid_item", title="Valid Item", type="PROJECT"
+                ),
+            ]
+        )
+
+        # and simulate an Error when mapping the response to a model
+        def parse_side_effect(item_data):
+            assert isinstance(item_data, HexApiProjectApiResource)
+            if item_data.id == "problem_item":
+                raise ValueError("Invalid data structure for problem_item")
+            else:
+                valid_item = MagicMock()
+                valid_item.id = "valid_item"
+                valid_item.title = "Valid Item"
+                valid_item.type = "PROJECT"
+                valid_item.description = "A valid project"
+                valid_item.created_at = None
+                valid_item.last_edited_at = None
+                valid_item.status = None
+                valid_item.categories = []
+                valid_item.sharing = MagicMock(collections=[])
+                valid_item.creator = None
+                valid_item.owner = None
+                valid_item.analytics = None
+                return valid_item
+
+        mock_map_data_from_model.side_effect = parse_side_effect
+
+        hex_api = HexApi(
+            token=self.token,
+            report=self.report,
+            base_url=self.base_url,
+        )
+
+        # Should not raise exception, but log warning
+        results = list(hex_api.fetch_projects())
+
+        # We should still get the valid item but skip the problematic one
+        assert len(results) == 1
+        assert results[0].id == "valid_item"
 
         assert self.report.fetch_projects_page_calls == 1
+        warnings = list(self.report.warnings)
+        assert len(warnings) == 1
+        assert warnings[0].title and warnings[0].title == "Incomplete metadata"
+        assert (
+            warnings[0].message
+            and warnings[0].message
+            == "Incomplete metadata because of error mapping item"
+        )
+        assert warnings[0].context

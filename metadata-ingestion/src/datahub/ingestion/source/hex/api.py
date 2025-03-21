@@ -5,9 +5,10 @@ from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationError, validator
 from typing_extensions import assert_never
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
@@ -219,7 +220,7 @@ class HexApiProjectsListResponse(BaseModel):
 
 
 @dataclass
-class HexApiReport:
+class HexApiReport(SourceReport):
     fetch_projects_page_calls: int = 0
     fetch_projects_page_items: int = 0
 
@@ -276,23 +277,48 @@ class HexApi:
     ) -> Generator[Union[Project, Component], None, None]:
         logger.debug(f"Fetching projects page with params: {params}")
         self.report.fetch_projects_page_calls += 1
-        response = requests.get(
-            url=self._list_projects_url(),
-            headers=self._auth_header(),
-            params=params,
-        )
-        response.raise_for_status()
+        try:
+            response = requests.get(
+                url=self._list_projects_url(),
+                headers=self._auth_header(),
+                params=params,
+                timeout=30,
+            )
+            response.raise_for_status()
 
-        api_response = HexApiProjectsListResponse.parse_obj(response.json())
-        logger.info(f"Fetched {len(api_response.values)} items")
+            api_response = HexApiProjectsListResponse.parse_obj(response.json())
+            logger.info(f"Fetched {len(api_response.values)} items")
+            params["after"] = (
+                api_response.pagination.after if api_response.pagination else None
+            )
 
-        params["after"] = (
-            api_response.pagination.after if api_response.pagination else None
-        )
-        self.report.fetch_projects_page_items += len(api_response.values)
+            self.report.fetch_projects_page_items += len(api_response.values)
 
-        for item in api_response.values:
-            yield self._map_data_from_model(item)
+            for item in api_response.values:
+                try:
+                    ret = self._map_data_from_model(item)
+                    yield ret
+                except Exception as e:
+                    self.report.warning(
+                        title="Incomplete metadata",
+                        message="Incomplete metadata because of error mapping item",
+                        context=str(item),
+                        exc=e,
+                    )
+        except ValidationError as e:
+            self.report.failure(
+                title="API response parsing error",
+                message="Error parsing API response",
+                context=str(response.json()),
+                exc=e,
+            )
+        except (requests.RequestException, Exception) as e:
+            self.report.failure(
+                title="Request error",
+                message="Error fetching projects",
+                context=str(params),
+                exc=e,
+            )
 
     def _map_data_from_model(
         self, hex_item: HexApiProjectApiResource
