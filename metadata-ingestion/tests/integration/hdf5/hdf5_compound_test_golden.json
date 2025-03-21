@@ -1,0 +1,556 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "compound",
+            "platform": "urn:li:dataPlatform:hdf5",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "field0",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int32",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "field1",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int32",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "field2",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "field3",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "field4",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "description": "Compound dataset with 2 integer fields and 3 float fields",
+                "dataset_shape": "(25,)",
+                "dataset_dtype": "void256",
+                "dataset_size": "25"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hdf5",
+                "env": "PROD",
+                "folder_abs_path": ""
+            },
+            "name": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hdf5",
+                "env": "PROD",
+                "folder_abs_path": "/compound"
+            },
+            "name": "compound",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388098,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 25,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "field0",
+                    "uniqueCount": 21,
+                    "nullCount": 0,
+                    "min": "1",
+                    "max": "99",
+                    "mean": "49.48",
+                    "median": "52.0",
+                    "stdev": "30.9",
+                    "sampleValues": [
+                        "51",
+                        "92",
+                        "14",
+                        "71",
+                        "60",
+                        "20",
+                        "82",
+                        "86",
+                        "74",
+                        "74",
+                        "87",
+                        "99",
+                        "23",
+                        "2",
+                        "21",
+                        "52",
+                        "1",
+                        "87",
+                        "29",
+                        "37"
+                    ]
+                },
+                {
+                    "fieldPath": "field1",
+                    "uniqueCount": 22,
+                    "nullCount": 0,
+                    "min": "2",
+                    "max": "91",
+                    "mean": "52.2",
+                    "median": "57.0",
+                    "stdev": "24.35",
+                    "sampleValues": [
+                        "75",
+                        "57",
+                        "21",
+                        "88",
+                        "48",
+                        "90",
+                        "58",
+                        "41",
+                        "91",
+                        "59",
+                        "79",
+                        "14",
+                        "61",
+                        "61",
+                        "46",
+                        "61",
+                        "50",
+                        "54",
+                        "63",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "field2",
+                    "uniqueCount": 25,
+                    "nullCount": 0,
+                    "min": "0.013264961159866528",
+                    "max": "0.9422017556848528",
+                    "mean": "0.46",
+                    "median": "0.43",
+                    "stdev": "0.28",
+                    "sampleValues": [
+                        "0.013264961159866528",
+                        "0.9422017556848528",
+                        "0.5632882178455393",
+                        "0.3854165025399161",
+                        "0.015966252220214194",
+                        "0.230893825622149",
+                        "0.24102546602601171",
+                        "0.6832635188254582",
+                        "0.6099966577826209",
+                        "0.8331949117361643",
+                        "0.17336465350777208",
+                        "0.3910606075732408",
+                        "0.18223608778806233",
+                        "0.7553614103176525",
+                        "0.4251558744912447",
+                        "0.20794166286818883",
+                        "0.5677003278199915",
+                        "0.03131329245555858",
+                        "0.8422847745949985",
+                        "0.44975413336976566"
+                    ]
+                },
+                {
+                    "fieldPath": "field3",
+                    "uniqueCount": 25,
+                    "nullCount": 0,
+                    "min": "0.014079822715084456",
+                    "max": "0.965255307264138",
+                    "mean": "0.55",
+                    "median": "0.59",
+                    "stdev": "0.29",
+                    "sampleValues": [
+                        "0.5208342600258237",
+                        "0.9611720243493491",
+                        "0.8445338486781514",
+                        "0.7473201101373809",
+                        "0.5396921323890798",
+                        "0.5867511656638482",
+                        "0.965255307264138",
+                        "0.6070342476866847",
+                        "0.27599918202254337",
+                        "0.2962735057040824",
+                        "0.1652669390630025",
+                        "0.01563640674119393",
+                        "0.4234014807063696",
+                        "0.3948815181755697",
+                        "0.2934881747180381",
+                        "0.014079822715084456",
+                        "0.19884240408880516",
+                        "0.71134195274865",
+                        "0.7901755405312056",
+                        "0.6059599747810114"
+                    ]
+                },
+                {
+                    "fieldPath": "field4",
+                    "uniqueCount": 25,
+                    "nullCount": 0,
+                    "min": "0.04043358953843135",
+                    "max": "0.9717120953891037",
+                    "mean": "0.48",
+                    "median": "0.54",
+                    "stdev": "0.26",
+                    "sampleValues": [
+                        "0.09541011649041131",
+                        "0.37081825219826636",
+                        "0.6688412526636073",
+                        "0.6659223566174967",
+                        "0.5912977877077271",
+                        "0.27472179299006416",
+                        "0.5612434258477011",
+                        "0.38292687475378984",
+                        "0.9717120953891037",
+                        "0.8489138242660839",
+                        "0.7217295211648732",
+                        "0.23598491974895575",
+                        "0.25606832276132396",
+                        "0.04043358953843135",
+                        "0.7106628896857874",
+                        "0.11089082081183133",
+                        "0.4393365018657701",
+                        "0.2017192023353962",
+                        "0.8957635956735194",
+                        "0.47537022318211175"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,compound,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+                },
+                {
+                    "id": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe",
+                    "urn": "urn:li:container:28164c8679fd5c8caae3f296ee171cbe"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
