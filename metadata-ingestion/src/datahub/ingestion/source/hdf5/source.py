@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import PurePath
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import h5py
 
@@ -147,7 +147,7 @@ class HDF5Source(StatefulIngestionSourceBase):
 
     def h5py_dataset_iterator(
         self, node: Union[h5py.File, h5py.Group], prefix: str = ""
-    ) -> Iterable[tuple[str, h5py.Dataset]]:
+    ) -> Iterable[Tuple[str, h5py.Dataset]]:
         for key in node.keys():
             item = node[key]
             path = f"{prefix}/{key}"
@@ -158,7 +158,7 @@ class HDF5Source(StatefulIngestionSourceBase):
 
     def hdf5_browser(
         self, browse_path: BrowsePath
-    ) -> Iterable[tuple[str, h5py.Dataset]]:
+    ) -> Iterable[Tuple[str, h5py.Dataset]]:
         with h5py.File(browse_path.file, "r") as f:
             for path, dataset in self.h5py_dataset_iterator(f):
                 yield path, dataset
