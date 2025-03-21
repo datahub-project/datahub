@@ -1,6 +1,6 @@
 import itertools
 import shlex
-from typing import List, Union
+from typing import List, Optional, Union
 
 import requests
 
@@ -12,7 +12,7 @@ def _format_header(name: str, value: Union[str, bytes]) -> str:
 
 
 def make_curl_command(
-    session: requests.Session, method: str, url: str, payload: str
+    session: requests.Session, method: str, url: str, payload: Optional[str] = None
 ) -> str:
     fragments: List[str] = [
         "curl",
@@ -20,7 +20,7 @@ def make_curl_command(
             *[
                 ("-X", method),
                 *[("-H", _format_header(k, v)) for (k, v) in session.headers.items()],
-                ("--data", payload),
+                ("--data", payload) if payload else [],
             ]
         ),
         url,

@@ -33,6 +33,7 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -1485,6 +1486,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
+            curl_command = make_curl_command(self.session, "GET", url, "")
+            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
