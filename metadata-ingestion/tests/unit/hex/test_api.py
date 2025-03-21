@@ -240,10 +240,7 @@ class TestHexAPI(unittest.TestCase):
         failures = list(self.report.failures)
         assert len(failures) == 1
         assert failures[0].title and failures[0].title == "Request error"
-        assert (
-            failures[0].message
-            and failures[0].message == "Error fetching projects page"
-        )
+        assert failures[0].message and failures[0].message == "Error fetching projects"
         assert failures[0].context
 
     @patch("datahub.ingestion.source.hex.api.requests.get")
