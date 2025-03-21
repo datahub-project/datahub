@@ -6,7 +6,7 @@ dataset = Dataset(
     platform="hive",
     name="realestate_db.sales",
     schema=[
-        # tuples of (field name, data type, description)
+        # tuples of (field name / field path, data type, description)
         (
             "address.zipcode",
             "varchar(50)",

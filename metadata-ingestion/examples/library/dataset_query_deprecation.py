@@ -1,5 +1,3 @@
-from typing import Optional
-
 from datahub.metadata.schema_classes import DeprecationClass
 from datahub.sdk import DataHubClient, DatasetUrn
 
@@ -10,10 +8,10 @@ dataset = client.entities.get(
 )
 
 # Check if dataset is deprecated
-deprecation: Optional[DeprecationClass] = dataset._get_aspect(DeprecationClass)
+deprecation = dataset._get_aspect(DeprecationClass)
 if deprecation and deprecation.deprecated:
     print(f"Dataset is deprecated: {deprecation.note}")
-    if hasattr(deprecation, "decommissionTime"):
+    if deprecation.decommissionTime:
         print(f"Decommission time: {deprecation.decommissionTime}")
 else:
     print("Dataset is not deprecated")
