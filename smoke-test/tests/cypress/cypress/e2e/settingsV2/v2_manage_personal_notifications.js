@@ -1,3 +1,5 @@
+import { aliasQuery } from "../utils";
+
 describe("personal notifications test", () => {
   before(() => {
     cy.on("uncaught:exception", () => false);

@@ -1,3 +1,5 @@
+import { aliasQuery } from "../utils";
+
 const test_group_urn = "urn:li:corpGroup:bfoo";
 
 describe("group notifications test", () => {
