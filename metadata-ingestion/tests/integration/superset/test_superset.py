@@ -843,7 +843,7 @@ def test_superset_stateful_ingest(
                         "slice_name": "test_chart_title_2",
                         "viz_type": "pie",
                         "url": "/explore/test_chart_url_11",
-                        "datasource_id": "20",
+                        "datasource_id": 2,
                         "params": '{"metrics": [], "adhoc_filters": []}',
                         "form_data": {
                             "all_columns": [

@@ -535,8 +535,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
             "all_columns", []
         )
+
+        # 0 represents a string column name, and 1 represents a SQL expression
         chart_columns: List[str] = [
-            column if isinstance(column, str) else column.get("label", "")
+            (column, 0) if isinstance(column, str) else (column.get("label", ""), 1)
             for column in column_data
         ]
 
@@ -552,23 +554,36 @@ class SupersetSource(StatefulIngestionSourceBase):
                 for column in dataset_column_info
             ]
         else:
+            # no datasource_id means no upstream dataset
             dataset_columns: List[str] = []
 
         for index, chart_col in enumerate(chart_columns):
+            # if its a SQL expression, do not need to 
+            # look for it in the upstream dataset
+            if chart_col[1] == 1:
+                chart_columns[index] = (
+                    chart_col[0],
+                    "SQL",
+                    "",
+                )
+                continue
+
             for dataset_col in dataset_columns:
-                if dataset_col[0] == chart_col:
+                if dataset_col[0] == chart_col[0]:
                     chart_columns[index] = (
-                        chart_col,
+                        chart_col[0],
                         dataset_col[1],
                         dataset_col[2],
                     )  # column name, column type, description
                     break
             if not isinstance(chart_columns[index], tuple):
                 chart_columns[index] = (
-                    chart_col,
+                    chart_col[0],
                     "",
                     "",
                 )  # if no datasource id, default to blank
+
+        print(f'\n\nchart col: {chart_columns}\n\n')
 
         input_fields: List[InputField] = []
 

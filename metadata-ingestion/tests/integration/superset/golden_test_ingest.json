@@ -170,6 +170,22 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD),test_label)",
+                    "schemaField": {
+                        "fieldPath": "test_label",
+                        "nullable": true,
+                        "description": "",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "SQL",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
