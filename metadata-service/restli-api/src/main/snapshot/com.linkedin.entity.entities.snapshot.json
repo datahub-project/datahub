@@ -5647,7 +5647,7 @@
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with an ML Model Group",
-                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo" ],
+                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
