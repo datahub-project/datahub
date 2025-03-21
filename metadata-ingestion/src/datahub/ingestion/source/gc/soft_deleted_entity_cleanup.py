@@ -64,7 +64,33 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     )
 
     entity_types: Optional[List[str]] = Field(
-        default=None,
+        # A default value is required otherwise QUERY and DATAPROCESS_INSTANCE won't be included
+        default=[
+            "DATASET",
+            "DASHBOARD",
+            "CHART",
+            "MLMODEL",
+            "MLMODEL_GROUP",
+            "MLFEATURE_TABLE",
+            "MLFEATURE",
+            "MLPRIMARY_KEY",
+            "DATA_FLOW",
+            "DATA_JOB",
+            "GLOSSARY_TERM",
+            "GLOSSARY_NODE",
+            "TAG",
+            "ROLE",
+            "CORP_USER",
+            "CORP_GROUP",
+            "CONTAINER",
+            "DOMAIN",
+            "DATA_PRODUCT",
+            "NOTEBOOK",
+            "BUSINESS_ATTRIBUTE",
+            "SCHEMA_FIELD",
+            "QUERY",
+            "DATA_PROCESS_INSTANCE",
+        ],
         description="List of entity types to cleanup",
     )
 
