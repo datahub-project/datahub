@@ -1,4 +1,4 @@
-import { LinkOutlined } from '@ant-design/icons';
+import { LinkSimple } from '@phosphor-icons/react';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -31,7 +31,7 @@ export default function LinkButton({ link }: Props) {
             rel="noreferrer"
             key={`${link.label}-${link.url}-${link.actor.urn}`}
         >
-            <LinkOutlined />
+            <LinkSimple size={16} weight="regular" />
             {link.description || link.label}
         </StyledLink>
     );

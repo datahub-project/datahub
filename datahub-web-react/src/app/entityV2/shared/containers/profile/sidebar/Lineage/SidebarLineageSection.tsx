@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { Tooltip } from '@components';
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import { TreeStructure, ArrowUp, ArrowDown } from '@phosphor-icons/react';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
@@ -39,11 +39,11 @@ const SummaryText = styled.div`
     line-height: 20px;
 `;
 
-const StyledUpOutlined = styled(ArrowUpOutlined)`
+const StyledUpOutlined = styled(ArrowUp)`
     margin-right: 4px;
 `;
 
-const StyledDownOutlined = styled(ArrowDownOutlined)`
+const StyledDownOutlined = styled(ArrowDown)`
     margin-right: 4px;
 `;
 
@@ -58,12 +58,6 @@ const DirectionHeader = styled.div`
     color: ${ANTD_GRAY[6]};
     min-width: 100px;
     margin-right: 6px;
-`;
-
-const StyledPartitionOutlined = styled(PartitionOutlined)`
-    svg {
-        padding: 4px 5px 4px 4px;
-    }
 `;
 
 const SidebarLineageSection = () => {
@@ -145,7 +139,7 @@ const SidebarLineageSection = () => {
                             showArrow={false}
                         >
                             <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
-                                <StyledPartitionOutlined />
+                                <TreeStructure size={16} weight="regular" color={REDESIGN_COLORS.DARK_GREY} />
                             </Link>
                         </Tooltip>
                     }

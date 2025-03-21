@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { Plus } from '@phosphor-icons/react';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../../constants';
 import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
@@ -101,7 +101,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 extra={
                     !readOnly && (
                         <SectionActionButton
-                            button={<AddRoundedIcon />}
+                            button={<Plus size={16} weight="regular" />}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();

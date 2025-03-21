@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors } from '@components';
 import styled from 'styled-components/macro';
 import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
@@ -15,8 +16,7 @@ const Content = styled.div`
         padding-top: 12px;
         padding-bottom: 12px;
         &:not(:last-child) {
-            border-bottom: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid ${colors.gray[100]};
         }
     }
     &::-webkit-scrollbar {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { Plus } from '@phosphor-icons/react';
 import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
@@ -60,7 +60,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={<AddRoundedIcon />}
+                        button={<Plus size={16} weight="regular" />}
                         onClick={(event) => {
                             setShowAddModal(true);
                             setAddModalType(EntityType.Tag);
