@@ -530,7 +530,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
     def build_input_fields(
-        self, chart_columns: List[Tuple[str, str, str]], datasource_urn: str
+        self, chart_columns: List[Tuple[str, str, str]], datasource_urn: Union[str, None]
     ) -> List[InputField]:
         input_fields: List[InputField] = []
 
@@ -551,7 +551,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     ),
                     schemaField=SchemaField(
                         fieldPath=col_name,
-                        type=SchemaFieldDataType(type=type_class()),
+                        type=SchemaFieldDataType(type=type_class()), # type: ignore
                         description=(description if description != "null" else ""),
                         nativeDataType=col_type,
                         globalTags=None,
@@ -563,25 +563,27 @@ class SupersetSource(StatefulIngestionSourceBase):
         return input_fields
 
     def construct_chart_cll(
-        self, chart_data: dict, datasource_urn: str, datasource_id: int
+        self, chart_data: dict, datasource_urn: Union[str, None], datasource_id: Union[Any, int]
     ) -> List[InputField]:
         column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
             "all_columns", []
         )
 
         # 0 represents a string column name, and 1 represents a SQL expression
-        chart_columns: List[str] = [
+        chart_column_data: List[Tuple[str, bool]] = [
             (column, False)
             if isinstance(column, str)
             else (column.get("label", ""), True)
             for column in column_data
         ]
 
+        dataset_columns: List[Tuple[str, str, str]] = []
+
         # parses the superset dataset's column info, to build type and description info
         if datasource_id:
             dataset_info = self.get_dataset_info(datasource_id).get("result", {})
             dataset_column_info = dataset_info.get("columns", [])
-            dataset_columns: List[str] = [
+            dataset_columns = [
                 (
                     column.get("column_name", ""),
                     column.get("type", ""),
@@ -589,39 +591,41 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 for column in dataset_column_info
             ]
-        else:
-            # no datasource_id means no upstream dataset
-            dataset_columns: List[str] = []
 
-        for index, chart_col in enumerate(chart_columns):
+        chart_columns: List[Tuple[str, str, str]] = []
+
+        for chart_col in chart_column_data:
             chart_col_name, is_sql = chart_col
-            # if its a SQL expression, do not need to
-            # look for it in the upstream dataset
             if is_sql:
-                chart_columns[index] = (
-                    chart_col_name,
-                    "SQL",
-                    "",
+                chart_columns.append(
+                    (
+                        chart_col_name,
+                        "SQL",
+                        "",
+                    )
                 )
                 continue
-
+            
+            # find matching upstream column
             for dataset_col in dataset_columns:
                 dataset_col_name, dataset_col_type, dataset_col_description = (
                     dataset_col
                 )
                 if dataset_col_name == chart_col_name:
-                    chart_columns[index] = (
-                        chart_col_name,
+                    chart_columns.append(
+                        (chart_col_name,
                         dataset_col_type,
-                        dataset_col_description,
+                        dataset_col_description)
                     )  # column name, column type, description
                     break
-            if not isinstance(chart_columns[index], tuple):
-                chart_columns[index] = (
+            
+            # if no matching upstream column was found
+            if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
+                chart_columns.append((
                     chart_col_name,
                     "",
-                    "",
-                )  # if no datasource id, default to blank
+                    ""
+                ))
 
         return self.build_input_fields(chart_columns, datasource_urn)
 
