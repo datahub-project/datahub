@@ -19,6 +19,7 @@ describe("group notifications test", () => {
   };
 
   it("sanity check: enable email notifications and toggle the scenario settings", () => {
+    setEmailNotificationsEnabled(true);
     cy.loginWithCredentials();
     cy.skipIntroducePage();
 
