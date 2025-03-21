@@ -131,7 +131,6 @@ FIELD_TYPE_MAPPING = {
     "DATETIME": DateTypeClass,
     "BOOLEAN": BooleanTypeClass,
     "SQL": StringTypeClass,
-    "NULL": NullTypeClass, # default to NULL
 }
 
 @dataclass
