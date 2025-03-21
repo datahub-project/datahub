@@ -94,6 +94,10 @@ class BIAssetSubTypes(StrEnum):
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
 
+    # Hex
+    HEX_PROJECT = "Project"
+    HEX_COMPONENT = "Component"
+
 
 class MLAssetSubTypes(StrEnum):
     MLFLOW_TRAINING_RUN = "ML Training Run"
