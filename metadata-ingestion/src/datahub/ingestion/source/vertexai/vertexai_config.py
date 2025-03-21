@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from pydantic import Field
 
@@ -22,9 +22,6 @@ class VertexAIConfig(EnvConfigMixin):
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
     )
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         if self.credential:
