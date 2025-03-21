@@ -80,6 +80,12 @@ public class MLModelPropertiesMapper
               .collect(Collectors.toList()));
     }
 
+    if (mlModelProperties.getDeployments() != null) {
+      result.setDeployments(
+          mlModelProperties.getDeployments().stream()
+              .map(Urn::toString)
+              .collect(Collectors.toList()));
+    }
     if (mlModelProperties.getMlFeatures() != null) {
       result.setMlFeatures(
           mlModelProperties.getMlFeatures().stream()

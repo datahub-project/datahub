@@ -120,6 +120,11 @@ export default function MLModelSummary() {
                     <InfoItem title="Source Run">
                         <InfoItemContent>{renderTrainingJobs()}</InfoItemContent>
                     </InfoItem>
+                    {model?.deployedTo?.relationships && (
+                        <InfoItem title="Deployment">
+                            <InfoItemContent>{model?.deployedTo?.relationships?.map((relationship) => relationship.entity)}</InfoItemContent>
+                        </InfoItem>
+                    )}
                 </InfoItemContainer>
                 <Typography.Title level={3}>Training Metrics</Typography.Title>
                 <Table
