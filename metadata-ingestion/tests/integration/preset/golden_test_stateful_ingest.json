@@ -64,24 +64,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(preset,10)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -139,24 +122,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(preset,11)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -214,24 +180,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(preset,12)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -289,24 +238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(preset,13)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -364,7 +296,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -381,7 +313,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1720594800000,
-        "runId": "preset-2024_07_10-07_00_00-zwe41r",
+        "runId": "preset-2024_07_10-07_00_00-w9djny",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

@@ -144,13 +144,13 @@
                     "schemaField": {
                         "fieldPath": "test_column1",
                         "nullable": true,
-                        "description": "",
+                        "description": "some description 1",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NullType": {}
+                                "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "UNKNOWN",
+                        "nativeDataType": "INT",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -160,29 +160,13 @@
                     "schemaField": {
                         "fieldPath": "test_column2",
                         "nullable": true,
-                        "description": "",
+                        "description": "some description 2",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NullType": {}
+                                "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "UNKNOWN",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD),test_label)",
-                    "schemaField": {
-                        "fieldPath": "test_label",
-                        "nullable": true,
-                        "description": "",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NullType": {}
-                            }
-                        },
-                        "nativeDataType": "UNKNOWN",
+                        "nativeDataType": "STRING",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -254,22 +238,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,11)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(superset,11)",
@@ -327,22 +295,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,12)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(superset,12)",
@@ -391,22 +343,6 @@
                     }
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,13)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
         }
     },
     "systemMetadata": {

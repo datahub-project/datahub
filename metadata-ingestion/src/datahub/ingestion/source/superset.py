@@ -66,9 +66,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullType,
+    BooleanTypeClass,
+    DateTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
+    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -81,7 +86,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
-    NullTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -118,9 +122,17 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
-
 platform_without_databases = ["druid"]
 
+FIELD_TYPE_MAPPING = {
+    "INT": NumberTypeClass,
+    "STRING": StringTypeClass,
+    "FLOAT": NumberTypeClass,
+    "DATETIME": DateTypeClass,
+    "BOOLEAN": BooleanTypeClass,
+    "SQL": StringTypeClass,
+    "NULL": NullTypeClass, # default to NULL
+}
 
 @dataclass
 class SupersetSourceReport(StaleEntityRemovalSourceReport):
@@ -517,6 +529,60 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
+    def construct_chart_cll(self, chart_data: dict, datasource_urn: str, datasource_id: int) -> List[InputField]:
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
+            "all_columns", []
+        )
+        chart_columns: List[str] = [
+            column if isinstance(column, str) else column.get("label", "")
+            for column in column_data
+        ]
+
+        if datasource_id:
+            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+            dataset_column_info = dataset_info.get("columns", [])
+            dataset_columns: List[str] = [
+                (column.get("column_name", ""), column.get("type", ""), column.get("description", "")) for column in dataset_column_info
+            ]
+        else:
+             dataset_columns: List[str] = []
+
+        for index, chart_col in enumerate(chart_columns):
+            for dataset_col in dataset_columns:
+                if dataset_col[0] == chart_col:
+                    chart_columns[index] = (chart_col, dataset_col[1], dataset_col[2]) # column name, column type, description
+                    break
+            if not isinstance(chart_columns[index], tuple):
+                chart_columns[index] = (chart_col, "", "") # if no datasource id, default to blank
+
+        input_fields: List[InputField] = []
+
+        for column in chart_columns:
+            col_name, col_type, description = column
+            if not col_type or not datasource_urn:
+                continue
+
+            type_class = FIELD_TYPE_MAPPING.get(col_type.upper(), NullTypeClass) # gets the type mapping
+
+            input_fields.append(
+                InputField(
+                    schemaFieldUrn=builder.make_schema_field_urn(
+                        parent_urn=str(datasource_urn),
+                        field_path=col_name,
+                    ),
+                    schemaField=SchemaField(
+                        fieldPath=col_name,
+                        type=SchemaFieldDataType(type=type_class()),
+                        description=description if description != "null" else "",
+                        nativeDataType=col_type,
+                        globalTags=None,
+                        nullable=True,
+                    ),
+                )
+            )
+
+        return input_fields
+
     def construct_chart_from_chart_data(
         self, chart_data: dict
     ) -> Iterable[MetadataWorkUnit]:
@@ -607,41 +673,17 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
-        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
-            "all_columns", []
+        input_fields = self.construct_chart_cll(
+            chart_data, datasource_urn, datasource_id
         )
-        columns: List[str] = [
-            column if isinstance(column, str) else column.get("label", "")
-            for column in column_data
-        ]
-        input_fields: List[InputField] = []
 
-        for column in columns:
-            if not column or not datasource_urn:
-                continue
-            input_fields.append(
-                InputField(
-                    schemaFieldUrn=builder.make_schema_field_urn(
-                        parent_urn=str(datasource_urn),
-                        field_path=column,
-                    ),
-                    schemaField=SchemaField(
-                        fieldPath=column,
-                        type=SchemaFieldDataType(type=NullTypeClass()),
-                        description="",
-                        nativeDataType="UNKNOWN",
-                        globalTags=None,
-                        nullable=True,
-                    ),
-                )
-            )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=chart_urn,
-            aspect=InputFields(
-                fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
-            ),
-        ).as_workunit()
+        if input_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=InputFields(
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                ),
+            ).as_workunit()
 
         chart_owners_list = self.build_owner_urn(chart_data)
         owners_info = OwnershipClass(

@@ -131,8 +131,14 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "slice_name": "test_chart_title_2",
                         "viz_type": "pie",
                         "url": "/explore/test_chart_url_11",
-                        "datasource_id": "20",
+                        "datasource_id": 2,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                "test_column3",
+                                "test_column4",
+                            ],
+                        },
                     },
                     {
                         "id": 12,
@@ -300,6 +306,18 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "database_name": "test_database1",
                         "id": 1,
                     },
+                    "columns": [
+                        {
+                            "column_name": "test_column1",
+                            "description": "some description 1",
+                            "type": "INT",
+                        },
+                        {
+                            "column_name": "test_column2",
+                            "description": "some description 2",
+                            "type": "STRING",
+                        },
+                    ],
                     "datasource_name": "Test Table 1",
                     "datasource_type": "table",
                     "default_endpoint": None,
@@ -382,6 +400,18 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "database_name": "test_database1",
                         "id": 1,
                     },
+                    "columns": [
+                        {
+                            "column_name": "test_column3",
+                            "description": "some description 3",
+                            "type": "FLOAT",
+                        },
+                        {
+                            "column_name": "test_column4",
+                            "description": "some description 4",
+                            "type": "DATETIME",
+                        },
+                    ],
                     "datasource_name": "Test Table 2",
                     "datasource_type": "table",
                     "default_endpoint": None,
@@ -815,6 +845,12 @@ def test_superset_stateful_ingest(
                         "url": "/explore/test_chart_url_11",
                         "datasource_id": "20",
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                "test_column3",
+                                "test_column4",
+                            ],
+                        },
                     },
                     {
                         "id": 12,
