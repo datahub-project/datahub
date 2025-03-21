@@ -6,7 +6,7 @@ import { Incident } from '@src/types.generated';
 import { IncidentDrawerHeader } from './IncidentDrawerHeader';
 import { IncidentView } from './IncidentView';
 import { IncidentEditor } from './IncidentEditor';
-import { IncidentTableRow } from '../types';
+import { EntityStagedForIncident, IncidentTableRow } from '../types';
 import { IncidentAction } from '../constant';
 
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
@@ -17,9 +17,16 @@ type IncidentDetailDrawerProps = {
     incident?: IncidentTableRow;
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
+    authorIncidentForEntity?: EntityStagedForIncident;
 };
 
-export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({
+    mode,
+    onCancel,
+    onSubmit,
+    incident,
+    authorIncidentForEntity,
+}: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.ADD;
     const modalClosePopup = () => {
@@ -55,6 +62,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: Inc
                     isEditActive={isEditView}
                     setIsEditActive={setIsEditView}
                     data={incident}
+                    platform={authorIncidentForEntity?.platform}
                 />
                 {showEditor ? (
                     <IncidentEditor
@@ -63,6 +71,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: Inc
                         mode={mode}
                         incidentUrn={incident?.urn}
                         onSubmit={onSubmit}
+                        authorIncidentForEntity={authorIncidentForEntity}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

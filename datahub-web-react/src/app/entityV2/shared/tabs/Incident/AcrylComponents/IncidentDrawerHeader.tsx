@@ -1,11 +1,20 @@
 import React from 'react';
-import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
 import styled from 'styled-components';
+import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { DataPlatform } from '@src/types.generated';
 import { useIncidentURNCopyLink } from '../hooks';
 import { IncidentAction } from '../constant';
 import { IncidentTableRow } from '../types';
-import { StyledHeader, StyledHeaderActions, StyledTitle } from './styledComponents';
+import {
+    ForPlatformWrapper,
+    StyledHeader,
+    StyledHeaderActions,
+    StyledHeaderTitleContainer,
+    StyledTitle,
+} from './styledComponents';
 
 const EditButton = styled(PencilSimpleLine)`
     :hover {
@@ -31,6 +40,7 @@ type IncidentDrawerHeaderProps = {
     isEditActive: boolean;
     setIsEditActive: React.Dispatch<React.SetStateAction<boolean>>;
     data?: IncidentTableRow;
+    platform?: DataPlatform;
 };
 
 export const IncidentDrawerHeader = ({
@@ -39,11 +49,20 @@ export const IncidentDrawerHeader = ({
     isEditActive,
     setIsEditActive,
     data,
+    platform,
 }: IncidentDrawerHeaderProps) => {
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
     return (
         <StyledHeader>
-            <StyledTitle>{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
+            <StyledHeaderTitleContainer>
+                <StyledTitle>{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
+                {platform && (
+                    <ForPlatformWrapper>
+                        <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
+                        {capitalizeFirstLetter(platform.name)}
+                    </ForPlatformWrapper>
+                )}
+            </StyledHeaderTitleContainer>
             <StyledHeaderActions>
                 {mode === IncidentAction.VIEW && isEditActive === false && (
                     <>
