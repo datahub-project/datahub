@@ -4,48 +4,43 @@ describe("manage ownership", () => {
   });
 
   it("go to ownership types settings page, create, edit, make default, delete a ownership type", () => {
-    const testOwnershipType = `Test Ownership Type ${Date.now()}`;
-
+    const viewName = "Test View";
     cy.login();
     cy.goToOwnershipTypesSettings();
     cy.waitTextVisible("Manage Ownership");
+    cy.ensureTextNotPresent("Loading Ownership Types");
     cy.clickOptionWithTestId("create-owner-type");
-    cy.get('[data-testid="ownership-type-name-input"]').clear("T");
-    cy.get('[data-testid="ownership-type-name-input"]').type(testOwnershipType);
-    cy.get('[data-testid="ownership-type-description-input"]').clear("T");
+    cy.get('[data-testid="ownership-type-name-input"]').clear();
+    cy.get('[data-testid="ownership-type-name-input"]').type(
+      "Test Ownership Type",
+    );
+    cy.get('[data-testid="ownership-type-description-input"]').clear();
     cy.get('[data-testid="ownership-type-description-input"]').type(
       "This is a test ownership type description.",
     );
     cy.get('[data-testid="ownership-builder-save"]').click();
     cy.wait(3000);
-    cy.waitTextVisible(testOwnershipType);
+    cy.waitTextVisible("Test Ownership Type");
 
-    cy.get(`[data-row-key="${testOwnershipType}"]`)
-      .first()
-      .within(() => {
-        cy.get('[data-testid="ownership-table-dropdown"]').click();
-      });
+    cy.get(
+      '[data-row-key="Test Ownership Type"] > :nth-child(3) > .anticon > svg',
+    ).click();
     cy.clickOptionWithText("Edit");
-
     cy.get('[data-testid="ownership-type-description-input"]').clear(
       "This is an test ownership type description.",
     );
     cy.get('[data-testid="ownership-type-description-input"]').type(
       "This is an edited test ownership type description.",
     );
-    cy.get('[data-testid="ownership-builder-save"]').click();
+    cy.get('[data-testid="ownership-builder-save"] > span').click();
     cy.wait(3000);
     cy.waitTextVisible("This is an edited test ownership type description.");
-    cy.get(`[data-row-key="${testOwnershipType}"]`)
-      .first()
-      .within(() => {
-        cy.get('[data-testid="ownership-table-dropdown"]').click();
-      });
+    cy.get(
+      '[data-row-key="Test Ownership Type"] > :nth-child(3) > .anticon > svg',
+    ).click();
     cy.clickOptionWithText("Delete");
-
-    // Complete the deletion
     cy.get(".ant-popover-buttons > .ant-btn-primary").click();
     cy.wait(3000);
-    cy.ensureTextNotPresent(testOwnershipType);
+    cy.ensureTextNotPresent("Test Ownership Type");
   });
 });
