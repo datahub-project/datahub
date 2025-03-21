@@ -252,10 +252,13 @@ class SoftDeletedEntitiesCleanup:
     def _get_urns(self) -> Iterable[str]:
         assert self.ctx.graph
         # Entities created in the retention period are not considered for deletion
-        created_from = (
-            datetime.now(timezone.utc).timestamp()
-            - self.config.retention_days * 24 * 60 * 60
-        ) * 1000
+        created_from = int(
+            (
+                datetime.now(timezone.utc).timestamp()
+                - self.config.retention_days * 24 * 60 * 60
+            )
+            * 1000
+        )
 
         yield from self.ctx.graph.get_urns_by_filter(
             entity_types=self.config.entity_types,
