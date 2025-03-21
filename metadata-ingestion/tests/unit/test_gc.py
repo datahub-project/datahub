@@ -5,9 +5,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 from unittest.mock import MagicMock, call, patch
 
+from freezegun import freeze_time
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
 from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataJobEntity,
     DataProcessCleanup,
@@ -20,6 +22,8 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesReport,
 )
 from datahub.utilities.urns._urn_base import Urn
+
+FROZEN_TIME = "2021-12-07 07:00:00"
 
 
 class TestSoftDeletedEntitiesCleanup(unittest.TestCase):
@@ -355,6 +359,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             self.report.num_soft_deleted_retained_due_to_age_by_type.get("dataset"), 1
         )
 
+    @freeze_time(FROZEN_TIME)
     def test_get_urns(self):
         """Test that _get_urns calls get_urns_by_filter with correct parameters."""
         # Setup mock for get_urns_by_filter
@@ -371,6 +376,18 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             query=self.config.query,
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
+            extraFilters=[
+                SearchFilterRule(
+                    field="created",
+                    condition="GREATER_THAN",
+                    values=[
+                        str(
+                            int(time.time() - self.config.retention_days * 24 * 60 * 60)
+                            * 1000
+                        )
+                    ],
+                ).to_raw()
+            ],
         )
 
         # Check the returned urns
