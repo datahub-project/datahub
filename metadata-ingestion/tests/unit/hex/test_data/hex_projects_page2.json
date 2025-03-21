@@ -6,10 +6,10 @@
       "description": "this is a component to get pet profiles at glance\n\n",
       "type": "COMPONENT",
       "creator": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "owner": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "status": null,
       "categories": [],
@@ -36,7 +36,7 @@
         "users": [
           {
             "user": {
-              "email": "mayuri.nehate@gslab.com"
+              "email": "user5@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -67,10 +67,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "sergio.gomez@acryl.io"
+        "email": "user6@example.com"
       },
       "owner": {
-        "email": "sergio.gomez@acryl.io"
+        "email": "user6@example.com"
       },
       "status": {
         "name": "In development"
@@ -99,7 +99,7 @@
         "users": [
           {
             "user": {
-              "email": "sergio.gomez@acryl.io"
+              "email": "user6@example.com"
             },
             "access": "FULL_ACCESS"
           }

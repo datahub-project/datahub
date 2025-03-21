@@ -6,10 +6,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "aefendic@hex.tech"
+        "email": "user1@example.com"
       },
       "owner": {
-        "email": "aefendic@hex.tech"
+        "email": "user1@example.com"
       },
       "status": null,
       "categories": [],
@@ -36,7 +36,7 @@
         "users": [
           {
             "user": {
-              "email": "aefendic@hex.tech"
+              "email": "user1@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -60,10 +60,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "claire.carroll@hex.tech"
+        "email": "user2@example.com"
       },
       "owner": {
-        "email": "claire.carroll@hex.tech"
+        "email": "user2@example.com"
       },
       "status": null,
       "categories": [],
@@ -90,7 +90,7 @@
         "users": [
           {
             "user": {
-              "email": "claire.carroll@hex.tech"
+              "email": "user2@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -114,10 +114,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "maggie@acryl.io"
+        "email": "user3@example.com"
       },
       "owner": {
-        "email": "maggie@acryl.io"
+        "email": "user3@example.com"
       },
       "status": null,
       "categories": [],
@@ -144,7 +144,7 @@
         "users": [
           {
             "user": {
-              "email": "maggie@acryl.io"
+              "email": "user3@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -168,10 +168,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "harshal@acryl.io"
+        "email": "user4@example.com"
       },
       "owner": {
-        "email": "harshal.sheth@acryl.io"
+        "email": "user4a@example.com"
       },
       "status": null,
       "categories": [],
@@ -198,13 +198,13 @@
         "users": [
           {
             "user": {
-              "email": "harshal.sheth@acryl.io"
+              "email": "user4a@example.com"
             },
             "access": "FULL_ACCESS"
           },
           {
             "user": {
-              "email": "harshal@acryl.io"
+              "email": "user4@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -228,10 +228,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "harshal.sheth@acryl.io"
+        "email": "user4a@example.com"
       },
       "owner": {
-        "email": "harshal.sheth@acryl.io"
+        "email": "user4a@example.com"
       },
       "status": null,
       "categories": [],
@@ -258,7 +258,7 @@
         "users": [
           {
             "user": {
-              "email": "harshal.sheth@acryl.io"
+              "email": "user4a@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -282,10 +282,10 @@
       "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "owner": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "status": null,
       "categories": [],
@@ -312,7 +312,7 @@
         "users": [
           {
             "user": {
-              "email": "mayuri.nehate@gslab.com"
+              "email": "user5@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -336,10 +336,10 @@
       "description": "This is a play project\n\n",
       "type": "PROJECT",
       "creator": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "owner": {
-        "email": "mayuri.nehate@gslab.com"
+        "email": "user5@example.com"
       },
       "status": {
         "name": "In development"
@@ -388,13 +388,13 @@
         "users": [
           {
             "user": {
-              "email": "harshal.sheth@acryl.io"
+              "email": "user4a@example.com"
             },
             "access": "FULL_ACCESS"
           },
           {
             "user": {
-              "email": "mayuri.nehate@gslab.com"
+              "email": "user5@example.com"
             },
             "access": "FULL_ACCESS"
           }
@@ -418,10 +418,10 @@
       "description": null,
       "type": "COMPONENT",
       "creator": {
-        "email": "harshal.sheth@acryl.io"
+        "email": "user4a@example.com"
       },
       "owner": {
-        "email": "harshal.sheth@acryl.io"
+        "email": "user4a@example.com"
       },
       "status": null,
       "categories": [],
@@ -448,7 +448,7 @@
         "users": [
           {
             "user": {
-              "email": "harshal.sheth@acryl.io"
+              "email": "user4a@example.com"
             },
             "access": "FULL_ACCESS"
           }
