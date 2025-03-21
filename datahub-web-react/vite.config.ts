@@ -67,6 +67,9 @@ export default defineConfig(({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            // Splitting the bundle to keep individual chunk sizes under 26mb cloudflare pages limit, which is needed
+            // especially when we want to upload sourcemaps.
+            // The way the chunks are being split is not important, and can be adjusted in future.
             rollupOptions: {
                 output: {
                     manualChunks(id) {
