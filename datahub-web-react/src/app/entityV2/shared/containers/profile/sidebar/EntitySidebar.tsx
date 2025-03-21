@@ -16,7 +16,7 @@ const Content = styled.div`
         padding-top: 12px;
         padding-bottom: 12px;
         &:not(:last-child) {
-            border-bottom: 1px solid ${colors.gray[200]};
+            border-bottom: 1px solid ${colors.gray[100]};
         }
     }
     &::-webkit-scrollbar {
