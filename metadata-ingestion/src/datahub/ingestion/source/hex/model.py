@@ -52,8 +52,6 @@ class Project:
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
 
-    _raw_data: Optional[dict] = None
-
 
 @dataclass
 class Component:
@@ -68,5 +66,3 @@ class Component:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
-
-    _raw_data: Optional[dict] = None

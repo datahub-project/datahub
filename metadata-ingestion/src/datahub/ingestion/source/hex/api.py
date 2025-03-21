@@ -334,9 +334,6 @@ class HexApi:
                 last_viewed_at=hex_item.analytics.last_viewed_at,
             )
 
-        # Get raw data for storage
-        raw_data = hex_item.dict(by_alias=True)
-
         # Create the appropriate domain model based on type
         if hex_item.type == HexApiItemType.PROJECT:
             return Project(
@@ -351,7 +348,6 @@ class HexApi:
                 creator=creator,
                 owner=owner,
                 analytics=analytics,
-                _raw_data=raw_data,
             )
         elif hex_item.type == HexApiItemType.COMPONENT:
             return Component(
@@ -366,7 +362,6 @@ class HexApi:
                 creator=creator,
                 owner=owner,
                 analytics=analytics,
-                _raw_data=raw_data,
             )
         else:
             raise ValueError(f"Unknown type: {hex_item.type}")

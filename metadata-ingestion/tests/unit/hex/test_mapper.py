@@ -113,7 +113,6 @@ class TestMapper(unittest.TestCase):
                 appviews_last_30_days=30,
                 last_viewed_at=datetime(2022, 1, 1, 0, 0, 0),
             ),
-            _raw_data={"key1": "value1", "key2": "value2"},
         )
 
         # check URNs
@@ -142,8 +141,7 @@ class TestMapper(unittest.TestCase):
             == "https://app.hex.tech/test-workspace/hex/uuid1"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
-            "key1": "value1",
-            "key2": "value2",
+            "id": "uuid1",
         }
 
         # check SubTypesClass
@@ -331,7 +329,6 @@ class TestMapper(unittest.TestCase):
                 appviews_last_30_days=30,
                 last_viewed_at=datetime(2022, 1, 1, 0, 0, 0),
             ),
-            _raw_data={"key3": "value3"},
         )
 
         # check URNs
@@ -359,9 +356,7 @@ class TestMapper(unittest.TestCase):
             dashboard_info_wus[0].metadata.aspect.externalUrl
             == "https://app.hex.tech/test-workspace/hex/uuid1"
         )
-        assert dashboard_info_wus[0].metadata.aspect.customProperties == {
-            "key3": "value3"
-        }
+        assert dashboard_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
 
         # check SubTypesClass
 

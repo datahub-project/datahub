@@ -111,9 +111,7 @@ class Mapper:
                 created_at=project.created_at, last_edited_at=project.last_edited_at
             ),
             externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{project.id}",
-            customProperties={k: str(v) for k, v in project._raw_data.items()}
-            if project._raw_data
-            else None,
+            customProperties=dict(id=project.id),
         )
 
         subtypes = SubTypesClass(
@@ -158,9 +156,7 @@ class Mapper:
                 created_at=component.created_at, last_edited_at=component.last_edited_at
             ),
             externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{component.id}",
-            customProperties={k: str(v) for k, v in component._raw_data.items()}
-            if component._raw_data
-            else None,
+            customProperties=dict(id=component.id),
         )
 
         subtypes = SubTypesClass(
