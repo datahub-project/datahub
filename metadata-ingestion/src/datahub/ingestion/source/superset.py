@@ -590,7 +590,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                     schemaField=SchemaField(
                         fieldPath=col_name,
                         type=SchemaFieldDataType(type=type_class()),
-                        description=description if description != "null" else "",
+                        description=(
+                            description if description != "null"
+                            else ""
+                        ),
                         nativeDataType=col_type,
                         globalTags=None,
                         nullable=True,
