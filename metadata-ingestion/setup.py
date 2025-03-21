@@ -185,7 +185,11 @@ looker_common = {
     "lkml>=1.3.4",
     *sqlglot_lib,
     "GitPython>2",
-    "python-liquid",
+    # python-liquid 2 includes a bunch of breaking changes.
+    # See https://jg-rp.github.io/liquid/migration/
+    # Eventually we should fully upgrade to v2, but that will require
+    # us to drop Python 3.8 support first.
+    "python-liquid<2",
     "deepmerge>=1.1.1",
 }
 
@@ -348,9 +352,7 @@ sac = {
 
 superset_common = {
     "requests",
-    "sqlalchemy",
-    "great_expectations",
-    "greenlet",
+    *sqlglot_lib,
 }
 
 # Note: for all of these, framework_common will be added.
@@ -532,6 +534,7 @@ plugins: Dict[str, Set[str]] = {
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
+    "vertexai": {"google-cloud-aiplatform>=1.80.0"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -677,6 +680,7 @@ base_dev_requirements = {
             "sac",
             "cassandra",
             "neo4j",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -710,6 +714,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -799,6 +804,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

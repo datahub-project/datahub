@@ -361,9 +361,33 @@ export const WithGroupByFunctionality = () => {
                 },
                 rowExpandable: () => true,
                 expandIconPosition: 'end',
-                expandedRowKeys,
+                expandedGroupIds: expandedRowKeys,
             }}
             onExpand={onExapand}
+        />
+    );
+};
+
+export const WithRowSelection = () => {
+    const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+
+    return (
+        <Table
+            columns={[
+                { title: 'ID', key: 'id', dataIndex: 'id' },
+                { title: 'Column 1', key: 'column1', dataIndex: 'column1' },
+                { title: 'Column 2', key: 'column2', dataIndex: 'column2' },
+            ]}
+            data={[
+                { id: '1', column1: 'Row 1 Col 1', column2: 'Row 1 Col 2', column3: 2 },
+                { id: '2', column1: 'Row 2 Col 1', column2: 'Row 2 Col 2', column3: 3 },
+                { id: '3', column1: 'Row 3 Col 1', column2: 'Row 3 Col 2', column3: 1 },
+            ]}
+            rowKey="id"
+            rowSelection={{
+                selectedRowKeys: selectedKeys,
+                onChange: (keys) => setSelectedKeys(keys),
+            }}
         />
     );
 };

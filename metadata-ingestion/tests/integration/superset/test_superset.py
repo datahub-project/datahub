@@ -35,7 +35,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "count": 2,
                 "result": [
                     {
-                        "id": "1",
+                        "id": 1,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -63,7 +63,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "certification_details": "Approved",
                     },
                     {
-                        "id": "2",
+                        "id": 2,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -95,7 +95,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "count": 4,
                 "result": [
                     {
-                        "id": "10",
+                        "id": 10,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -109,7 +109,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "11",
+                        "id": 11,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -123,7 +123,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "12",
+                        "id": 12,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -137,7 +137,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "13",
+                        "id": 13,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -186,7 +186,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             }
                         ],
                         "schema": "test_schema1",
-                        "sql": "SELECT * FROM test_table1",
                         "table_name": "Test Table 1",
                     },
                     {
@@ -205,7 +204,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "explore_url": "/explore/?datasource_type=table&datasource_id=2",
                         "extra": None,
                         "id": 2,
-                        "kind": "physical",
+                        "kind": "virtual",
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -214,8 +213,53 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             }
                         ],
                         "schema": "test_schema2",
-                        "sql": "SELECT * FROM test_table2",
                         "table_name": "Test Table 2",
+                    },
+                    {
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "User1",
+                        },
+                        "changed_by_name": "test_username_1",
+                        "changed_on_delta_humanized": "9 months ago",
+                        "columns": [
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "id",
+                                "type": "INT",
+                                "id": 1,
+                                "verbose_name": "null",
+                            },
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "name",
+                                "type": "STRING",
+                                "id": 2,
+                                "verbose_name": "null",
+                            },
+                        ],
+                        "changed_on_utc": "2024-02-10T15:30:20.123456+0000",
+                        "database": {"database_name": "test_database1", "id": 1},
+                        "datasource_type": "table",
+                        "default_endpoint": None,
+                        "description": "Sample description for dataset 3",
+                        "explore_url": "/explore/?datasource_type=table&datasource_id=3",
+                        "extra": None,
+                        "id": 3,
+                        "kind": "physical",
+                        "owners": [
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            }
+                        ],
+                        "schema": "test_schema3",
+                        "select_star": "SELECT * FROM test_schema3.test_table3 LIMIT 100",
+                        "table_name": "Test Table 3",
                     },
                 ],
             },
@@ -287,10 +331,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             "last_name": "Owner1",
                         }
                     ],
-                    "rendered_sql": "SELECT * FROM test_table1",
                     "schema": "test_schema1",
                     "select_star": "SELECT * FROM test_schema1.test_table1 LIMIT 100",
-                    "sql": "SELECT * FROM test_table1",
                     "table_name": "Test Table 1",
                     "uid": "1__table",
                     "url": "/tablemodelview/edit/1",
@@ -368,10 +410,14 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                             "last_name": "Owner2",
                         }
                     ],
-                    "rendered_sql": "SELECT * FROM test_table2",
+                    "rendered_sql": """
+                    SELECT tt2.id, tt2.name, tt2.description, db.database_name 
+                    FROM test_table2 tt2
+                    JOIN databases db ON tt2.database_id = db.id
+                    WHERE tt2.kind = 'virtual'
+                    ORDER BY tt2.id DESC;
+                    """,
                     "schema": "test_schema2",
-                    "select_star": "SELECT * FROM test_schema2.test_table2 LIMIT 100",
-                    "sql": "SELECT * FROM test_table2",
                     "table_name": "Test Table 2",
                     "uid": "2__table",
                     "url": "/tablemodelview/edit/2",
@@ -385,6 +431,106 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 },
             },
         },
+        "mock://mock-domain.superset.com/api/v1/dataset/3": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": 3,
+                "result": {
+                    "always_filter_main_dttm": False,
+                    "cache_timeout": None,
+                    "changed_by": {
+                        "first_name": "Test",
+                        "id": 1,
+                        "last_name": "Owners1",
+                    },
+                    "changed_on": "2024-01-05T21:10:15.650819+0000",
+                    "changed_on_humanized": "10 months ago",
+                    "columns": [
+                        {
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "column_name": "id",
+                            "type": "INT",
+                            "id": 1,
+                            "verbose_name": "null",
+                        },
+                        {
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "column_name": "name",
+                            "type": "STRING",
+                            "id": 2,
+                            "verbose_name": "null",
+                        },
+                    ],
+                    "created_by": {"first_name": "Test", "last_name": "User1"},
+                    "created_on": "2024-01-05T21:10:15.650819+0000",
+                    "created_on_humanized": "10 months ago",
+                    "currency_formats": {},
+                    "database": {
+                        "backend": "postgresql",
+                        "database_name": "test_database1",
+                        "id": 1,
+                    },
+                    "datasource_name": "Test Table 1",
+                    "datasource_type": "table",
+                    "default_endpoint": None,
+                    "description": None,
+                    "extra": None,
+                    "fetch_values_predicate": None,
+                    "filter_select_enabled": True,
+                    "granularity_sqla": [
+                        ["created_at", "created_at"],
+                        ["updated_at", "updated_at"],
+                    ],
+                    "id": 3,
+                    "is_managed_externally": False,
+                    "is_sqllab_view": False,
+                    "kind": "virtual",
+                    "main_dttm_col": None,
+                    "metrics": [
+                        {
+                            "changed_on": "2024-01-05T21:10:15.650819+0000",
+                            "created_on": "2024-01-05T21:10:15.650819+0000",
+                            "currency": None,
+                            "d3format": None,
+                            "description": None,
+                            "expression": "count(*)",
+                            "extra": None,
+                            "id": 1,
+                            "metric_name": "count",
+                            "metric_type": None,
+                            "rendered_expression": "count(*)",
+                            "verbose_name": None,
+                            "warning_text": None,
+                        }
+                    ],
+                    "name": "Test Table 3",
+                    "normalize_columns": True,
+                    "offset": 0,
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
+                        }
+                    ],
+                    "schema": "test_schema3",
+                    "select_star": "SELECT * FROM test_schema3.test_table3 LIMIT 100",
+                    "table_name": "Test Table 3",
+                    "uid": "1__table",
+                    "url": "/tablemodelview/edit/3",
+                    "verbose_map": {
+                        "__timestamp": "Time",
+                        "id": "ID",
+                        "name": "Name",
+                        "created_at": "Created At",
+                        "updated_at": "Updated At",
+                    },
+                },
+            },
+        },
         "mock://mock-domain.superset.com/api/v1/dataset/20": {
             "method": "GET",
             "status_code": 200,
@@ -393,7 +539,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     "schema": "test_schema_name",
                     "table_name": "test_table_name",
                     "database": {
-                        "id": "30",
+                        "id": 30,
                         "database_name": "test_database_name",
                     },
                 },
@@ -549,6 +695,7 @@ def test_superset_stateful_ingest(
                 "provider": "db",
                 # Enable dataset ingestion
                 "ingest_datasets": True,
+                "timeout": 10,
                 # enable stateful ingestion
                 "stateful_ingestion": {
                     "enabled": True,
@@ -576,7 +723,7 @@ def test_superset_stateful_ingest(
                 "count": 1,
                 "result": [
                     {
-                        "id": "1",
+                        "id": 1,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -613,7 +760,7 @@ def test_superset_stateful_ingest(
                 "count": 3,
                 "result": [
                     {
-                        "id": "10",
+                        "id": 10,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -627,7 +774,7 @@ def test_superset_stateful_ingest(
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "11",
+                        "id": 11,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 1,
@@ -641,7 +788,7 @@ def test_superset_stateful_ingest(
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                     {
-                        "id": "12",
+                        "id": 12,
                         "changed_by": {
                             "first_name": "Test",
                             "id": 2,
@@ -663,7 +810,7 @@ def test_superset_stateful_ingest(
             "json": {
                 "count": 214,
                 "description_columns": {},
-                "ids": [1, 2],
+                "ids": [1, 2, 3],
                 "result": [
                     {
                         "changed_by": {
@@ -681,7 +828,7 @@ def test_superset_stateful_ingest(
                         "explore_url": "/explore/?datasource_type=table&datasource_id=2",
                         "extra": None,
                         "id": 2,
-                        "kind": "physical",
+                        "kind": "virtual",
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -690,8 +837,60 @@ def test_superset_stateful_ingest(
                             }
                         ],
                         "schema": "test_schema2",
-                        "sql": "SELECT * FROM test_table2",
+                        "rendered_sql": """
+                        SELECT tt2.id, tt2.name, tt2.description, db.database_name 
+                        FROM test_table2 tt2
+                        JOIN databases db ON tt2.database_id = db.id
+                        WHERE tt2.kind = 'virtual'
+                        ORDER BY tt2.id DESC;
+                        """,
                         "table_name": "Test Table 2",
+                    },
+                    {
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "User1",
+                        },
+                        "changed_by_name": "test_username_1",
+                        "changed_on_delta_humanized": "9 months ago",
+                        "columns": [
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "id",
+                                "type": "INT",
+                                "id": 1,
+                                "verbose_name": "null",
+                            },
+                            {
+                                "created_on": "2024-01-05T21:10:15.650819+0000",
+                                "changed_on": "2024-01-05T21:10:15.650819+0000",
+                                "column_name": "name",
+                                "type": "STRING",
+                                "id": 2,
+                                "verbose_name": "null",
+                            },
+                        ],
+                        "changed_on_utc": "2024-02-10T15:30:20.123456+0000",
+                        "database": {"database_name": "test_database1", "id": 1},
+                        "datasource_type": "table",
+                        "default_endpoint": None,
+                        "description": "Sample description for dataset 3",
+                        "explore_url": "/explore/?datasource_type=table&datasource_id=3",
+                        "extra": None,
+                        "id": 3,
+                        "kind": "physical",
+                        "owners": [
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            }
+                        ],
+                        "schema": "test_schema3",
+                        "select_star": "SELECT * FROM test_schema3.test_table3 LIMIT 100",
+                        "table_name": "Test Table 3",
                     },
                 ],
             },

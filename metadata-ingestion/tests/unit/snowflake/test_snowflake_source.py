@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
@@ -16,9 +17,14 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.oauth_config import OAuthConfiguration
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+    SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+    SnowflakeQueriesExtractorConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
     create_deny_regex_sql_filter,
@@ -26,8 +32,12 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowsightUrlBuilder
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+    SnowsightUrlBuilder,
+)
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
 from tests.test_helpers import test_connection_helpers
 
@@ -689,3 +699,111 @@ def test_snowflake_query_result_parsing():
         ],
     }
     assert UpstreamLineageEdge.parse_obj(db_row)
+
+
+class TestDDLProcessing:
+    @pytest.fixture
+    def session_id(self):
+        return "14774700483022321"
+
+    @pytest.fixture
+    def timestamp(self):
+        return datetime.datetime(
+            year=2025, month=2, day=3, hour=15, minute=1, second=43
+        ).astimezone(datetime.timezone.utc)
+
+    @pytest.fixture
+    def extractor(self) -> SnowflakeQueriesExtractor:
+        connection = MagicMock()
+        config = SnowflakeQueriesExtractorConfig()
+        structured_report = MagicMock()
+        filters = MagicMock()
+        structured_report.num_ddl_queries_dropped = 0
+        identifier_config = SnowflakeIdentifierConfig()
+        identifiers = SnowflakeIdentifierBuilder(identifier_config, structured_report)
+        return SnowflakeQueriesExtractor(
+            connection, config, structured_report, filters, identifiers
+        )
+
+    def test_ddl_processing_alter_table_rename(self, extractor, session_id, timestamp):
+        query = "ALTER TABLE person_info_loading RENAME TO person_info_final;"
+        object_modified_by_ddl = {
+            "objectDomain": "Table",
+            "objectId": 1789034,
+            "objectName": "DUMMY_DB.PUBLIC.PERSON_INFO_LOADING",
+            "operationType": "ALTER",
+            "properties": {
+                "objectName": {"value": "DUMMY_DB.PUBLIC.PERSON_INFO_FINAL"}
+            },
+        }
+        query_type = "RENAME_TABLE"
+
+        ddl = extractor.parse_ddl_query(
+            query, session_id, timestamp, object_modified_by_ddl, query_type
+        )
+
+        assert ddl == TableRename(
+            original_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_db.public.person_info_loading,PROD)",
+            new_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_db.public.person_info_final,PROD)",
+            query=query,
+            session_id=session_id,
+            timestamp=timestamp,
+        ), "Processing ALTER ... RENAME should result in a proper TableRename object"
+
+    def test_ddl_processing_alter_table_add_column(
+        self, extractor, session_id, timestamp
+    ):
+        query = "ALTER TABLE person_info ADD year BIGINT"
+        object_modified_by_ddl = {
+            "objectDomain": "Table",
+            "objectId": 2612260,
+            "objectName": "DUMMY_DB.PUBLIC.PERSON_INFO",
+            "operationType": "ALTER",
+            "properties": {
+                "columns": {
+                    "BIGINT": {
+                        "objectId": {"value": 8763407},
+                        "subOperationType": "ADD",
+                    }
+                }
+            },
+        }
+        query_type = "ALTER_TABLE_ADD_COLUMN"
+
+        ddl = extractor.parse_ddl_query(
+            query, session_id, timestamp, object_modified_by_ddl, query_type
+        )
+
+        assert ddl is None, (
+            "For altering columns statement ddl parsing should return None"
+        )
+        assert extractor.report.num_ddl_queries_dropped == 1, (
+            "Dropped ddls should be properly counted"
+        )
+
+    def test_ddl_processing_alter_table_swap(self, extractor, session_id, timestamp):
+        query = "ALTER TABLE person_info SWAP WITH person_info_swap;"
+        object_modified_by_ddl = {
+            "objectDomain": "Table",
+            "objectId": 3776835,
+            "objectName": "DUMMY_DB.PUBLIC.PERSON_INFO",
+            "operationType": "ALTER",
+            "properties": {
+                "swapTargetDomain": {"value": "Table"},
+                "swapTargetId": {"value": 3786260},
+                "swapTargetName": {"value": "DUMMY_DB.PUBLIC.PERSON_INFO_SWAP"},
+            },
+        }
+        query_type = "ALTER"
+
+        ddl = extractor.parse_ddl_query(
+            query, session_id, timestamp, object_modified_by_ddl, query_type
+        )
+
+        assert ddl == TableSwap(
+            urn1="urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_db.public.person_info,PROD)",
+            urn2="urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_db.public.person_info_swap,PROD)",
+            query=query,
+            session_id=session_id,
+            timestamp=timestamp,
+        ), "Processing ALTER ... SWAP DDL should result in a proper TableSwap object"

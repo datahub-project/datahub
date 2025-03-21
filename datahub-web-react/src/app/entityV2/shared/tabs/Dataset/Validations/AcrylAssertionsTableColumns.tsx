@@ -83,9 +83,8 @@ export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAsser
                                     EntityType.Dataset,
                                     entityData.urn,
                                 )}/Quality/Data Contract`}
-                                style={{ color: REDESIGN_COLORS.BLUE }}
                             >
-                                view
+                                View
                             </Link>
                         </>
                     }
