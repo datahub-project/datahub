@@ -185,7 +185,11 @@ looker_common = {
     "lkml>=1.3.4",
     *sqlglot_lib,
     "GitPython>2",
-    "python-liquid",
+    # python-liquid 2 includes a bunch of breaking changes.
+    # See https://jg-rp.github.io/liquid/migration/
+    # Eventually we should fully upgrade to v2, but that will require
+    # us to drop Python 3.8 support first.
+    "python-liquid<2",
     "deepmerge>=1.1.1",
 }
 
@@ -348,9 +352,7 @@ sac = {
 
 superset_common = {
     "requests",
-    "sqlalchemy",
-    "great_expectations",
-    "greenlet",
+    *sqlglot_lib,
 }
 
 # Note: for all of these, framework_common will be added.
@@ -712,7 +714,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
-            "vertexai"
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]

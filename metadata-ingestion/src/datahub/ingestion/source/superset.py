@@ -189,6 +189,10 @@ class SupersetConfig(
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
 
+    timeout: int = Field(
+        default=10, description="Timeout of single API call to superset."
+    )
+
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
@@ -293,13 +297,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        # Test the connection
         test_response = requests_session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/"
+            f"{self.config.connect_uri}/api/v1/dashboard/",
+            timeout=self.config.timeout,
         )
-        if test_response.status_code == 200:
-            pass
-            # TODO(Gabe): how should we message about this error?
+        if test_response.status_code != 200:
+            # throw an error and terminate ingestion,
+            # cannot proceed without access token
+            logger.error(
+                f"Failed to log in to Superset with status: {test_response.status_code}"
+            )
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
@@ -310,6 +317,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/{entity_type}",
                 params={"q": f"(page:{current_page},page_size:{page_size})"},
+                timeout=self.config.timeout,
             )
 
             if response.status_code != 200:
@@ -347,6 +355,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            timeout=self.config.timeout,
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")
@@ -401,8 +410,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
@@ -514,8 +524,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(chart_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
 
@@ -782,8 +793,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dataset_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
