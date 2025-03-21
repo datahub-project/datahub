@@ -64,10 +64,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    MySqlDDL,
-    NullType,
     BooleanTypeClass,
     DateTypeClass,
+    MySqlDDL,
+    NullType,
     NullTypeClass,
     NumberTypeClass,
     SchemaField,
