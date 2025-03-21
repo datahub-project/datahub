@@ -76,7 +76,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
     const [form] = Form.useForm();
     const { urn, entityType } = useEntityData();
     const client = useApolloClient();
-    const isAddIncidentMode = mode === IncidentAction.ADD;
+    const isAddIncidentMode = mode === IncidentAction.CREATE;
 
     const handleAddIncident = async (input: any) => {
         return raiseIncidentMutation({

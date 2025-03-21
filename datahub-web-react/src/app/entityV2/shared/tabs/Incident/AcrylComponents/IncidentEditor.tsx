@@ -35,7 +35,7 @@ export const IncidentEditor = ({
     onSubmit,
     data,
     onClose,
-    mode = IncidentAction.ADD,
+    mode = IncidentAction.CREATE,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -52,7 +52,7 @@ export const IncidentEditor = ({
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
-        mode === IncidentAction.VIEW ? isFormValid : false,
+        mode === IncidentAction.EDIT ? isFormValid : false,
     );
 
     const { handleSubmit, form, isLoading } = useIncidentHandler({
@@ -83,7 +83,7 @@ export const IncidentEditor = ({
 
         // Ensure we don't override user's choice if they manually change the state
         if (
-            mode === IncidentAction.VIEW &&
+            mode === IncidentAction.EDIT &&
             (formValues?.status === IncidentStage.Fixed || formValues?.status === IncidentStage.NoActionRequired) &&
             formValues?.state !== IncidentState.Resolved
         ) {
@@ -110,7 +110,7 @@ export const IncidentEditor = ({
         }
     };
 
-    const actionButtonLabel = mode === IncidentAction.ADD ? 'Create' : 'Update';
+    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
     const showCustomCategory = form.getFieldValue('type') === IncidentType.Custom;
     const isLinkedAssetPresent = !formValues?.resourceUrns?.length;
     const isSubmitButtonDisabled =
@@ -151,7 +151,7 @@ export const IncidentEditor = ({
                         doNotFocus
                         className="add-incident-description"
                         placeholder="Provide a description..."
-                        content={mode === IncidentAction.VIEW ? data?.description : ''}
+                        content={mode === IncidentAction.EDIT ? data?.description : ''}
                     />
                 </InputFormItem>
                 <IncidentSelectField
@@ -163,7 +163,7 @@ export const IncidentEditor = ({
                         }
                     }}
                     form={form}
-                    isDisabled={mode === IncidentAction.VIEW}
+                    isDisabled={mode === IncidentAction.EDIT}
                     handleValuesChange={handleValuesChange}
                     value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.category.fieldName]}
                 />
@@ -176,7 +176,7 @@ export const IncidentEditor = ({
                             styles={{
                                 width: '50%',
                             }}
-                            isDisabled={mode === IncidentAction.VIEW}
+                            isDisabled={mode === IncidentAction.EDIT}
                             id="custom-incident-type-input"
                         />
                     </SelectFormItem>
@@ -211,7 +211,7 @@ export const IncidentEditor = ({
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
                     />
                 </SelectFormItem>
-                {mode === IncidentAction.VIEW && (
+                {mode === IncidentAction.EDIT && (
                     <IncidentSelectField
                         incidentLabelMap={INCIDENT_OPTION_LABEL_MAPPING.state}
                         options={INCIDENT_STATES}
