@@ -133,6 +133,7 @@ FIELD_TYPE_MAPPING = {
     "SQL": StringTypeClass,
 }
 
+
 @dataclass
 class SupersetSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
@@ -528,7 +529,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_cll(self, chart_data: dict, datasource_urn: str, datasource_id: int) -> List[InputField]:
+    def construct_chart_cll(
+        self, chart_data: dict, datasource_urn: str, datasource_id: int
+    ) -> List[InputField]:
         column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
             "all_columns", []
         )
@@ -541,18 +544,31 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_info = self.get_dataset_info(datasource_id).get("result", {})
             dataset_column_info = dataset_info.get("columns", [])
             dataset_columns: List[str] = [
-                (column.get("column_name", ""), column.get("type", ""), column.get("description", "")) for column in dataset_column_info
+                (
+                    column.get("column_name", ""),
+                    column.get("type", ""),
+                    column.get("description", ""),
+                )
+                for column in dataset_column_info
             ]
         else:
-             dataset_columns: List[str] = []
+            dataset_columns: List[str] = []
 
         for index, chart_col in enumerate(chart_columns):
             for dataset_col in dataset_columns:
                 if dataset_col[0] == chart_col:
-                    chart_columns[index] = (chart_col, dataset_col[1], dataset_col[2]) # column name, column type, description
+                    chart_columns[index] = (
+                        chart_col,
+                        dataset_col[1],
+                        dataset_col[2],
+                    )  # column name, column type, description
                     break
             if not isinstance(chart_columns[index], tuple):
-                chart_columns[index] = (chart_col, "", "") # if no datasource id, default to blank
+                chart_columns[index] = (
+                    chart_col,
+                    "",
+                    "",
+                )  # if no datasource id, default to blank
 
         input_fields: List[InputField] = []
 
@@ -561,7 +577,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             if not col_type or not datasource_urn:
                 continue
 
-            type_class = FIELD_TYPE_MAPPING.get(col_type.upper(), NullTypeClass) # gets the type mapping
+            type_class = FIELD_TYPE_MAPPING.get(
+                col_type.upper(), NullTypeClass
+            )  # gets the type mapping
 
             input_fields.append(
                 InputField(
