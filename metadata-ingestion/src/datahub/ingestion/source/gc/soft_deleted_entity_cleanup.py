@@ -12,7 +12,7 @@ from datahub.configuration import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns._urn_base import Urn
@@ -251,6 +251,12 @@ class SoftDeletedEntitiesCleanup:
 
     def _get_urns(self) -> Iterable[str]:
         assert self.ctx.graph
+        # Entities created in the retention period are not considered for deletion
+        created_from = (
+            datetime.now(timezone.utc).timestamp()
+            - self.config.retention_days * 24 * 60 * 60
+        ) * 1000
+
         yield from self.ctx.graph.get_urns_by_filter(
             entity_types=self.config.entity_types,
             platform=self.config.platform,
@@ -258,6 +264,13 @@ class SoftDeletedEntitiesCleanup:
             query=self.config.query,
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
+            extraFilters=[
+                SearchFilterRule(
+                    field="created",
+                    condition="GREATER_THAN",
+                    values=[f"{created_from}"],
+                ).to_raw()
+            ],
         )
 
     def _times_up(self) -> bool:
