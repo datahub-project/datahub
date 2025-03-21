@@ -27,6 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dashboard import (
     DashboardUsageStatistics,
 )
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
@@ -35,6 +36,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     OwnershipClass,
     SubTypesClass,
+    TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DashboardUrn
 
@@ -235,7 +237,12 @@ class TestMapper(unittest.TestCase):
         ) and isinstance(
             dashboard_usage_statistics_wus[0].metadata.aspect, DashboardUsageStatistics
         )
-        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 100
+        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 10
+        assert dashboard_usage_statistics_wus[
+            0
+        ].metadata.aspect.eventGranularity == TimeWindowSizeClass(
+            unit=CalendarIntervalClass.WEEK, multiple=1
+        )
         assert dashboard_usage_statistics_wus[
             0
         ].metadata.aspect.lastViewedAt == make_ts_millis(datetime(2022, 1, 1))
@@ -446,7 +453,12 @@ class TestMapper(unittest.TestCase):
         ) and isinstance(
             dashboard_usage_statistics_wus[0].metadata.aspect, DashboardUsageStatistics
         )
-        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 100
+        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 10
+        assert dashboard_usage_statistics_wus[
+            0
+        ].metadata.aspect.eventGranularity == TimeWindowSizeClass(
+            unit=CalendarIntervalClass.WEEK, multiple=1
+        )
         assert dashboard_usage_statistics_wus[
             0
         ].metadata.aspect.lastViewedAt == make_ts_millis(datetime(2022, 1, 1))
@@ -643,7 +655,10 @@ class TestMapper(unittest.TestCase):
 
         dashboard_usage_statistics = mapper._dashboard_usage_statistics(analytics)
         assert dashboard_usage_statistics is not None
-        assert dashboard_usage_statistics.viewsCount == 100
+        assert dashboard_usage_statistics.viewsCount == 10
+        assert dashboard_usage_statistics.eventGranularity == TimeWindowSizeClass(
+            unit=CalendarIntervalClass.WEEK, multiple=1
+        )
         assert dashboard_usage_statistics.lastViewedAt == make_ts_millis(
             datetime(2022, 1, 1)
         )
@@ -660,8 +675,8 @@ class TestMapper(unittest.TestCase):
         assert dashboard_usage_statistics is None
 
         analytics = Analytics(
-            appviews_all_time=100,
-            appviews_last_7_days=None,
+            appviews_all_time=None,
+            appviews_last_7_days=10,
             appviews_last_14_days=None,
             appviews_last_30_days=None,
             last_viewed_at=None,
@@ -669,7 +684,10 @@ class TestMapper(unittest.TestCase):
 
         dashboard_usage_statistics = mapper._dashboard_usage_statistics(analytics)
         assert dashboard_usage_statistics is not None
-        assert dashboard_usage_statistics.viewsCount == 100
+        assert dashboard_usage_statistics.viewsCount == 10
+        assert dashboard_usage_statistics.eventGranularity == TimeWindowSizeClass(
+            unit=CalendarIntervalClass.WEEK, multiple=1
+        )
         assert dashboard_usage_statistics.lastViewedAt is None
 
     def test_platform_instance_aspect(self):

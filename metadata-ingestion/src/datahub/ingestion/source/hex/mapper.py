@@ -40,6 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     OwnershipType,
 )
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
@@ -50,6 +51,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeWindowSizeClass,
 )
 from datahub.metadata.urns import ContainerUrn, CorpUserUrn, DashboardUrn, Urn
 
@@ -282,11 +284,15 @@ class Mapper:
     def _dashboard_usage_statistics(
         self, analytics: Optional[Analytics]
     ) -> Optional[DashboardUsageStatisticsClass]:
-        if analytics and (analytics.appviews_all_time or analytics.last_viewed_at):
+        # we are mapping here only the last 7 days of views
+        # we could emit multiple events for different time windows or make which metric to track configurable
+        if analytics and (analytics.appviews_last_7_days or analytics.last_viewed_at):
             return DashboardUsageStatisticsClass(
                 timestampMillis=make_ts_millis(datetime.now()),
-                # TODO: we are reporting here all time views, is that correct?
-                viewsCount=analytics.appviews_all_time,
+                viewsCount=analytics.appviews_last_7_days,
+                eventGranularity=TimeWindowSizeClass(
+                    unit=CalendarIntervalClass.WEEK, multiple=1
+                ),
                 lastViewedAt=make_ts_millis(analytics.last_viewed_at),
             )
         return None
