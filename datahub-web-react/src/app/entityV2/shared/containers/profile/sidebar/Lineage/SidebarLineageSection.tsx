@@ -1,10 +1,10 @@
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
-import { TreeStructure, ArrowUp, ArrowDown } from '@phosphor-icons/react';
+import { Tooltip, Button } from '@components';
+import { ArrowUp, ArrowDown } from '@phosphor-icons/react';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
@@ -13,8 +13,6 @@ import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntityS
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
-import SectionActionButton from '../SectionActionButton';
-import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const Section = styled.div`
     display: flex;
@@ -63,7 +61,7 @@ const DirectionHeader = styled.div`
 const SidebarLineageSection = () => {
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const linkProps = useEmbeddedProfileLinkProps();
+    const history = useHistory();
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const separateSiblings = useIsSeparateSiblingsMode();
@@ -85,6 +83,12 @@ const SidebarLineageSection = () => {
     if (!hasLineage) {
         return null;
     }
+
+    const handleActionClick = (e) => {
+        e.stopPropagation();
+        const lineageUrl = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+        history.push(lineageUrl);
+    };
 
     return (
         <SidebarSection
@@ -131,20 +135,11 @@ const SidebarLineageSection = () => {
                 </>
             }
             extra={
-                <SectionActionButton
-                    button={
-                        <Tooltip
-                            title="Explore related entities using the lineage graph"
-                            placement="left"
-                            showArrow={false}
-                        >
-                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
-                                <TreeStructure size={16} weight="regular" color={REDESIGN_COLORS.DARK_GREY} />
-                            </Link>
-                        </Tooltip>
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                />
+                <Tooltip title="Explore related entities using the lineage graph" placement="left" showArrow={false}>
+                    <Button size="sm" variant="text" color="gray" onClick={handleActionClick}>
+                        View
+                    </Button>
+                </Tooltip>
             }
         />
     );

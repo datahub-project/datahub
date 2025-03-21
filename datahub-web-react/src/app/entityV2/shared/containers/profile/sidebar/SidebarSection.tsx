@@ -42,6 +42,10 @@ const StyledCollapse = styled(Collapse)`
     .ant-collapse-header-text {
         max-width: calc(100% - 50px);
     }
+
+    .ant-collapse {
+        border-radius: 0px !important;
+    }
 `;
 
 const SectionHeader = styled.span<{ collapsible?: boolean }>`
