@@ -340,7 +340,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Test the connection
         try:
-            self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            logger.debug(f"Auth info: {key_info}")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Connect",
