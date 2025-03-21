@@ -530,7 +530,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
     def build_input_fields(
-        self, chart_columns: List[Tuple[str, str, str]], datasource_urn: Union[str, None]
+        self,
+        chart_columns: List[Tuple[str, str, str]],
+        datasource_urn: Union[str, None],
     ) -> List[InputField]:
         input_fields: List[InputField] = []
 
@@ -551,7 +553,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     ),
                     schemaField=SchemaField(
                         fieldPath=col_name,
-                        type=SchemaFieldDataType(type=type_class()), # type: ignore
+                        type=SchemaFieldDataType(type=type_class()),  # type: ignore
                         description=(description if description != "null" else ""),
                         nativeDataType=col_type,
                         globalTags=None,
@@ -563,7 +565,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         return input_fields
 
     def construct_chart_cll(
-        self, chart_data: dict, datasource_urn: Union[str, None], datasource_id: Union[Any, int]
+        self,
+        chart_data: dict,
+        datasource_urn: Union[str, None],
+        datasource_id: Union[Any, int],
     ) -> List[InputField]:
         column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
             "all_columns", []
@@ -605,7 +610,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                 )
                 continue
-            
+
             # find matching upstream column
             for dataset_col in dataset_columns:
                 dataset_col_name, dataset_col_type, dataset_col_description = (
@@ -613,19 +618,13 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 if dataset_col_name == chart_col_name:
                     chart_columns.append(
-                        (chart_col_name,
-                        dataset_col_type,
-                        dataset_col_description)
+                        (chart_col_name, dataset_col_type, dataset_col_description)
                     )  # column name, column type, description
                     break
-            
+
             # if no matching upstream column was found
             if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
-                chart_columns.append((
-                    chart_col_name,
-                    "",
-                    ""
-                ))
+                chart_columns.append((chart_col_name, "", ""))
 
         return self.build_input_fields(chart_columns, datasource_urn)
 
