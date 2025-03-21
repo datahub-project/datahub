@@ -6,11 +6,12 @@ import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity
 import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
 import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { SidebarSection } from './SidebarSection';
-import { EntityType } from '../../../../../../types.generated';
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
 import SectionActionButton from './SectionActionButton';
 import AddTagTerm from '../../../../../sharedV2/tags/AddTagTerm';
 import EmptySectionText from './EmptySectionText';
 import { EMPTY_MESSAGES } from '../../../constants';
+import { getProposedItemsByType } from '../../../utils';
 
 const Content = styled.div`
     display: flex;
@@ -31,7 +32,9 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const proposedTags = findTopLevelProposals(entityData?.tagProposals || []);
+    const proposedTags = findTopLevelProposals(
+        getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TagAssociation) || [],
+    );
 
     const areTagsEmpty = !entityData?.globalTags?.tags?.length && !proposedTags?.length;
 

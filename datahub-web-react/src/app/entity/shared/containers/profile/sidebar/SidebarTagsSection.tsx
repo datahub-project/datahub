@@ -2,6 +2,8 @@ import React from 'react';
 import { Divider } from 'antd';
 import styled from 'styled-components';
 
+import { ActionRequestType } from '@src/types.generated';
+import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import TagTermGroup from '../../../../../shared/tags/TagTermGroup';
 import { SidebarHeader } from './SidebarHeader';
 import { useBaseEntity, useEntityData, useMutationUrn, useRefetch } from '../../../EntityContext';
@@ -52,7 +54,9 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
                     refetch={refetch}
                     readOnly={readOnly}
                     fontSize={12}
-                    proposedTags={findTopLevelProposals(entityData?.tagProposals || [])}
+                    proposedTags={findTopLevelProposals(
+                        getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TagAssociation) || [],
+                    )}
                 />
             </span>
             <StyledDivider />

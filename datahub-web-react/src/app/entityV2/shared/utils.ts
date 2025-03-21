@@ -14,6 +14,8 @@ import {
     ChartProperties,
     Operation,
     Dataset,
+    ActionRequest,
+    ActionRequestType,
 } from '../../../types.generated';
 
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -326,4 +328,8 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
         (field) => field.fieldPath === subResource,
     )?.description;
     return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
+};
+
+export const getProposedItemsByType = (proposedItems: ActionRequest[], type: ActionRequestType) => {
+    return proposedItems.filter((item) => item.type === type);
 };

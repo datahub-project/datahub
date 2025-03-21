@@ -87,11 +87,7 @@ query getContainer($urn: String!) {
             ...browsePathV2Fields
         }
         ...notes
-
-        termProposals: proposals(type: TERM_ASSOCIATION) {
-            ...proposalsFragment
-        }
-        tagProposals: proposals(type: TAG_ASSOCIATION) {
+        proposals: proposals {
             ...proposalsFragment
         }
         assetOrigin {

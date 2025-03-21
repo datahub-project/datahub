@@ -8,11 +8,12 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import ConstraintGroup from '../../../../../shared/constraints/ConstraintGroup';
 import { SidebarSection } from './SidebarSection';
-import { EntityType } from '../../../../../../types.generated';
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
 import EmptySectionText from './EmptySectionText';
 import { EMPTY_MESSAGES } from '../../../constants';
 import SectionActionButton from './SectionActionButton';
 import AddTagTerm from '../../../../../sharedV2/tags/AddTagTerm';
+import { getProposedItemsByType } from '../../../utils';
 
 const Content = styled.div`
     display: flex;
@@ -34,7 +35,9 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const proposedTerms = findTopLevelProposals(entityData?.termProposals || []);
+    const proposedTerms = findTopLevelProposals(
+        getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TermAssociation) || [],
+    );
 
     const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length && !proposedTerms?.length;
 

@@ -29,6 +29,9 @@ import {
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import {
+    ActionRequest,
+    ActionRequestStatus,
+    ActionRequestType,
     AppConfig,
     BusinessAttribute,
     Container,
@@ -4505,3 +4508,46 @@ export const mockFineGrainedLineages2: GenericEntityProperties = {
         ],
     },
 };
+
+export const mockActionRequests: ActionRequest[] = [
+    {
+        created: {
+            time: 1710324000000,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.TagAssociation,
+        urn: 'urn:example:tag:1',
+    },
+    {
+        created: {
+            time: 1612396473001,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.TermAssociation,
+        urn: 'urn:example:term:1',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Pending,
+        type: ActionRequestType.OwnerAssociation,
+        urn: 'urn:example:owner:1',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Pending,
+        type: ActionRequestType.TagAssociation,
+        urn: 'urn:example:tag:2',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.DomainAssociation,
+        urn: 'urn:example:domain:1',
+    },
+];
