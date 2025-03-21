@@ -37,7 +37,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 class HexSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
     workspace_name: str = Field(
-        description="Hex workspace name",
+        description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
     )
     token: SecretStr = Field(
         description="Hex API token; either PAT or Workflow token - https://learn.hex.tech/docs/api/api-overview#authentication",
