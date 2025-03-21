@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.settings.user;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -35,7 +34,6 @@ public class UpdateUserNotificationSettingsResolver
     return CompletableFuture.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
-          final Authentication authentication = context.getAuthentication();
           final String userUrnString = context.getActorUrn();
           final UpdateUserNotificationSettingsInput input =
               bindArgument(
