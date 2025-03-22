@@ -1,4 +1,4 @@
-import { aliasQuery } from "../utils";
+import { aliasQuery, hasOperationName } from "../utils";
 
 describe("personal notifications test", () => {
   before(() => {

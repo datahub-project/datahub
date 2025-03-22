@@ -1,4 +1,4 @@
-import { aliasQuery } from "../utils";
+import { aliasQuery, hasOperationName } from "../utils";
 
 const test_group_urn = "urn:li:corpGroup:bfoo";
 
