@@ -59,17 +59,17 @@ describe("create and manage freshness assertion", () => {
     clickElement('[data-testid="assertion-start-stop-action"]');
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
-    cy.get(".ant-tooltip-inner").contains("Start").should("be.visible");
+    cy.get(".ant-popover-inner-content").contains("Start").should("be.visible");
     // restart the monitor, verify that assertion restarted successfully
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
-    clickElement('[aria-label="caret-right"]');
+    clickElement('[data-testid="assertion-start-icon"]');
     cy.waitTextVisible("Start Monitoring");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Started!");
     cy.ensureTextNotPresent("Started!");
     cy.get('[data-testid="assertion-start-stop-action"]').trigger("mouseover");
-    cy.get(".ant-tooltip-inner").contains("Stop").should("be.visible");
-    cy.get(".ant-tooltip-inner").contains("Start").should("not.exist");
+    cy.get(".ant-popover-inner-content").contains("Stop").should("be.visible");
+    cy.get(".ant-popover-inner-content").contains("Start").should("not.exist");
 
     // manage the assertion and save result
     cy.get(".acryl-assertions-table-row").last().click();

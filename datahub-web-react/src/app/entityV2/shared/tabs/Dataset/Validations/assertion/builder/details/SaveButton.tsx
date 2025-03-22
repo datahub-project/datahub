@@ -16,7 +16,7 @@ export const SaveButton = ({ title = 'Save', disabled, tooltip, onClick }: Props
             disabled={disabled}
             tooltip={tooltip}
             onClick={onClick}
-            data-testid="save-assertion-button"
+            dataTestId="save-assertion-button"
         />
     );
 };

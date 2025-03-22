@@ -121,9 +121,9 @@ export const SubscribeMenuAction = () => {
 
     const [activeTab, setActiveTab] = useState(urn);
     const activeEntityIndex = platformOptions.findIndex((option) => option.urn === activeTab);
-    const activeEntityUrn = platformOptions[activeEntityIndex].urn;
-    const activeEntityName = platformOptions[activeEntityIndex].title;
-    const activeEntityType = platformOptions[activeEntityIndex].entityType;
+    const activeEntityUrn = platformOptions[activeEntityIndex]?.urn || '';
+    const activeEntityName = platformOptions[activeEntityIndex]?.title || '';
+    const activeEntityType = platformOptions[activeEntityIndex]?.entityType || '';
 
     const isEntityExists = activeEntityType === EntityType.Dataset ? entityData?.exists : true;
 

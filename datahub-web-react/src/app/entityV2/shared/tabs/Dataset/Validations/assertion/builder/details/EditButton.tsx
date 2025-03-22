@@ -16,7 +16,7 @@ export const EditButton = ({ title = 'Edit', disabled, tooltip, onClick }: Props
             disabled={disabled}
             tooltip={tooltip}
             onClick={onClick}
-            data-testid="edit-assertion-button"
+            dataTestId="edit-assertion-button"
         />
     );
 };

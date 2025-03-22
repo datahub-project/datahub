@@ -95,7 +95,11 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
                 disabled={!canEdit}
                 onClick={isActive ? onStopMonitor : onConfirmStartMonitor}
                 icon={
-                    isActive ? <Stop weight="fill" color={colors.violet[500]} /> : <Play color={colors.violet[500]} />
+                    isActive ? (
+                        <Stop data-testid="assertion-stop-icon" weight="fill" color={colors.violet[500]} />
+                    ) : (
+                        <Play data-testid="assertion-start-icon" color={colors.violet[500]} />
+                    )
                 }
                 data-testid="assertion-start-stop-action"
             />
