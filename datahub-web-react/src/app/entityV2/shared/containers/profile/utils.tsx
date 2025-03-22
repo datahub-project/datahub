@@ -1,8 +1,9 @@
-import { ReadOutlined } from '@ant-design/icons';
-import { isEqual } from 'lodash';
-import queryString from 'query-string';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
+import { BookOpen } from '@phosphor-icons/react';
+import { isEqual } from 'lodash';
+import queryString from 'query-string';
+
 import { EntityRegistry } from '../../../../../entityRegistryContext';
 import { EntityType, FeatureFlagsConfig } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
@@ -268,7 +269,7 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
         finalTabs = [
             {
                 name: 'About',
-                icon: ReadOutlined,
+                icon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {
                     sections: sidebarSections || [],

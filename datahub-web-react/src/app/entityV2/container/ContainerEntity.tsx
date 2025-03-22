@@ -1,4 +1,5 @@
-import { AppstoreOutlined, FileOutlined, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, FolderOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 import { GetContainerQuery, useGetContainerQuery } from '../../../graphql/container.generated';
 import { Container, EntityType, SearchResult } from '../../../types.generated';
@@ -112,7 +113,7 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                    icon: UnorderedListOutlined,
+                    icon: ListBullets,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -165,7 +166,7 @@ export class ContainerEntity implements Entity<Container> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

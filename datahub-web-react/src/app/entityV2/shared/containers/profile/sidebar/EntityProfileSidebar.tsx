@@ -6,7 +6,6 @@ import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
-import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 
 export const StyledEntitySidebarContainer = styled.div<{
@@ -107,7 +106,6 @@ interface Props {
     tabs: EntitySidebarTab[];
     backgroundColor?: string;
     contextType?: TabContextType;
-    hideCollapse?: boolean;
     width?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
     className?: string;
@@ -119,9 +117,8 @@ export default function EntityProfileSidebar({
     tabs,
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
-    hideCollapse = false,
     width,
-    headerDropdownItems,
+    headerDropdownItems: _headerDropdownItems,
     className,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
@@ -145,9 +142,6 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
-                    {!hideCollapse && (
-                        <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
-                    )}
                     <Body>
                         {selectedTab && (
                             <Content>
@@ -166,7 +160,6 @@ export default function EntityProfileSidebar({
                             tabs={tabs}
                             selectedTab={selectedTab}
                             onSelectTab={(name) => setSelectedTabName(name)}
-                            hideCollapse={contextType === TabContextType.CHROME_SIDEBAR}
                         />
                     </Tabs>
                 </TabsContainer>
