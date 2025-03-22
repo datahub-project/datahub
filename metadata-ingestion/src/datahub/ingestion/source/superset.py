@@ -574,7 +574,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             "all_columns", []
         )
 
-        # 0 represents a string column name, and 1 represents a SQL expression
+        # the second field represents whether its a SQL expression,
+        # false being just regualr column and true being SQL col
         chart_column_data: List[Tuple[str, bool]] = [
             (column, False)
             if isinstance(column, str)
