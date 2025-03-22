@@ -39,16 +39,18 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
   @Override
   public QueryEntity apply(
       @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    Urn entityUrn = entityResponse.getUrn();
     final QueryEntity result = new QueryEntity();
 
-    result.setUrn(entityResponse.getUrn().toString());
+    result.setUrn(entityUrn.toString());
     result.setType(EntityType.QUERY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<QueryEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         QUERY_PROPERTIES_ASPECT_NAME,
         (entity, dataMap) ->
-            entity.setProperties(QueryPropertiesMapper.map(context, new QueryProperties(dataMap))));
+            entity.setProperties(
+                QueryPropertiesMapper.map(context, new QueryProperties(dataMap), entityUrn)));
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
     return mappingHelper.getResult();
