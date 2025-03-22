@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Dict, Optional
 from unittest.mock import patch
 
@@ -105,8 +106,19 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "slice_name": "test_chart_title_1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
-                        "datasource_id": "20",
+                        "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                {
+                                    "expressionType": "SQL",
+                                    "label": "test_label",
+                                    "sqlExpression": "",
+                                },
+                                "test_column1",
+                                "test_column2",
+                            ],
+                        },
                     },
                     {
                         "id": 11,
@@ -119,8 +131,14 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "slice_name": "test_chart_title_2",
                         "viz_type": "pie",
                         "url": "/explore/test_chart_url_11",
-                        "datasource_id": "20",
+                        "datasource_id": 2,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                "test_column3",
+                                "test_column4",
+                            ],
+                        },
                     },
                     {
                         "id": 12,
@@ -288,6 +306,18 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "database_name": "test_database1",
                         "id": 1,
                     },
+                    "columns": [
+                        {
+                            "column_name": "test_column1",
+                            "description": "some description 1",
+                            "type": "INT",
+                        },
+                        {
+                            "column_name": "test_column2",
+                            "description": "some description 2",
+                            "type": "STRING",
+                        },
+                    ],
                     "datasource_name": "Test Table 1",
                     "datasource_type": "table",
                     "default_endpoint": None,
@@ -370,6 +400,18 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "database_name": "test_database1",
                         "id": 1,
                     },
+                    "columns": [
+                        {
+                            "column_name": "test_column3",
+                            "description": "some description 3",
+                            "type": "FLOAT",
+                        },
+                        {
+                            "column_name": "test_column4",
+                            "description": "some description 4",
+                            "type": "DATETIME",
+                        },
+                    ],
                     "datasource_name": "Test Table 2",
                     "datasource_type": "table",
                     "default_endpoint": None,
@@ -639,7 +681,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
+def test_superset_ingest(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -679,8 +723,12 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
-):
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    mock_time: None,
+    requests_mock: Any,
+    mock_datahub_graph: Any,
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -770,8 +818,19 @@ def test_superset_stateful_ingest(
                         "slice_name": "test_chart_title_1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
-                        "datasource_id": "20",
+                        "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                {
+                                    "expressionType": "SQL",
+                                    "label": "test_label",
+                                    "sqlExpression": "",
+                                },
+                                "test_column1",
+                                "test_column2",
+                            ],
+                        },
                     },
                     {
                         "id": 11,
@@ -784,8 +843,14 @@ def test_superset_stateful_ingest(
                         "slice_name": "test_chart_title_2",
                         "viz_type": "pie",
                         "url": "/explore/test_chart_url_11",
-                        "datasource_id": "20",
+                        "datasource_id": 2,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "all_columns": [
+                                "test_column3",
+                                "test_column4",
+                            ],
+                        },
                     },
                     {
                         "id": 12,
