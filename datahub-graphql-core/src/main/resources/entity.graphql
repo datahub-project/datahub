@@ -9432,6 +9432,10 @@ enum PolicyMatchCondition {
   """
   EQUALS
   """
+  Whether the field does not match the value
+  """
+  NOT_EQUALS
+  """
   Whether the field value starts with the value
   """
   STARTS_WITH
