@@ -63,7 +63,7 @@ export const IncidentLinkedAssetsList = ({
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.ADD) {
+        if (mode === IncidentAction.CREATE) {
             getEntities({
                 variables: {
                     urns: [urn],
@@ -75,7 +75,7 @@ export const IncidentLinkedAssetsList = ({
 
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
-        if (mode === IncidentAction.ADD) {
+        if (mode === IncidentAction.CREATE) {
             form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

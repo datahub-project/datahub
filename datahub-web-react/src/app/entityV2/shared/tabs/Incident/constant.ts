@@ -62,8 +62,8 @@ export const INCIDENT_CATEGORIES = [
 ];
 
 export enum IncidentAction {
-    ADD = 'add',
-    VIEW = 'view',
+    CREATE = 'create',
+    EDIT = 'edit',
 }
 
 interface IncidentPriorityInterface {
