@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
@@ -157,7 +156,7 @@ def make_assertion_from_test(
     node: "DBTNode",
     assertion_urn: str,
     upstream_urn: str,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assert node.test_info
     qualified_test_name = node.test_info.qualified_test_name
     column_name = node.test_info.column_name
@@ -231,7 +230,7 @@ def make_assertion_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertion_info,
-    ).as_workunit()
+    )
 
 
 def make_assertion_result_from_test(
@@ -240,7 +239,7 @@ def make_assertion_result_from_test(
     assertion_urn: str,
     upstream_urn: str,
     test_warnings_are_errors: bool,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
@@ -261,4 +260,4 @@ def make_assertion_result_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertionResult,
-    ).as_workunit()
+    )
