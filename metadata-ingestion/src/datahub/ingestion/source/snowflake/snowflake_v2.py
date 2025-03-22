@@ -550,10 +550,11 @@ class SnowflakeV2Source(
             len(discovered_tables) == 0
             and len(discovered_views) == 0
             and len(discovered_streams) == 0
+            and not self.config.allow_empty_schemas
         ):
             self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
+                "No tables/views found and allow_empty_schemas is false. Please check permissions.",
             )
             return
 
@@ -732,6 +733,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
+        if self.config.skip_standard_edition_check:
+            return False
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False
