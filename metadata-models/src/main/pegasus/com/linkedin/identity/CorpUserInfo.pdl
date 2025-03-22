@@ -3,6 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.CorpuserUrn
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.EmailAddress
+import com.linkedin.common.Urn
 
 /**
  * Linkedin corp user information
@@ -110,4 +111,5 @@ record CorpUserInfo includes CustomProperties {
     "queryByDefault": false
   }
   system: optional boolean = false
+
 }

@@ -1,0 +1,67 @@
+namespace com.linkedin.dataplatform.slack
+
+/**
+ * Information about a Slack conversation.
+ */
+record SlackConversation {
+
+  /**
+   * The unique ID of the Slack conversation.
+   */
+  id: string
+
+  /**
+   * The display name of the Slack conversation.
+   */
+  displayName: string
+
+  /**
+   * If this is a channel.
+   */
+  isChannel: boolean
+
+  /**
+   * If this is a channel.
+   */
+  isGroup: boolean
+
+  /**
+   * If this is a private conversation.
+   */
+  isPrivate: boolean
+
+  /**
+   * If this conversation is archived.
+   */
+  isArchived: boolean
+
+  /**
+   * If this is a shared channel.
+   */
+  isShared: boolean
+
+  /**
+   * If this is an externally shared channel.
+   */
+  isExtShared: boolean
+
+  /**
+   * If this is a general channel.
+   */
+  isGeneral: boolean
+
+  /**
+   * The team this conversation lives within.
+   */
+  contextTeamID: optional string
+
+  /**
+   * The purpose of this Slack channel, if set.
+   */
+  purpose: optional string
+
+  /**
+   * The topic of this Slack channel, if set.
+   */
+  topic: optional string
+}
