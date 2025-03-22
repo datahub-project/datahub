@@ -880,3 +880,46 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     assert fields[8].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
         ["urn:li:glossaryTerm:Address"]
     )
+
+
+def test_jsonProps_propagation():
+    jsonProps_schema = """
+{
+    "type": "record",
+    "name": "record.name",
+    "namespace": "namespace",
+    "fields": [
+        {
+            "name": "non_optional_field",
+            "type": {
+                "type": "bytes",
+                "scale": 0,
+                "precision": 8,
+                "logicalType": "decimal"
+            }
+        },
+        {
+            "name": "optional_field",
+            "type": [
+                "null",
+                {
+                    "type": "long",
+                    "logicalType": "timestamp-millis"
+                }
+            ],
+            "default": null
+        }
+    ]
+}
+"""
+    fields: List[SchemaField] = avro_schema_to_mce_fields(jsonProps_schema)
+    assert len(fields) == 2
+
+    # required field
+    assert fields[0].jsonProps is not None
+    assert "logicalType" in json.loads(fields[0].jsonProps)
+    assert json.loads(fields[0].jsonProps)["logicalType"] == "decimal"
+    # optional field
+    assert fields[1].jsonProps is not None
+    assert "logicalType" in json.loads(fields[1].jsonProps)
+    assert json.loads(fields[1].jsonProps)["logicalType"] == "timestamp-millis"

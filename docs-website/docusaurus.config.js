@@ -39,6 +39,9 @@ module.exports = {
     {
       src: "https://tag.clearbitscripts.com/v1/pk_2e321cabe30432a5c44c0424781aa35f/tags.js",
       referrerPolicy: "strict-origin-when-cross-origin"
+    },
+    {
+      src: "/scripts/reo.js",
     }
   ],
   noIndex: isSaas,
