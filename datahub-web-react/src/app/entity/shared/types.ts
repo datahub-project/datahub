@@ -148,6 +148,7 @@ export type GenericEntityProperties = {
     // Saas only below
     tagProposals?: Maybe<ActionRequest[]>;
     termProposals?: Maybe<ActionRequest[]>;
+    proposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
     share?: Maybe<Share>;
 };

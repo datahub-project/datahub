@@ -174,7 +174,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         </Select.Option>
                         {roleSelectOptions()}
                     </RoleSelect>
-                    <CopyText>
+                    <CopyText className="meticulous-ignore">
                         <pre>{inviteLink}</pre>
                     </CopyText>
                     <Tooltip title="Copy invite link.">

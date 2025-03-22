@@ -190,12 +190,6 @@ fragment nonSiblingDatasetFields on Dataset {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
-    termProposals: proposals(type: TERM_ASSOCIATION) {
-        ...proposalsFragment
-    }
-    tagProposals: proposals(type: TAG_ASSOCIATION) {
-        ...proposalsFragment
-    }
     constraints {
         displayName
         description
@@ -219,6 +213,9 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     forms {
         ...formsFields
+    }
+    proposals: proposals {
+        ...proposalsFragment
     }
     ...notes
     ...entityProfileVersionProperties

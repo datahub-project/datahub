@@ -49,8 +49,10 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
     final ActionRequestStatus status =
         ActionRequestStatus.valueOf(
             environment.getArgumentOrDefault("status", ActionRequestStatus.PENDING.toString()));
-    final ActionRequestType type =
-        ActionRequestType.valueOf(environment.getArgumentOrDefault("type", null));
+
+    String typeVal = environment.getArgumentOrDefault("type", null);
+    final ActionRequestType type = (typeVal != null) ? ActionRequestType.valueOf(typeVal) : null;
+
     final String urn = _urnProvider.apply(environment);
 
     Filter filter = ProposalUtils.createActionRequestFilter(type, status, urn, null);
