@@ -4,7 +4,10 @@ from pydantic import Field, SecretStr
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import PlatformInstanceConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,7 +39,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class HexSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
+class HexSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
     workspace_name: str = Field(
         description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
     )
@@ -117,6 +122,7 @@ class HexSource(StatefulIngestionSourceBase):
         self.mapper = Mapper(
             workspace_name=self.source_config.workspace_name,
             platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
             base_url=self.source_config.base_url,
             patch_metadata=self.source_config.patch_metadata,
             collections_as_tags=self.source_config.collections_as_tags,

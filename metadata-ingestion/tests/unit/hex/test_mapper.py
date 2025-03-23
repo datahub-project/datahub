@@ -68,10 +68,10 @@ class TestMapper(unittest.TestCase):
         )
         assert (
             work_units[0].metadata.entityUrn
-            == "urn:li:container:c202849e31339f58fd4cd91e94bfade5"
+            == "urn:li:container:635fbdd141a7b358624369c6060847c3"
         )
         aspect = work_units[0].get_aspect_of_type(ContainerPropertiesClass)
-        assert aspect and aspect.name == self.workspace_name
+        assert aspect and aspect.name == self.workspace_name and not aspect.env
 
         mapper = Mapper(
             workspace_name=self.workspace_name,
@@ -84,10 +84,30 @@ class TestMapper(unittest.TestCase):
         )
         assert (
             work_units[0].metadata.entityUrn
-            == "urn:li:container:3968599ec507ee9ac65112d63eccc214"
+            == "urn:li:container:635fbdd141a7b358624369c6060847c3"
         )
         aspect = work_units[0].get_aspect_of_type(ContainerPropertiesClass)
-        assert aspect and aspect.name == self.workspace_name
+        assert aspect and aspect.name == self.workspace_name and not aspect.env
+
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+            env="test-env",
+            platform_instance="test-platform",
+        )
+        work_units = list(mapper.map_workspace())
+        assert len(work_units) == 1
+        assert isinstance(work_units[0], MetadataWorkUnit) and isinstance(
+            work_units[0].metadata, MetadataChangeProposalWrapper
+        )
+        # guid here is the same as before because by default env is ignored in the key
+        assert (
+            work_units[0].metadata.entityUrn
+            == "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        )
+        aspect = work_units[0].get_aspect_of_type(ContainerPropertiesClass)
+        assert (
+            aspect and aspect.name == self.workspace_name and aspect.env == "test-env"
+        )
 
     def test_map_project(self):
         mapper = Mapper(
@@ -183,7 +203,7 @@ class TestMapper(unittest.TestCase):
         ) and isinstance(container_wus[0].metadata.aspect, ContainerClass)
         assert (
             container_wus[0].metadata.aspect.container
-            == "urn:li:container:c202849e31339f58fd4cd91e94bfade5"
+            == "urn:li:container:635fbdd141a7b358624369c6060847c3"
         )
 
         # check GlobalTagsClass
@@ -397,7 +417,7 @@ class TestMapper(unittest.TestCase):
         ) and isinstance(container_wus[0].metadata.aspect, ContainerClass)
         assert (
             container_wus[0].metadata.aspect.container
-            == "urn:li:container:c202849e31339f58fd4cd91e94bfade5"
+            == "urn:li:container:635fbdd141a7b358624369c6060847c3"
         )
 
         # check GlobalTagsClass

@@ -15,7 +15,7 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatahubKey
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.incremental_lineage_helper import (
     convert_dashboard_info_to_patch,
 )
@@ -58,9 +58,8 @@ from datahub.metadata.urns import ContainerUrn, CorpUserUrn, DashboardUrn, Urn
 logger = logging.getLogger(__name__)
 
 
-class WorkspaceKey(DatahubKey):
+class WorkspaceKey(ContainerKey):
     workspace_name: str
-    platform_instance: Optional[str] = None
 
 
 DEFAULT_INGESTION_USER_URN = CorpUserUrn("_ingestion")
@@ -72,6 +71,7 @@ class Mapper:
         self,
         workspace_name: str,
         platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
         base_url: str = HEX_API_BASE_URL_DEFAULT,
         patch_metadata: bool = True,
         collections_as_tags: bool = True,
@@ -80,9 +80,13 @@ class Mapper:
         set_ownership_from_email: bool = True,
     ):
         self._workspace_name = workspace_name
+        self._env = env
         self._platform_instance = platform_instance
-        self._workspace_urn = self._get_workspace_urn(
-            workspace_name=workspace_name, platform_instance=platform_instance
+        self._workspace_urn = Mapper._get_workspace_urn(
+            workspace_name=workspace_name,
+            platform=HEX_PLATFORM_NAME,
+            env=env,
+            platform_instance=platform_instance,
         )
         self._base_url = base_url.strip("/").replace("/api/v1", "")
         self._patch_metadata = patch_metadata
@@ -94,6 +98,7 @@ class Mapper:
     def map_workspace(self) -> Iterable[MetadataWorkUnit]:
         container_properties = ContainerPropertiesClass(
             name=self._workspace_name,
+            env=self._env,
         )
         yield from self._yield_mcps(
             entity_urn=self._workspace_urn,
@@ -196,11 +201,19 @@ class Mapper:
             ],
         )
 
+    @classmethod
     def _get_workspace_urn(
-        self, workspace_name: str, platform_instance: Optional[str] = None
+        cls,
+        workspace_name: str,
+        platform: str = HEX_PLATFORM_NAME,
+        env: Optional[str] = None,
+        platform_instance: Optional[str] = None,
     ) -> ContainerUrn:
         workspace_key = WorkspaceKey(
-            workspace_name=workspace_name, platform_instance=platform_instance
+            platform=platform,
+            env=env,
+            platform_instance=platform_instance,
+            workspace_name=workspace_name,
         )
         container_urn_str = make_container_urn(guid=workspace_key)
         container_urn = Urn.from_string(container_urn_str)
