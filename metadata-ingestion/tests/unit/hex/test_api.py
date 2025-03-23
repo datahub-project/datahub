@@ -239,8 +239,15 @@ class TestHexAPI(unittest.TestCase):
         assert self.report.fetch_projects_page_calls == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
-        assert failures[0].title and failures[0].title == "Request error"
-        assert failures[0].message and failures[0].message == "Error fetching projects"
+        assert (
+            failures[0].title
+            and failures[0].title == "Listing Projects and Components API request error"
+        )
+        assert (
+            failures[0].message
+            and failures[0].message
+            == "Error fetching Projects and Components and halting metadata ingestion"
+        )
         assert failures[0].context
 
     @patch("datahub.ingestion.source.hex.api.requests.get")
@@ -267,9 +274,15 @@ class TestHexAPI(unittest.TestCase):
         assert self.report.fetch_projects_page_calls == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
-        assert failures[0].title and failures[0].title == "API response parsing error"
         assert (
-            failures[0].message and failures[0].message == "Error parsing API response"
+            failures[0].title
+            and failures[0].title
+            == "Listing Projects and Components API response parsing error"
+        )
+        assert (
+            failures[0].message
+            and failures[0].message
+            == "Error parsing API response and halting metadata ingestion"
         )
         assert failures[0].context
 

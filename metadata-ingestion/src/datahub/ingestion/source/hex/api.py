@@ -307,15 +307,15 @@ class HexApi:
                     )
         except ValidationError as e:
             self.report.failure(
-                title="API response parsing error",
-                message="Error parsing API response",
+                title="Listing Projects and Components API response parsing error",
+                message="Error parsing API response and halting metadata ingestion",
                 context=str(response.json()),
                 exc=e,
             )
         except (requests.RequestException, Exception) as e:
             self.report.failure(
-                title="Request error",
-                message="Error fetching projects",
+                title="Listing Projects and Components API request error",
+                message="Error fetching Projects and Components and halting metadata ingestion",
                 context=str(params),
                 exc=e,
             )
