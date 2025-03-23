@@ -106,7 +106,6 @@ class HexReport(StaleEntityRemovalSourceReport, HexApiReport):
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class HexSource(StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
