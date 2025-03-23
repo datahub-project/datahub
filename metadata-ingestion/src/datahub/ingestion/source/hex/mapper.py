@@ -95,10 +95,9 @@ class Mapper:
         container_properties = ContainerPropertiesClass(
             name=self._workspace_name,
         )
-        aspects: List[_Aspect] = [container_properties]
         yield from self._yield_mcps(
             entity_urn=self._workspace_urn,
-            aspects=aspects,
+            aspects=[container_properties],
         )
 
     def map_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
@@ -124,27 +123,30 @@ class Mapper:
             container=self._workspace_urn.urn(),
         )
 
-        aspects = [dashboard_info, subtypes, platform_instance, container]
-
         tags = self._global_tags(
             status=project.status,
             categories=project.categories,
             collections=project.collections,
         )
-        if tags:
-            aspects.append(tags)
 
         ownership = self._ownership(creator=project.creator, owner=project.owner)
-        if ownership:
-            aspects.append(ownership)
 
         dashboard_usage_statistics = self._dashboard_usage_statistics(
             analytics=project.analytics
         )
-        if dashboard_usage_statistics:
-            aspects.append(dashboard_usage_statistics)
 
-        yield from self._yield_mcps(entity_urn=dashboard_urn, aspects=aspects)
+        yield from self._yield_mcps(
+            entity_urn=dashboard_urn,
+            aspects=[
+                dashboard_info,
+                subtypes,
+                platform_instance,
+                container,
+                tags,
+                ownership,
+                dashboard_usage_statistics,
+            ],
+        )
 
     def map_component(self, component: Component) -> Iterable[MetadataWorkUnit]:
         dashboard_urn = self._get_dashboard_urn(name=component.id)
@@ -169,27 +171,30 @@ class Mapper:
             container=self._workspace_urn.urn(),
         )
 
-        aspects = [dashboard_info, subtypes, platform_instance, container]
-
         tags = self._global_tags(
             status=component.status,
             categories=component.categories,
             collections=component.collections,
         )
-        if tags:
-            aspects.append(tags)
 
         ownership = self._ownership(creator=component.creator, owner=component.owner)
-        if ownership:
-            aspects.append(ownership)
 
         dashboard_usage_statistics = self._dashboard_usage_statistics(
             analytics=component.analytics
         )
-        if dashboard_usage_statistics:
-            aspects.append(dashboard_usage_statistics)
 
-        yield from self._yield_mcps(entity_urn=dashboard_urn, aspects=aspects)
+        yield from self._yield_mcps(
+            entity_urn=dashboard_urn,
+            aspects=[
+                dashboard_info,
+                subtypes,
+                platform_instance,
+                container,
+                tags,
+                ownership,
+                dashboard_usage_statistics,
+            ],
+        )
 
     def _get_workspace_urn(
         self, workspace_name: str, platform_instance: Optional[str] = None
@@ -304,7 +309,7 @@ class Mapper:
         )
 
     def _yield_mcps(
-        self, entity_urn: Urn, aspects: List[_Aspect]
+        self, entity_urn: Urn, aspects: List[Optional[_Aspect]]
     ) -> Iterable[MetadataWorkUnit]:
         for mcpw in MetadataChangeProposalWrapper.construct_many(
             entityUrn=entity_urn.urn(),
