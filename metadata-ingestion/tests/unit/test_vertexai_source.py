@@ -1,5 +1,4 @@
 import contextlib
-from datetime import datetime
 from typing import List
 from unittest.mock import patch
 
@@ -11,7 +10,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.ingestion.source.vertexai import (
+from datahub.ingestion.source.vertexai.vertexai import (
     ContainerKeyWithId,
     ModelMetadata,
     TrainingJobMetadata,
@@ -85,11 +84,11 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
                 name=mock_model.display_name,
                 description=mock_model.description,
                 created=TimeStampClass(
-                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                    time=datetime_to_ts_millis(mock_model.create_time),
                     actor="urn:li:corpuser:datahub",
                 ),
                 lastModified=TimeStampClass(
-                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878500)),
+                    time=datetime_to_ts_millis(mock_model.update_time),
                     actor="urn:li:corpuser:datahub",
                 ),
             ),
@@ -132,27 +131,25 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     mcp_mlmodel = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=MLModelProperties(
-            name="mock_prediction_model_1_display_name_1",
+            name=f"{mock_model.display_name}_{model_version.version_id}",
             description=model_version.version_description,
             created=TimeStampClass(
-                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                time=datetime_to_ts_millis(mock_model.create_time),
                 actor="urn:li:corpuser:datahub",
             ),
             lastModified=TimeStampClass(
-                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878500)),
+                time=datetime_to_ts_millis(mock_model.update_time),
                 actor="urn:li:corpuser:datahub",
             ),
             customProperties={
                 "versionId": model_version.version_id,
                 "resourceName": mock_model.resource_name,
             },
-            externalUrl="https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/mock_prediction_model_1/versions/1?project=acryl-poc",
+            externalUrl=source._make_model_version_external_url(mock_model),
             version=VersionTagClass(
                 versionTag=model_version.version_id, metadataAttribution=None
             ),
-            groups=[
-                "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,acryl-poc.model_group.mock_prediction_model_1,PROD)"
-            ],
+            groups=[source._make_ml_model_group_urn(mock_model)],
             type=MLAssetSubTypes.VERTEX_MODEL,
             deployments=[],
         ),
@@ -214,7 +211,7 @@ def test_get_endpoint_mcps(
         aspect=MLModelDeploymentPropertiesClass(
             customProperties={"displayName": mock_endpoint.display_name},
             description=mock_model.description,
-            createdAt=int(datetime_to_ts_millis(datetime.fromtimestamp(1647878400))),
+            createdAt=int(datetime_to_ts_millis(mock_endpoint.create_time)),
             version=VersionTagClass(
                 versionTag=model_version.version_id, metadataAttribution=None
             ),
@@ -235,6 +232,7 @@ def test_get_training_jobs_mcps(
     source: VertexAISource,
 ) -> None:
     mock_training_job = gen_mock_training_custom_job()
+    mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
@@ -275,7 +273,7 @@ def test_get_training_jobs_mcps(
                 externalUrl=source._make_job_external_url(mock_training_job),
                 customProperties={"jobType": "CustomJob"},
                 created=AuditStamp(
-                    time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                    time=datetime_to_ts_millis(mock_training_job.create_time),
                     actor="urn:li:corpuser:datahub",
                 ),
             ),
@@ -339,7 +337,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             externalUrl=source._make_job_external_url(mock_training_job),
             customProperties={"jobType": "CustomJob"},
             created=AuditStamp(
-                time=datetime_to_ts_millis(datetime.fromtimestamp(1647878400)),
+                time=datetime_to_ts_millis(mock_training_job.create_time),
                 actor="urn:li:corpuser:datahub",
             ),
         ),

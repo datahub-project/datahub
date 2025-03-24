@@ -44,8 +44,8 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.mlflow import ContainerKeyWithId
-from datahub.ingestion.source.vertexai.config import VertexAIConfig
-from datahub.ingestion.source.vertexai.result_type_utils import (
+from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
+from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     get_job_result_status,
     is_status_for_run_event_class,
@@ -533,15 +533,13 @@ class VertexAISource(Source):
                     upstreamInstances=[self._make_experiment_run_urn(exp, run)],
                     parentInstance=self._make_experiment_run_urn(exp, run),
                 ),
-                (
-                    DataProcessInstanceInputClass(
-                        inputs=[],
-                        inputEdges=[
-                            EdgeClass(
-                                destinationUrn=self._make_experiment_run_urn(exp, run)
-                            ),
-                        ],
-                    )
+                DataProcessInstanceInputClass(
+                    inputs=[],
+                    inputEdges=[
+                        EdgeClass(
+                            destinationUrn=self._make_experiment_run_urn(exp, run)
+                        ),
+                    ],
                 ),
             ],
         )

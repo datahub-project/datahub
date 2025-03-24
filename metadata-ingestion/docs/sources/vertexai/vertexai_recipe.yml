@@ -3,17 +3,14 @@ source:
   config:
     project_id: "acryl-poc"
     region:  "us-west2"
-#    credential:
+# You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
+#   credential:
 #      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
 #      private_key_id: "project_key_id"
 #      client_email: "client_email"
 #      client_id: "client_id"
-# You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
 
 sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
-    token: "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjkzMTVlYTFhLTEyZTAtNDk1MC04YTQxLTQxZmZhOWQ3MWQ3MyIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NDUwOTk4MzcsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.PQxQXR7OaMXn5_oFdEEfUrXK6PFfVfMFVjNQeJWAoOk"
-
-
