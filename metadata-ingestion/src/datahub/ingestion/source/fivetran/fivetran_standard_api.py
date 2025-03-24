@@ -4,7 +4,7 @@
 import difflib
 import logging
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
@@ -40,12 +40,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """Initialize with a FivetranAPIClient instance."""
         self.api_client = api_client
         self.config = config
-        self._column_cache: Dict[
-            str, List[ColumnLineage]
-        ] = {}  # Cache for column information
-        self._schema_similarity_cache: Dict[
-            str, Dict[str, float]
-        ] = {}  # Cache for similar table findings
+
+        # Cache for connector information
+        self._connector_cache: Dict[str, Connector] = {}
 
         # Determine the fivetran_log_database from config if available
         self._fivetran_log_database = None
@@ -93,7 +90,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
     ) -> List[Connector]:
         """
         Get a list of connectors filtered by the provided patterns.
-        Enhanced to extract lineage even for connectors without job history.
         """
         connectors: List[Connector] = []
 
@@ -101,34 +97,69 @@ class FivetranStandardAPI(FivetranAccessInterface):
             logger.info("Fetching connector list from Fivetran API")
             connector_list = self.api_client.list_connectors()
 
-            # Collect destination information
-            destinations_seen, destination_details = self._collect_destination_info(
-                connector_list
-            )
-
-            # Log a configuration example for the user
-            if destinations_seen:
-                example_config = self._generate_config_example(destination_details)
-                logger.info(
-                    f"Configuration example for destination_to_platform_instance:{example_config}"
-                )
-            else:
-                logger.warning(
-                    "No destinations found. This may indicate an issue with the API response structure or permissions."
-                )
-
             # Process each connector
             for api_connector in connector_list:
-                connector = self._process_connector(
-                    api_connector=api_connector,
-                    connector_patterns=connector_patterns,
-                    destination_patterns=destination_patterns,
-                    syncs_interval=syncs_interval,
-                    report=report,
+                connector_id = api_connector.get("id", "")
+                if not connector_id:
+                    continue
+
+                connector_name = api_connector.get("name", "")
+
+                # Apply connector pattern filter (skip explicitly included connectors)
+                explicitly_included = False
+                if (
+                    self.config
+                    and hasattr(self.config, "sources_to_platform_instance")
+                    and connector_id in self.config.sources_to_platform_instance
+                ):
+                    explicitly_included = True
+                    logger.info(
+                        f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
+                    )
+
+                if not explicitly_included and not connector_patterns.allowed(
+                    connector_name
+                ):
+                    report.report_connectors_dropped(
+                        f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
+                    )
+                    continue
+
+                # Get destination ID
+                destination_id = self._extract_destination_id(api_connector)
+
+                # Apply destination filter
+                if not destination_patterns.allowed(destination_id):
+                    report.report_connectors_dropped(
+                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
+                    )
+                    continue
+
+                # Get sync history
+                sync_history = self.api_client.list_connector_sync_history(
+                    connector_id, syncs_interval
                 )
 
-                if connector:
+                # Create connector object
+                try:
+                    connector = self.api_client.extract_connector_metadata(
+                        api_connector, sync_history
+                    )
                     connectors.append(connector)
+
+                    # Cache for later use
+                    self._connector_cache[connector_id] = connector
+
+                    # Report scanned connector
+                    report.report_connectors_scanned()
+
+                except Exception as e:
+                    logger.error(
+                        f"Error extracting metadata for connector {connector_id}: {e}"
+                    )
+                    report.report_failure(
+                        f"Error extracting metadata for connector {connector_id}: {e}"
+                    )
 
         if not connectors:
             logger.info("No allowed connectors found")
@@ -136,112 +167,57 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         logger.info(f"Found {len(connectors)} allowed connectors")
 
-        # Ensure we attempt to extract lineage for all connectors, even inactive ones
-        # We need to do this before processing jobs to make sure lineage is available
-        # for connectors without job history
+        # Process lineage for all connectors
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
-            logger.info("Fetching connector lineage from Fivetran API")
-            # Cache the connectors for schema extraction methods
-            self._connector_cache = connectors
-
-            # Process each connector to extract lineage
+            logger.info("Extracting lineage from Fivetran API")
             for connector in connectors:
                 try:
-                    self._fill_connector_lineage(connector)
-                except Exception as e:
-                    logger.error(
-                        f"Error extracting lineage for connector {connector.connector_id}: {e}",
-                        exc_info=True,
+                    # Extract table-level and column-level lineage
+                    lineage = self.api_client.extract_table_lineage(
+                        connector.connector_id
+                    )
+                    connector.lineage = lineage
+
+                    logger.info(
+                        f"Extracted {len(lineage)} table lineage entries for connector {connector.connector_id}"
                     )
 
-        # Process jobs for each connector - enhanced version with better job extraction
+                    # Log some column lineage statistics
+                    total_column_mappings = sum(
+                        len(table.column_lineage) for table in lineage
+                    )
+                    logger.info(
+                        f"Extracted {total_column_mappings} column mappings across {len(lineage)} tables"
+                    )
+
+                except Exception as e:
+                    logger.error(
+                        f"Error extracting lineage for connector {connector.connector_id}: {e}"
+                    )
+                    report.report_failure(
+                        f"Error extracting lineage for connector {connector.connector_id}: {e}"
+                    )
+
+        # Clean up job history
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
-            logger.info("Fetching connector job history from Fivetran API")
-            self._process_connector_jobs(connectors, report, syncs_interval)
+            logger.info("Processing job history")
+            for connector in connectors:
+                if len(connector.jobs) > MAX_JOBS_PER_CONNECTOR:
+                    # Sort by end time to ensure we keep the most recent
+                    connector.jobs.sort(key=lambda job: job.end_time, reverse=True)
+                    logger.info(
+                        f"Truncating jobs for connector {connector.connector_id} from {len(connector.jobs)} to {MAX_JOBS_PER_CONNECTOR}"
+                    )
+                    connector.jobs = connector.jobs[:MAX_JOBS_PER_CONNECTOR]
+
+                    report.warning(
+                        title="Job history truncated",
+                        message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs. "
+                        f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                    )
 
         return connectors
-
-    def _fill_connector_lineage(self, connector: Connector) -> None:
-        """Extract lineage for a single connector with enhanced reliability."""
-        try:
-            logger.info(f"Extracting lineage for connector {connector.connector_id}")
-
-            # Determine destination platform
-            destination_platform = self._get_destination_platform(connector)
-            connector.additional_properties["destination_platform"] = (
-                destination_platform
-            )
-            logger.info(
-                f"Using destination platform {destination_platform} for connector {connector.connector_id}"
-            )
-
-            # First, try direct API approach to get lineage
-            lineage = self.api_client.extract_table_lineage(connector.connector_id)
-            if lineage:
-                connector.lineage = lineage
-                logger.info(
-                    f"Extracted {len(lineage)} table lineage entries directly for connector {connector.connector_id}"
-                )
-                return
-
-            # If direct approach fails, try schema approach
-            schemas = self.api_client.list_connector_schemas(connector.connector_id)
-            if not schemas:
-                logger.warning(
-                    f"No schema information found for connector {connector.connector_id}"
-                )
-                return
-
-            # Use preload_all_columns to get all column information upfront
-            self._preload_all_columns(connector.connector_id, schemas)
-
-            # Log schema diagnostics
-            self._log_schema_diagnostics(schemas)
-
-            # If we still have no columns, try direct fetching and inference
-            if self._should_fetch_missing_columns(schemas):
-                logger.warning(
-                    "Still missing columns after preloading. Attempting additional methods."
-                )
-                self._fetch_missing_columns(connector.connector_id, schemas)
-                self._infer_missing_columns(schemas)
-                self._log_schema_diagnostics(schemas)  # Log updated stats
-
-            # Collect all source columns with their types
-            source_table_columns = self._collect_source_columns(schemas)
-
-            # Process schemas to extract lineage
-            lineage_list = self._process_schemas_for_lineage(
-                connector, schemas, source_table_columns
-            )
-
-            # If no lineage was found but tables exist, create synthetic lineage
-            if not lineage_list:
-                self._create_synthetic_lineage(connector, schemas, destination_platform)
-            else:
-                connector.lineage = lineage_list
-                logger.info(
-                    f"Successfully built {len(lineage_list)} table lineage entries for connector {connector.connector_id}"
-                )
-
-            # Final stats logging
-            self._log_lineage_stats(connector.lineage, connector.connector_id)
-        except Exception as e:
-            logger.error(
-                f"Failed to extract lineage for connector {connector.connector_name}: {e}",
-                exc_info=True,
-            )
-            connector.lineage = []
-
-    def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
-        """
-        Fill in lineage information for connectors by calling the API with enhanced diagnostics.
-        Ensures every connector with schema information gets lineage.
-        """
-        self._connector_cache = connectors
-
-        for connector in connectors:
-            self._fill_connector_lineage(connector)
 
     def _create_synthetic_lineage(
         self, connector: Connector, schemas: List[dict], destination_platform: str
@@ -361,10 +337,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
             )
             return None
 
-        # Enhanced sync history collection with better error handling
         try:
             # Get sync history for this connector
-            sync_history = self._get_enhanced_sync_history(
+            sync_history = self._get_sync_history(
                 connector_id=connector_id, days=syncs_interval
             )
 
@@ -436,10 +411,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         report.report_connectors_scanned()
         return connector
 
-    def _get_enhanced_sync_history(self, connector_id: str, days: int) -> List[Dict]:
-        """
-        Enhanced method to get sync history with multiple fallback mechanisms.
-        """
+    def _get_sync_history(self, connector_id: str, days: int) -> List[Dict]:
         try:
             # First, try the standard connector sync-history endpoint
             sync_history = self.api_client.list_connector_sync_history(
@@ -611,8 +583,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
             if destination_id:
                 logger.debug(f"Found destination_id={destination_id} from group.id")
                 return destination_id
-        else:
-            logger.debug(f"group field is not a dictionary: {group_field}")
 
         # Try alternate fields if group.id doesn't work
         if "destination_id" in api_connector:
@@ -631,25 +601,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 )
                 return destination_id
 
-        # If destination_id is still empty, try to extract any identifier
-        if not destination_id:
-            logger.warning(
-                f"Empty destination ID found for connector: {connector_id}, name: {api_connector.get('name', 'unknown')}"
-            )
-            logger.debug(f"Available fields: {list(api_connector.keys())}")
-
-            # As a fallback, check if there's any field that might contain destination info
-            for key, value in api_connector.items():
-                if isinstance(value, str) and (
-                    "destination" in key.lower() or "group" in key.lower()
-                ):
-                    logger.info(f"Potential destination field: {key}={value}")
-                    return value
-
-            # Generate a dummy destination ID based on connector ID if all else fails
-            destination_id = f"destination_for_{connector_id}"
-            logger.warning(f"Using generated destination ID: {destination_id}")
-
+        # Generate a fallback ID based on connector ID if all else fails
+        logger.warning(f"Could not find destination ID for connector {connector_id}")
+        destination_id = f"destination_for_{connector_id}"
+        logger.warning(f"Using generated destination ID: {destination_id}")
         return destination_id
 
     def _process_connector_jobs(
@@ -658,9 +613,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         report: FivetranSourceReport,
         syncs_interval: int,
     ) -> None:
-        """
-        Enhanced job processing with better job status mapping and sorting.
-        """
         for connector in connectors:
             # If no jobs were found, try to fetch more with extended date range
             if not connector.jobs and syncs_interval < 30:
@@ -669,7 +621,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         f"No jobs found for connector {connector.connector_id} with {syncs_interval} day lookback. "
                         f"Trying extended lookback of 30 days."
                     )
-                    extended_history = self._get_enhanced_sync_history(
+                    extended_history = self._get_sync_history(
                         connector_id=connector.connector_id, days=30
                     )
                     if extended_history:
@@ -756,47 +708,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
             example_config += '    env: "PROD"\n'
 
         return example_config
-
-    def _collect_destination_info(
-        self, connector_list: List[Dict]
-    ) -> Tuple[Set[str], Dict[str, Dict[str, str]]]:
-        """Collect information about all destinations from connector list."""
-        destinations_seen = set()
-        destination_details = {}
-
-        # First pass: collect all destination IDs to log them for configuration
-        for api_connector in connector_list:
-            destination_id = self._extract_destination_id(api_connector)
-
-            if destination_id and destination_id not in destinations_seen:
-                destinations_seen.add(destination_id)
-
-                # Fetch destination details with better error handling
-                try:
-                    destination_data = self.api_client.get_destination_details(
-                        destination_id
-                    )
-                    destination_name = destination_data.get("name", "unknown")
-                    destination_service = destination_data.get("service", "unknown")
-
-                    destination_details[destination_id] = {
-                        "name": destination_name,
-                        "service": destination_service,
-                    }
-
-                    logger.info(
-                        f"Found destination: ID={destination_id}, Name={destination_name}, Service={destination_service}"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Error fetching details for destination {destination_id}: {e}"
-                    )
-                    destination_details[destination_id] = {
-                        "name": "unknown (error fetching details)",
-                        "service": "unknown",
-                    }
-
-        return destinations_seen, destination_details
 
     def _process_schemas_for_lineage(
         self,
@@ -1112,246 +1023,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # No match found
         return None
 
-    def _preload_all_columns(self, connector_id: str, schemas: List[Dict]) -> None:
-        """Preload all column information for a connector's schemas."""
-        import urllib.parse
-
-        logger.info(f"Preloading column information for connector {connector_id}")
-
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            if not schema_name:
-                continue
-
-            try:
-                # URL-encode the schema name
-                encoded_schema = urllib.parse.quote(schema_name)
-
-                # Fetch all tables for this schema at once
-                logger.debug(f"Fetching all tables for schema {schema_name}")
-                all_tables_response = self.api_client._make_request(
-                    "GET", f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
-                )
-
-                tables_data = all_tables_response.get("data", {}).get("items", [])
-                if not tables_data:
-                    logger.debug(f"No tables found for schema {schema_name}")
-                    continue
-
-                # Create a lookup of tables by name
-                tables_by_name = {
-                    t.get("name"): t for t in tables_data if t.get("name")
-                }
-                logger.info(
-                    f"Found {len(tables_by_name)} tables in schema {schema_name}"
-                )
-
-                # Update schema tables with column information
-                tables_updated = 0
-                for table in schema.get("tables", []):
-                    table_name = table.get("name")
-                    if not table_name:
-                        continue
-
-                    if (
-                        table_name in tables_by_name
-                        and "columns" in tables_by_name[table_name]
-                    ):
-                        api_table = tables_by_name[table_name]
-
-                        # Only update if we don't already have columns or have fewer columns
-                        existing_columns = table.get("columns", [])
-                        api_columns = api_table.get("columns", [])
-
-                        if not existing_columns or (
-                            len(api_columns) > len(existing_columns)
-                        ):
-                            table["columns"] = api_columns
-                            tables_updated += 1
-                            logger.debug(
-                                f"Preloaded {len(api_columns)} columns for {schema_name}.{table_name}"
-                            )
-
-                logger.info(
-                    f"Updated {tables_updated} tables with column information in schema {schema_name}"
-                )
-
-            except Exception as e:
-                logger.warning(
-                    f"Error preloading columns for schema {schema_name}: {e}"
-                )
-
-    def _log_schema_diagnostics(self, schemas: List[Dict]) -> None:
-        """Log diagnostic information about schemas and their columns."""
-        total_columns = 0
-        total_tables_with_columns = 0
-        total_tables = 0
-
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            for table in schema.get("tables", []):
-                total_tables += 1
-                table_name = table.get("name", "")
-                columns = table.get("columns", [])
-
-                if columns:
-                    total_tables_with_columns += 1
-                    total_columns += len(columns)
-                    logger.debug(
-                        f"Table {schema_name}.{table_name} has {len(columns)} columns"
-                    )
-
-                    # DIAGNOSTIC: Print a sample of column names with more robust type checking
-                    try:
-                        if isinstance(columns, list) and columns:
-                            # Get up to 5 columns, but check they're the right type first
-                            sample_columns = columns[: min(5, len(columns))]
-                            column_names = []
-                            for col in sample_columns:
-                                if isinstance(col, dict) and "name" in col:
-                                    column_names.append(col.get("name", "unknown"))
-                                elif isinstance(col, str):
-                                    column_names.append(col)
-                                else:
-                                    column_names.append(f"({type(col).__name__})")
-                            logger.debug(f"Sample columns: {column_names}")
-                        elif isinstance(columns, dict):
-                            # Handle dictionary of columns
-                            sample_keys = list(columns.keys())[: min(5, len(columns))]
-                            logger.debug(f"Sample column keys: {sample_keys}")
-                        else:
-                            logger.debug(f"Columns type: {type(columns).__name__}")
-                    except Exception as e:
-                        logger.warning(f"Error sampling columns: {e}")
-                else:
-                    logger.warning(f"Table {schema_name}.{table_name} has NO columns")
-
-        logger.info(
-            f"SCHEMA STATS: {total_tables_with_columns}/{total_tables} tables have columns, total {total_columns} columns"
-        )
-
-    def _should_fetch_missing_columns(self, schemas: List[Dict]) -> bool:
-        """Determine if we need to fetch missing columns based on schema content."""
-        total_columns = 0
-        total_tables = 0
-
-        for schema in schemas:
-            for table in schema.get("tables", []):
-                total_tables += 1
-                columns = table.get("columns", [])
-                if columns:
-                    total_columns += len(columns)
-
-        return total_columns == 0 and total_tables > 0
-
-    def _fetch_missing_columns(self, connector_id: str, schemas: List[Dict]) -> None:
-        """Fetch missing column information for tables by schema."""
-        tables_processed = 0
-        tables_updated = 0
-
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            tables_needing_columns = []
-
-            # First identify which tables need columns
-            for table in schema.get("tables", []):
-                if not table.get("columns") and table.get("enabled", True):
-                    tables_needing_columns.append(table)
-
-            # If any tables need columns in this schema, fetch them all at once
-            if tables_needing_columns:
-                try:
-                    # URL-encode the schema name
-                    import urllib.parse
-
-                    encoded_schema = urllib.parse.quote(schema_name)
-
-                    # Get all tables for this schema in one request
-                    logger.info(f"Fetching all tables for schema {schema_name}")
-                    response = self.api_client._make_request(
-                        "GET",
-                        f"/connectors/{connector_id}/schemas/{encoded_schema}/tables",
-                    )
-
-                    # Process the response
-                    tables_data = response.get("data", {}).get("items", [])
-                    tables_dict = {
-                        table.get("name"): table
-                        for table in tables_data
-                        if table.get("name")
-                    }
-
-                    # Update our tables with column information
-                    for table in tables_needing_columns:
-                        tables_processed += 1
-                        table_name = table.get("name", "")
-                        if table_name in tables_dict:
-                            table_data = tables_dict[table_name]
-                            if "columns" in table_data and table_data["columns"]:
-                                table["columns"] = table_data["columns"]
-                                tables_updated += 1
-                                logger.info(
-                                    f"Updated columns for {schema_name}.{table_name} with {len(table_data['columns'])} columns"
-                                )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch tables for schema {schema_name}: {e}"
-                    )
-
-        logger.info(
-            f"Column update complete: {tables_updated}/{tables_processed} tables updated with column information"
-        )
-
-    def _infer_missing_columns(self, schemas: List[Dict]) -> None:
-        """Infer columns for tables that are still missing them by looking at similar tables."""
-        tables_processed = 0
-        tables_updated = 0
-
-        # Find tables that still need columns
-        tables_needing_columns = []
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            for table in schema.get("tables", []):
-                if not table.get("columns") and table.get("enabled", True):
-                    tables_needing_columns.append(
-                        {
-                            "schema": schema_name,
-                            "table": table.get("name", ""),
-                            "table_obj": table,
-                        }
-                    )
-
-        if not tables_needing_columns:
-            return
-
-        logger.info(
-            f"Attempting to infer columns for {len(tables_needing_columns)} tables"
-        )
-
-        # For each table with missing columns, try to find a similar table
-        for table_info in tables_needing_columns:
-            tables_processed += 1
-            schema_name = table_info["schema"]
-            table_name = table_info["table"]
-            table_obj = table_info["table_obj"]
-
-            # Look for similar tables in the same schema
-            candidate_columns = self._find_columns_from_similar_tables(
-                schemas, schema_name, table_name
-            )
-
-            if candidate_columns:
-                table_obj["columns"] = candidate_columns
-                tables_updated += 1
-                logger.info(
-                    f"Inferred {len(candidate_columns)} columns for {schema_name}.{table_name} from similar table"
-                )
-
-        logger.info(
-            f"Column inference complete: {tables_updated}/{tables_processed} tables updated with inferred columns"
-        )
-
     def _find_columns_from_similar_tables(
         self, schemas: List[Dict], target_schema: str, target_table: str
     ) -> List[Dict]:
@@ -1646,164 +1317,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
         }
 
         return platform_defaults.get(platform.lower(), ColumnNamingPattern.AUTO)
-
-    def _extract_enhanced_column_lineage(
-        self,
-        connector: Connector,
-        table: Dict,
-        source_table: str,
-        destination_platform: str,
-        source_table_columns: Dict[str, Dict[str, str]],
-    ) -> List[ColumnLineage]:
-        """
-        Enhanced column-level lineage extraction with multiple fallback approaches.
-
-        Args:
-            connector: Connector object
-            table: Table data from API
-            source_table: Full source table name (schema.table)
-            destination_platform: Destination platform type
-            source_table_columns: Dict mapping table names to column information
-
-        Returns:
-            List of ColumnLineage objects
-        """
-        logger.debug(
-            f"Extracting column lineage for {source_table} to {destination_platform}"
-        )
-
-        # Check for column lineage in column cache first
-        cache_key = f"{connector.connector_id}:{source_table}"
-        if cache_key in self._column_cache:
-            cached_lineage = self._column_cache[cache_key]
-            logger.debug(
-                f"Using cached column lineage for {source_table} ({len(cached_lineage)} columns)"
-            )
-            return cached_lineage
-
-        source_pattern = self._get_source_naming_pattern(connector.connector_id)
-        dest_pattern = self._get_destination_naming_pattern(
-            connector.destination_id, destination_platform
-        )
-
-        logger.debug(
-            f"Using naming patterns - Source: {source_pattern}, Destination: {dest_pattern}"
-        )
-
-        # 1. First try to get columns from the table data
-        columns = table.get("columns", [])
-
-        # Handle different column formats
-        if isinstance(columns, dict):
-            # Convert dict format to list
-            columns_list = self._convert_column_dict_to_list(columns)
-            columns = columns_list
-            logger.debug(f"Converted dict format to list with {len(columns)} columns")
-
-        # 2. If no columns found, try source_table_columns
-        if not columns and source_table in source_table_columns:
-            logger.debug(f"Using columns from source_table_columns for {source_table}")
-            columns = [
-                {"name": col_name, "type": col_type}
-                for col_name, col_type in source_table_columns[source_table].items()
-            ]
-
-        # 3. If still no columns, try to find from similar tables
-        if not columns:
-            # Parse schema and table name from source_table
-            if "." in source_table:
-                schema_name, table_name = source_table.split(".", 1)
-                logger.debug(
-                    f"Looking for similar tables to {schema_name}.{table_name}"
-                )
-
-                schemas = self.api_client.list_connector_schemas(connector.connector_id)
-                columns = self._find_columns_from_similar_tables(
-                    schemas, schema_name, table_name
-                )
-                logger.debug(f"Found {len(columns)} columns from similar tables")
-
-        # Now create column lineage from the columns we have
-        column_lineage = []
-        is_bigquery = destination_platform.lower() == "bigquery"
-
-        if not columns:
-            logger.warning(f"No column information available for {source_table}")
-            return []
-
-        # Process each column
-        normalized_source_columns = {}
-        for column in columns:
-            col_name = None
-            if isinstance(column, dict):
-                col_name = column.get("name")
-            elif isinstance(column, str):
-                col_name = column
-
-            if not col_name or col_name.startswith("_fivetran"):
-                continue
-
-            # Normalize the source column name for fuzzy matching
-            normalized_name = self._normalize_column_name(col_name)
-            normalized_source_columns[normalized_name] = col_name
-
-            # Get destination column name - prefer name_in_destination if available
-            dest_col_name = None
-            if isinstance(column, dict) and "name_in_destination" in column:
-                dest_col_name = column.get("name_in_destination")
-                logger.debug(
-                    f"Using name_in_destination: {col_name} -> {dest_col_name}"
-                )
-
-            # If no name_in_destination, transform based on platform
-            if not dest_col_name:
-                if is_bigquery:
-                    # For BigQuery, convert to snake_case
-                    dest_col_name = self._transform_column_name_for_platform(
-                        col_name, True
-                    )
-                else:
-                    # For other platforms like Snowflake, typically uppercase
-                    dest_col_name = self._transform_column_name_for_platform(
-                        col_name, False
-                    )
-
-                logger.debug(f"Transformed name: {col_name} -> {dest_col_name}")
-
-            # Add to lineage
-            column_lineage.append(
-                ColumnLineage(
-                    source_column=col_name,
-                    destination_column=dest_col_name,
-                )
-            )
-
-        # Try fuzzy matching for any missing destination column names
-        destination_columns: List[Tuple[str, str]] = []
-        for cl in column_lineage:
-            if not cl.destination_column:
-                # Try fuzzy matching to find a destination column
-                source_norm = self._normalize_column_name(cl.source_column)
-                closest_match = self._find_best_fuzzy_match(
-                    cl.source_column, source_norm, destination_columns
-                )
-                if closest_match:
-                    cl.destination_column = closest_match
-                    logger.debug(
-                        f"Found fuzzy match for {cl.source_column} -> {closest_match}"
-                    )
-
-        if column_lineage:
-            logger.debug(
-                f"Created {len(column_lineage)} column lineage entries for {source_table}"
-            )
-        else:
-            logger.warning(f"Failed to create any column lineage for {source_table}")
-
-        # Cache the result
-        self._column_cache[cache_key] = column_lineage
-
-        return column_lineage
 
     def _convert_column_dict_to_list(self, columns_dict: Dict) -> List[Dict]:
         """Convert column dictionary to list format."""

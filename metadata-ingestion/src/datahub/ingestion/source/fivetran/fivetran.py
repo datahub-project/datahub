@@ -795,9 +795,6 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         return datajob
 
-    # Add this helper method to FivetranSource in fivetran.py
-    # to make destination platform detection more platform-agnostic:
-
     def _get_destination_platform(self, connector: Connector) -> str:
         """
         Determine the destination platform in a platform-agnostic way.

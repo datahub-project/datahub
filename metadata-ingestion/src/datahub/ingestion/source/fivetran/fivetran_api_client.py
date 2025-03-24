@@ -1,6 +1,8 @@
+import json
 import logging
+import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -8,7 +10,6 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from datahub.ingestion.source.fivetran.config import (
-    Constant,
     FivetranAPIConfig,
 )
 from datahub.ingestion.source.fivetran.data_classes import (
@@ -54,6 +55,10 @@ class FivetranAPIClient:
         self._schema_cache: Dict[str, List[Dict[str, Any]]] = {}
         # Cache for destination details
         self._destination_cache: Dict[str, Dict[str, Any]] = {}
+        # Cache for connector name to ID mapping
+        self._connector_name_to_id_cache: Dict[str, str] = {}
+        # Cache for column information
+        self._column_cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def _create_session(self) -> requests.Session:
         """Create a requests session with retry logic and auth."""
@@ -98,18 +103,125 @@ class FivetranAPIClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP error occurred: {e}")
-            # If we get a 405 (Method Not Allowed) error, log additional information
+
+            if e.response.status_code == 404:
+                # If we get a 404 for a connector endpoint, it might be because we're using name instead of ID
+                if "/connectors/" in endpoint:
+                    # Extract the connector name or ID from the endpoint
+                    parts = endpoint.split("/connectors/")
+                    if len(parts) > 1:
+                        connector_identifier = parts[1].split("/")[0]
+                        logger.warning(
+                            f"404 error for connector identifier: {connector_identifier}"
+                        )
+
+                        # Try to get the connector ID if we used a name
+                        if connector_identifier:
+                            try:
+                                correct_id = self.get_connector_id_by_name(
+                                    connector_identifier
+                                )
+                                if correct_id and correct_id != connector_identifier:
+                                    logger.info(
+                                        f"Found correct connector ID: {correct_id} for name: {connector_identifier}"
+                                    )
+                                    # Modify the endpoint with the correct ID
+                                    new_endpoint = endpoint.replace(
+                                        f"/connectors/{connector_identifier}",
+                                        f"/connectors/{correct_id}",
+                                    )
+                                    logger.info(
+                                        f"Retrying with correct endpoint: {new_endpoint}"
+                                    )
+                                    # Retry the request with the correct ID
+                                    return self._make_request(
+                                        method, new_endpoint, **kwargs
+                                    )
+                            except Exception as id_error:
+                                logger.warning(
+                                    f"Error trying to find connector ID: {id_error}"
+                                )
+
+                # Return an empty response for 404 errors
+                logger.warning(f"Resource not found: {url}")
+                if "/schemas" in endpoint:
+                    return {"data": {"schemas": []}}
+                if "/logs" in endpoint:
+                    return {"data": {"items": []}}
+                return {"data": {"items": []}}
+
+            # For other HTTP errors, provide more context
             if e.response.status_code == 405:
                 logger.error(f"Method {method} not allowed for {url}")
                 allowed_methods = e.response.headers.get("Allow", "unknown")
                 logger.error(f"Allowed methods: {allowed_methods}")
-            # For 404 errors, return an empty response structure instead of raising
-            if e.response.status_code == 404:
-                logger.warning(f"Resource not found: {url}")
-                if "/schemas" in endpoint:
-                    return {"data": {"schemas": []}}
-                return {"data": {"items": []}}
+
             raise
+
+    def get_connector_id_by_name(self, connector_name_or_id: str) -> Optional[str]:
+        """
+        Find the connector ID by its name.
+        If the input is already an ID, it will be returned as is if it exists.
+
+        Args:
+            connector_name_or_id: Either the connector name or ID
+
+        Returns:
+            The connector ID or None if not found
+        """
+        # Check if this is already an ID that exists
+        try:
+            # Try to get the connector directly by ID first
+            self._make_request("GET", f"/connectors/{connector_name_or_id}")
+            # If successful, it's a valid ID
+            return connector_name_or_id
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code != 404:
+                # For errors other than 404, re-raise
+                raise
+            # For 404, continue with name lookup
+            pass
+
+        # If we already have this name cached, return the cached ID
+        if connector_name_or_id in self._connector_name_to_id_cache:
+            return self._connector_name_to_id_cache[connector_name_or_id]
+
+        # List all connectors to find the ID by name
+        try:
+            connectors = self.list_connectors()
+
+            # First check for exact name match
+            for connector in connectors:
+                if connector.get("name") == connector_name_or_id:
+                    connector_id = connector.get("id")
+                    if connector_id:
+                        # Cache the mapping for future use
+                        self._connector_name_to_id_cache[connector_name_or_id] = (
+                            connector_id
+                        )
+                        return connector_id
+
+            # If no exact match, try case-insensitive match
+            for connector in connectors:
+                if connector.get("name", "").lower() == connector_name_or_id.lower():
+                    connector_id = connector.get("id")
+                    if connector_id:
+                        # Cache the mapping for future use
+                        self._connector_name_to_id_cache[connector_name_or_id] = (
+                            connector_id
+                        )
+                        return connector_id
+
+            # Log diagnostic info if not found
+            logger.warning(
+                f"Could not find connector with name: {connector_name_or_id}"
+            )
+            logger.debug(f"Available connectors: {[c.get('name') for c in connectors]}")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error trying to find connector ID by name: {e}")
+            return None
 
     def list_connectors(self) -> List[Dict]:
         """Retrieve all connectors from the Fivetran API."""
@@ -174,6 +286,12 @@ class FivetranAPIClient:
             List of column dictionaries with name, type, and other properties
         """
         try:
+            # Check if we've already cached these columns
+            cache_key = f"{connector_id}:{schema_name}.{table_name}"
+            if cache_key in self._column_cache:
+                logger.debug(f"Using cached columns for {schema_name}.{table_name}")
+                return self._column_cache[cache_key]
+
             # URL-encode the schema name and table name to handle special characters
             import urllib.parse
 
@@ -191,6 +309,9 @@ class FivetranAPIClient:
             # Extract columns from the response
             columns_data = response.get("data", {}).get("columns", [])
 
+            # Cache the columns
+            self._column_cache[cache_key] = columns_data
+
             logger.info(
                 f"Retrieved {len(columns_data)} columns directly from columns endpoint for {schema_name}.{table_name}"
             )
@@ -205,7 +326,6 @@ class FivetranAPIClient:
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
         """
         Get schema information for a connector with improved error handling and format normalization.
-        Overrides the parent method to provide better schema retrieval.
         """
         if connector_id in self._schema_cache:
             return self._schema_cache[connector_id]
@@ -1031,7 +1151,7 @@ class FivetranAPIClient:
         response = self._make_request("GET", "/users")
         return response.get("data", {}).get("items", [])
 
-    def get_destination_details(self, group_id: str) -> Dict:
+    def get_destination_details(self, group_id: str) -> Dict[str, Any]:
         """Get details about a destination group with enhanced error handling and logging"""
         if not group_id:
             logger.warning("Empty group_id provided to get_destination_details")
@@ -1201,6 +1321,10 @@ class FivetranAPIClient:
 
     def get_user(self, user_id: str) -> Dict:
         """Get details for a specific user."""
+        if not user_id:
+            logger.warning("Empty user_id provided to get_user")
+            return {}
+
         response = self._make_request("GET", f"/users/{user_id}")
         return response.get("data", {})
 
@@ -1227,65 +1351,147 @@ class FivetranAPIClient:
     def list_connector_sync_history(
         self, connector_id: str, days: int = 7
     ) -> List[Dict]:
-        """Get the sync history for a connector."""
-        try:
-            # First, try the specific connector's logs endpoint
-            since_time = int(time.time()) - (days * 24 * 60 * 60)
-            params = {"limit": 100, "since": since_time}
+        """
+        Get the sync history for a connector with improved error handling.
 
-            # Try v1/connectors/{connector_id}/logs (most likely endpoint)
+        This method first tries to use the connector ID and falls back to
+        finding the ID by name if needed. It also tries multiple endpoints
+        to maximize the chance of finding history data.
+        """
+        try:
+            # Ensure we have a valid connector ID
+            valid_connector_id = self.get_connector_id_by_name(connector_id)
+            if not valid_connector_id:
+                logger.warning(
+                    f"Could not find a valid ID for connector: {connector_id}"
+                )
+                valid_connector_id = (
+                    connector_id  # Use what we were given as a last resort
+                )
+
+            # Calculate the since timestamp (days ago)
+            since_date = datetime.now() - timedelta(days=days)
+            since_timestamp = int(since_date.timestamp())
+
+            logger.info(
+                f"Getting sync history for connector {valid_connector_id} from the past {days} days"
+            )
+
+            # First try: Use the sync-history endpoint (most reliable)
             try:
                 response = self._make_request(
-                    "GET", f"/connectors/{connector_id}/sync-history", params=params
+                    "GET",
+                    f"/connectors/{valid_connector_id}/sync-history",
+                    params={"limit": 100, "since": since_timestamp},
+                )
+                sync_items = response.get("data", {}).get("items", [])
+
+                if sync_items:
+                    logger.info(
+                        f"Found {len(sync_items)} sync history records via sync-history endpoint"
+                    )
+                    return sync_items
+
+                logger.info(
+                    "No sync history found via sync-history endpoint, trying logs endpoint"
+                )
+            except Exception as e:
+                logger.warning(f"Error fetching from sync-history endpoint: {e}")
+
+            # Second try: Use the logs endpoint
+            try:
+                # Format as ISO string for the logs API
+                since_str = f"{days}d"
+
+                response = self._make_request(
+                    "GET",
+                    f"/connectors/{valid_connector_id}/logs",
+                    params={"limit": 100, "since": since_str},
                 )
                 logs = response.get("data", {}).get("items", [])
-                if logs:
-                    # If we have logs, try to extract sync history from them
-                    return self._extract_sync_history_from_logs(logs)
-            except Exception as e:
-                logger.warning(f"Failed to get connector logs: {e}")
 
-            # Try connector metadata to see if it has any sync information
+                if logs:
+                    logger.info(
+                        f"Found {len(logs)} logs, extracting sync history from them"
+                    )
+                    # Process logs to extract sync events and build history
+                    sync_history = self._extract_sync_history_from_logs(logs)
+                    if sync_history:
+                        logger.info(
+                            f"Extracted {len(sync_history)} sync history items from logs"
+                        )
+                        return sync_history
+
+                logger.info("No usable sync history found in logs")
+            except Exception as e:
+                logger.warning(f"Error fetching from logs endpoint: {e}")
+
+            # Third try: Use connector metadata (last resort)
             try:
-                connector_details = self.get_connector(connector_id)
+                connector_details = self.get_connector(valid_connector_id)
+
+                # Check for last sync timestamp fields
                 if (
                     "succeeded_at" in connector_details
                     or "failed_at" in connector_details
+                    or "sync_state" in connector_details
                 ):
-                    # Create a synthetic job record
-                    sync_time = None
-                    status = None
-                    if "succeeded_at" in connector_details:
-                        sync_time = connector_details.get("succeeded_at")
-                        status = "COMPLETED"
-                    elif "failed_at" in connector_details:
-                        sync_time = connector_details.get("failed_at")
-                        status = "FAILED"
+                    logger.info(
+                        "Creating synthetic sync history from connector metadata"
+                    )
 
-                    if sync_time:
+                    # Determine status and timestamp
+                    status = "COMPLETED"
+                    timestamp = None
+
+                    if "succeeded_at" in connector_details:
+                        timestamp = connector_details.get("succeeded_at")
+                    elif "failed_at" in connector_details:
+                        timestamp = connector_details.get("failed_at")
+                        status = "FAILED"
+                    elif "sync_state" in connector_details:
+                        sync_state = connector_details.get("sync_state", {})
+                        if isinstance(sync_state, dict):
+                            if "last_sync" in sync_state:
+                                timestamp = sync_state.get("last_sync")
+                            if "status" in sync_state:
+                                state_status = sync_state.get("status", "").upper()
+                                if state_status in ["FAILED", "ERROR"]:
+                                    status = "FAILED"
+                                elif state_status in ["CANCELLED", "CANCELED"]:
+                                    status = "CANCELLED"
+
+                    if timestamp:
+                        # Create synthetic history entry
+                        sync_id = f"{valid_connector_id}-latest-{int(time.time())}"
                         return [
                             {
-                                "id": f"{connector_id}-latest",
-                                "created_at": sync_time,
-                                "succeeded_at": sync_time
-                                if status == "COMPLETED"
-                                else None,
-                                "failed_at": sync_time if status == "FAILED" else None,
+                                "id": sync_id,
+                                "started_at": timestamp,  # Use same timestamp for both
+                                "completed_at": timestamp,
                                 "status": status,
                             }
                         ]
             except Exception as e:
-                logger.warning(f"Failed to get connector details for sync history: {e}")
+                logger.warning(f"Error creating synthetic history from metadata: {e}")
 
-            # If all attempts fail, return empty list
+            # If we got here, we couldn't find any history
+            logger.warning(
+                f"No sync history found for connector {connector_id} after trying all methods"
+            )
             return []
 
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"Failed to get sync history: {e}")
+        except Exception as e:
+            logger.error(
+                f"Failed to get sync history for connector {connector_id}: {e}"
+            )
             return []
 
     def _extract_sync_history_from_logs(self, logs: List[Dict]) -> List[Dict]:
         """Extract sync history entries from connector logs."""
+        if not logs:
+            return []
+
         # Group logs by sync_id
         sync_groups: Dict[str, List[Dict[str, Any]]] = {}
         for log in logs:
@@ -1314,19 +1520,21 @@ class FivetranAPIClient:
                 elif "sync failed" in message or "failed" in message:
                     end_log = log
                     end_log["status"] = "FAILED"
+                elif "cancelled" in message or "canceled" in message:
+                    end_log = log
+                    end_log["status"] = "CANCELLED"
 
             # Only create history entry if we have both start and end
             if start_log and end_log:
+                start_time = start_log.get("created_at")
+                end_time = end_log.get("created_at")
+
                 entry = {
                     "id": sync_id,
-                    "created_at": start_log.get("created_at"),
+                    "started_at": start_time,
+                    "completed_at": end_time,
                     "status": end_log.get("status", "UNKNOWN"),
                 }
-
-                if entry["status"] == "COMPLETED":
-                    entry["succeeded_at"] = end_log.get("created_at")
-                else:
-                    entry["failed_at"] = end_log.get("created_at")
 
                 sync_history.append(entry)
 
@@ -1355,8 +1563,7 @@ class FivetranAPIClient:
         self, api_connector: Dict, sync_history: List[Dict]
     ) -> Connector:
         """
-        Convert API connector data to our internal Connector model.
-        Enhanced with better destination ID detection.
+        Convert API connector data to our internal Connector model with improved column lineage.
         """
         connector_id = api_connector.get("id")
         if not connector_id:
@@ -1456,294 +1663,278 @@ class FivetranAPIClient:
             sync_frequency=sync_frequency,
             destination_id=destination_id,
             user_id=api_connector.get("created_by", ""),
-            lineage=[],  # Will be filled later
+            lineage=[],  # Will be filled later by extract_table_lineage
             jobs=jobs,
             additional_properties=additional_properties,
         )
 
-    def _get_connector_details_safely(self, connector_id: str) -> Dict:
-        """Extract connector details safely with error handling."""
-        additional_properties = {}
-        try:
-            connector_details = self.get_connector_details(connector_id)
-
-            # Add configuration details if available
-            if "config" in connector_details:
-                config = connector_details.get("config", {})
-                # Extract relevant config fields based on connector type
-                for key, value in config.items():
-                    if isinstance(value, (str, int, bool, float)):
-                        additional_properties[f"config.{key}"] = str(value)
-
-            # Add Salesforce objects if available
-            if "salesforce_objects" in connector_details:
-                additional_properties["salesforce_objects"] = ", ".join(
-                    connector_details.get("salesforce_objects", [])
-                )
-
-            # Add BigQuery location if available
-            if "bigquery_location" in connector_details:
-                bigquery_location = connector_details.get("bigquery_location")
-                if bigquery_location is not None:
-                    additional_properties["bigquery_location"] = str(
-                        bigquery_location
-                    )  # Convert to string
-        except Exception as e:
-            logger.warning(f"Failed to extract additional connector metadata: {e}")
-
-        return additional_properties
-
     def _extract_jobs_from_sync_history(self, sync_history: List[Dict]) -> List[Job]:
-        """Extract jobs from sync history with proper error handling."""
+        """
+        Extract jobs from sync history with improved error handling.
+        Handles both enterprise and standard API formats.
+        """
         jobs = []
+
         for job in sync_history:
-            # Try different possible field names for start and end times
-            started_at = self._find_timestamp(
-                job, ["started_at", "start_time", "created_at", "timestamp"]
-            )
+            try:
+                # Try different possible field names for start and end times
+                started_at = None
+                completed_at = None
 
-            # Get status if available
-            status = self._find_status(job)
+                # Extract timestamps depending on available fields
+                if "started_at" in job:
+                    started_at = self._parse_api_timestamp(job.get("started_at"))
+                elif "start_time" in job:
+                    # Handle datetime object from enterprise mode
+                    start_time = job.get("start_time")
+                    if start_time is not None and hasattr(start_time, "timestamp"):
+                        started_at = int(start_time.timestamp())
+                    else:
+                        started_at = self._parse_api_timestamp(start_time)
 
-            # Find completion timestamp based on status and available fields
-            completed_at = self._find_completion_timestamp(job, status)
+                if "completed_at" in job:
+                    completed_at = self._parse_api_timestamp(job.get("completed_at"))
+                elif "end_time" in job:
+                    # Handle datetime object from enterprise mode
+                    end_time = job.get("end_time")
+                    if end_time is not None and hasattr(end_time, "timestamp"):
+                        completed_at = int(end_time.timestamp())
+                    else:
+                        completed_at = self._parse_api_timestamp(end_time)
 
-            # If we're missing end time but have start time, use current time for recent jobs
-            if started_at and not completed_at:
-                if (time.time() - started_at) < (24 * 60 * 60 * 7):
-                    completed_at = int(time.time())
-                else:
-                    # Skip old jobs without completion times
-                    continue
-
-            # Only include jobs with both timestamps
-            if started_at and completed_at:
-                # Map status to constants
-                status_mapped = self._map_status_to_constant(status)
-
-                jobs.append(
-                    Job(
-                        job_id=job.get(
-                            "id", str(hash(str(job)))
-                        ),  # Use hash as fallback ID
-                        start_time=started_at,
-                        end_time=completed_at,
-                        status=status_mapped,
-                    )
+                # Get status from appropriate field
+                status = self._map_job_status(
+                    job.get("status"), job.get("end_message_data")
                 )
+
+                # Only include jobs with valid timestamps
+                if started_at and completed_at:
+                    jobs.append(
+                        Job(
+                            job_id=job.get("id", str(hash(str(job)))),
+                            start_time=started_at,
+                            end_time=completed_at,
+                            status=status,
+                        )
+                    )
+            except Exception as e:
+                logger.warning(f"Error processing sync history entry: {e}")
+                continue
 
         return jobs
 
-    def _find_timestamp(self, job: Dict, field_names: List[str]) -> Optional[int]:
-        """Find timestamp in job data from a list of possible field names."""
-        for field in field_names:
-            if field in job:
-                timestamp = self._parse_timestamp(job.get(field))
-                if timestamp:
-                    return timestamp
-        return None
+    def _map_job_status(
+        self, status: Optional[str], message_data: Optional[str]
+    ) -> str:
+        """Map various status representations to our standard statuses."""
+        # Default to success if we can't determine
+        if not status and not message_data:
+            return "SUCCESSFUL"
 
-    def _find_status(self, job: Dict) -> Optional[str]:
-        """Find status in job data."""
-        for status_field in ["status", "state", "result"]:
-            if status_field in job:
-                status = job.get(status_field, "").upper()
-                if status:
-                    return status
-        return None
+        # First check explicit status
+        if status:
+            status_upper = status.upper()
 
-    def _find_completion_timestamp(
-        self, job: Dict, status: Optional[str]
-    ) -> Optional[int]:
-        """Find completion timestamp based on status and available fields."""
-        # If we have status, determine completion field to check
-        if status in ["COMPLETED", "SUCCESS", "SUCCEEDED"]:
-            return self._find_timestamp(
-                job, ["completed_at", "end_time", "finished_at", "succeeded_at"]
-            )
-        elif status in ["FAILED", "FAILURE", "ERROR"]:
-            return self._find_timestamp(job, ["failed_at", "end_time", "finished_at"])
-        else:
-            # If no explicit status, check all end fields
-            return self._find_timestamp(
-                job, ["completed_at", "end_time", "finished_at", "updated_at"]
-            )
+            if status_upper in ["COMPLETED", "SUCCEEDED", "SUCCESS"]:
+                return "SUCCESSFUL"
+            elif status_upper in ["FAILED", "FAILURE", "ERROR"]:
+                return "FAILURE_WITH_TASK"
+            elif status_upper in ["CANCELLED", "CANCELED"]:
+                return "CANCELED"
 
-    def _map_status_to_constant(self, status: Optional[str]) -> str:
-        """Map API status to internal constants."""
-        if not status:
-            return Constant.SUCCESSFUL  # Default to success
+        # If no clear status, try to parse from message data
+        if message_data:
+            try:
+                # Sometimes message_data is a JSON string
+                if isinstance(message_data, str):
+                    if message_data.startswith('"') and message_data.endswith('"'):
+                        # Double-encoded JSON string
+                        message_data = json.loads(message_data)
 
-        if status in ["COMPLETED", "SUCCESS", "SUCCEEDED"]:
-            return Constant.SUCCESSFUL
-        elif status in ["FAILED", "FAILURE", "ERROR"]:
-            return Constant.FAILURE_WITH_TASK
-        elif status in ["CANCELLED", "CANCELED", "ABORTED", "STOPPED"]:
-            return Constant.CANCELED
-        else:
-            # Default to success for unknown status
-            return Constant.SUCCESSFUL
+                    if isinstance(message_data, str):
+                        # Try to parse as JSON
+                        try:
+                            message_obj = json.loads(message_data)
+                            if (
+                                isinstance(message_obj, dict)
+                                and "status" in message_obj
+                            ):
+                                status_str = message_obj.get("status", "").upper()
+                                if status_str == "SUCCESSFUL":
+                                    return "SUCCESSFUL"
+                                elif status_str in ["FAILURE", "FAILURE_WITH_TASK"]:
+                                    return "FAILURE_WITH_TASK"
+                                elif status_str == "CANCELED":
+                                    return "CANCELED"
+                        except json.JSONDecodeError:
+                            # Not valid JSON, continue with string analysis
+                            pass
+
+                        # Try to infer from text
+                        message_lower = message_data.lower() if message_data else ""
+                        if "success" in message_lower:
+                            return "SUCCESSFUL"
+                        elif "fail" in message_lower or "error" in message_lower:
+                            return "FAILURE_WITH_TASK"
+                        elif "cancel" in message_lower:
+                            return "CANCELED"
+
+            except Exception as e:
+                logger.warning(f"Error parsing message data: {e}")
+
+        # Default to successful if we couldn't determine
+        return "SUCCESSFUL"
+
+    def _parse_api_timestamp(self, timestamp_value: Any) -> Optional[int]:
+        """Parse a timestamp from API responses into Unix timestamp (seconds)."""
+        if not timestamp_value:
+            return None
+
+        try:
+            # If it's already a number, return it directly
+            if isinstance(timestamp_value, (int, float)):
+                return int(timestamp_value)
+
+            # If it's a string, try to parse it
+            if isinstance(timestamp_value, str):
+                # Parse ISO format (2023-09-20T06:37:32.606Z)
+                if "T" in timestamp_value:
+                    dt = datetime.fromisoformat(timestamp_value.replace("Z", "+00:00"))
+                    return int(dt.timestamp())
+
+                # Try various other formats
+                for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]:
+                    try:
+                        dt = datetime.strptime(timestamp_value, fmt)
+                        return int(dt.timestamp())
+                    except ValueError:
+                        continue
+
+            logger.warning(f"Could not parse timestamp: {timestamp_value}")
+            return None
+        except Exception as e:
+            logger.warning(f"Error parsing timestamp {timestamp_value}: {e}")
+            return None
 
     def extract_table_lineage(self, connector_id: str) -> List[TableLineage]:
         """
-        Extract table lineage information for a connector.
-        Uses a generic approach that works for any connector type and properly handles name_in_destination.
+        Extract table and column lineage information for a connector.
+
+        This method gets schema information from the API and creates lineage relationships
+        between source tables and their destination counterparts, including column mappings.
         """
         try:
-            # Get the connector details first
-            connector_details = self.get_connector(connector_id)
+            # Get schemas to extract tables and columns
+            schemas = self.list_connector_schemas(connector_id)
+            if not schemas:
+                logger.warning(
+                    f"No schema information found for connector {connector_id}"
+                )
+                return []
 
             # Get destination information
-            destination_id = connector_details.get("group", {}).get("id", "")
-            destination_platform = self.detect_destination_platform(destination_id)
+            connector_details = self.get_connector(connector_id)
+            group_id = None
+            if "group" in connector_details and isinstance(
+                connector_details["group"], dict
+            ):
+                group_id = connector_details["group"].get("id")
 
-            # Get schema information
-            schemas = self.list_connector_schemas(connector_id)
+            # Detect destination platform
+            destination_platform = "snowflake"  # Default
+            if group_id:
+                destination_platform = self.detect_destination_platform(group_id)
+
+            # Process schemas to extract lineage
             lineage_list = []
 
-            # Handle cases where schemas might be a string or invalid format
-            if isinstance(schemas, str) or not isinstance(schemas, list):
-                logger.warning(
-                    f"Invalid schema format for connector {connector_id}: {schemas}"
-                )
-                return lineage_list
-
             for schema in schemas:
-                if not isinstance(schema, dict):
-                    continue
-
                 schema_name = schema.get("name", "")
-                # Use name_in_destination if available for schema
-                schema_name_in_destination = schema.get("name_in_destination")
-                tables = schema.get("tables", [])
-
-                if not isinstance(tables, list):
+                if not schema_name:
                     continue
 
-                for table in tables:
-                    if not isinstance(table, dict):
-                        continue
+                # Get destination schema name (use name_in_destination if available)
+                dest_schema = schema.get("name_in_destination", schema_name)
 
+                # Apply platform-specific transformations if no explicit destination name
+                if dest_schema == schema_name:
+                    if destination_platform.lower() == "bigquery":
+                        dest_schema = schema_name.lower()
+                    else:
+                        dest_schema = schema_name.upper()
+
+                # Process each table in the schema
+                for table in schema.get("tables", []):
                     table_name = table.get("name", "")
-                    enabled = table.get("enabled", False)
-
-                    if not enabled or not table_name:
+                    if not table_name or not table.get("enabled", True):
                         continue
 
                     # Create source table name
                     source_table = f"{schema_name}.{table_name}"
 
-                    # Create destination schema name - prefer name_in_destination if available
-                    destination_schema = (
-                        schema_name_in_destination
-                        if schema_name_in_destination
-                        else self._get_destination_schema_name(
-                            schema_name, destination_platform
-                        )
-                    )
+                    # Get destination table name (use name_in_destination if available)
+                    dest_table = table.get("name_in_destination", table_name)
 
-                    # Create destination table name - prefer name_in_destination if available
-                    table_name_in_destination = table.get("name_in_destination")
-                    destination_table_name = (
-                        table_name_in_destination
-                        if table_name_in_destination
-                        else self._get_destination_table_name(
-                            table_name, destination_platform
-                        )
-                    )
+                    # Apply platform-specific transformations if no explicit destination name
+                    if dest_table == table_name:
+                        if destination_platform.lower() == "bigquery":
+                            dest_table = table_name.lower()
+                        else:
+                            dest_table = table_name.upper()
 
-                    destination_table_full = (
-                        f"{destination_schema}.{destination_table_name}"
-                    )
+                    # Create full destination table name
+                    destination_table = f"{dest_schema}.{dest_table}"
 
-                    # Extract column information
-                    columns = table.get("columns", [])
+                    # Extract column lineage
                     column_lineage = []
+                    columns = table.get("columns", [])
 
-                    if isinstance(columns, list):
+                    if columns:
                         for column in columns:
                             if not isinstance(column, dict):
                                 continue
 
-                            column_name = column.get("name", "")
-                            if not column_name:
+                            col_name = column.get("name", "")
+                            if not col_name or col_name.startswith("_fivetran"):
                                 continue
 
-                            # Get destination column name - prefer name_in_destination if available
-                            column_name_in_destination = column.get(
-                                "name_in_destination"
-                            )
-                            dest_column_name = (
-                                column_name_in_destination
-                                if column_name_in_destination
-                                else self._get_destination_column_name(
-                                    column_name, destination_platform
-                                )
-                            )
+                            # Get destination column name (use name_in_destination if available)
+                            dest_col = column.get("name_in_destination", col_name)
+
+                            # Apply platform-specific transformations if no explicit destination name
+                            if dest_col == col_name:
+                                if destination_platform.lower() == "bigquery":
+                                    # Convert camelCase to snake_case for BigQuery
+                                    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", col_name)
+                                    s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+                                    dest_col = s2.lower()
+                                else:
+                                    # For most other systems, uppercase
+                                    dest_col = col_name.upper()
 
                             column_lineage.append(
                                 ColumnLineage(
-                                    source_column=column_name,
-                                    destination_column=dest_column_name,
+                                    source_column=col_name, destination_column=dest_col
                                 )
                             )
 
+                    # Add this table's lineage to the list
                     lineage_list.append(
                         TableLineage(
                             source_table=source_table,
-                            destination_table=destination_table_full,
+                            destination_table=destination_table,
                             column_lineage=column_lineage,
                         )
                     )
 
+            logger.info(
+                f"Extracted {len(lineage_list)} table lineage entries for connector {connector_id}"
+            )
             return lineage_list
+
         except Exception as e:
-            logger.error(f"Failed to extract lineage for connector {connector_id}: {e}")
+            logger.error(
+                f"Failed to extract lineage for connector {connector_id}: {e}",
+                exc_info=True,
+            )
             return []
-
-    def _get_destination_schema_name(
-        self, schema_name: str, destination_platform: str
-    ) -> str:
-        """
-        Get the destination schema name based on the platform.
-        This is a helper method that applies default case transformations when name_in_destination is not available.
-        """
-        if destination_platform.lower() == "bigquery":
-            # BigQuery schema names are case-sensitive and typically lowercase
-            return schema_name.lower()
-        else:
-            # For most other systems (Snowflake, Redshift, etc.), schema names are uppercased
-            return schema_name.upper()
-
-    def _get_destination_table_name(
-        self, table_name: str, destination_platform: str
-    ) -> str:
-        """
-        Get the destination table name based on the platform.
-        This is a helper method that applies default case transformations when name_in_destination is not available.
-        """
-        if destination_platform.lower() == "bigquery":
-            # BigQuery table names are case-sensitive and typically lowercase
-            return table_name.lower()
-        else:
-            # For most other systems (Snowflake, Redshift, etc.), table names are uppercased
-            return table_name.upper()
-
-    def _get_destination_column_name(
-        self, column_name: str, destination_platform: str
-    ) -> str:
-        """
-        Get the destination column name based on the platform.
-        This is a helper method that applies default case transformations when name_in_destination is not available.
-        """
-        if destination_platform.lower() == "bigquery":
-            # BigQuery column names are case-sensitive and typically lowercase
-            # Also convert camelCase to snake_case
-            import re
-
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
-            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-            return s2.lower()
-        else:
-            # For other platforms like Snowflake, typically uppercase
-            return column_name.upper()
