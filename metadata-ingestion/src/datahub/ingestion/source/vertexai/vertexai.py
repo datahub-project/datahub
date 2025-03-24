@@ -325,19 +325,21 @@ class VertexAISource(Source):
     ) -> Dict[str, str]:
         return {
             "display_name": task.name,
-            "created_time": task.create_time.strftime("%Y-%m-%d %H:%M:%S")
-            if task.create_time
-            else "",
-            "started_time": task.start_time.strftime("%Y-%m-%d %H:%M:%S")
-            if task.start_time
-            else "",
-            "completed_time": task.end_time.strftime("%Y-%m-%d %H:%M:%S")
-            if task.end_time
-            else "",
-            "duration": self._format_pipeline_duration(task.duration)
-            if task.duration
-            else "",
-            "state": str(task.state.name) if task.state else "",
+            "created_time": (
+                task.create_time.strftime("%Y-%m-%d %H:%M:%S")
+                if task.create_time
+                else ""
+            ),
+            "started_time": (
+                task.start_time.strftime("%Y-%m-%d %H:%M:%S") if task.start_time else ""
+            ),
+            "completed_time": (
+                task.end_time.strftime("%Y-%m-%d %H:%M:%S") if task.end_time else ""
+            ),
+            "duration": (
+                self._format_pipeline_duration(task.duration) if task.duration else ""
+            ),
+            "state": (str(task.state.name) if task.state else ""),
         }
 
     def _get_pipeline_properties(self, pipeline: PipelineMetadata) -> Dict[str, str]:
