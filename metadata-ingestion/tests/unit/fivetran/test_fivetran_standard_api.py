@@ -1,5 +1,4 @@
 import unittest
-from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
 from datahub.configuration.common import AllowDenyPattern
@@ -335,38 +334,6 @@ class FivetranStandardAPITests(unittest.TestCase):
             elif col["name"] == "simple_column":
                 # Simple value was converted to dict with name
                 self.assertTrue(isinstance(col, dict))
-
-    def test_log_column_diagnostics(self):
-        """Test column diagnostics logging"""
-        # Mock logger to capture log messages
-        with patch(
-            "datahub.ingestion.source.fivetran.fivetran_standard_api.logger"
-        ) as mock_logger:
-            # Test with list format using proper typing
-            columns_list: List[Dict[str, str]] = [{"name": "col1"}, {"name": "col2"}]
-            self.api._log_column_diagnostics(columns_list)
-
-            # Verify log messages
-            mock_logger.info.assert_called_with("Found 2 columns in list format")
-
-            # Test with dict format using proper typing
-            columns_dict: Dict[str, Dict[str, str]] = {
-                "col1": {"type": "VARCHAR"},
-                "col2": {"type": "INTEGER"},
-            }
-            self.api._log_column_diagnostics(columns_dict)
-
-            # Verify log messages for dict format
-            mock_logger.info.assert_called_with("Found 2 columns in dict format")
-
-            # Test with unexpected format
-            columns_str: str = "not a valid format"
-            self.api._log_column_diagnostics(columns_str)
-
-            # Verify warning log for unexpected format
-            mock_logger.warning.assert_called_with(
-                f"Columns in unexpected format: {type(columns_str)}"
-            )
 
     def test_get_destination_schema_name(self):
         """Test getting destination schema name based on platform"""

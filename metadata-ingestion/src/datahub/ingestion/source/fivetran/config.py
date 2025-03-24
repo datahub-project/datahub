@@ -34,6 +34,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,15 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_connectors.append(connector)
 
 
+class ColumnNamingPattern(StrEnum):
+    SNAKE_CASE = "snake_case"  # e.g., first_name
+    CAMEL_CASE = "camelCase"  # e.g., firstName
+    PASCAL_CASE = "PascalCase"  # e.g., FirstName
+    UPPER_CASE = "UPPER_CASE"  # e.g., FIRST_NAME
+    LOWER_CASE = "lower_case"  # e.g., firstname
+    AUTO = "auto"  # Auto-detect (default)
+
+
 class PlatformDetail(ConfigModel):
     platform: Optional[str] = Field(
         default=None,
@@ -186,6 +196,11 @@ class PlatformDetail(ConfigModel):
     include_schema_in_urn: bool = Field(
         default=True,
         description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
+    )
+    column_naming_pattern: ColumnNamingPattern = Field(
+        default=ColumnNamingPattern.AUTO,
+        description="The casing pattern used for column names in this platform. "
+        "If set to 'auto', the system will attempt to detect the pattern.",
     )
 
 

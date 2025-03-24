@@ -93,9 +93,11 @@
                 "source.platform": "postgres",
                 "source.env": "DEV",
                 "source.database": "postgres_db",
+                "source.column_naming_pattern": "auto",
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
-                "destination.database": "test_database"
+                "destination.database": "test_database",
+                "destination.column_naming_pattern": "auto"
             },
             "name": "postgres",
             "description": "Fivetran data pipeline from postgres to snowflake",
@@ -697,9 +699,11 @@
                 "source.platform": "kafka",
                 "source.env": "PROD",
                 "source.database": "kafka_prod",
+                "source.column_naming_pattern": "auto",
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
-                "destination.database": "test_database"
+                "destination.database": "test_database",
+                "destination.column_naming_pattern": "auto"
             },
             "name": "confluent_cloud",
             "description": "Fivetran data pipeline from confluent_cloud to snowflake",
