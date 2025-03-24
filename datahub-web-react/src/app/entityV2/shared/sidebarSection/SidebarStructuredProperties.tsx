@@ -16,6 +16,7 @@ import {
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
+    ActionRequestType,
     EntityType,
     Maybe,
     SchemaFieldEntity,
@@ -24,6 +25,8 @@ import {
     StructuredPropertyEntity,
 } from '@src/types.generated';
 import React, { useState } from 'react';
+import { colors } from '@src/alchemy-components';
+import styled from 'styled-components';
 import { EMPTY_MESSAGES } from '../constants';
 import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
@@ -32,6 +35,18 @@ import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDraw
 import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '../tabs/Properties/types';
 import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
+import { getProposedItemsByType } from '../utils';
+import { mapStructuredPropertyToPropertyRow } from '../tabs/Properties/useStructuredProperties';
+
+const ProposedValue = styled.span`
+    border: 1px dashed ${colors.gray[200]};
+    border-radius: 8px;
+    padding: 2px 4px;
+    color: ${colors.gray[400]};
+    display: block;
+    width: fit-content;
+    margin: 3px 0;
+`;
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -88,6 +103,24 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         ? properties?.fieldEntity?.structuredProperties
         : entityData?.structuredProperties;
 
+    const proposedRequests = getProposedItemsByType(
+        entityData?.proposals || [],
+        ActionRequestType.StructuredPropertyAssociation,
+    );
+
+    const proposedProperties = isSchemaSidebar
+        ? proposedRequests.flatMap(
+              (request) =>
+                  (request.subResource &&
+                      request.subResource === properties?.fieldEntity?.fieldPath &&
+                      request.params?.structuredPropertyProposal?.structuredProperties) ||
+                  [],
+          )
+        : proposedRequests.flatMap(
+              (request) =>
+                  (!request.subResource && request.params?.structuredPropertyProposal?.structuredProperties) || [],
+          );
+
     const selectedPropertyValues = selectedProperty
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
@@ -107,6 +140,13 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                 const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const proposedProperty = proposedProperties.find(
+                    (prop) => prop.structuredProperty.urn === property.entity.urn,
+                );
+                const proposedPropRow = proposedProperty
+                    ? mapStructuredPropertyToPropertyRow(proposedProperty)
+                    : undefined;
+                const proposedValues = proposedPropRow?.values;
 
                 return (
                     <>
@@ -115,7 +155,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             key={property.entity.urn}
                             content={
                                 <>
-                                    {values ? (
+                                    {values && (
                                         <>
                                             {values.map((val) => (
                                                 <StructuredPropertyValue
@@ -125,7 +165,21 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                 />
                                             ))}
                                         </>
-                                    ) : (
+                                    )}
+                                    {proposedValues && (
+                                        <>
+                                            {proposedValues.map((val) => (
+                                                <ProposedValue>
+                                                    <StructuredPropertyValue
+                                                        value={val}
+                                                        isRichText={isRichText}
+                                                        hydratedEntityMap={hydratedEntityMap}
+                                                    />
+                                                </ProposedValue>
+                                            ))}
+                                        </>
+                                    )}
+                                    {!values && !proposedValues && (
                                         <EmptySectionText message={EMPTY_MESSAGES.structuredProps.title} />
                                     )}
                                 </>

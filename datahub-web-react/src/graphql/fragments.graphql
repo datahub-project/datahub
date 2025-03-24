@@ -1516,6 +1516,46 @@ fragment proposalsFragment on ActionRequest {
                 }
             }
         }
+        ownerProposal {
+            owners {
+                ...owner
+                type
+                ownershipType {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                    status {
+                        removed
+                    }
+                }
+                associatedUrn
+            }
+        }
+        domainProposal {
+            domain {
+                urn
+                type
+                properties {
+                    name
+                    description
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+                ...domainEntitiesFields
+                displayProperties {
+                    ...displayPropertiesFields
+                }
+            }
+        }
+        structuredPropertyProposal {
+            structuredProperties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     created {
         time

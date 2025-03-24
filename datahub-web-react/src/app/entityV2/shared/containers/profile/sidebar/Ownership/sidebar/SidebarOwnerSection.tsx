@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
+import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { EMPTY_MESSAGES } from '../../../../../constants';
-import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
+import { ActionRequestType, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
 import { EditOwnersModal } from '../EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { OwnershipTypeSection } from './OwnershipTypeSection';
-import { getOwnershipTypeName } from '../ownershipUtils';
+import { combineOwners, ExtendedOwner, getOwnershipTypeName } from '../ownershipUtils';
 import { SidebarSection } from '../../SidebarSection';
 import SectionActionButton from '../../SectionActionButton';
 import EmptySectionText from '../../EmptySectionText';
@@ -40,10 +41,17 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const ownersEmpty = !entityData?.ownership?.owners?.length;
     const ownershipTypesMap: Map<string, OwnershipTypeEntity> = new Map();
-    const ownersByTypeMap: Map<string, Owner[]> = new Map();
-    entityData?.ownership?.owners?.forEach((owner) => {
+    const ownersByTypeMap: Map<string, ExtendedOwner[]> = new Map();
+    const proposedOwnerRequests = getProposedItemsByType(
+        entityData?.proposals || [],
+        ActionRequestType.OwnerAssociation,
+    );
+    const proposedOwners = proposedOwnerRequests.flatMap((request) => request.params?.ownerProposal?.owners || []);
+    const combinedOwners = combineOwners(entityData?.ownership?.owners || [], proposedOwners);
+    const ownersEmpty = !combinedOwners?.length;
+
+    combinedOwners?.forEach((owner) => {
         const ownershipType = owner?.ownershipType;
         const ownershipTypeName = getOwnershipTypeName(ownershipType);
         // If ownership type is not in the map, add it
@@ -84,7 +92,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                         <OwnershipSections>
                             {ownershipTypeNames.map((ownershipTypeName) => {
                                 const ownershipType = ownershipTypesMap.get(ownershipTypeName) as OwnershipTypeEntity;
-                                const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];
+                                const owners = ownersByTypeMap.get(ownershipTypeName) as ExtendedOwner[];
                                 return (
                                     <OwnershipTypeSection
                                         key={ownershipTypeName}
