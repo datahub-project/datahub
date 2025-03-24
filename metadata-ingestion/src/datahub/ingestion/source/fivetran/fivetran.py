@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+import re
+from typing import Any, Dict, Iterable, List, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -25,7 +26,12 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector, Job, TableLineage
+from datahub.ingestion.source.fivetran.data_classes import (
+    ColumnLineage,
+    Connector,
+    Job,
+    TableLineage,
+)
 from datahub.ingestion.source.fivetran.fivetran_access import (
     create_fivetran_access,
 )
@@ -1139,6 +1145,270 @@ class FivetranSource(StatefulIngestionSourceBase):
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
 
+    def _enhance_missing_column_lineage(self, connector: Connector) -> None:
+        """
+        Last-resort attempt to add column lineage to a connector's tables.
+        This tries various methods to find column information when all else has failed.
+        """
+        if not connector.lineage:
+            return
+
+        # Keep track of tables we've enhanced
+        enhanced_tables = 0
+
+        # Process each table that doesn't have column lineage
+        for idx, table_lineage in enumerate(connector.lineage):
+            if table_lineage.column_lineage:
+                continue  # Skip tables that already have column lineage
+
+            # Try to enhance this specific table's column lineage
+            if self._enhance_single_table_column_lineage(connector, idx, table_lineage):
+                enhanced_tables += 1
+
+        if enhanced_tables > 0:
+            logger.info(
+                f"Enhanced column lineage for {enhanced_tables} tables in connector {connector.connector_id}"
+            )
+        else:
+            logger.warning(
+                f"Could not enhance column lineage for any tables in connector {connector.connector_id}"
+            )
+
+    def _enhance_single_table_column_lineage(
+        self, connector: Connector, idx: int, table_lineage: TableLineage
+    ) -> bool:
+        """Helper method to enhance column lineage for a single table to reduce complexity."""
+        source_table = table_lineage.source_table
+        destination_table = table_lineage.destination_table
+
+        if not source_table or not destination_table or "." not in source_table:
+            return False
+
+        schema_name, table_name = source_table.split(".", 1)
+
+        # Get destination platform
+        destination_platform = connector.additional_properties.get(
+            "destination_platform", "unknown"
+        )
+
+        try:
+            # Check if we're using the standard API implementation
+            from datahub.ingestion.source.fivetran.fivetran_standard_api import (
+                FivetranStandardAPI,
+            )
+
+            if isinstance(self.fivetran_access, FivetranStandardAPI):
+                # Use the standard API's get_columns_from_api method
+                columns = self.fivetran_access._get_columns_from_api(
+                    source_table, connector.connector_id
+                )
+                if columns:
+                    column_lineage = self._create_columns_lineage_from_data(
+                        columns, destination_platform
+                    )
+                    if column_lineage:
+                        connector.lineage[idx].column_lineage = column_lineage
+                        logger.info(
+                            f"Added {len(column_lineage)} columns to lineage for {table_lineage.source_table} -> {table_lineage.destination_table}"
+                        )
+                        return True
+
+            # Try a different approach - use the connector schemas method
+            # This should work with any implementation of FivetranAccessInterface
+            schemas = []
+            try:
+                # We need to get the schemas from the appropriate API
+                # Try to use list_connector_schemas indirectly through the fivetran_access
+                if hasattr(self.fivetran_access, "api_client") and hasattr(
+                    self.fivetran_access.api_client, "list_connector_schemas"
+                ):
+                    schemas = self.fivetran_access.api_client.list_connector_schemas(
+                        connector.connector_id
+                    )
+                else:
+                    # Depending on your implementation, there might be other ways to get schemas
+                    # For now, we'll just log and continue
+                    logger.warning(
+                        f"No suitable method found to get schemas for connector {connector.connector_id}"
+                    )
+            except Exception as schema_e:
+                logger.warning(
+                    f"Error getting schemas for connector {connector.connector_id}: {schema_e}"
+                )
+
+            if schemas:
+                return self._find_and_add_column_lineage(
+                    connector,
+                    idx,
+                    schemas,
+                    schema_name,
+                    table_name,
+                    destination_platform,
+                    table_lineage,
+                )
+        except Exception as e:
+            logger.warning(f"Error enhancing column lineage for {source_table}: {e}")
+
+        return False
+
+    def _find_and_add_column_lineage(
+        self,
+        connector: Connector,
+        idx: int,
+        schemas: List[Dict],
+        schema_name: str,
+        table_name: str,
+        destination_platform: str,
+        table_lineage: TableLineage,
+    ) -> bool:
+        """Find table in schemas and add column lineage if found."""
+        for schema in schemas:
+            if schema.get("name") != schema_name:
+                continue
+
+            for table in schema.get("tables", []):
+                if not isinstance(table, dict) or table.get("name") != table_name:
+                    continue
+
+                # Found the table, try to get columns
+                columns = self._get_columns_for_table(
+                    connector, schema_name, table_name, table
+                )
+                if not columns:
+                    continue
+
+                # Create column lineage
+                column_lineage = self._create_columns_lineage_from_data(
+                    columns, destination_platform
+                )
+
+                if column_lineage:
+                    connector.lineage[idx].column_lineage = column_lineage
+                    logger.info(
+                        f"Added {len(column_lineage)} columns to lineage for {table_lineage.source_table} -> {table_lineage.destination_table}"
+                    )
+                    return True
+
+        return False
+
+    def _get_columns_for_table(
+        self, connector: Connector, schema_name: str, table_name: str, table: Dict
+    ) -> List[Any]:
+        """Get columns for a table, trying multiple methods."""
+        # First try columns in table data
+        columns = table.get("columns", [])
+        if columns:
+            return columns
+
+        # Try direct API call as fallback - need to handle the interface correctly
+        try:
+            # Check if we're using the standard API implementation
+            from datahub.ingestion.source.fivetran.fivetran_standard_api import (
+                FivetranStandardAPI,
+            )
+
+            if isinstance(self.fivetran_access, FivetranStandardAPI):
+                # Use the standard API's method to get columns
+                return self.fivetran_access._get_columns_from_api(
+                    f"{schema_name}.{table_name}", connector.connector_id
+                )
+
+            # If not using standard API, try alternative approach
+            if hasattr(self.fivetran_access, "api_client") and hasattr(
+                self.fivetran_access.api_client, "get_table_columns"
+            ):
+                columns = self.fivetran_access.api_client.get_table_columns(
+                    connector.connector_id, schema_name, table_name
+                )
+                if columns:
+                    return columns
+        except Exception as e:
+            logger.debug(f"Failed to get columns via API: {e}")
+
+        return []
+
+    def _create_columns_lineage_from_data(
+        self, columns: List[Any], destination_platform: str
+    ) -> List[ColumnLineage]:
+        """Create column lineage objects from raw column data."""
+        column_lineage = []
+        is_bigquery = destination_platform.lower() == "bigquery"
+
+        # Process columns based on format
+        if isinstance(columns, list):
+            for column in columns:
+                col_name = self._extract_column_name(column)
+                if not col_name or col_name.startswith("_fivetran"):
+                    continue
+
+                # Get destination column name
+                dest_col_name = self._get_destination_column_name(
+                    column, col_name, is_bigquery
+                )
+
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name, destination_column=dest_col_name
+                    )
+                )
+        # Handle dictionary format
+        elif isinstance(columns, dict):
+            for col_name, col_data in columns.items():
+                if col_name.startswith("_fivetran"):
+                    continue
+
+                # Get destination column name
+                dest_col_name = self._get_destination_column_name_from_dict(
+                    col_data, col_name, is_bigquery
+                )
+
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name, destination_column=dest_col_name
+                    )
+                )
+
+        return column_lineage
+
+    def _extract_column_name(self, column: Any) -> Optional[str]:
+        """Extract column name from column data."""
+        if isinstance(column, dict):
+            return column.get("name")
+        elif isinstance(column, str):
+            return column
+        return None
+
+    def _get_destination_column_name(
+        self, column: Any, col_name: str, is_bigquery: bool
+    ) -> str:
+        """Get destination column name, preferring name_in_destination if available."""
+        if isinstance(column, dict) and "name_in_destination" in column:
+            return column.get("name_in_destination")
+        else:
+            return self._transform_column_name_for_platform(col_name, is_bigquery)
+
+    def _get_destination_column_name_from_dict(
+        self, col_data: Any, col_name: str, is_bigquery: bool
+    ) -> str:
+        """Get destination column name from dictionary format column data."""
+        if isinstance(col_data, dict) and "name_in_destination" in col_data:
+            return col_data.get("name_in_destination")
+        else:
+            return self._transform_column_name_for_platform(col_name, is_bigquery)
+
+    def _transform_column_name_for_platform(
+        self, col_name: str, is_bigquery: bool
+    ) -> str:
+        """Transform column name based on destination platform."""
+        if is_bigquery:
+            # For BigQuery, convert to snake_case
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", col_name)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+            return s2.lower()
+        else:
+            # For other platforms like Snowflake, typically uppercase
+            return col_name.upper()
+
     def _get_connector_workunits(
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
@@ -1153,8 +1423,25 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Store field lineage workunits to emit after dataset workunits
         field_lineage_workunits = []
 
+        # We'll only consider a connector to have valid lineage if it has table lineage
+        # AND at least one of those tables has column lineage
+        has_column_lineage = any(
+            table_lineage.column_lineage for table_lineage in connector.lineage
+        )
+
         # Special handling for connectors with lineage but no job history
         if not connector.jobs and connector.lineage:
+            # Check if there's any column lineage to include
+            if not has_column_lineage:
+                logger.warning(
+                    f"Connector {connector.connector_name} (ID: {connector.connector_id}) "
+                    f"has {len(connector.lineage)} lineage entries but no column lineage. "
+                    "Column-level lineage information will be missing."
+                )
+
+                # Try one last attempt to add column lineage
+                self._enhance_missing_column_lineage(connector)
+
             logger.info(
                 f"Connector {connector.connector_name} (ID: {connector.connector_id}) "
                 f"has {len(connector.lineage)} lineage entries but no job history. "
