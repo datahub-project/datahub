@@ -14,5 +14,4 @@ export const SectionHeader = styled.div`
 
 export const StyledDivider = styled(Divider)`
     border-color: ${colors.gray[100]};
-    border-style: solid;
 `;

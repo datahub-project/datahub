@@ -25,7 +25,7 @@ export default function FieldTags({ expandedField, editableSchemaMetadata }: Pro
     return (
         <>
             <SidebarSection title="Tags" content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)} />
-            <StyledDivider dashed />
+            <StyledDivider />
         </>
     );
 }

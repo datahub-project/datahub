@@ -28,7 +28,7 @@ export default function FieldTerms({ expandedField, editableSchemaMetadata }: Pr
                 title="Glossary Terms"
                 content={termRenderer(expandedField.globalTags as GlobalTags, expandedField)}
             />
-            <StyledDivider dashed />
+            <StyledDivider />
         </>
     );
 }
