@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -12,16 +12,20 @@ from google.cloud.aiplatform import (
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
     Endpoint,
-    ExperimentRun, PipelineJob,
+    ExperimentRun,
+    PipelineJob,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.metadata.execution import Execution
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
-from google.cloud.aiplatform_v1 import PipelineTaskDetail
+from google.cloud.aiplatform_v1.types import (
+    PipelineJob as PipelineJobType,
+    PipelineTaskDetail,
+)
 from google.oauth2 import service_account
-from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
+from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -39,7 +43,6 @@ from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.ingestion.source.gc.dataprocess_cleanup import DataFlowEntity
 from datahub.ingestion.source.mlflow import ContainerKeyWithId
 from datahub.ingestion.source.vertexai.config import VertexAIConfig
 from datahub.ingestion.source.vertexai.result_type_utils import (
@@ -94,6 +97,7 @@ class TrainingJobMetadata:
     output_model: Optional[Model] = None
     output_model_version: Optional[VersionInfo] = None
 
+
 @dataclasses.dataclass
 class ModelMetadata:
     model: Model
@@ -101,11 +105,34 @@ class ModelMetadata:
     training_job_urn: Optional[str] = None
     endpoints: Optional[List[Endpoint]] = None
 
+
+@dataclasses.dataclass
+class PipelineTaskMetadata:
+    name: str
+    urn: DataJobUrn
+    id: Optional[int] = None
+    type: Optional[str] = None
+    state: Optional[PipelineTaskDetail.State] = None
+    start_time: Optional[timestamp_pb2.Timestamp] = None
+    create_time: Optional[timestamp_pb2.Timestamp] = None
+    end_time: Optional[timestamp_pb2.Timestamp] = None
+    duration: Optional[timedelta] = None
+    upstreams: Optional[List[DataJobUrn]] = None
+
+
 @dataclasses.dataclass
 class PipelineMetadata:
-    pipeline: PipelineJob
-    tasks: List[str]
-    task_dependencies: Dict[str, List[str]]
+    name: str
+    resource_name: str
+    tasks: List[PipelineTaskMetadata]
+    urn: DataFlowUrn
+    id: Optional[str] = None
+    labels: Optional[Dict[str, str]] = None
+    create_time: Optional[datetime] = None
+    update_time: Optional[datetime] = None
+    duration: Optional[timedelta] = None
+    region: Optional[str] = None
+
 
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
@@ -171,83 +198,186 @@ class VertexAISource(Source):
             logger.info(f"fetching {pipeline.name}")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_mcps(pipeline_meta)
-            # for task in pipeline.task_details:
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
 
-    def _get_pipeline_metadata(self, pipeline:PipelineJob) -> PipelineMetadata:
-
+    def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.platform,
+            env=self.config.env,
+            flow_id=self._make_vertexai_pipeline_name(pipeline.name),
+            platform_instance=self.platform,
+        )
         tasks = []
-        task_deps = {}
+        task_map: Dict[str, PipelineTaskDetail] = dict()
+        for task in pipeline.task_details:
+            task_map[task.task_name] = task
 
         resource = pipeline.gca_resource
         if isinstance(resource, PipelineJobType):
-            if "parameters" in resource.runtime_config:
-                print(f"pipeline run config parameters : {resource.runtime_config['parameters']}")
-            components = resource.pipeline_spec["components"]
-            # for component in components:
-            #     print(f"component {component}")
-            #     if "outputDefinitions" in components[component]:
-            #         print(f"parameters: {components[component]['inputDefinitions']['parameters']}")
+            for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
+                task_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(dataflow_urn),
+                    job_id=self._make_vertexai_pipeline_task_name(task_name),
+                )
+                task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
+                if (
+                    "dependentTasks"
+                    in resource.pipeline_spec["root"]["dag"]["tasks"][task_name]
+                ):
+                    upstream_tasks = resource.pipeline_spec["root"]["dag"]["tasks"][
+                        task_name
+                    ]["dependentTasks"]
+                    upstream_urls = [
+                        DataJobUrn.create_from_ids(
+                            data_flow_urn=str(dataflow_urn),
+                            job_id=self._make_vertexai_pipeline_task_name(
+                                upstream_task
+                            ),
+                        )
+                        for upstream_task in upstream_tasks
+                    ]
+                    task_meta.upstreams = upstream_urls
 
-            tasks.extend(resource.pipeline_spec['root']['dag']['tasks'])
+                task_detail = task_map.get(task_name)
+                if task_detail:
+                    task_meta.id = task_detail.task_id
+                    task_meta.state = task_detail.state
+                    task_meta.start_time = task_detail.start_time
+                    task_meta.create_time = task_detail.create_time
+                    if task_detail.end_time:
+                        task_meta.end_time = task_detail.end_time
+                        task_meta.duration = timedelta(
+                            milliseconds=(
+                                task_detail.end_time.timestamp()
+                                - task_detail.start_time.timestamp()
+                            )
+                            * 1000
+                        )
 
-            for task_name in tasks:
-                if "dependentTasks" in resource.pipeline_spec['root']['dag']['tasks'][task_name]:
-                    upstream = resource.pipeline_spec['root']['dag']['tasks'][task_name]['dependentTasks']
-                    if task_name not in task_deps:
-                        task_deps[task_name] = []
-                    task_deps[task_name].extend(upstream)
-                    print(f"dependentTasks {resource.pipeline_spec['root']['dag']['tasks'][task_name]['dependentTasks']}")
+                tasks.append(task_meta)
 
-        return PipelineMetadata(pipeline=pipeline, tasks=tasks, task_dependencies=task_deps)
+        pipeline_meta = PipelineMetadata(
+            name=pipeline.name,
+            resource_name=pipeline.resource_name,
+            urn=dataflow_urn,
+            tasks=tasks,
+        )
+        pipeline_meta.resource_name = pipeline.resource_name
+        pipeline_meta.labels = pipeline.labels
+        pipeline_meta.create_time = pipeline.create_time
+        pipeline_meta.region = pipeline.location
+        if pipeline.update_time:
+            pipeline_meta.update_time = pipeline.update_time
+            pipeline_meta.duration = timedelta(
+                milliseconds=datetime_to_ts_millis(pipeline.update_time)
+                - datetime_to_ts_millis(pipeline.create_time)
+            )
+        return pipeline_meta
 
-    def _gen_pipeline_task_mcps(self, pipe_meta: PipelineMetadata) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_pipeline_task_mcps(
+        self, pipeline: PipelineMetadata
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        dataflow_urn = pipeline.urn
 
-        pipeline = pipe_meta.pipeline
-        dataflow_urn = self._gen_data_flow(pipeline).urn
-
-        logger.info(f"fetching dataflow  {dataflow_urn}")
-
-        tasks = pipe_meta.tasks
-        logger.info(f"parsing through tasks  {tasks}")
-
-        for task_name in tasks:
-            logger.info(f"fetching task {task_name} in pipeline {pipeline.name}")
-            upstream_tasks = pipe_meta.task_dependencies.get(task_name, [])
-            upstream_urns = [DataJobUrn.create_from_ids(
-                data_flow_urn=str(dataflow_urn),
-                job_id=self._make_vertexai_pipeline_task_name(upstream_task)) for upstream_task in upstream_tasks]
+        for task in pipeline.tasks:
+            logger.info(f"fetching task {task.name} in pipeline {pipeline.name}")
             datajob = DataJob(
-                id=self._make_vertexai_pipeline_task_name(task_name),
+                id=self._make_vertexai_pipeline_task_name(task.name),
                 flow_urn=dataflow_urn,
-                name=task_name,
+                name=task.name,
+                properties=self._get_pipeline_task_properties(task),
                 owners={"urn:li:corpuser:datahub"},
-                upstream_urns=upstream_urns
+                upstream_urns=task.upstreams if task.upstreams else [],
+                tags=set(f"{k}:{v}" for k, v in pipeline.labels.items())
+                if pipeline.labels
+                else set(),
             )
             yield from MetadataChangeProposalWrapper.construct_many(
                 entityUrn=str(datajob.urn),
                 aspects=[
                     ContainerClass(container=self._get_project_container().as_urn()),
-                    SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK])
-                ]
+                    SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK]),
+                ],
             )
             yield from datajob.generate_mcp()
 
+    def _format_pipeline_duration(self, td: timedelta) -> str:
+        days = td.days
+        hours, remainder = divmod(td.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        milliseconds = td.microseconds // 1000
 
-    def _gen_data_flow(self, pipeline:PipelineJob) -> DataFlow:
-        return DataFlow(
+        parts = []
+        if days:
+            parts.append(f"{days}d")
+        if hours:
+            parts.append(f"{hours}h")
+        if minutes:
+            parts.append(f"{minutes}m")
+        if seconds:
+            parts.append(f"{seconds}s")
+        if milliseconds:
+            parts.append(f"{milliseconds}ms")
+        return " ".join(parts) if parts else "0s"
+
+    def _get_pipeline_task_properties(
+        self, task: PipelineTaskMetadata
+    ) -> Dict[str, str]:
+        return {
+            "display_name": task.name,
+            "created_time": task.create_time.strftime("%Y-%m-%d %H:%M:%S")
+            if task.create_time
+            else "",
+            "started_time": task.start_time.strftime("%Y-%m-%d %H:%M:%S")
+            if task.start_time
+            else "",
+            "completed_time": task.end_time.strftime("%Y-%m-%d %H:%M:%S")
+            if task.end_time
+            else "",
+            "duration": self._format_pipeline_duration(task.duration)
+            if task.duration
+            else "",
+            "state": str(task.state.name) if task.state else "",
+        }
+
+    def _get_pipeline_properties(self, pipeline: PipelineMetadata) -> Dict[str, str]:
+        return {
+            "display_name": pipeline.name,
+            "resource_name": pipeline.resource_name if pipeline.resource_name else "",
+            "create_time": (
+                pipeline.create_time.strftime("%Y-%m-%d %H:%M:%S")
+                if pipeline.create_time
+                else ""
+            ),
+            "update_time": (
+                pipeline.update_time.strftime("%Y-%m-%d %H:%M:%S")
+                if pipeline.update_time
+                else ""
+            ),
+            "duration": (
+                self._format_pipeline_duration(pipeline.duration)
+                if pipeline.duration
+                else ""
+            ),
+            "region": (pipeline.region if pipeline.region else ""),
+        }
+
+    def _get_pipeline_mcps(
+        self, pipeline: PipelineMetadata
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        dataflow = DataFlow(
             orchestrator=self.platform,
-            id=self._make_vertexai_pipeline_name(str(pipeline.name)),
+            id=self._make_vertexai_pipeline_name(pipeline.name),
             env=self.config.env,
             name=pipeline.name,
             platform_instance=self.platform,
+            properties=self._get_pipeline_properties(pipeline),
+            tags=set(f"{k}:{v}" for k, v in pipeline.labels.items())
+            if pipeline.labels
+            else set(),
+            owners={"urn:li:corpuser:datahub"},
+            url=self._make_pipeline_external_url(pipeline_name=pipeline.name),
         )
-
-
-
-    def _get_pipeline_mcps(self, pipe_meta: PipelineMetadata)  -> Iterable[MetadataChangeProposalWrapper]:
-
-        dataflow = self._gen_data_flow(pipe_meta.pipeline)
 
         yield from dataflow.generate_mcp()
 
@@ -255,8 +385,8 @@ class VertexAISource(Source):
             entityUrn=str(dataflow.urn),
             aspects=[
                 ContainerClass(container=self._get_project_container().as_urn()),
-                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE])
-            ]
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE]),
+            ],
         )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -1166,5 +1296,16 @@ class VertexAISource(Source):
         external_url: str = (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
             f"/runs/{experiment.name}-{run.name}/charts?project={self.config.project_id}"
+        )
+        return external_url
+
+    def _make_pipeline_external_url(self, pipeline_name: str) -> str:
+        """
+        Experiment Run external URL in Vertex AI
+        https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/pipeline-example-more-tasks-3-20250320210739?project=acryl-poc
+        """
+        external_url: str = (
+            f"{self.config.vertexai_url}/pipelines/locations/{self.config.region}/runs/{pipeline_name}"
+            f"?project={self.config.project_id}"
         )
         return external_url
