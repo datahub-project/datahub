@@ -1,0 +1,19 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,db1.schema1.stored_procedures,PROD),procedure1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,gsl_test_db.public.processed_transactions,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,gsl_test_db.public.new_table_1,PROD)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+}
+]

@@ -197,7 +197,7 @@ def generate_procedure_lineage(
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    if procedure.procedure_definition:
+    if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,

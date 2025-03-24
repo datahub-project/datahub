@@ -4344,7 +4344,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -4359,7 +4359,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4388,7 +4388,23 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4400,23 +4416,51 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataTransformLogic",
     "aspect": {
         "json": {
-            "container": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR, arg2 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "language": "SQL"
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_procedure",
+            "description": "This is a test procedure 2",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4445,22 +4489,108 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "name": "my_procedure",
-            "description": "This is a test procedure 2",
-            "type": {
-                "string": "Stored Procedure"
-            }
+            "container": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
+                    "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
+                },
+                {
+                    "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
+                    "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
+                    "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
+                },
+                {
+                    "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
+                    "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4475,63 +4605,6 @@
                 {
                     "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
                     "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR, arg2 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
-                        "language": "SQL"
-                    }
                 }
             ]
         }
@@ -4562,79 +4635,6 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
-                    "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
-                },
-                {
-                    "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
-                    "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
-                    "urn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585"
-                },
-                {
-                    "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
-                    "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8701,7 +8701,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_e6897d17a76f3a01bd7a853a995c32a4)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8711,7 +8711,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8781,7 +8781,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_da8794f2d0497851a60e16b117779616)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8791,7 +8791,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-18_28_33-wmjop0",
+        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
         "lastRunId": "no-run-id-provided"
     }
 },
