@@ -1,5 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Plus, PencilSimple } from '@phosphor-icons/react';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -29,7 +28,7 @@ const AddNewDescription = styled.div`
     }
 `;
 
-const StyledPlusOutlined = styled(PlusOutlined)`
+const StyledPlusOutlined = styled(Plus)`
     && {
         font-size: 10px;
         margin-right: 8px;
@@ -128,7 +127,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
                                 e.stopPropagation();
                                 setIsModalVisible(true);
                             }}
-                            button={<EditOutlinedIcon />}
+                            button={<PencilSimple size={16} weight="regular" />}
                         />
                     )
                 }
@@ -175,7 +174,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
                     isAddDesc={!displayedDescription}
                 />
             )}
-            <StyledDivider dashed />
+            <StyledDivider />
         </>
     );
 }

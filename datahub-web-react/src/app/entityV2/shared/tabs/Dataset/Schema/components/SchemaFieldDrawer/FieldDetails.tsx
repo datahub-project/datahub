@@ -1,4 +1,5 @@
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { colors } from '@components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
@@ -18,13 +19,11 @@ const FieldDetailsWrapper = styled.div`
 const FieldDetailsContent = styled.div`
     display: flex;
     gap: 10px;
-    border-bottom: 1px dashed;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid ${colors.gray[100]};
     padding-bottom: 16px;
     & > div {
         &:not(:first-child) {
-            border-left: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-left: 1px solid ${colors.gray[100]};
         }
     }
 `;
