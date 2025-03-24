@@ -129,7 +129,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     ? input.getSearchFlags().getIncludeStructuredPropertyFacets()
                     : false;
             List<String> structuredPropertyFacets =
-                shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
+                shouldIncludeStructuredPropertyFacets
+                    ? getStructuredPropertyFacets(context)
+                    : Collections.emptyList();
 
             return UrnSearchResultsMapper.map(
                 context,

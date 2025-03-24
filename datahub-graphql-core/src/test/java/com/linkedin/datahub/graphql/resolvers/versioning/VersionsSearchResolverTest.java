@@ -258,7 +258,14 @@ public class VersionsSearchResolverTest {
 
     Mockito.when(
             mockEntityClient.searchAcrossEntities(
-                any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt(), any()))
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                anyList(),
+                nullable(String.class)))
         .thenThrow(new RemoteInvocationException());
 
     VersionsSearchResolver resolver = new VersionsSearchResolver(mockEntityClient, mockViewService);
