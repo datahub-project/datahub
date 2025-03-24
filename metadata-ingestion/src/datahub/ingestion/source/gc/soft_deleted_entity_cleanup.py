@@ -261,20 +261,40 @@ class SoftDeletedEntitiesCleanup:
             * 1000
         )
 
+        entity_types = self.config.entity_types
+        # dataProcessInstance is a special case where we need to get the entities separately
+        # because we need to filter based on created time we don't stream to many dataProcessInstance entities at once
+        # Gc source soft-deletes dataProcessInstance entities which causes to have a lot of soft deleted entities
+        if (
+            self.config.entity_types
+            and "dataProcessInstance" in self.config.entity_types
+        ):
+            entity_types = self.config.entity_types.copy()
+            yield from self.ctx.graph.get_urns_by_filter(
+                entity_types=["dataProcessInstance"],
+                platform=self.config.platform,
+                env=self.config.env,
+                query=self.config.query,
+                status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                batch_size=self.config.batch_size,
+                extraFilters=[
+                    SearchFilterRule(
+                        field="created",
+                        condition="GREATER_THAN",
+                        values=[f"{created_from}"],
+                    ).to_raw()
+                ],
+            )
+
+            entity_types.remove("dataProcessInstance")
+
         yield from self.ctx.graph.get_urns_by_filter(
-            entity_types=self.config.entity_types,
+            entity_types=entity_types,
             platform=self.config.platform,
             env=self.config.env,
             query=self.config.query,
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
-            extraFilters=[
-                SearchFilterRule(
-                    field="created",
-                    condition="GREATER_THAN",
-                    values=[f"{created_from}"],
-                ).to_raw()
-            ],
         )
 
     def _times_up(self) -> bool:

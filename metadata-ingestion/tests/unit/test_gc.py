@@ -376,22 +376,66 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             query=self.config.query,
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
-            extraFilters=[
-                SearchFilterRule(
-                    field="created",
-                    condition="GREATER_THAN",
-                    values=[
-                        str(
-                            int(time.time() - self.config.retention_days * 24 * 60 * 60)
-                            * 1000
-                        )
-                    ],
-                ).to_raw()
-            ],
         )
 
         # Check the returned urns
         self.assertEqual(urns, ["urn1", "urn2", "urn3"])
+
+    @freeze_time(FROZEN_TIME)
+    def test_get_urns_with_dpi(self):
+        """Test that _get_urns calls get_urns_by_filter with correct parameters."""
+        # Setup mock for get_urns_by_filter
+        self.mock_graph.get_urns_by_filter.side_effect = [
+            ["urn1", "urn2", "urn3"],
+            ["dpi_urn1", "dpi_urn2", "dpi_urn3"],
+        ]
+
+        # Get all urns
+        assert self.config.entity_types
+        self.config.entity_types.append("dataProcessInstance")
+        urns = list(self.cleanup._get_urns())
+        self.config.entity_types.remove("dataProcessInstance")
+        # Verify get_urns_by_filter was called correctly
+        self.mock_graph.get_urns_by_filter.has_calls(
+            [
+                call(
+                    entity_types=self.config.entity_types,
+                    platform=self.config.platform,
+                    env=self.config.env,
+                    query=self.config.query,
+                    status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                    batch_size=self.config.batch_size,
+                    extraFilters=[
+                        SearchFilterRule(
+                            field="created",
+                            condition="GREATER_THAN",
+                            values=[
+                                str(
+                                    int(
+                                        time.time()
+                                        - self.config.retention_days * 24 * 60 * 60
+                                    )
+                                    * 1000
+                                )
+                            ],
+                        ).to_raw()
+                    ],
+                ),
+                call(
+                    entity_types=["dataProcessInstance"],
+                    platform=self.config.platform,
+                    env=self.config.env,
+                    query=self.config.query,
+                    status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                    batch_size=self.config.batch_size,
+                ),
+            ]
+        )
+
+        # Check the returned urns
+        self.assertEqual(
+            urns, ["urn1", "urn2", "urn3", "dpi_urn1", "dpi_urn2", "dpi_urn3"]
+        )
 
     def test_process_futures(self):
         """Test the _process_futures method properly handles futures."""
