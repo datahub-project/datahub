@@ -81,10 +81,6 @@ def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
     Returns:
         The cleaned field path string
     """
-    # Don't modify key fields - we want to keep the full path
-    if "[key=True]" in field_path:
-        return field_path
-
     if preserve_types:
         # When preserving types, return the full path as-is
         return field_path
@@ -94,7 +90,8 @@ def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
     # Return last non-empty part that isn't a type or version declaration
     for part in reversed(parts):
         if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            return part
+            # Remove any [key=True] annotations when not preserving types
+            return part.split("[key=")[0]
 
     return field_path
 
@@ -309,27 +306,39 @@ class KafkaProfiler:
         if field_name in ("offset", "timestamp"):
             return None
 
-        # Handle key fields specially
-        key_field = (
-            next(
-                (
-                    schema_field
-                    for schema_field in (schema_metadata.fields or [])
-                    if schema_field.fieldPath.endswith("[key=True]")
-                ),
-                None,
-            )
-            if schema_metadata
-            else None
-        )
+        # Handle key prefix specially
+        if field_name.startswith("key."):
+            base_field_name = field_name[4:]  # Remove "key." prefix
+            if schema_metadata and schema_metadata.fields:
+                # Look for field with [key=True] annotation and the matching base name
+                for schema_field in schema_metadata.fields:
+                    if (
+                        "[key=True]" in schema_field.fieldPath
+                        and clean_field_path(
+                            schema_field.fieldPath, preserve_types=False
+                        )
+                        == base_field_name
+                    ):
+                        return schema_field.fieldPath
 
-        if field_name == "key" and key_field:
-            return key_field.fieldPath
+            # If no match found in schema, keep the key prefix
+            return field_name
+
+        # Special case for simple key field (not a complex key)
+        if field_name == "key" and schema_metadata and schema_metadata.fields:
+            for schema_field in schema_metadata.fields:
+                if "[key=True]" in schema_field.fieldPath:
+                    return schema_field.fieldPath
+            return field_name  # No match found, keep as-is
 
         # Try to find matching schema field
         clean_sample = clean_field_path(field_name, preserve_types=False)
         if schema_metadata and schema_metadata.fields:
             for schema_field in schema_metadata.fields:
+                # Skip key fields when looking for regular field matches
+                if "[key=True]" in schema_field.fieldPath:
+                    continue
+
                 if (
                     clean_field_path(schema_field.fieldPath, preserve_types=False)
                     == clean_sample

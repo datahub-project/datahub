@@ -320,6 +320,18 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def _process_message_part(
         self, data: Any, prefix: str, topic: str, is_key: bool = False
     ) -> Optional[Any]:
+        """
+        Process a message part (key or value) from a Kafka message.
+
+        Args:
+            data: The message data to process
+            prefix: The prefix for field paths
+            topic: The topic name
+            is_key: Whether the data is a key (for informational purposes only)
+
+        Returns:
+            Processed data or None if data is None
+        """
         if data is None:
             return None
 
@@ -348,11 +360,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 reader = avro.io.DatumReader(schema)
                                 decoded_value = reader.read(decoder)
 
-                                if is_key:
-                                    # For keys, always return as {"key": value} to match fieldPath
-                                    return {"key": decoded_value}
-                                elif isinstance(decoded_value, (dict, list)):
-                                    # For non-keys, flatten as before
+                                if isinstance(decoded_value, (dict, list)):
+                                    # Flatten complex structures
                                     if isinstance(decoded_value, list):
                                         decoded_value = {"item": decoded_value}
                                     return flatten_json(decoded_value)
@@ -365,10 +374,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     # Fallback to JSON decode if no schema or Avro decode fails
                     try:
                         decoded = json.loads(data.decode("utf-8"))
-                        if is_key:
-                            # For keys, always return as {"key": value}
-                            return {"key": decoded}
-                        elif isinstance(decoded, (dict, list)):
+                        if isinstance(decoded, (dict, list)):
                             if isinstance(decoded, list):
                                 decoded = {"item": decoded}
                             return flatten_json(decoded)
@@ -376,19 +382,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     except Exception as e:
                         # If JSON fails, use base64 as last resort
                         logger.warning(e)
-                        decoded = base64.b64encode(data).decode("utf-8")
-                        if is_key:
-                            return {"key": decoded}
-                        return decoded
+                        return base64.b64encode(data).decode("utf-8")
 
             except Exception as e:
                 logger.warning(f"Failed to process message part: {e}")
-                if is_key:
-                    return {"key": base64.b64encode(data).decode("utf-8")}
                 return base64.b64encode(data).decode("utf-8")
 
-        if is_key:
-            return {"key": data}
         return data
 
     def get_sample_messages(self, topic: str) -> Optional[List[Dict[str, Any]]]:
@@ -444,6 +443,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 try:
                     key = msg.key() if callable(msg.key) else msg.key
                     value = msg.value() if callable(msg.value) else msg.value
+
+                    # Process key and value with consistent handling
                     processed_key = self._process_message_part(
                         key, "key", topic, is_key=True
                     )
@@ -451,6 +452,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         value, "value", topic, is_key=False
                     )
 
+                    # Start with metadata
                     sample = {
                         "offset": msg.offset(),
                         "timestamp": datetime.fromtimestamp(
@@ -460,8 +462,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         ).isoformat(),
                     }
 
+                    # Add key with proper field path
                     if processed_key is not None:
-                        sample.update(processed_key)
+                        if isinstance(processed_key, dict):
+                            # For complex keys, prefix fields with "key."
+                            for k, v in processed_key.items():
+                                sample[f"key.{k}"] = v
+                        else:
+                            # For simple keys, use "key" field
+                            sample["key"] = processed_key
+
+                    # Add value fields
                     if processed_value is not None:
                         if isinstance(processed_value, dict):
                             sample.update(processed_value)
@@ -497,26 +508,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         """Process sample data to extract field information from both key and value schemas."""
         all_keys: Set[str] = set()
         field_sample_map: Dict[str, List[str]] = {}
-        key_field_path: Optional[str] = None
 
         # Initialize from schema if available
         if schema_metadata is not None and isinstance(
             schema_metadata.platformSchema, KafkaSchemaClass
         ):
-            # Find the key field path from schema metadata fields
-            key_field = next(
-                (
-                    schema_field
-                    for schema_field in (schema_metadata.fields or [])
-                    if schema_field.fieldPath.endswith("[key=True]")
-                ),
-                None,
-            )
-            if key_field:
-                key_field_path = key_field.fieldPath
-                all_keys.add(key_field_path)
-                field_sample_map[key_field_path] = []
-
             # Handle all schema fields (both key and value)
             for schema_field in schema_metadata.fields or []:
                 field_path = schema_field.fieldPath
@@ -534,24 +530,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     if schema_metadata and schema_metadata.fields:
                         clean_field = clean_field_path(field_name, preserve_types=False)
 
-                        # Special handling for key field
-                        if field_name == "key" and key_field_path:
-                            matching_schema_field = next(
-                                schema_field
-                                for schema_field in schema_metadata.fields
-                                if schema_field.fieldPath == key_field_path
-                            )
-                        else:
-                            # Find matching schema field by comparing the end of the path
-                            for schema_field in schema_metadata.fields:
-                                if (
-                                    clean_field_path(
-                                        schema_field.fieldPath, preserve_types=False
-                                    )
-                                    == clean_field
-                                ):
-                                    matching_schema_field = schema_field
-                                    break
+                        # Find matching schema field by comparing the end of the path
+                        for schema_field in schema_metadata.fields:
+                            if (
+                                clean_field_path(
+                                    schema_field.fieldPath, preserve_types=False
+                                )
+                                == clean_field
+                            ):
+                                matching_schema_field = schema_field
+                                break
 
                     # Use the full path from schema if found, otherwise use original field name
                     field_path = (
