@@ -50,7 +50,6 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
 )
@@ -82,7 +81,13 @@ from datahub.metadata.schema_classes import (
     VersionPropertiesClass,
     VersionTagClass,
 )
-from datahub.metadata.urns import DataPlatformUrn, MlModelUrn, VersionSetUrn
+from datahub.metadata.urns import (
+    DataFlowUrn,
+    DataJobUrn,
+    DataPlatformUrn,
+    MlModelUrn,
+    VersionSetUrn,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 T = TypeVar("T")
