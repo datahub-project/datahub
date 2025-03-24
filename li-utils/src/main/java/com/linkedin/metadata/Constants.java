@@ -38,7 +38,8 @@ public class Constants {
   public static final String MAX_JACKSON_STRING_SIZE = "16000000";
   public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH =
       "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
-  public static final String ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH = "ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH";
+  public static final String ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH =
+      "ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH";
 
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
