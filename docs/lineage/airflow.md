@@ -234,6 +234,8 @@ class DbtOperator(BaseOperator):
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
 
+See example implementation [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/custom_operator_sql_parsing.py)
+
 ### Custom Extractors
 
 Note: these are only supported in the v2 plugin.
