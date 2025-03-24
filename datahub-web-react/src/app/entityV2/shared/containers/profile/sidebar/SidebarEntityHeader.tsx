@@ -20,19 +20,20 @@ import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
-    gap: 5px;
+    gap: 4px;
+    margin-left: 20px;
 `;
 
 const EntityDetailsContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    margin-left: 8px;
+    gap: 2px;
+    margin-left: 4px;
 `;
 
 const NameWrapper = styled.div`
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
 
     font-size: 16px;
@@ -73,7 +74,7 @@ const SidebarEntityHeader = () => {
             <PlatformHeaderIcons
                 platform={platform as DataPlatform}
                 platforms={platforms as DataPlatform[]}
-                size={24}
+                size={20}
             />
             <EntityDetailsContainer>
                 <NameWrapper>

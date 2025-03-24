@@ -1,4 +1,4 @@
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -7,28 +7,46 @@ import { REDESIGN_COLORS } from '../../../constants';
 import { CountStyle } from '../../../SidebarStyledComponents';
 
 const Container = styled.div`
-    margin-left: 7px;
+    display: flex;
+    flex-direction: column;
+    padding-left: 14px;
+    padding-right: 4px;
     width: 100%;
 `;
 
 const StyledCollapse = styled(Collapse)`
+    && {
+        border-radius: 0 !important;
+        background-color: transparent !important;
+        width: 100%;
+    }
+
     .ant-collapse-header {
-        padding: 0px 0px !important;
+        padding: 0px 8px !important;
         align-items: center;
+    }
+
+    .ant-collapse-content {
+        width: 100%;
     }
 
     .ant-collapse-content-box {
         padding-top: 4px !important;
         padding-bottom: 0px !important;
+        width: 100%;
     }
 
     .ant-collapse-arrow {
-        margin-right: 5px !important;
-        line-height: 32px;
+        height: 12px;
+        display: flex;
+        align-items: center;
     }
 
     .ant-collapse-expand-icon {
-        height: 22px;
+        display: flex;
+        align-items: center;
+        height: 20px;
+        width: 20px;
     }
 
     .ant-collapse-item-disabled > .ant-collapse-header {
@@ -65,9 +83,11 @@ const Title = styled(Typography.Text)`
 `;
 
 const StyledIcon = styled.div`
+    display: flex;
+    align-items: center;
     svg {
-        height: 18px;
-        width: 18px;
+        height: 12px;
+        width: 12px;
         color: ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY};
         stroke: ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY};
         stroke-width: 1px;
@@ -98,9 +118,7 @@ export const SidebarSection = ({
     return (
         <StyledCollapse
             ghost
-            expandIcon={({ isActive }) => (
-                <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
-            )}
+            expandIcon={({ isActive }) => <StyledIcon>{isActive ? <CaretDown /> : <CaretRight />} </StyledIcon>}
             defaultActiveKey={expandedByDefault ? title : ''}
         >
             <Collapse.Panel

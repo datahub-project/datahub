@@ -6,7 +6,7 @@ import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../ty
 import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 const Container = styled.div`
-    padding: 0px 18px 18px 18px;
+    padding: 0px 0px 0px 0px;
 `;
 
 const Content = styled.div`
