@@ -71,6 +71,7 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  runtimeOnly externalDependency.opentelemetryExporter
 
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.mariadbConnector
@@ -87,6 +88,9 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
+
+  testImplementation externalDependency.h2
+  testImplementation testFixtures(project(':metadata-io'))
 
   constraints {
     implementation(implementation externalDependency.parquetHadoop) {
@@ -137,7 +141,7 @@ task runRestoreIndices(type: Exec) {
           "-jar",
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "createDefaultAspects=true"
 }
 
 task runRestoreIndicesUrn(type: Exec) {
@@ -171,6 +175,7 @@ docker {
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
+    include 'docker/monitoring/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {

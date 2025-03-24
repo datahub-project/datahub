@@ -602,7 +602,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
+            if self.dataset.engine.dialect.name.lower() in [SNOWFLAKE, DATABRICKS]:
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select([sa.func.median(sa.column(column))]).select_from(

@@ -43,6 +43,9 @@ class DBTTestResult:
 
     native_results: Dict[str, str]
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
     """
@@ -57,15 +60,11 @@ def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
         # base assertions are violated, bail early
         return None
     m = re.match(r"^ref\(\'(.*)\'\)$", destination_ref)
-    if m:
-        destination_table = m.group(1)
-    else:
-        destination_table = destination_ref
+    destination_table = m.group(1) if m else destination_ref
+
     m = re.search(r"ref\(\'(.*)\'\)", source_ref)
-    if m:
-        source_table = m.group(1)
-    else:
-        source_table = source_ref
+    source_table = m.group(1) if m else source_ref
+
     return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
 
 
@@ -253,7 +252,7 @@ def make_assertion_result_from_test(
         result=AssertionResultClass(
             type=(
                 AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
+                if test_result.has_success_status()
                 or (not test_warnings_are_errors and test_result.status == "warn")
                 else AssertionResultTypeClass.FAILURE
             ),
