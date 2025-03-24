@@ -57,6 +57,7 @@ authorization:
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
+    # Controls whether entity pages can limit access based on policies. If disabled, all entity pages are visible. Does not control if entities show up in search or browse.
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
