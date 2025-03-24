@@ -2,6 +2,7 @@ import React from 'react';
 import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
 import styled from 'styled-components';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { EntityPrivileges } from '@src/types.generated';
 import { useIncidentURNCopyLink } from '../hooks';
 import { IncidentAction } from '../constant';
 import { IncidentTableRow } from '../types';
@@ -31,6 +32,7 @@ type IncidentDrawerHeaderProps = {
     isEditActive: boolean;
     setIsEditActive: React.Dispatch<React.SetStateAction<boolean>>;
     data?: IncidentTableRow;
+    privileges?: EntityPrivileges;
 };
 
 export const IncidentDrawerHeader = ({
@@ -39,8 +41,12 @@ export const IncidentDrawerHeader = ({
     isEditActive,
     setIsEditActive,
     data,
+    privileges,
 }: IncidentDrawerHeaderProps) => {
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
+
+    const canEditIncidents = privileges?.canEditIncidents || false;
+
     return (
         <StyledHeader>
             <StyledTitle>{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
@@ -50,7 +56,7 @@ export const IncidentDrawerHeader = ({
                         <Tooltip2 title="Edit Incident">
                             <EditButton
                                 size={20}
-                                onClick={() => setIsEditActive(!isEditActive)}
+                                onClick={() => canEditIncidents && setIsEditActive(!isEditActive)}
                                 data-testid="edit-incident-icon"
                             />
                         </Tooltip2>

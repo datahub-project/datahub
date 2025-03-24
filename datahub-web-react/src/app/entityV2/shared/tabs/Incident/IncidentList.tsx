@@ -87,6 +87,7 @@ export const IncidentList = () => {
                     refetch={() => {
                         refetch();
                     }}
+                    privileges={privileges}
                 />
             );
         }

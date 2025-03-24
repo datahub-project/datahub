@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
 import { EntityPrivileges } from '@src/types.generated';
 import { Button, colors } from '@src/alchemy-components';
+import { noPermissionsMessage } from './constant';
 
 const TitleContainer = styled.div`
     display: flex;
@@ -38,8 +39,6 @@ export const IncidentTitleContainer = ({
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
 }) => {
-    const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
-
     const canEditIncidents = privileges?.canEditIncidents || false;
 
     return (
