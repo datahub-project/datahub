@@ -1,4 +1,10 @@
-import { DataProduct, DatasetStatsSummary, EntityType } from '../../../../types.generated';
+import {
+    ActionRequestStatus,
+    ActionRequestType,
+    DataProduct,
+    DatasetStatsSummary,
+    EntityType,
+} from '../../../../types.generated';
 import {
     dictToQueryStringParams,
     getNumberWithOrdinal,
@@ -15,8 +21,10 @@ import {
     handleBatchError,
     getFineGrainedLineageWithSiblings,
     summaryHasStats,
+    getProposedItemsByType,
 } from '../utils';
 import {
+    mockActionRequests,
     mockEntityRelationShipResult,
     mockFineGrainedLineages1,
     mockRecord,
@@ -168,6 +176,50 @@ describe('entity V2 utils test ->', () => {
     describe('isOutputPort ->', () => {
         it('should return entities from EntityRelationshipsResult', () => {
             expect(isOutputPort(mockSearchResult)).toBe(true);
+        });
+    });
+    describe.only('getProposedItemsByType', () => {
+        it('should return multiple items that match the type', () => {
+            const result = getProposedItemsByType(mockActionRequests, ActionRequestType.TagAssociation);
+            expect(result).toEqual([
+                {
+                    created: {
+                        time: 1710324000000,
+                    },
+                    status: ActionRequestStatus.Completed,
+                    type: ActionRequestType.TagAssociation,
+                    urn: 'urn:example:tag:1',
+                },
+                {
+                    created: {
+                        time: 0,
+                    },
+                    status: ActionRequestStatus.Pending,
+                    type: ActionRequestType.TagAssociation,
+                    urn: 'urn:example:tag:2',
+                },
+            ]);
+        });
+        it('should return single item that match the type', () => {
+            const result = getProposedItemsByType(mockActionRequests, ActionRequestType.DomainAssociation);
+            expect(result).toEqual([
+                {
+                    created: {
+                        time: 0,
+                    },
+                    status: ActionRequestStatus.Completed,
+                    type: ActionRequestType.DomainAssociation,
+                    urn: 'urn:example:domain:1',
+                },
+            ]);
+        });
+        it('should return an empty array if no items match the type', () => {
+            const result = getProposedItemsByType(mockActionRequests, ActionRequestType.CreateGlossaryTerm);
+            expect(result.length).toBe(0);
+        });
+        it('should return an empty array if proposed items is empty', () => {
+            const result = getProposedItemsByType([], ActionRequestType.OwnerAssociation);
+            expect(result).toEqual([]);
         });
     });
 });

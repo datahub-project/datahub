@@ -61,10 +61,7 @@ query getMLModel($urn: String!) {
             ...formsFields
         }
         ...entityProfileVersionProperties
-        termProposals: proposals(type: TERM_ASSOCIATION) {
-            ...proposalsFragment
-        }
-        tagProposals: proposals(type: TAG_ASSOCIATION) {
+        proposals: proposals {
             ...proposalsFragment
         }
         activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {

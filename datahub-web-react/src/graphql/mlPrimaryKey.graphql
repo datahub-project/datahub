@@ -23,10 +23,7 @@ query getMLPrimaryKey($urn: String!) {
         forms {
             ...formsFields
         }
-        termProposals: proposals(type: TERM_ASSOCIATION) {
-            ...proposalsFragment
-        }
-        tagProposals: proposals(type: TAG_ASSOCIATION) {
+        proposals: proposals {
             ...proposalsFragment
         }
         ...notes

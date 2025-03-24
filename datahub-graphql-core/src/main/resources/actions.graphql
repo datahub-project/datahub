@@ -79,86 +79,86 @@ extend type Mutation {
 
 extend type Dataset {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type Chart {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type Container {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type Dashboard {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type DataFlow {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type DataJob {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type MLFeature {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type MLFeatureTable {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type MLModel {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type MLModelGroup {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type MLPrimaryKey {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type Notebook {
     """
-    Proposed tags and terms on the given entity
+    Proposed action requests on the given entity
     """
-    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
 extend type Query {

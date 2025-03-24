@@ -1,10 +1,18 @@
 import { pathMatchesNewPath } from '@src/app/entity/dataset/profile/schema/utils/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { findFieldPathProposal } from '@src/app/shared/tags/utils/proposalUtils';
-import { ActionRequest, EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.generated';
+import { GetDatasetQuery } from '@src/graphql/dataset.generated';
+import {
+    ActionRequest,
+    ActionRequestType,
+    EditableSchemaMetadata,
+    GlobalTags,
+    SchemaField,
+} from '@src/types.generated';
 
 export default function useExtractFieldTagsInfo(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
-    const baseEntity = useBaseEntity();
+    const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
         const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
@@ -20,10 +28,10 @@ export default function useExtractFieldTagsInfo(editableSchemaMetadata: Editable
 
         const proposedTags: ActionRequest[] =
             findFieldPathProposal(
-                // eslint-disable-next-line
-                // @ts-ignore
-                // eslint-disable-next-line
-                baseEntity?.['dataset']?.['tagProposals'] || [],
+                getProposedItemsByType(
+                    (baseEntity?.dataset?.proposals || []) as ActionRequest[],
+                    ActionRequestType.TagAssociation,
+                ) || [],
                 record.fieldPath,
             ) ?? [];
 
