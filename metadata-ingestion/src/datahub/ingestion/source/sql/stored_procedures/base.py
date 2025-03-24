@@ -10,7 +10,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.emitter.mcp_builder import DatabaseKey, DatahubKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -31,6 +31,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
+class ProcedureSignature(DatahubKey):
+    argument_signature: Optional[str] = None
+
+
 @dataclass
 class BaseProcedure:
     name: str
@@ -42,6 +46,25 @@ class BaseProcedure:
     return_type: Optional[str]
     language: str
     extra_properties: Optional[Dict[str, str]]
+
+    def get_procedure_identifier(
+        self,
+    ) -> str:
+        argument_signature_suffix = (
+            ProcedureSignature(argument_signature=self.argument_signature).guid()
+            if self.argument_signature
+            else ""
+        )
+        return f"{self.name}_{argument_signature_suffix}"
+
+    def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
+        return make_data_job_urn(
+            orchestrator=database_key.platform,
+            flow_id=get_procedure_flow_name(database_key, schema_key),
+            job_id=self.get_procedure_identifier(),
+            cluster=database_key.env or DEFAULT_ENV,
+            platform_instance=database_key.instance,
+        )
 
 
 def generate_flow_workunits(
@@ -84,7 +107,6 @@ def generate_flow_workunits(
             ),
         ).as_workunit()
 
-    # TODO: container aspect boolean flag?
     yield MetadataChangeProposalWrapper(
         entityUrn=flow_urn,
         aspect=ContainerClass(container=database_key.as_urn()),
@@ -111,14 +133,7 @@ def generate_job_workunits(
     """Generate job workunits for database, schema and procedure"""
 
     # TODO: escape special chars if present in stored procedure name
-    # TODO: add argument signature hash to procedure identifier
-    job_urn = make_data_job_urn(
-        orchestrator=database_key.platform,
-        flow_id=get_procedure_flow_name(database_key, schema_key),
-        job_id=procedure.name,
-        cluster=database_key.env or DEFAULT_ENV,
-        platform_instance=database_key.instance,
-    )
+    job_urn = procedure.to_urn(database_key, schema_key)
 
     yield MetadataChangeProposalWrapper(
         entityUrn=job_urn,
@@ -149,15 +164,11 @@ def generate_job_workunits(
             ),
         ).as_workunit()
 
-    # TODO: container aspect boolean flag?
     container_key = schema_key or database_key  # database_key for 2-tier
     yield MetadataChangeProposalWrapper(
         entityUrn=job_urn,
         aspect=ContainerClass(container=container_key.as_urn()),
     ).as_workunit()
-
-    # TODO: Config whether to ingest lineage
-    # TODO: modification in mssql+lineage library and ingest lineage
 
     # TODO: Config whether to ingest procedure code
     if procedure.procedure_definition:
@@ -202,7 +213,15 @@ def generate_procedure_lineage(
                 aspect=datajob_input_output,
             )
 
-    # TODO: generate lineage workunits
+
+# TODO: Maybe use db_name, schema_name, platform_instance, env as input instead ?
+def generate_procedure_container_workunits(
+    database_key: DatabaseKey,
+    schema_key: Optional[SchemaKey],
+) -> Iterable[MetadataWorkUnit]:
+    """Generate container workunits for database and schema"""
+
+    yield from generate_flow_workunits(database_key, schema_key)
 
 
 def generate_procedure_workunits(
@@ -211,18 +230,10 @@ def generate_procedure_workunits(
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
 ) -> Iterable[MetadataWorkUnit]:
-    yield from generate_flow_workunits(database_key, schema_key)
-
     yield from generate_job_workunits(database_key, schema_key, procedure)
 
     if schema_resolver:
-        job_urn = make_data_job_urn(
-            orchestrator=database_key.platform,
-            flow_id=get_procedure_flow_name(database_key, schema_key),
-            job_id=procedure.name,
-            cluster=database_key.env or DEFAULT_ENV,
-            platform_instance=database_key.instance,
-        )
+        job_urn = procedure.to_urn(database_key, schema_key)
 
         yield from auto_workunit(
             generate_procedure_lineage(

@@ -3,7 +3,9 @@ from functools import cached_property
 from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -179,6 +181,9 @@ class SnowflakeFilter:
             return False
 
         return True
+
+    def is_procedure_allowed(self, procedure_name: str) -> bool:
+        return self.filter_config.procedure_pattern.allowed(procedure_name)
 
 
 def _combine_identifier_parts(

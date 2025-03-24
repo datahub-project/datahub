@@ -71,6 +71,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     get_domain_wu,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
+    generate_procedure_container_workunits,
     generate_procedure_workunits,
 )
 from datahub.ingestion.source_report.ingestion_stage import (
@@ -552,6 +553,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.include_technical_schema:
+            yield from generate_procedure_container_workunits(
+                gen_database_key(
+                    self.snowflake_identifier(db_name),
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                gen_schema_key(
+                    db_name=self.snowflake_identifier(db_name),
+                    schema=snowflake_schema.name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+            )
             for procedure in procedures:
                 yield from self._process_procedure(procedure, snowflake_schema, db_name)
 
@@ -1353,15 +1369,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             procedures: List[BaseProcedure] = []
             for procedure in self.get_procedures_for_schema(snowflake_schema, db_name):
-                # TODO: introduce procedure identifier dependent on arguments
-                procedure_identifier = self.identifiers.get_dataset_identifier(
+                procedure_qualified_name = self.identifiers.get_dataset_identifier(
                     procedure.name, snowflake_schema.name, db_name
                 )
+                self.report.report_entity_scanned(procedure_qualified_name, "procedure")
 
-                self.report.report_entity_scanned(procedure_identifier, "procedure")
-
-                # TODO:  use procedure pattern
-                procedures.append(procedure)
+                if self.filters.is_procedure_allowed(procedure_qualified_name):
+                    procedures.append(procedure)
+                else:
+                    self.report.report_dropped(procedure_qualified_name)
             return procedures
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -1413,6 +1429,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         try:
+            # TODO: For CLL, we should process procedures after all tables are processed
             yield from generate_procedure_workunits(
                 procedure,
                 database_key=gen_database_key(
@@ -1428,7 +1445,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
                 ),
-                # TODO: should we process procedures after all tables are processed ?
                 schema_resolver=(
                     self.aggregator._schema_resolver if self.aggregator else None
                 ),
