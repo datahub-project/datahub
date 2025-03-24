@@ -31,11 +31,11 @@ const SubTitle = styled(Typography.Text)`
 export const IncidentTitleContainer = ({
     privileges,
     setShowIncidentBuilder,
-    setAuthorIncidentForEntity,
+    setEntity,
 }: {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setAuthorIncidentForEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
 }) => {
     return (
         <TitleContainer>
@@ -46,7 +46,7 @@ export const IncidentTitleContainer = ({
             <CreateIncidentButton
                 privileges={privileges}
                 setShowIncidentBuilder={setShowIncidentBuilder}
-                setAuthorIncidentForEntity={setAuthorIncidentForEntity}
+                setEntity={setEntity}
             />
         </TitleContainer>
     );

@@ -17,16 +17,10 @@ type IncidentDetailDrawerProps = {
     incident?: IncidentTableRow;
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
-    authorIncidentForEntity?: EntityStagedForIncident;
+    entity?: EntityStagedForIncident;
 };
 
-export const IncidentDetailDrawer = ({
-    mode,
-    onCancel,
-    onSubmit,
-    incident,
-    authorIncidentForEntity,
-}: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entity }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.ADD;
     const modalClosePopup = () => {
@@ -62,7 +56,7 @@ export const IncidentDetailDrawer = ({
                     isEditActive={isEditView}
                     setIsEditActive={setIsEditView}
                     data={incident}
-                    platform={authorIncidentForEntity?.platform}
+                    platform={entity?.platform}
                 />
                 {showEditor ? (
                     <IncidentEditor
@@ -71,7 +65,7 @@ export const IncidentDetailDrawer = ({
                         mode={mode}
                         incidentUrn={incident?.urn}
                         onSubmit={onSubmit}
-                        authorIncidentForEntity={authorIncidentForEntity}
+                        entity={entity}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

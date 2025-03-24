@@ -20,7 +20,7 @@ import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 export const IncidentList = () => {
     const { urn } = useEntityData();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
-    const [authorIncidentForEntity, setAuthorIncidentForEntity] = useState<EntityStagedForIncident>();
+    const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
         groupBy: { type: [], priority: [], stage: [], state: [] },
@@ -98,7 +98,7 @@ export const IncidentList = () => {
             <IncidentTitleContainer
                 privileges={privileges}
                 setShowIncidentBuilder={setShowIncidentBuilder}
-                setAuthorIncidentForEntity={setAuthorIncidentForEntity}
+                setEntity={setEntity}
             />
             {allIncidentData?.length > 0 && !loading && (
                 <IncidentFilterContainer
@@ -120,7 +120,7 @@ export const IncidentList = () => {
                         setShowIncidentBuilder(false);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
-                    authorIncidentForEntity={authorIncidentForEntity}
+                    entity={entity}
                 />
             )}
         </>

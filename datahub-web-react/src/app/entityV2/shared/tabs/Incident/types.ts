@@ -100,7 +100,7 @@ export type IncidentEditorProps = {
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-    authorIncidentForEntity?: EntityStagedForIncident;
+    entity?: EntityStagedForIncident;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -138,5 +138,5 @@ export type IncidentBuilderSiblingOptions = {
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setAuthorIncidentForEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
 };

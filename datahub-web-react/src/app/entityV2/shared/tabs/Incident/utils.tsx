@@ -532,7 +532,6 @@ export const useSiblingOptionsForIncidentBuilder = (
             entityData?.dataPlatformInstance?.platform.name ??
             entityData?.platform?.urn ??
             urn,
-        disabled: false,
         urn,
         platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
         entityType,
@@ -550,7 +549,6 @@ export const useSiblingOptionsForIncidentBuilder = (
                 sibling?.dataPlatformInstance?.platform.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
-            disabled: false,
             platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
             entityType: sibling.type,
         });

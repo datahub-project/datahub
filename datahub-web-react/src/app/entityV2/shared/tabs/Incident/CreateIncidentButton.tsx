@@ -12,17 +12,17 @@ import { useSiblingOptionsForIncidentBuilder } from './utils';
 import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
 
-export const CreateIncidentButton = ({
-    privileges,
-    setShowIncidentBuilder,
-    setAuthorIncidentForEntity,
-}: CreateIncidentButtonProps) => {
+export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
     const primaryEntityData = useEntityData();
     const { entityData } = primaryEntityData;
+
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+
     const isSiblingMode = !!entityData?.siblingsSearch?.total && !isHideSiblingMode;
+
     const siblingOptionsToAuthorOn =
         useSiblingOptionsForIncidentBuilder(entityData, primaryEntityData.urn, primaryEntityData.entityType) ?? [];
+
     const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
 
     const canEditIncidents = privileges?.canEditIncidents || false;
@@ -36,7 +36,7 @@ export const CreateIncidentButton = ({
             return;
         }
 
-        setAuthorIncidentForEntity({
+        setEntity({
             urn,
             entityType,
             platform,
@@ -50,23 +50,13 @@ export const CreateIncidentButton = ({
     const siblingSelectionOptions = siblingOptionsToAuthorOn.map((option) => ({
         key: option.title,
         label: (
-            <Tooltip
-                showArrow={false}
-                placement="left"
-                title={
-                    option.disabled
-                        ? `Native incident are not supported for ${option.platform?.name ?? 'this platform'}.`
-                        : undefined
-                }
+            <SiblingSelectionDropdownLink
+                style={{ opacity: option.disabled ? 0.5 : 1 }}
+                onClick={() => onCreateIncidentForEntity(option)}
             >
-                <SiblingSelectionDropdownLink
-                    style={{ opacity: option.disabled ? 0.5 : 1 }}
-                    onClick={() => !option.disabled && onCreateIncidentForEntity(option)}
-                >
-                    <PlatformIcon platform={option.platform} size={16} styles={{ marginRight: 4 }} />
-                    {option.title}
-                </SiblingSelectionDropdownLink>
-            </Tooltip>
+                <PlatformIcon platform={option.platform} size={16} styles={{ marginRight: 4 }} />
+                {option.title}
+            </SiblingSelectionDropdownLink>
         ),
     }));
 
