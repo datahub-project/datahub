@@ -81,7 +81,7 @@ public class DatahubSparkListener extends SparkListener {
   private static SparkAppContext getSparkAppContext(
       SparkListenerApplicationStart applicationStart) {
     SparkAppContext appContext = new SparkAppContext();
-    String appName = applicationStart.appName().replaceAll("_\\d{8}$", "");
+    String appName = applicationStart.appName().replaceAll("[_-]\\d{6,}$", "");
     log.info("Application Name : {}", appName);
 
     appContext.setAppName(appName);
