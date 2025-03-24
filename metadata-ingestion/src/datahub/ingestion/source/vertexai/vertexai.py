@@ -50,7 +50,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
-from datahub.metadata._urns.urn_defs import DataFlowUrn, DataJobUrn
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
 )
