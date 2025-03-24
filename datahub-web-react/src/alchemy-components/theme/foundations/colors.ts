@@ -5,12 +5,12 @@ const colors = {
     black: '#000000',
 
     gray: {
-        100: '#EBECF0',
+        100: '#EBECF0', // border color
         200: '#CFD1DA',
         300: '#A9ADBD',
         400: '#81879F',
         500: '#5B6282', // primary value
-        600: '#374066',
+        600: '#374066', // primary text color
         700: '#2F3657',
         800: '#272D48',
         900: '#231A58',
@@ -19,10 +19,10 @@ const colors = {
         1200: '#FBF3EF',
         1300: '#F7FBF4',
         1400: '#E9EAEE',
-        1500: '#F9FAFC',
+        1500: '#F9FAFC', // hover color
         1600: '#F5F6FA',
-        1700: '#5F6685',
-        1800: '#8088A3',
+        1700: '#5F6685', // secondary text color
+        1800: '#8088A3', // tertiary text color and icon color
         1900: '#A3A7B9',
     },
 
