@@ -284,9 +284,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         self,
         query: str,
         flavor: SearchFlavor,
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         snippet: bool = True,
     ) -> Iterable[Searchable]:
+        aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
             base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
             for r in self.duckdb_client.execute(base_query).fetchall():
@@ -759,15 +760,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 entity_id=[str(data_platform_urn), data_platform_instance],
             )
             self._create_edges_from_data_platform_instance(data_platform_instance_urn)
-        elif isinstance(aspect, ChartInfoClass):
-            urn = Urn.from_string(entity_urn)
-            self.add_edge(
-                entity_urn,
-                "name",
-                aspect.title + f" ({urn.get_entity_id()[-1]})",
-                remove_existing=True,
-            )
-        elif isinstance(aspect, DashboardInfoClass):
+        elif isinstance(aspect, (ChartInfoClass, DashboardInfoClass)):
             urn = Urn.from_string(entity_urn)
             self.add_edge(
                 entity_urn,

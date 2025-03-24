@@ -42,6 +42,7 @@ from pyiceberg.types import (
 )
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg import (
@@ -49,13 +50,11 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
-    DatasetSnapshotClass,
     DateTypeClass,
     FixedTypeClass,
     NumberTypeClass,
@@ -566,7 +565,7 @@ class MockCatalogExceptionListingTables(MockCatalog):
 
 class MockCatalogExceptionListingNamespaces(MockCatalog):
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        raise Exception()
+        raise Exception("Test exception")
 
 
 def test_exception_while_listing_namespaces() -> None:
@@ -574,7 +573,7 @@ def test_exception_while_listing_namespaces() -> None:
     mock_catalog = MockCatalogExceptionListingNamespaces({})
     with patch(
         "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
-    ) as get_catalog, pytest.raises(Exception):
+    ) as get_catalog, pytest.raises(Exception, match="Test exception"):
         get_catalog.return_value = mock_catalog
         [*source.get_workunits_internal()]
 
@@ -659,12 +658,11 @@ def test_known_exception_while_listing_tables() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 5  # ingested 5 tables, despite exception
+        assert len(wu) == 5 * 4  # ingested 5 tables (4 MCPs each), despite exception
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
             [
@@ -673,7 +671,8 @@ def test_known_exception_while_listing_tables() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
-            ],
+            ]
+            * 4,
         )
         assert source.report.warnings.total_elements == 1
         assert source.report.failures.total_elements == 0
@@ -760,12 +759,11 @@ def test_unknown_exception_while_listing_tables() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 5  # ingested 5 tables, despite exception
+        assert len(wu) == 5 * 4  # ingested 5 tables (4 MCPs each), despite exception
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
             [
@@ -774,7 +772,8 @@ def test_unknown_exception_while_listing_tables() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
-            ],
+            ]
+            * 4,
         )
         assert source.report.warnings.total_elements == 0
         assert source.report.failures.total_elements == 1
@@ -807,13 +806,17 @@ def test_proper_run_with_multiple_namespaces() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 1  # only one table processed as an MCE
-        assert isinstance(wu[0].metadata, MetadataChangeEvent)
-        assert isinstance(wu[0].metadata.proposedSnapshot, DatasetSnapshotClass)
-        snapshot: DatasetSnapshotClass = wu[0].metadata.proposedSnapshot
-        assert (
-            snapshot.urn
-            == "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)"
+        assert len(wu) == 1 * 4  # only one table processed (4 MCPs)
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            ]
+            * 4,
         )
 
 
@@ -934,18 +937,18 @@ def test_filtering() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 2
+        assert len(wu) == 2 * 4
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
             [
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.table_xyz,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.JKLtable,PROD)",
-            ],
+            ]
+            * 4,
         )
         assert source.report.tables_scanned == 2
 
@@ -967,6 +970,9 @@ def test_handle_expected_exceptions() -> None:
 
     def _raise_server_error():
         raise ServerError()
+
+    def _raise_fileio_error():
+        raise ValueError("Could not initialize FileIO: abc.dummy.fileio")
 
     mock_catalog = MockCatalog(
         {
@@ -1024,6 +1030,7 @@ def test_handle_expected_exceptions() -> None:
                 "table7": _raise_file_not_found_error,
                 "table8": _raise_no_such_iceberg_table_exception,
                 "table9": _raise_server_error,
+                "table10": _raise_fileio_error,
             }
         }
     )
@@ -1032,12 +1039,11 @@ def test_handle_expected_exceptions() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 4
+        assert len(wu) == 4 * 4
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
             [
@@ -1045,9 +1051,10 @@ def test_handle_expected_exceptions() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
-            ],
+            ]
+            * 4,
         )
-        assert source.report.warnings.total_elements == 5
+        assert source.report.warnings.total_elements == 6
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
 
@@ -1057,6 +1064,9 @@ def test_handle_unexpected_exceptions() -> None:
 
     def _raise_exception():
         raise Exception()
+
+    def _raise_other_value_error_exception():
+        raise ValueError("Other value exception")
 
     mock_catalog = MockCatalog(
         {
@@ -1110,6 +1120,7 @@ def test_handle_unexpected_exceptions() -> None:
                     catalog=None,
                 ),
                 "table5": _raise_exception,
+                "table6": _raise_other_value_error_exception,
             }
         }
     )
@@ -1118,12 +1129,11 @@ def test_handle_unexpected_exceptions() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 4
+        assert len(wu) == 4 * 4
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
             [
@@ -1131,8 +1141,18 @@ def test_handle_unexpected_exceptions() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
-            ],
+            ]
+            * 4,
         )
         assert source.report.warnings.total_elements == 0
         assert source.report.failures.total_elements == 1
         assert source.report.tables_scanned == 4
+        # Needed to make sure all failures are recognized properly
+        failures = [f for f in source.report.failures]
+        TestCase().assertCountEqual(
+            failures[0].context,
+            [
+                "Failed to create workunit for dataset ('namespaceA', 'table6'): Other value exception",
+                "Failed to create workunit for dataset ('namespaceA', 'table5'): ",
+            ],
+        )

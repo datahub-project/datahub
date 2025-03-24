@@ -25,6 +25,7 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    API_ENDPOINT = "API Endpoint"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -60,8 +61,15 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
 
 
+class FlowContainerSubTypes(StrEnum):
+    MSSQL_JOB = "Job"
+    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+
+
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
+    MSSQL_JOBSTEP = "Job Step"
+    MSSQL_STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -85,3 +93,18 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+
+class MLAssetSubTypes(StrEnum):
+    MLFLOW_TRAINING_RUN = "ML Training Run"
+    MLFLOW_EXPERIMENT = "ML Experiment"
+    VERTEX_EXPERIMENT = "Experiment"
+    VERTEX_EXPERIMENT_RUN = "Experiment Run"
+    VERTEX_EXECUTION = "Execution"
+
+    VERTEX_MODEL = "ML Model"
+    VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_TRAINING_JOB = "Training Job"
+    VERTEX_ENDPOINT = "Endpoint"
+    VERTEX_DATASET = "Dataset"
+    VERTEX_PROJECT = "Project"

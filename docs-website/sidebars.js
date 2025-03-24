@@ -93,6 +93,11 @@ module.exports = {
           ],
         },
         {
+          label: "Access Management",
+          type: "doc",
+          id: "docs/features/feature-guides/access-management",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: false,
@@ -362,6 +367,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_9",
             "docs/managed-datahub/release-notes/v_0_3_8",
             "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
@@ -737,7 +743,7 @@ module.exports = {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/datahub_lite"],
+      items: ["docs/cli-commands/dataset", "docs/datahub_lite"],
     },
     {
       type: "category",

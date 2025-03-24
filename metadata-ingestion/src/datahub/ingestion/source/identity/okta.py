@@ -568,9 +568,7 @@ class OktaSource(StatefulIngestionSourceBase):
         if (
             self.config.include_deprovisioned_users is False
             and okta_user.status == UserStatus.DEPROVISIONED
-        ):
-            return False
-        elif (
+        ) or (
             self.config.include_suspended_users is False
             and okta_user.status == UserStatus.SUSPENDED
         ):
@@ -668,6 +666,27 @@ class OktaSource(StatefulIngestionSourceBase):
             self.config.okta_profile_to_username_regex,
         )
 
+    def _map_okta_user_profile_custom_properties(
+        self, profile: UserProfile
+    ) -> Dict[str, str]:
+        # filter out the common fields that are already mapped to the CorpUserInfo aspect and the private ones
+        return {
+            k: str(v)
+            for k, v in profile.__dict__.items()
+            if v
+            and k
+            not in [
+                "displayName",
+                "firstName",
+                "lastName",
+                "email",
+                "title",
+                "countryCode",
+                "department",
+            ]
+            and not k.startswith("_")
+        }
+
     # Converts Okta User Profile into a CorpUserInfo.
     def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
         # TODO: Extract user's manager if provided.
@@ -685,6 +704,7 @@ class OktaSource(StatefulIngestionSourceBase):
             title=profile.title,
             countryCode=profile.countryCode,
             departmentName=profile.department,
+            customProperties=self._map_okta_user_profile_custom_properties(profile),
         )
 
     def _make_corp_group_urn(self, name: str) -> str:

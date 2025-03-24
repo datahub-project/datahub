@@ -24,6 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class EventProducer {
 
+  /** Flush the producer * */
+  public abstract void flush();
+
   /**
    * Produces a {@link com.linkedin.mxe.MetadataChangeLog} from a new & previous aspect.
    *

@@ -1,3 +1,4 @@
+import uuid
 from pathlib import Path
 from typing import Any, Dict, TypeVar
 
@@ -41,11 +42,15 @@ def pipeline_config(tracking_uri: str, sink_file_path: str) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def generate_mlflow_data(tracking_uri: str) -> None:
+def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    test_uuid = "02660a3bee9941ed983667f678ce5611"
+    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID(test_uuid))
+
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_name = "test-experiment"
     run_name = "test-run"
     model_name = "test-model"
+
     test_experiment_id = client.create_experiment(experiment_name)
     test_run = client.create_run(
         experiment_id=test_experiment_id,
@@ -93,7 +98,10 @@ def test_ingestion(
     golden_file_path = (
         pytestconfig.rootpath / "tests/integration/mlflow/mlflow_mcps_golden.json"
     )
-
+    ignore_paths = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['artifacts_location'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['outputUrls'\]",
+    ]
     pipeline = Pipeline.create(pipeline_config)
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -103,4 +111,5 @@ def test_ingestion(
         pytestconfig=pytestconfig,
         output_path=sink_file_path,
         golden_path=golden_file_path,
+        ignore_paths=ignore_paths,
     )

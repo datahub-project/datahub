@@ -14,17 +14,28 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
 class EntityClient:
+    """Client for managing DataHub entities.
+
+    This class provides methods for retrieving and managing DataHub entities
+    such as datasets, containers, and other metadata objects.
+    """
+
     def __init__(self, client: DataHubClient):
+        """Private constructor - use :py:attr:`DataHubClient.entities` instead.
+
+        Args:
+            client: The parent DataHubClient instance.
+        """
         self._client = client
 
     # TODO: Make all of these methods sync by default.
@@ -40,6 +51,19 @@ class EntityClient:
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
+        """Retrieve an entity by its urn.
+
+        Args:
+            urn: The urn of the entity to retrieve. Can be a string or :py:class:`Urn` object.
+
+        Returns:
+            The retrieved entity instance.
+
+        Raises:
+            ItemNotFoundError: If the entity does not exist.
+            SdkUsageError: If the entity type is not yet supported.
+            InvalidUrnError: If the URN is invalid.
+        """
         if not isinstance(urn, Urn):
             urn = Urn.from_string(urn)
 

@@ -37,6 +37,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
             }
@@ -82,6 +83,7 @@ query appConfig {
             showNavBarRedesign
             showAutoCompleteResults
             entityVersioningEnabled
+            showSearchBarAutocompleteRedesign
         }
         chromeExtensionConfig {
             enabled

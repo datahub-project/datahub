@@ -217,11 +217,13 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nonnull Collection<EbeanAspectV2> rawAspects,
+      boolean forUpdate) {
     return toSystemAspects(
         retrieverContext,
         rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()),
-        true);
+        forUpdate);
   }
 
   /**
@@ -278,7 +280,7 @@ public class EntityUtils {
     // Read Validate
     systemAspects.forEach(
         systemAspect ->
-            RecordTemplateValidator.validate(
+            RecordTemplateValidator.validateTrim(
                 systemAspect.getRecordTemplate(),
                 validationFailure ->
                     log.warn(
