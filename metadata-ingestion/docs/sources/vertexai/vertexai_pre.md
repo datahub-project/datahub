@@ -57,7 +57,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 ### Concept Mapping
 
-This ingestion source maps the following MLflow Concepts to DataHub Concepts:
+This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 
 |                                                       Source Concept                                                       |                                              DataHub Concept                                              | Notes                                                                                                                                                                                                                                                      |
 |:--------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------:|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
