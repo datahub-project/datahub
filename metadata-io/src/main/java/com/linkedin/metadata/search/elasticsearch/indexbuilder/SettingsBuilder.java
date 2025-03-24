@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.BufferedReader;
@@ -116,6 +118,7 @@ public class SettingsBuilder {
   // Do not remove the space, needed for multi-term synonyms
   public static final List<String> ALPHANUM_SPACE_PATTERNS =
       ImmutableList.of("([a-z0-9 _-]{2,})", "([a-z0-9 ]{2,})", "\\\"([^\\\"]*)\\\"");
+  public static final String DEFAULT_MIN_SEARCH_FILTER_LENGTH = "3";
 
   public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li");
 
@@ -223,9 +226,15 @@ public class SettingsBuilder {
             .put(STOPWORDS, DATAHUB_STOP_WORDS_LIST)
             .build());
 
+    String searchFilterMinLength =
+        System.getenv()
+            .getOrDefault(ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH, DEFAULT_MIN_SEARCH_FILTER_LENGTH);
     filters.put(
         MIN_LENGTH,
-        ImmutableMap.<String, Object>builder().put(TYPE, "length").put("min", "3").build());
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, "length")
+            .put("min", searchFilterMinLength)
+            .build());
 
     Resource stemOverride =
         resourceResolver.getResource("classpath:elasticsearch/stem_override.txt");
