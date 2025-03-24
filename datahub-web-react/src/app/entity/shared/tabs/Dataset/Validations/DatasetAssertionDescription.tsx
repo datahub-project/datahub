@@ -181,7 +181,7 @@ const getAggregationText = (
         case DatasetAssertionScope.DatasetRows:
             return getRowsAggregationText(aggregation);
         case DatasetAssertionScope.DatasetColumn:
-            return getColumnAggregationText(aggregation, fields?.length === 1 ? fields[0] : fields.join(", ");
+            return getColumnAggregationText(aggregation, fields?.length === 1 ? fields[0] : fields.join(", "));
         default:
             console.error(`Unsupported Dataset Assertion scope ${scope} provided`);
             return 'Dataset is';
