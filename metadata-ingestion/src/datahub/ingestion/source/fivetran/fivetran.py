@@ -726,6 +726,133 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Error creating lineage for table {source_table} -> {destination_table}: {e}"
             )
 
+    def _create_synthetic_datajob_from_connector(self, connector: Connector) -> DataJob:
+        """Generate a synthetic DataJob entity for connectors with lineage but no job history."""
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=Constant.ORCHESTRATOR,
+            flow_id=connector.connector_id,
+            env=self.config.env or "PROD",
+            platform_instance=self.config.platform_instance,
+        )
+
+        # Extract useful connector information
+        connector_name = (
+            connector.connector_name or f"Fivetran-{connector.connector_id}"
+        )
+
+        # Get source platform from connector type
+        source_platform = self._detect_source_platform(connector)
+
+        # Get destination platform in a more platform-agnostic way
+        destination_platform = self._get_destination_platform(connector)
+
+        # Create job description
+        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform} (Lineage Only)"
+
+        # Get owner information
+        owner_email = self.fivetran_access.get_user_email(connector.user_id)
+        owner_set = {owner_email} if owner_email else set()
+
+        # Create the DataJob with enhanced information
+        datajob = DataJob(
+            id=connector.connector_id,
+            flow_urn=dataflow_urn,
+            name=connector_name,
+            description=description,
+            owners=owner_set,
+        )
+
+        # Map connector source and destination table with dataset entity
+        # Also extend the fine grained lineage of column if include_column_lineage is True
+        source_details = self._get_source_details(connector)
+        source_details.platform = source_platform
+
+        destination_details = self._get_destination_details(connector)
+
+        lineage_properties = self._extend_lineage(
+            connector=connector,
+            datajob=datajob,
+            source_details=source_details,
+            destination_details=destination_details,
+        )
+
+        # Extract connector properties for the DataJob
+        connector_properties: Dict[str, str] = {
+            "connector_id": connector.connector_id,
+            "connector_type": connector.connector_type,
+            "paused": str(connector.paused),
+            "sync_frequency": str(connector.sync_frequency),
+            "destination_id": connector.destination_id,
+            "synthetic": "true",
+            "lineage_only": "true",
+        }
+
+        # Combine all properties
+        datajob.properties = {
+            **connector_properties,
+            **lineage_properties,
+        }
+
+        return datajob
+
+    # Add this helper method to FivetranSource in fivetran.py
+    # to make destination platform detection more platform-agnostic:
+
+    def _get_destination_platform(self, connector: Connector) -> str:
+        """
+        Determine the destination platform in a platform-agnostic way.
+
+        Order of precedence:
+        1. Check destination_to_platform_instance config for this destination
+        2. Check connector's additional_properties (from API detection)
+        3. Check destination_details.platform from _get_destination_details
+        4. Use a safe default based on common standards
+        """
+        # First check for explicit mapping in config
+        if (
+            hasattr(self.config, "destination_to_platform_instance")
+            and connector.destination_id in self.config.destination_to_platform_instance
+        ):
+            platform_details = self.config.destination_to_platform_instance[
+                connector.destination_id
+            ]
+            if platform_details.platform:
+                logger.info(
+                    f"Using destination platform '{platform_details.platform}' from config for {connector.destination_id}"
+                )
+                return platform_details.platform
+
+        # Next check additional properties from API
+        if "destination_platform" in connector.additional_properties:
+            platform = connector.additional_properties["destination_platform"]
+            logger.info(
+                f"Using destination platform '{platform}' from connector properties for {connector.connector_id}"
+            )
+            return platform
+
+        # Use _get_destination_details which has its own logic for detecting platforms
+        destination_details = self._get_destination_details(connector)
+        if destination_details.platform:
+            platform = destination_details.platform
+            logger.info(
+                f"Using destination platform '{platform}' from destination details for {connector.connector_id}"
+            )
+            return platform
+
+        # If we still don't have a platform, use a safe default without assumptions
+        # First check if it's a streaming source
+        if connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]:
+            logger.info(
+                f"Detected streaming connector type {connector.connector_type}, using 'kafka' as destination platform"
+            )
+            return "kafka"
+
+        # Final fallback - use a generic platform name
+        logger.info(
+            f"No specific destination platform detected for {connector.connector_id}, using 'database' as generic platform"
+        )
+        return "database"
+
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
         """Generate a DataProcessInstance entity from a job."""
         return DataProcessInstance.from_datajob(
@@ -1015,7 +1142,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _get_connector_workunits(
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for a connector."""
+        """Generate workunits for a connector, ensuring lineage works even without job history."""
         self.report.report_connectors_scanned()
 
         # Create dataflow entity with detailed properties from connector
@@ -1026,27 +1153,178 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Store field lineage workunits to emit after dataset workunits
         field_lineage_workunits = []
 
-        # Check if we should create one datajob per table or one per connector
-        if self.config.datajob_mode == DataJobMode.PER_TABLE:
-            # Create one datajob per table
-            for wu in self._get_per_table_datajob_workunits(connector, dataflow):
-                # If this is a field lineage workunit, store it for later
-                if wu.id.endswith("-field-lineage"):
-                    field_lineage_workunits.append(wu)
-                else:
-                    yield wu
+        # Special handling for connectors with lineage but no job history
+        if not connector.jobs and connector.lineage:
+            logger.info(
+                f"Connector {connector.connector_name} (ID: {connector.connector_id}) "
+                f"has {len(connector.lineage)} lineage entries but no job history. "
+                f"Creating synthetic jobs for lineage."
+            )
+
+            # Check if we should create one datajob per table or one per connector
+            if self.config.datajob_mode == DataJobMode.PER_TABLE:
+                # Create one datajob per table
+                # Get source and destination details
+                source_details = self._get_source_details(connector)
+                source_details.platform = self._detect_source_platform(connector)
+
+                destination_details = self._get_destination_details(connector)
+
+                dataflow_urn = DataFlowUrn.create_from_ids(
+                    orchestrator=Constant.ORCHESTRATOR,
+                    flow_id=connector.connector_id,
+                    env=self.config.env or "PROD",
+                    platform_instance=self.config.platform_instance,
+                )
+
+                # Keep track of tables processed to avoid duplicates
+                processed_tables = set()
+
+                # Process each table lineage entry
+                for lineage in connector.lineage:
+                    # Create a unique key to avoid duplicates
+                    table_key = f"{lineage.source_table}:{lineage.destination_table}"
+                    if table_key in processed_tables:
+                        continue
+                    processed_tables.add(table_key)
+
+                    # Generate a synthetic datajob for this table lineage
+                    datajob = self._create_synthetic_datajob_for_table(
+                        connector=connector,
+                        lineage=lineage,
+                        dataflow_urn=dataflow_urn,
+                        source_details=source_details,
+                        destination_details=destination_details,
+                    )
+
+                    if datajob:
+                        # Emit the datajob
+                        for mcp in datajob.generate_mcp(materialize_iolets=False):
+                            if mcp.aspectName == "datajobFieldLineage" or (
+                                mcp.aspect is not None
+                                and mcp.systemMetadata is not None
+                                and mcp.systemMetadata.runId is not None
+                                and mcp.systemMetadata.runId.endswith("-field-lineage")
+                            ):
+                                field_lineage_workunits.append(mcp.as_workunit())
+                            else:
+                                yield mcp.as_workunit()
+            else:
+                # Default: consolidated mode - one datajob per connector
+                # Create a single synthetic datajob with all lineage
+                synthetic_datajob = self._create_synthetic_datajob_from_connector(
+                    connector
+                )
+
+                # Emit the datajob
+                for mcp in synthetic_datajob.generate_mcp(materialize_iolets=False):
+                    if mcp.aspectName == "datajobFieldLineage" or (
+                        mcp.aspect is not None
+                        and mcp.systemMetadata is not None
+                        and mcp.systemMetadata.runId is not None
+                        and mcp.systemMetadata.runId.endswith("-field-lineage")
+                    ):
+                        field_lineage_workunits.append(mcp.as_workunit())
+                    else:
+                        yield mcp.as_workunit()
         else:
-            # Default: consolidated mode - one datajob per connector
-            for wu in self._get_consolidated_datajob_workunits(connector, dataflow):
-                # If this is a field lineage workunit, store it for later
-                if wu.id.endswith("-field-lineage"):
-                    field_lineage_workunits.append(wu)
-                else:
-                    yield wu
+            # Check if we should create one datajob per table or one per connector
+            if self.config.datajob_mode == DataJobMode.PER_TABLE:
+                # Create one datajob per table
+                for wu in self._get_per_table_datajob_workunits(connector, dataflow):
+                    # If this is a field lineage workunit, store it for later
+                    if wu.id.endswith("-field-lineage"):
+                        field_lineage_workunits.append(wu)
+                    else:
+                        yield wu
+            else:
+                # Default: consolidated mode - one datajob per connector
+                for wu in self._get_consolidated_datajob_workunits(connector, dataflow):
+                    # If this is a field lineage workunit, store it for later
+                    if wu.id.endswith("-field-lineage"):
+                        field_lineage_workunits.append(wu)
+                    else:
+                        yield wu
 
         # Now emit the field lineage workunits after all dataset workunits
         for wu in field_lineage_workunits:
             yield wu
+
+    def _create_synthetic_datajob_for_table(
+        self,
+        connector: Connector,
+        lineage: TableLineage,
+        dataflow_urn: DataFlowUrn,
+        source_details: PlatformDetail,
+        destination_details: PlatformDetail,
+    ) -> Optional[DataJob]:
+        """Generate a synthetic DataJob entity for a specific table lineage when no job history exists."""
+        source_table = lineage.source_table
+        destination_table = lineage.destination_table
+
+        # Create a unique ID for this table's job by combining connector and table names
+        datajob_id = f"{connector.connector_id}.{source_table.replace('.', '_')}_to_{destination_table.replace('.', '_')}"
+        # Truncate if too long
+        if len(datajob_id) > 100:
+            datajob_id = (
+                f"{connector.connector_id}.{hash(source_table + destination_table)}"
+            )
+
+        # Create job name and description
+        job_name = f"Fivetran: {source_table} → {destination_table} (Lineage Only)"
+        job_description = f"Fivetran data pipeline from {source_table} to {destination_table} (No job history)"
+
+        # Get owner information
+        owner_email = self.fivetran_access.get_user_email(connector.user_id)
+        owner_set = {owner_email} if owner_email else set()
+
+        # Create the DataJob instance
+        datajob = DataJob(
+            id=datajob_id,
+            flow_urn=dataflow_urn,
+            name=job_name,
+            description=job_description,
+            owners=owner_set,
+        )
+
+        # Build lineage for this specific table using the common function
+        self._build_table_lineage(
+            connector=connector,
+            lineage=lineage,
+            datajob=datajob,
+            source_details=source_details,
+            destination_details=destination_details,
+        )
+
+        # Add connector properties to the job
+        connector_properties: Dict[str, str] = {
+            "connector_id": connector.connector_id,
+            "connector_name": connector.connector_name
+            or f"Fivetran-{connector.connector_id}",
+            "connector_type": connector.connector_type,
+            "paused": str(connector.paused),
+            "sync_frequency": str(connector.sync_frequency),
+            "destination_id": connector.destination_id,
+            "source_table": source_table,
+            "destination_table": destination_table,
+            "synthetic": "true",
+            "lineage_only": "true",
+        }
+
+        # Add platform details
+        lineage_properties = self._build_lineage_properties(
+            connector=connector,
+            source_details=source_details,
+            destination_details=destination_details,
+        )
+
+        # Combine all properties
+        datajob.properties = {
+            **connector_properties,
+            **lineage_properties,
+        }
+
+        return datajob
 
     def _report_lineage_truncation(self, connector: Connector) -> None:
         """Report warning about truncated lineage."""

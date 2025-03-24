@@ -21,7 +21,6 @@ from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInte
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
-    MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,7 +93,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
     ) -> List[Connector]:
         """
         Get a list of connectors filtered by the provided patterns.
-        This is the standard version replacement for querying log tables.
+        Enhanced to extract lineage even for connectors without job history.
         """
         connectors: List[Connector] = []
 
@@ -137,9 +136,23 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         logger.info(f"Found {len(connectors)} allowed connectors")
 
+        # Ensure we attempt to extract lineage for all connectors, even inactive ones
+        # We need to do this before processing jobs to make sure lineage is available
+        # for connectors without job history
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
             logger.info("Fetching connector lineage from Fivetran API")
-            self._fill_connectors_lineage(connectors)
+            # Cache the connectors for schema extraction methods
+            self._connector_cache = connectors
+
+            # Process each connector to extract lineage
+            for connector in connectors:
+                try:
+                    self._fill_connector_lineage(connector)
+                except Exception as e:
+                    logger.error(
+                        f"Error extracting lineage for connector {connector.connector_id}: {e}",
+                        exc_info=True,
+                    )
 
         # Process jobs for each connector - enhanced version with better job extraction
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
@@ -147,6 +160,158 @@ class FivetranStandardAPI(FivetranAccessInterface):
             self._process_connector_jobs(connectors, report, syncs_interval)
 
         return connectors
+
+    def _fill_connector_lineage(self, connector: Connector) -> None:
+        """Extract lineage for a single connector with enhanced reliability."""
+        try:
+            logger.info(f"Extracting lineage for connector {connector.connector_id}")
+
+            # Determine destination platform
+            destination_platform = self._get_destination_platform(connector)
+            connector.additional_properties["destination_platform"] = (
+                destination_platform
+            )
+            logger.info(
+                f"Using destination platform {destination_platform} for connector {connector.connector_id}"
+            )
+
+            # First, try direct API approach to get lineage
+            lineage = self.api_client.extract_table_lineage(connector.connector_id)
+            if lineage:
+                connector.lineage = lineage
+                logger.info(
+                    f"Extracted {len(lineage)} table lineage entries directly for connector {connector.connector_id}"
+                )
+                return
+
+            # If direct approach fails, try schema approach
+            schemas = self.api_client.list_connector_schemas(connector.connector_id)
+            if not schemas:
+                logger.warning(
+                    f"No schema information found for connector {connector.connector_id}"
+                )
+                return
+
+            # Use preload_all_columns to get all column information upfront
+            self._preload_all_columns(connector.connector_id, schemas)
+
+            # Log schema diagnostics
+            self._log_schema_diagnostics(schemas)
+
+            # If we still have no columns, try direct fetching and inference
+            if self._should_fetch_missing_columns(schemas):
+                logger.warning(
+                    "Still missing columns after preloading. Attempting additional methods."
+                )
+                self._fetch_missing_columns(connector.connector_id, schemas)
+                self._infer_missing_columns(schemas)
+                self._log_schema_diagnostics(schemas)  # Log updated stats
+
+            # Collect all source columns with their types
+            source_table_columns = self._collect_source_columns(schemas)
+
+            # Process schemas to extract lineage
+            lineage_list = self._process_schemas_for_lineage(
+                connector, schemas, source_table_columns
+            )
+
+            # If no lineage was found but tables exist, create synthetic lineage
+            if not lineage_list:
+                self._create_synthetic_lineage(connector, schemas, destination_platform)
+            else:
+                connector.lineage = lineage_list
+                logger.info(
+                    f"Successfully built {len(lineage_list)} table lineage entries for connector {connector.connector_id}"
+                )
+
+            # Final stats logging
+            self._log_lineage_stats(connector.lineage, connector.connector_id)
+        except Exception as e:
+            logger.error(
+                f"Failed to extract lineage for connector {connector.connector_name}: {e}",
+                exc_info=True,
+            )
+            connector.lineage = []
+
+    def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
+        """
+        Fill in lineage information for connectors by calling the API with enhanced diagnostics.
+        Ensures every connector with schema information gets lineage.
+        """
+        self._connector_cache = connectors
+
+        for connector in connectors:
+            self._fill_connector_lineage(connector)
+
+    def _create_synthetic_lineage(
+        self, connector: Connector, schemas: List[dict], destination_platform: str
+    ) -> None:
+        """Create synthetic lineage for a connector based just on schema and table information."""
+        lineage_list = []
+
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
+            for table in schema.get("tables", []):
+                if not isinstance(table, dict):
+                    continue
+
+                table_name = table.get("name", "")
+                if not table_name or not table.get("enabled", True):
+                    continue
+
+                # Create source table identifier
+                source_table = f"{schema_name}.{table_name}"
+
+                # Get destination names
+                dest_schema = self._get_destination_schema_name(
+                    schema_name, destination_platform
+                )
+                dest_table = self._get_destination_table_name(
+                    table_name, destination_platform
+                )
+                destination_table = f"{dest_schema}.{dest_table}"
+
+                # Create synthetic column lineage if we have column info
+                column_lineage = []
+                columns = table.get("columns", [])
+
+                if isinstance(columns, list):
+                    for column in columns:
+                        col_name = None
+                        if isinstance(column, dict):
+                            col_name = column.get("name")
+                        elif isinstance(column, str):
+                            col_name = column
+
+                        if col_name and not col_name.startswith("_fivetran"):
+                            is_bigquery = destination_platform.lower() == "bigquery"
+                            dest_col = self._transform_column_name_for_platform(
+                                col_name, is_bigquery
+                            )
+                            column_lineage.append(
+                                ColumnLineage(
+                                    source_column=col_name, destination_column=dest_col
+                                )
+                            )
+
+                # Add this table's lineage
+                lineage_list.append(
+                    TableLineage(
+                        source_table=source_table,
+                        destination_table=destination_table,
+                        column_lineage=column_lineage,
+                    )
+                )
+
+        if lineage_list:
+            logger.info(
+                f"Created {len(lineage_list)} synthetic table lineage entries for connector {connector.connector_id}"
+            )
+            # Set the lineage directly on the connector instead of using _lineage_cache
+            connector.lineage = lineage_list
 
     def _process_connector(
         self,
@@ -947,69 +1112,74 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # No match found
         return None
 
-    def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
-        """
-        Fill in lineage information for connectors by calling the API with enhanced diagnostics and robust error handling.
-        """
-        self._connector_cache = connectors
+    def _preload_all_columns(self, connector_id: str, schemas: List[Dict]) -> None:
+        """Preload all column information for a connector's schemas."""
+        import urllib.parse
 
-        for connector in connectors:
+        logger.info(f"Preloading column information for connector {connector_id}")
+
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
             try:
+                # URL-encode the schema name
+                encoded_schema = urllib.parse.quote(schema_name)
+
+                # Fetch all tables for this schema at once
+                logger.debug(f"Fetching all tables for schema {schema_name}")
+                all_tables_response = self.api_client._make_request(
+                    "GET", f"/connectors/{connector_id}/schemas/{encoded_schema}/tables"
+                )
+
+                tables_data = all_tables_response.get("data", {}).get("items", [])
+                if not tables_data:
+                    logger.debug(f"No tables found for schema {schema_name}")
+                    continue
+
+                # Create a lookup of tables by name
+                tables_by_name = {
+                    t.get("name"): t for t in tables_data if t.get("name")
+                }
                 logger.info(
-                    f"Extracting lineage for connector {connector.connector_id}"
+                    f"Found {len(tables_by_name)} tables in schema {schema_name}"
                 )
 
-                # Determine destination platform
-                destination_platform = self._get_destination_platform(connector)
-                connector.additional_properties["destination_platform"] = (
-                    destination_platform
-                )
+                # Update schema tables with column information
+                tables_updated = 0
+                for table in schema.get("tables", []):
+                    table_name = table.get("name")
+                    if not table_name:
+                        continue
+
+                    if (
+                        table_name in tables_by_name
+                        and "columns" in tables_by_name[table_name]
+                    ):
+                        api_table = tables_by_name[table_name]
+
+                        # Only update if we don't already have columns or have fewer columns
+                        existing_columns = table.get("columns", [])
+                        api_columns = api_table.get("columns", [])
+
+                        if not existing_columns or (
+                            len(api_columns) > len(existing_columns)
+                        ):
+                            table["columns"] = api_columns
+                            tables_updated += 1
+                            logger.debug(
+                                f"Preloaded {len(api_columns)} columns for {schema_name}.{table_name}"
+                            )
+
                 logger.info(
-                    f"Using destination platform {destination_platform} for connector {connector.connector_id}"
+                    f"Updated {tables_updated} tables with column information in schema {schema_name}"
                 )
-
-                # Get schema information from API
-                schemas = self.api_client.list_connector_schemas(connector.connector_id)
-
-                # DIAGNOSTIC: Log detailed schema information
-                self._log_schema_diagnostics(schemas)
-
-                # If we have no columns at all, try direct fetching for each table
-                if self._should_fetch_missing_columns(schemas):
-                    logger.warning(
-                        "No columns found in initial schema fetch. Attempting direct table column fetching."
-                    )
-                    self._fetch_missing_columns(connector.connector_id, schemas)
-                    self._log_schema_diagnostics(schemas)  # Log updated stats
-
-                # First, collect all source columns with their types for each table
-                # This will help with generating column-level lineage
-                source_table_columns = self._collect_source_columns(schemas)
-
-                # Process schemas to extract lineage information
-                lineage_list = self._process_schemas_for_lineage(
-                    connector, schemas, source_table_columns
-                )
-
-                # Truncate if necessary
-                if len(lineage_list) > MAX_TABLE_LINEAGE_PER_CONNECTOR:
-                    logger.warning(
-                        f"Connector {connector.connector_name} has {len(lineage_list)} tables, "
-                        f"truncating to {MAX_TABLE_LINEAGE_PER_CONNECTOR}"
-                    )
-                    lineage_list = lineage_list[:MAX_TABLE_LINEAGE_PER_CONNECTOR]
-
-                connector.lineage = lineage_list
-
-                # Final stats logging
-                self._log_lineage_stats(lineage_list, connector.connector_id)
 
             except Exception as e:
-                logger.error(
-                    f"Failed to extract lineage for connector {connector.connector_name}: {e}",
-                    exc_info=True,
+                logger.warning(
+                    f"Error preloading columns for schema {schema_name}: {e}"
                 )
-                connector.lineage = []
 
     def _log_schema_diagnostics(self, schemas: List[Dict]) -> None:
         """Log diagnostic information about schemas and their columns."""
@@ -1245,6 +1415,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
         self, lineage_list: List[TableLineage], connector_id: str
     ) -> None:
         """Log statistics about lineage processing."""
+        if not lineage_list:
+            logger.warning(f"No lineage entries found for connector {connector_id}")
+            return
+
         tables_with_columns = len(
             [
                 table_lineage
