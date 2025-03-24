@@ -1,11 +1,10 @@
 from datetime import datetime
-from typing import List, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 from airflow import DAG
 from airflow.models.baseoperator import BaseOperator
 
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-
 from datahub_airflow_plugin.entities import Urn
 
 ATHENA_COST_TABLE = "costs"
@@ -15,7 +14,7 @@ ATHENA_PROCESSED_TABLE = "processed_costs"
 class CustomOperator(BaseOperator):
     template_fields: Sequence[str] = ("database", "schema")
 
-    def __init__(self, database: str, schema: str, query: str, **kwargs):
+    def __init__(self, database: str, schema: str, query: str, **kwargs: Any):
         super().__init__(**kwargs)
         self.platform = "athena"
         self.database = database
@@ -30,7 +29,7 @@ class CustomOperator(BaseOperator):
         context["ti"].task.inlets = inlets
         context["ti"].task.outlets = outlets
 
-    def _get_lineage(self, context) -> Tuple[List, List]:
+    def _get_lineage(self, context: Any) -> Tuple[List, List]:
         """Extract lineage information from SQL query."""
 
         inlets = []
