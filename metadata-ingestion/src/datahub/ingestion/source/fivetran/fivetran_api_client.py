@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -578,11 +578,57 @@ class FivetranAPIClient:
         2. Try dedicated table API endpoint for tables missing columns
         3. Attempt to infer columns from metadata if available
         """
+        # First identify which tables need column information
+        tables_missing_columns, tables_with_columns, total_tables = (
+            self._identify_tables_missing_columns(schemas)
+        )
+
+        # Log statistics about column availability
+        logger.info(
+            f"Column information stats for connector {connector_id}: "
+            f"{tables_with_columns} tables have columns, "
+            f"{len(tables_missing_columns)} tables missing columns, "
+            f"out of {total_tables} total tables"
+        )
+
+        if not tables_missing_columns:
+            return
+
+        # Process tables in batches
+        self._process_tables_in_batches(tables_missing_columns, connector_id)
+
+        # Count how many tables still don't have column info for
+        tables_still_missing = self._count_tables_still_missing_columns(schemas)
+
+        # Try bulk retrieval approach as a final fallback for any remaining tables
+        if tables_still_missing > 0:
+            logger.info(
+                f"Still missing columns for {tables_still_missing} tables. Attempting bulk schema retrieval as final fallback."
+            )
+            self._try_bulk_column_retrieval(connector_id, schemas)
+
+        # Final count of tables still missing column information
+        tables_still_missing = self._count_tables_still_missing_columns(schemas)
+        logger.info(
+            f"After all retrieval attempts, {tables_still_missing} tables still missing column information"
+        )
+
+    def _identify_tables_missing_columns(
+        self, schemas: List[Dict]
+    ) -> Tuple[List[Dict], int, int]:
+        """
+        Identify tables that are missing column information.
+
+        Returns:
+            Tuple containing:
+            - List of tables missing columns (with schema, table name, and table object)
+            - Count of tables that have columns
+            - Total number of tables
+        """
         tables_missing_columns = []
         tables_with_columns = 0
         total_tables = 0
 
-        # Check if we have tables without column information
         for schema in schemas:
             schema_name = schema.get("name", "")
             for table in schema.get("tables", []):
@@ -607,91 +653,335 @@ class FivetranAPIClient:
                 else:
                     tables_with_columns += 1
 
-        # Log statistics about column availability
-        logger.info(
-            f"Column information stats for connector {connector_id}: "
-            f"{tables_with_columns} tables have columns, "
-            f"{len(tables_missing_columns)} tables missing columns, "
-            f"out of {total_tables} total tables"
-        )
+        return tables_missing_columns, tables_with_columns, total_tables
 
-        if not tables_missing_columns:
-            return
-
-        # Limit the number of API calls to avoid rate limiting
-        tables_to_process = tables_missing_columns[:10]
-        logger.info(
-            f"Fetching column information for {len(tables_to_process)} tables out of {len(tables_missing_columns)} missing column info"
-        )
-
-        # Try to fetch column information for these tables
-        for table_info in tables_to_process:
-            schema_name = table_info["schema"]
-            table_name = table_info["table"]
-            table_obj = table_info["table_obj"]
-
-            # Get columns using the dedicated table API endpoint
-            columns = self.get_table_columns(connector_id, schema_name, table_name)
-
-            if columns:
-                # Update the table object directly with these columns
-                table_obj["columns"] = columns
-                logger.info(
-                    f"Updated {schema_name}.{table_name} with {len(columns)} columns from table API"
-                )
-            else:
-                # If API doesn't return columns, try to infer from metadata
-                logger.warning(
-                    f"Could not get columns for {schema_name}.{table_name} from API, attempting fallback methods"
-                )
-
-                # Try getting metadata that might have column information
-                try:
-                    metadata_path = f"/connectors/{connector_id}/metadata"
-                    metadata_response = self._make_request("GET", metadata_path)
-                    metadata = metadata_response.get("data", {})
-
-                    # Look for column information in metadata
-                    source_objects = metadata.get("source_objects", [])
-                    for obj in source_objects:
-                        if (
-                            isinstance(obj, dict)
-                            and obj.get("name") == table_name
-                            and obj.get("schema") == schema_name
-                        ):
-                            metadata_columns = obj.get("columns", [])
-                            if metadata_columns:
-                                # Convert to our expected format
-                                formatted_columns = []
-                                for col in metadata_columns:
-                                    if isinstance(col, dict) and "name" in col:
-                                        formatted_columns.append(
-                                            {
-                                                "name": col["name"],
-                                                "type": col.get("type", ""),
-                                                "enabled": True,
-                                            }
-                                        )
-
-                                if formatted_columns:
-                                    table_obj["columns"] = formatted_columns
-                                    logger.info(
-                                        f"Inferred {len(formatted_columns)} columns for {schema_name}.{table_name} from metadata"
-                                    )
-                                    break
-                except Exception as e:
-                    logger.warning(f"Failed to get metadata for {connector_id}: {e}")
-
-        # Count how many tables we still don't have column info for
+    def _count_tables_still_missing_columns(self, schemas: List[Dict]) -> int:
+        """Count how many tables still don't have column information."""
         tables_still_missing = 0
         for schema in schemas:
             for table in schema.get("tables", []):
                 if table.get("enabled", True) and not table.get("columns"):
                     tables_still_missing += 1
+        return tables_still_missing
 
-        logger.info(
-            f"After retrieval attempts, {tables_still_missing} tables still missing column information"
-        )
+    def _process_tables_in_batches(
+        self, tables_missing_columns: List[Dict], connector_id: str
+    ) -> None:
+        """Process tables in batches to avoid overwhelming the API."""
+        batch_size = 20
+        total_batches = (len(tables_missing_columns) + batch_size - 1) // batch_size
+
+        # Add retry mechanism for API calls
+        max_retries = 3
+        retry_delay = 5  # seconds
+
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(tables_missing_columns))
+            batch = tables_missing_columns[start_idx:end_idx]
+
+            logger.info(
+                f"Processing batch {batch_num + 1}/{total_batches}: "
+                f"Fetching column information for {len(batch)} tables "
+                f"(tables {start_idx + 1}-{end_idx} out of {len(tables_missing_columns)} missing column info)"
+            )
+
+            # Process each table in the batch
+            batch_success = self._process_batch(
+                batch, connector_id, max_retries, retry_delay
+            )
+
+            # Add a small delay between batches to avoid rate limiting
+            if batch_num < total_batches - 1:
+                logger.info(
+                    f"Batch {batch_num + 1} complete with {batch_success}/{len(batch)} successful retrievals. Pausing briefly before next batch."
+                )
+                time.sleep(2)  # 2 second pause between batches
+
+    def _process_batch(
+        self, batch: List[Dict], connector_id: str, max_retries: int, retry_delay: int
+    ) -> int:
+        """
+        Process a batch of tables to retrieve column information.
+
+        Returns:
+            Number of tables successfully updated with column information.
+        """
+        batch_success = 0
+
+        for table_info in batch:
+            schema_name = table_info["schema"]
+            table_name = table_info["table"]
+            table_obj = table_info["table_obj"]
+
+            # Try to get columns with retry logic
+            if self._get_columns_with_retry(
+                connector_id,
+                schema_name,
+                table_name,
+                table_obj,
+                max_retries,
+                retry_delay,
+            ):
+                batch_success += 1
+
+        return batch_success
+
+    def _get_columns_with_retry(
+        self,
+        connector_id: str,
+        schema_name: str,
+        table_name: str,
+        table_obj: Dict,
+        max_retries: int,
+        retry_delay: int,
+    ) -> bool:
+        """
+        Attempt to get columns for a table with retry logic.
+
+        Returns:
+            True if columns were successfully retrieved, False otherwise.
+        """
+        for retry in range(max_retries):
+            try:
+                # Get columns using the dedicated table API endpoint
+                columns = self.get_table_columns(connector_id, schema_name, table_name)
+
+                if columns:
+                    # Update the table object directly with these columns
+                    table_obj["columns"] = columns
+                    logger.info(
+                        f"Updated {schema_name}.{table_name} with {len(columns)} columns from table API"
+                    )
+                    return True
+
+                elif retry < max_retries - 1:
+                    logger.warning(
+                        f"No columns returned for {schema_name}.{table_name}, retrying ({retry + 1}/{max_retries})..."
+                    )
+                    time.sleep(retry_delay)
+                else:
+                    # If API doesn't return columns after all retries, try to infer from metadata
+                    logger.warning(
+                        f"Could not get columns for {schema_name}.{table_name} from API after {max_retries} attempts, trying fallback methods"
+                    )
+                    if self._try_fallback_column_methods(
+                        connector_id, schema_name, table_name, table_obj
+                    ):
+                        return True
+
+            except Exception as e:
+                if retry < max_retries - 1:
+                    logger.warning(
+                        f"Error fetching columns for {schema_name}.{table_name}, retrying ({retry + 1}/{max_retries}): {e}"
+                    )
+                    time.sleep(retry_delay)
+                else:
+                    logger.warning(
+                        f"Failed to get columns for {schema_name}.{table_name} after {max_retries} attempts: {e}"
+                    )
+                    # Try fallback methods
+                    if self._try_fallback_column_methods(
+                        connector_id, schema_name, table_name, table_obj
+                    ):
+                        return True
+
+        return False
+
+    def _try_fallback_column_methods(
+        self, connector_id: str, schema_name: str, table_name: str, table_obj: Dict
+    ) -> bool:
+        """
+        Try fallback methods to get column information for a table.
+
+        Returns:
+            True if columns were successfully retrieved, False otherwise.
+        """
+        # Try metadata approach first
+        if self._try_metadata_approach(
+            connector_id, schema_name, table_name, table_obj
+        ):
+            return True
+
+        # If metadata approach failed, try similar table approach
+        if self._try_infer_columns_from_similar_tables(
+            connector_id, schema_name, table_name, table_obj
+        ):
+            return True
+
+        return False
+
+    def _try_metadata_approach(
+        self, connector_id: str, schema_name: str, table_name: str, table_obj: Dict
+    ) -> bool:
+        """
+        Try to get column information from connector metadata.
+
+        Returns:
+            True if columns were successfully retrieved, False otherwise.
+        """
+        try:
+            metadata_path = f"/connectors/{connector_id}/metadata"
+            metadata_response = self._make_request("GET", metadata_path)
+            metadata = metadata_response.get("data", {})
+
+            # Look for column information in metadata
+            source_objects = metadata.get("source_objects", [])
+            for obj in source_objects:
+                if (
+                    isinstance(obj, dict)
+                    and obj.get("name") == table_name
+                    and obj.get("schema") == schema_name
+                ):
+                    metadata_columns = obj.get("columns", [])
+                    if metadata_columns:
+                        # Convert to our expected format
+                        formatted_columns = []
+                        for col in metadata_columns:
+                            if isinstance(col, dict) and "name" in col:
+                                formatted_columns.append(
+                                    {
+                                        "name": col["name"],
+                                        "type": col.get("type", ""),
+                                        "enabled": True,
+                                    }
+                                )
+
+                        if formatted_columns:
+                            table_obj["columns"] = formatted_columns
+                            logger.info(
+                                f"Inferred {len(formatted_columns)} columns for {schema_name}.{table_name} from metadata"
+                            )
+                            return True
+        except Exception as e:
+            logger.warning(f"Failed to get metadata for {connector_id}: {e}")
+
+        return False
+
+    def _try_infer_columns_from_similar_tables(
+        self, connector_id: str, schema_name: str, table_name: str, table_obj: Dict
+    ) -> bool:
+        """
+        Try to infer columns by looking for similar tables in the same schema.
+
+        Returns:
+            True if columns were successfully retrieved, False otherwise.
+        """
+        try:
+            # Try to get schema information again with focus on this schema
+            schemas_response = self._make_request(
+                "GET", f"/connectors/{connector_id}/schemas"
+            )
+            schemas = schemas_response.get("data", {}).get("schemas", [])
+
+            if not schemas:
+                return False
+
+            # First look for exact matches in different schemas
+            for schema in schemas:
+                schema_name_check = schema.get("name", "")
+                if schema_name_check != schema_name:  # Different schema
+                    for table in schema.get("tables", []):
+                        if table.get("name") == table_name and table.get("columns"):
+                            # Found exact name match in different schema
+                            table_obj["columns"] = table.get("columns", [])
+                            logger.info(
+                                f"Used columns from exact name match in different schema {schema_name_check} for {table_name}"
+                            )
+                            return True
+
+            # Then look for similar tables in same schema
+            target_schema = next(
+                (s for s in schemas if s.get("name") == schema_name), None
+            )
+            if not target_schema:
+                return False
+
+            import difflib
+
+            best_match = None
+            best_score = 0.7  # Minimum similarity threshold
+            best_columns = []
+
+            for table in target_schema.get("tables", []):
+                if not table.get("columns"):
+                    continue
+
+                check_name = table.get("name", "")
+                if check_name == table_name:
+                    continue
+
+                # Calculate similarity between table names
+                similarity = difflib.SequenceMatcher(
+                    None, table_name, check_name
+                ).ratio()
+                if similarity > best_score:
+                    best_match = check_name
+                    best_score = similarity
+                    best_columns = table.get("columns", [])
+
+            if best_columns:
+                table_obj["columns"] = best_columns
+                logger.info(
+                    f"Inferred {len(best_columns)} columns for {schema_name}.{table_name} from similar table {best_match} (similarity: {best_score:.2f})"
+                )
+                return True
+        except Exception as e:
+            logger.warning(f"Failed to infer columns from similar tables: {e}")
+
+        return False
+
+    def _try_bulk_column_retrieval(
+        self, connector_id: str, schemas: List[Dict]
+    ) -> None:
+        """Attempt to retrieve column information in bulk by fetching all schema information at once"""
+        try:
+            # Make a single request to get all schemas with their tables and columns
+            response = self._make_request(
+                "GET",
+                f"/connectors/{connector_id}/schemas",
+                params={"include_columns": "true"},
+            )
+            api_schemas = response.get("data", {}).get("schemas", [])
+
+            if not api_schemas:
+                logger.warning("Bulk schema retrieval returned no schemas")
+                return
+
+            # Create a lookup map for quick access
+            schema_table_columns = {}
+            for api_schema in api_schemas:
+                schema_name = api_schema.get("name")
+                if not schema_name:
+                    continue
+
+                for api_table in api_schema.get("tables", []):
+                    table_name = api_table.get("name")
+                    if not table_name:
+                        continue
+
+                    key = f"{schema_name}.{table_name}"
+                    schema_table_columns[key] = api_table.get("columns", [])
+
+            # Update our schemas with the retrieved column information
+            tables_updated = 0
+            for schema in schemas:
+                schema_name = schema.get("name", "")
+                for table in schema.get("tables", []):
+                    table_name = table.get("name", "")
+                    if not table_name or table.get("columns"):
+                        continue  # Skip if already has columns
+
+                    key = f"{schema_name}.{table_name}"
+                    if key in schema_table_columns and schema_table_columns[key]:
+                        table["columns"] = schema_table_columns[key]
+                        tables_updated += 1
+
+            logger.info(
+                f"Bulk retrieval updated {tables_updated} tables with column information"
+            )
+        except Exception as e:
+            logger.warning(f"Bulk schema retrieval failed: {e}")
 
     def _process_column_data(self, columns: Any) -> List[Dict]:
         """
