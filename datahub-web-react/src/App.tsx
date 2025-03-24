@@ -21,6 +21,7 @@ import { useCustomTheme } from './customThemeContext';
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
 const errorLink = onError((error) => {
+    console.log(error)
     const { networkError } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
