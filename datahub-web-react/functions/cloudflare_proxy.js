@@ -10,6 +10,7 @@ export function onRequest(context) {
     // https://developers.cloudflare.com/pages/functions/bindings/#environment-variables
     const proxyTarget = new URL(context.env.CLOUDFLARE_BACKEND_PROXY_TARGET);
 
+    console.log(proxyTarget, 'proxyTarget')
     const { request } = context;
     const url = new URL(request.url);
     url.protocol = proxyTarget.protocol;
