@@ -132,7 +132,13 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             extra={
                                 <>
                                     <SectionActionButton
-                                        button={values ? <PencilSimple size={16} /> : <Plus size={16} />}
+                                        button={
+                                            values ? (
+                                                <PencilSimple size={16} weight="regular" />
+                                            ) : (
+                                                <Plus size={16} weight="regular" />
+                                            )
+                                        }
                                         onClick={(event) => {
                                             setSelectedProperty(property);
                                             setIsPropModalVisible(true);
