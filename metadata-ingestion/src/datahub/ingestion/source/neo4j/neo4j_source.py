@@ -28,6 +28,7 @@ from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceCapability,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -157,14 +158,14 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
     def generate_neo4j_object(
         self, dataset: str, columns: list, obj_type: Optional[str] = None
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         try:
             fields = [
                 self.get_schema_field_class(key, value.lower(), obj_type=obj_type)
                 for d in columns
                 for key, value in d.items()
             ]
-            wu = MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=dataset,
@@ -183,9 +184,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     ),
                     fields=fields,
                 ),
-            ).as_workunit()
-            yield wu
-            self.report.report_workunit(wu)
+            )
         except Exception as e:
             log.error(e)
             self.report.report_failure(
@@ -193,6 +192,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
                 context=dataset,
                 exc=e,
             )
+            return None
 
     def get_neo4j_metadata(self, query: str) -> Optional[pd.DataFrame]:
         driver = GraphDatabase.driver(
@@ -340,10 +340,12 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
         for _, row in df.iterrows():
             try:
-                yield from self.generate_neo4j_object(
+                neo4j_obj = self.generate_neo4j_object(
                     columns=row["property_data_types"],
                     dataset=row["key"],
                 )
+                if neo4j_obj:
+                    yield from auto_workunit([neo4j_obj])
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=make_dataset_urn_with_platform_instance(
