@@ -12,7 +12,9 @@ describe("personal notifications test", () => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
         req.reply((res) => {
-          res.body.data.appConfig.featureFlags.emailNotificationsEnabled = true;
+          res.body.data.appConfig.featureFlags.emailNotificationsEnabled = isOn;
+          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
+          res.body.data.appConfig.featureFlags.themeV2Default = true;
         });
       }
     });
