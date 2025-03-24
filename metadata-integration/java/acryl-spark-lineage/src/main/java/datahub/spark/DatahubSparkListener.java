@@ -81,7 +81,10 @@ public class DatahubSparkListener extends SparkListener {
   private static SparkAppContext getSparkAppContext(
       SparkListenerApplicationStart applicationStart) {
     SparkAppContext appContext = new SparkAppContext();
-    appContext.setAppName(applicationStart.appName());
+    String appName = applicationStart.appName().replaceAll("_\\d{8}$", "");
+    log.info("Application Name : {}", appName);
+
+    appContext.setAppName(appName);
     if (applicationStart.appAttemptId().isDefined()) {
       appContext.setAppAttemptId(applicationStart.appAttemptId().get());
     }
