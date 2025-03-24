@@ -124,10 +124,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         url = remove_prefix(
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
+        db_type = "external"
         if "tibero" in url or "oracle" in url:
             url = self._fix_oracle_tibero_url(url)
+            db_type = "tibero" if "tibero" in url else "oracle"
         url_instance = make_url(url)
-        source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+        platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+        source_platform = db_type if platform == "external" else platform
         database_name = url_instance.database or url_instance.query.get("service_name")
         assert database_name
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
