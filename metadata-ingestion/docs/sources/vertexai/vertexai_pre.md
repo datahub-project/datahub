@@ -46,3 +46,35 @@ Please read the section to understand how to set up application default Credenti
      client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
      client_id: "123456678890"
    ```
+
+### Integration Details
+
+Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and Experiment Runs in a given project and region on Vertex AI. 
+
+#### Concept Mapping
+
+This ingestion source maps the following Source System Concepts to DataHub Concepts:
+
+### Concept Mapping
+
+This ingestion source maps the following MLflow Concepts to DataHub Concepts:
+
+|                                                       Source Concept                                                       |                                              DataHub Concept                                              | Notes                                                                                                                                                                                                                                                      |
+|:--------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------:|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|                         [`Model`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Model)                         |        [`MlModelGroup`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodelgroup/)        | The name of a Model Group is the same as Model's name. Registered Models serve as containers for multiple versions of the same model in MLflow.                                                                                                            |
+|                      [`Model Version`](https://cloud.google.com/vertex-ai/docs/model-registry/versioning)                       |             [`MlModel`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodel/)             | The name of a Model is `{registered_model_name}{model_name_separator}{model_version}` (e.g. my_vertexai_model_1 for registered model to Model Registry. Each Model Version represents a specific iteration of a model with its own artifacts and metadata. |
+|     [`Dataset`] (https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.TextDataset)     |             [`Dataset`](https://datahubproject.io/docs/generated/metamodel/entities/dataset)              | Each Experiment in Vertex AI is mapped to a Container in DataHub. Experiments organize related runs and serve as logical groupings for model development iterations, allowing tracking of parameters, metrics, and artifacts.                              |
+|  [`AutoML Job`](https://cloud.google.com/vertex-ai/docs/beginner/beginners-guide)   |      [`DataProcessInstance`](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance/)      | Each Training Job in VertexAI is mapped as DataProcessInstance in DataHub.                                                                                                                                                                                 |
+|    [`Experiment`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Experiment)     |           [`Container`](https://datahubproject.io/docs/generated/metamodel/entities/container/)           | Each Experiment in Vertex AI is mapped to a Container in DataHub. Experiments organize related runs and serve as logical groupings for model development iterations, allowing tracking of parameters, metrics, and artifacts.                              |
+| [`Experiment Run`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.ExperimentRun) | [`DataProcessInstance`](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance/) | Captures the run's execution details, parameters, metrics, and lineage to a model.                                                                                                                                                                         |
+
+
+#### Lineage
+
+Lineage is emitted using Vertex AI API for
+
+- Output Model training by AutoML Job  
+- Input Dataset used by Auto ML Job 
+- Endpoint to which a Model is deployed 
+- Experiment runs executed in an Experiment 
+
