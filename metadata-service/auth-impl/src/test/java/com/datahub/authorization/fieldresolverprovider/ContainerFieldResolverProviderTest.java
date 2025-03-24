@@ -1,7 +1,6 @@
 package com.datahub.authorization.fieldresolverprovider;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -64,7 +63,7 @@ public class ContainerFieldResolverProviderTest
     when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
+            eq(Urn.createFromString(RESOURCE_URN)),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(null);
 
@@ -72,12 +71,6 @@ public class ContainerFieldResolverProviderTest
         containerFieldResolverProvider.getFieldResolver(systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
-    verify(entityClientMock, times(1))
-        .getV2(
-            eq(systemOperationContext),
-            eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
   }
 
   @Test
@@ -88,7 +81,7 @@ public class ContainerFieldResolverProviderTest
     when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
+            eq(Urn.createFromString(RESOURCE_URN)),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
@@ -96,12 +89,6 @@ public class ContainerFieldResolverProviderTest
         containerFieldResolverProvider.getFieldResolver(systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
-    verify(entityClientMock, times(1))
-        .getV2(
-            eq(systemOperationContext),
-            eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
   }
 
   @Test
@@ -110,7 +97,7 @@ public class ContainerFieldResolverProviderTest
     when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
+            eq(Urn.createFromString(RESOURCE_URN)),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
@@ -118,12 +105,6 @@ public class ContainerFieldResolverProviderTest
         containerFieldResolverProvider.getFieldResolver(systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
-    verify(entityClientMock, times(1))
-        .getV2(
-            eq(systemOperationContext),
-            eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
   }
 
   @Test
@@ -139,42 +120,69 @@ public class ContainerFieldResolverProviderTest
     when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
+            eq(Urn.createFromString(RESOURCE_URN)),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
     var result =
         containerFieldResolverProvider.getFieldResolver(systemOperationContext, RESOURCE_SPEC);
 
-    assertEquals(Set.of(CONTAINER_URN), result.getFieldValuesFuture().join().getValues());
-    verify(entityClientMock, times(1))
-        .getV2(
+    assertEquals(result.getFieldValuesFuture().join().getValues(), Set.of(CONTAINER_URN));
+  }
+
+  @Test
+  public void shouldReturnFieldValueWithAncestorContainersOfTheResource()
+      throws RemoteInvocationException, URISyntaxException {
+
+    var container = new Container().setContainer(Urn.createFromString(CONTAINER_URN));
+    var entityResponseMock = mock(EntityResponse.class);
+    var envelopedAspectMap = new EnvelopedAspectMap();
+    envelopedAspectMap.put(
+        CONTAINER_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(container.data())));
+    when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
+    when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
-            any(Urn.class),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+            eq(Urn.createFromString(RESOURCE_URN)),
+            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
+        .thenReturn(entityResponseMock);
+
+    container = new Container().setContainer(Urn.createFromString(CONTAINER_URN + "_parent"));
+    entityResponseMock = mock(EntityResponse.class);
+    envelopedAspectMap = new EnvelopedAspectMap();
+    envelopedAspectMap.put(
+        CONTAINER_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(container.data())));
+    when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
+    when(entityClientMock.getV2(
+            eq(systemOperationContext),
+            eq(CONTAINER_ENTITY_NAME),
+            eq(Urn.createFromString(CONTAINER_URN)),
+            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
+        .thenReturn(entityResponseMock);
+
+    var result =
+        containerFieldResolverProvider.getFieldResolver(systemOperationContext, RESOURCE_SPEC);
+
+    assertEquals(
+        result.getFieldValuesFuture().join().getValues(),
+        Set.of(CONTAINER_URN, CONTAINER_URN + "_parent"));
   }
 
   @Test
   public void shouldReturnFieldValueAsContainerItself()
-          throws RemoteInvocationException, URISyntaxException {
+      throws RemoteInvocationException, URISyntaxException {
 
     when(entityClientMock.getV2(
             eq(systemOperationContext),
             eq(CONTAINER_ENTITY_NAME),
-            any(Urn.class),
+            eq(Urn.createFromString(CONTAINER_URN)),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-            .thenReturn(null);
+        .thenReturn(null);
 
     var result =
-            containerFieldResolverProvider.getFieldResolver(systemOperationContext, new EntitySpec(CONTAINER_ENTITY_NAME, CONTAINER_URN));
+        containerFieldResolverProvider.getFieldResolver(
+            systemOperationContext, new EntitySpec(CONTAINER_ENTITY_NAME, CONTAINER_URN));
 
-    assertEquals(Set.of(CONTAINER_URN), result.getFieldValuesFuture().join().getValues());
-    verify(entityClientMock, times(1))
-            .getV2(
-                    eq(systemOperationContext),
-                    eq(CONTAINER_ENTITY_NAME),
-                    any(Urn.class),
-                    eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+    assertEquals(result.getFieldValuesFuture().join().getValues(), Set.of(CONTAINER_URN));
   }
 }
