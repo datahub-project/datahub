@@ -19,8 +19,8 @@ const colors = {
         1200: '#FBF3EF',
         1300: '#F7FBF4',
         1400: '#E9EAEE',
-        1500: '#F9FAFC', // hover color
-        1600: '#F5F6FA',
+        1500: '#F9FAFC',
+        1600: '#F5F6FA', // hover color
         1700: '#5F6685', // secondary text color
         1800: '#8088A3', // tertiary text color and icon color
         1900: '#A3A7B9',
