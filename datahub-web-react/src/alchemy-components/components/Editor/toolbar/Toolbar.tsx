@@ -36,6 +36,11 @@ const Container = styled.div`
     box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 `;
 
+const CustomDivider = styled(Divider)`
+    height: 100%;
+    margin: 0 6px;
+`;
+
 export const Toolbar = () => {
     const commands = useCommands();
     const active = useActive(true);
@@ -43,7 +48,7 @@ export const Toolbar = () => {
     return (
         <Container>
             <HeadingMenu />
-            <Divider type="vertical" style={{ height: '100%' }} />
+            <CustomDivider type="vertical" />
             <CommandButton
                 icon={<TextB size={24} color={colors.gray[1800]} />}
                 style={{ marginRight: 2 }}

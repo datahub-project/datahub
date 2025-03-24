@@ -20,4 +20,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     errorOnHover?: boolean;
     id?: string;
     type?: string;
+    styles?: React.CSSProperties;
+    inputStyles?: React.CSSProperties;
+    inputTestId?: string;
 }

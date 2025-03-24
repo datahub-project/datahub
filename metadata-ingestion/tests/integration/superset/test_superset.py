@@ -695,6 +695,7 @@ def test_superset_stateful_ingest(
                 "provider": "db",
                 # Enable dataset ingestion
                 "ingest_datasets": True,
+                "timeout": 10,
                 # enable stateful ingestion
                 "stateful_ingestion": {
                     "enabled": True,
