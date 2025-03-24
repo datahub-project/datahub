@@ -10113,10 +10113,18 @@ type MLModelGroupProperties {
     customProperties: [CustomPropertiesEntry!]
 
     """
+    URL to view this model group in the external system
+    """
+    externalUrl: String
+
+
+    """
     Deprecated creation timestamp
     @deprecated Use the 'created' field instead
     """
     createdAt: Long @deprecated(reason: "Use `created` instead")
+
+    
 }
 
 """
