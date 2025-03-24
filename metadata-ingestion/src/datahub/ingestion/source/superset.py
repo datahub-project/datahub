@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -72,6 +73,9 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -79,6 +83,10 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
@@ -180,6 +188,10 @@ class SupersetConfig(
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
+
+    timeout: int = Field(
+        default=10, description="Timeout of single API call to superset."
+    )
 
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -285,13 +297,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        # Test the connection
         test_response = requests_session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/"
+            f"{self.config.connect_uri}/api/v1/dashboard/",
+            timeout=self.config.timeout,
         )
-        if test_response.status_code == 200:
-            pass
-            # TODO(Gabe): how should we message about this error?
+        if test_response.status_code != 200:
+            # throw an error and terminate ingestion,
+            # cannot proceed without access token
+            logger.error(
+                f"Failed to log in to Superset with status: {test_response.status_code}"
+            )
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
@@ -302,6 +317,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/{entity_type}",
                 params={"q": f"(page:{current_page},page_size:{page_size})"},
+                timeout=self.config.timeout,
             )
 
             if response.status_code != 200:
@@ -339,10 +355,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            timeout=self.config.timeout,
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")
-            dataset_response.raise_for_status()
+            return {}
         return dataset_response.json()
 
     def get_datasource_urn_from_id(
@@ -393,8 +410,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
@@ -506,8 +524,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(chart_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
 
@@ -680,6 +699,88 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def generate_virtual_dataset_lineage(
+        self,
+        parsed_query_object: SqlParsingResult,
+        datasource_urn: str,
+    ) -> UpstreamLineageClass:
+        cll = (
+            parsed_query_object.column_lineage
+            if parsed_query_object.column_lineage is not None
+            else []
+        )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for cll_info in cll:
+            downstream = (
+                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                if cll_info.downstream and cll_info.downstream.column
+                else []
+            )
+            upstreams = [
+                make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=input_table_urn,
+                )
+                for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
+    def generate_physical_dataset_lineage(
+        self,
+        dataset_response: dict,
+        upstream_dataset: str,
+        datasource_urn: str,
+    ) -> UpstreamLineageClass:
+        # To generate column level lineage, we can manually decode the metadata
+        # to produce the ColumnLineageInfo
+        columns = dataset_response.get("result", {}).get("columns", [])
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for column in columns:
+            column_name = column.get("column_name", "")
+            if not column_name:
+                continue
+
+            downstream = [make_schema_field_urn(datasource_urn, column_name)]
+            upstreams = [make_schema_field_urn(upstream_dataset, column_name)]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=upstream_dataset,
+                )
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
@@ -692,14 +793,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dataset_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
+        upstream_warehouse_db_name = (
+            dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+
+        # if we have rendered sql, we always use that and defualt back to regular sql
+        sql = dataset_response.get("result", {}).get(
+            "rendered_sql"
+        ) or dataset_response.get("result", {}).get("sql")
 
         # Preset has a way of naming their platforms differently than
         # how datahub names them, so map the platform name to the correct naming
@@ -712,22 +822,28 @@ class SupersetSource(StatefulIngestionSourceBase):
         if upstream_warehouse_platform in warehouse_naming:
             upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
 
-        # TODO: Categorize physical vs virtual upstream dataset
-        # mark all upstream dataset as physical for now, in the future we would ideally like
-        # to differentiate physical vs virtual upstream datasets
-        tag_urn = f"urn:li:tag:{self.platform}:physical"
         upstream_dataset = self.get_datasource_urn_from_id(
             dataset_response, upstream_warehouse_platform
         )
-        upstream_lineage = UpstreamLineageClass(
-            upstreams=[
-                UpstreamClass(
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    dataset=upstream_dataset,
-                    properties={"externalUrl": dataset_url},
-                )
-            ]
-        )
+
+        # Sometimes the field will be null instead of not existing
+        if sql == "null" or not sql:
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_lineage = self.generate_physical_dataset_lineage(
+                dataset_response, upstream_dataset, datasource_urn
+            )
+        else:
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            parsed_query_object = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=upstream_warehouse_db_name,
+                platform=upstream_warehouse_platform,
+                platform_instance=None,
+                env=self.config.env,
+            )
+            upstream_lineage = self.generate_virtual_dataset_lineage(
+                parsed_query_object, datasource_urn
+            )
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,

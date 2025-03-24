@@ -1,5 +1,6 @@
 namespace com.linkedin.dataprocess
 
+import com.linkedin.common.Edge
 import com.linkedin.common.Urn
 
 /**
@@ -10,14 +11,12 @@ import com.linkedin.common.Urn
 }
 record DataProcessInstanceOutput {
   /**
-   * Output datasets to be produced
+   * Output assets produced
    */
   @Relationship = {
     "/*": {
       "name": "Produces",
-      "entityTypes": [ "dataset", "mlModel" ],
-      "isLineage": true,
-      "isUpstream": false
+      "entityTypes": [ "dataset", "mlModel" ]
     }
   }
   @Searchable = {
@@ -31,4 +30,23 @@ record DataProcessInstanceOutput {
   }
   outputs: array[Urn]
 
+  /**
+   * Output assets produced by the data process instance during processing, with additional metadata.
+   * Counts as lineage.
+   * Will eventually deprecate the outputs field.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DataProcessInstanceProduces",
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
+      "isUpstream": false,
+      "isLineage": true,
+      "createdOn": "outputEdges/*/created/time"
+      "createdActor": "outputEdges/*/created/actor"
+      "updatedOn": "outputEdges/*/lastModified/time"
+      "updatedActor": "outputEdges/*/lastModified/actor"
+      "properties": "outputEdges/*/properties"
+    }
+  }
+  outputEdges: optional array[Edge]
 }

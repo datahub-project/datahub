@@ -362,6 +362,7 @@ class AvroToMceSchemaConverter:
                 merged_props: Dict[str, Any] = {}
                 merged_props.update(self._schema.other_props)
                 merged_props.update(schema.other_props)
+                merged_props.update(actual_schema.other_props)
 
                 # Parse meta_mapping
                 meta_aspects: Dict[str, Any] = {}
