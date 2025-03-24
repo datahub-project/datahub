@@ -232,7 +232,6 @@ def test_get_training_jobs_mcps(
     source: VertexAISource,
 ) -> None:
     mock_training_job = gen_mock_training_custom_job()
-    mock_training_automl_job = gen_mock_training_automl_job()
     with contextlib.ExitStack() as exit_stack:
         for func_to_mock in [
             "google.cloud.aiplatform.init",
