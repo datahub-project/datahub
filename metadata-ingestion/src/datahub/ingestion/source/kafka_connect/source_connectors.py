@@ -572,6 +572,143 @@ class DebeziumSourceConnector(BaseConnector):
 
 
 @dataclass
+class KafkaMirrorSourceConnector(BaseConnector):
+    @dataclass
+    class KafkaMirrorSourceParser:
+        source_url: Optional[str]
+        source_platform: str
+        source_topics: List[str]
+        target_prefix: Optional[str]
+        target_source_map: Optional[Dict[str, str]]
+        source_cluster: str
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> KafkaMirrorSourceParser:
+        topic_map = connector_manifest.config.get("replication.policy.naming")
+        parser = self.KafkaMirrorSourceParser(
+            source_url=connector_manifest.config.get(
+                "source.cluster.bootstrap.servers"
+            ),
+            source_platform="kafka",
+            source_topics=connector_manifest.config.get("topics").split(","),
+            # replication.policy.class = com.spitha.replicationpolicy.FeliceNamingReplicationPolicy 일 경우
+            target_source_map={
+                item.split(":")[1]: item.split(":")[0]
+                for item in (topic_map or "").split(",")
+                if ":" in item
+            },
+            # replication.policy.class = com.spitha.replicationpolicy.FeliceAffixReplicationPolicy 일 경우
+            target_prefix=connector_manifest.config.get("replication.policy.prefix"),
+            source_cluster="krsa-vdsp-prd",  # TODO : 매핑 필요
+        )
+        return parser
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            # FeliceNamingReplicationPolicy 일 경우 map 에서 source_topic 추출
+            # FeliceAffixReplicationPolicy 일 경우 prefix 를 뺀 name 이 source_topic
+            source_topic = parser.target_source_map.get(topic) or topic.removeprefix(
+                parser.target_prefix + "-"
+            )
+            lineage = KafkaConnectLineage(
+                source_dataset=source_topic,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+                job_property_bag={"source_platform_instance": parser.source_cluster},
+            )
+            lineages.append(lineage)
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        exclude_keywords = ["sasl", "security", "username", "password"]
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if (all(keyword not in k for keyword in exclude_keywords))
+        }
+
+        return flow_property_bag
+
+
+@dataclass
+class VMetaSourceConnector(BaseConnector):
+    @dataclass
+    class VMetaSourceSourceParser:
+        source_url: Optional[str]
+        source_platform: str
+        source_topics: List[str]
+        target_source_map: Dict[str, str]
+        source_cluster: str
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> VMetaSourceSourceParser:
+        topic_map = connector_manifest.config.get("kafka.src.sink.topic.map")
+        parser = self.VMetaSourceSourceParser(
+            source_url=connector_manifest.config.get("kafka.src.bootstrap"),
+            source_platform="kafka",
+            source_topics=connector_manifest.config.get("kafka.src.topic").split(","),
+            target_source_map={
+                item.split(">>")[1]: item.split(">>")[0]
+                for item in (topic_map or "").split(",")
+                if ">>" in item
+            },
+            source_cluster="krsa-vdsp-prd",  # TODO : 매핑 필요
+        )
+        return parser
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            if parser.target_source_map and parser.target_source_map.get(topic):
+                source_topic = parser.target_source_map.get(topic)
+                source_topics = [source_topic]
+            else:
+                source_topics = parser.source_topics
+
+            for source_topic in source_topics:
+                lineage = KafkaConnectLineage(
+                    source_dataset=source_topic,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                    job_property_bag={
+                        "source_platform_instance": parser.source_cluster
+                    },
+                )
+                lineages.append(lineage)
+
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        exclude_keywords = ["sasl", "security"]
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if (all(keyword not in k for keyword in exclude_keywords))
+        }
+
+        return flow_property_bag
+
+
+@dataclass
 class ConfigDrivenSourceConnector(BaseConnector):
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         lineages = []
@@ -593,3 +730,7 @@ class ConfigDrivenSourceConnector(BaseConnector):
 JDBC_SOURCE_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSourceConnector"
 DEBEZIUM_SOURCE_CONNECTOR_PREFIX = "io.debezium.connector"
 MONGO_SOURCE_CONNECTOR_CLASS = "com.mongodb.kafka.connect.MongoSourceConnector"
+KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS = (
+    "org.apache.kafka.connect.mirror.MirrorSourceConnector"
+)
+VMETA_SOURCE_CONNECTOR_CLASS = "VMetaSourceConnector"

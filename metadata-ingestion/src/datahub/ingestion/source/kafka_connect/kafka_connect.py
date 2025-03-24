@@ -42,11 +42,15 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
     JDBC_SOURCE_CONNECTOR_CLASS,
+    KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS,
     MONGO_SOURCE_CONNECTOR_CLASS,
+    VMETA_SOURCE_CONNECTOR_CLASS,
     ConfigDrivenSourceConnector,
     ConfluentJDBCSourceConnector,
     DebeziumSourceConnector,
+    KafkaMirrorSourceConnector,
     MongoSourceConnector,
+    VMetaSourceConnector,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -141,6 +145,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = DebeziumSourceConnector
                 elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
                     class_type = MongoSourceConnector
+                elif connector_class_value == KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS:
+                    class_type = KafkaMirrorSourceConnector
+                elif connector_class_value == VMETA_SOURCE_CONNECTOR_CLASS:
+                    class_type = VMetaSourceConnector
                 elif any(
                     [
                         connector.connector_name == connector_manifest.name
@@ -280,9 +288,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 target_platform = lineage.target_platform
                 job_property_bag = lineage.job_property_bag
 
-                source_platform_instance = get_platform_instance(
-                    self.config, connector_name, source_platform
-                )
+                if job_property_bag and "source_platform_instance" in job_property_bag:
+                    source_platform_instance = job_property_bag.get(
+                        "source_platform_instance"
+                    )
+                else:
+                    source_platform_instance = get_platform_instance(
+                        self.config, connector_name, source_platform
+                    )
+
                 target_platform_instance = get_platform_instance(
                     self.config, connector_name, target_platform
                 )
