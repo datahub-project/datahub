@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
@@ -22,6 +21,7 @@ from datahub.ingestion.source.hex.model import (
     Project,
     Status,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class HexApiUser(BaseModel):
     email: str
 
 
-class HexApiAccessType(str, Enum):
+class HexApiAccessType(StrEnum):
     """Access type enum."""
 
     NONE = "NONE"
@@ -153,7 +153,7 @@ class HexApiSharing(BaseModel):
         extra = "ignore"  # Allow extra fields in the JSON
 
 
-class HexApiItemType(str, Enum):
+class HexApiItemType(StrEnum):
     """Item type enum."""
 
     PROJECT = "PROJECT"
