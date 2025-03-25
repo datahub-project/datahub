@@ -1235,7 +1235,7 @@ enum EntityType {
     """
     Represents a deployment of an ML Model
     """
-    ML_MODEL_DEPLOYMENT
+    MLMODEL_DEPLOYMENT
 }
 
 """
@@ -10397,7 +10397,7 @@ type MLModelDeployment implements Entity {
     """
     Name of the deployment 
     """
-    name: String!
+    name: String
 
     """
     Platform information of the deployment
