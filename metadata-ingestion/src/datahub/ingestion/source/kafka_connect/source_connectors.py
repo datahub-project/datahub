@@ -586,11 +586,14 @@ class KafkaMirrorSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> KafkaMirrorSourceParser:
+        source_url = connector_manifest.config.get("source.cluster.bootstrap.servers")
+        platform_instance_key = next(
+            (k for k in self.config.extra_platform_instance_map if k in source_url),
+            None,
+        )
         topic_map = connector_manifest.config.get("replication.policy.naming")
         parser = self.KafkaMirrorSourceParser(
-            source_url=connector_manifest.config.get(
-                "source.cluster.bootstrap.servers"
-            ),
+            source_url=source_url,
             source_platform="kafka",
             source_topics=connector_manifest.config.get("topics").split(","),
             # replication.policy.class = com.spitha.replicationpolicy.FeliceNamingReplicationPolicy 일 경우
@@ -601,7 +604,9 @@ class KafkaMirrorSourceConnector(BaseConnector):
             },
             # replication.policy.class = com.spitha.replicationpolicy.FeliceAffixReplicationPolicy 일 경우
             target_prefix=connector_manifest.config.get("replication.policy.prefix"),
-            source_cluster="krsa-vdsp-prd",  # TODO : 매핑 필요
+            source_cluster=self.config.extra_platform_instance_map.get(
+                platform_instance_key
+            ),
         )
         return parser
 
@@ -624,7 +629,9 @@ class KafkaMirrorSourceConnector(BaseConnector):
                 source_platform=source_platform,
                 target_dataset=topic,
                 target_platform=KAFKA,
-                job_property_bag={"source_platform_instance": parser.source_cluster},
+                job_property_bag={"source_platform_instance": parser.source_cluster}
+                if parser.source_cluster
+                else {},
             )
             lineages.append(lineage)
         return lineages
@@ -655,8 +662,13 @@ class VMetaSourceConnector(BaseConnector):
         connector_manifest: ConnectorManifest,
     ) -> VMetaSourceSourceParser:
         topic_map = connector_manifest.config.get("kafka.src.sink.topic.map")
+        source_url = connector_manifest.config.get("kafka.src.bootstrap")
+        platform_instance_key = next(
+            (k for k in self.config.extra_platform_instance_map if k in source_url),
+            None,
+        )
         parser = self.VMetaSourceSourceParser(
-            source_url=connector_manifest.config.get("kafka.src.bootstrap"),
+            source_url=source_url,
             source_platform="kafka",
             source_topics=connector_manifest.config.get("kafka.src.topic").split(","),
             target_source_map={
@@ -664,7 +676,9 @@ class VMetaSourceConnector(BaseConnector):
                 for item in (topic_map or "").split(",")
                 if ">>" in item
             },
-            source_cluster="krsa-vdsp-prd",  # TODO : 매핑 필요
+            source_cluster=self.config.extra_platform_instance_map.get(
+                platform_instance_key
+            ),
         )
         return parser
 
@@ -689,9 +703,9 @@ class VMetaSourceConnector(BaseConnector):
                     source_platform=source_platform,
                     target_dataset=topic,
                     target_platform=KAFKA,
-                    job_property_bag={
-                        "source_platform_instance": parser.source_cluster
-                    },
+                    job_property_bag={"source_platform_instance": parser.source_cluster}
+                    if parser.source_cluster
+                    else {},
                 )
                 lineages.append(lineage)
 

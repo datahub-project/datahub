@@ -77,7 +77,10 @@ class KafkaConnectSourceConfig(
         default=[],
         description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector, Debezium Source Connector, and Mongo Source Connector",
     )
-
+    extra_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description='Platform instance mapping when multiple instances for a platform is available. Defines platform instance mappings for cases not covered by `platform_instance_map` or `connect_to_platform_map`. Use `extra_platform_instance_map` with the format `host_ip: platform`. Example: `extra_platform_instance_map: {"10.0.0.1": "hive"}`',
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
