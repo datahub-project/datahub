@@ -64,7 +64,7 @@ public class ProposeDomainResolverTest {
     // Stub the ActionRequestService for schema field Domain
     Urn proposedRequestUrn = UrnUtils.getUrn("urn:li:actionRequest:999");
     when(mockActionRequestService.proposeEntityDomain(
-            any(), any(Urn.class), eq(UrnUtils.getUrn("urn:li:domain:Test-Domain"))))
+            any(), any(Urn.class), eq(UrnUtils.getUrn("urn:li:domain:Test-Domain")), eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -77,7 +77,8 @@ public class ProposeDomainResolverTest {
         .proposeEntityDomain(
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn("urn:li:dataset:123")),
-            eq(UrnUtils.getUrn("urn:li:domain:Test-Domain")));
+            eq(UrnUtils.getUrn("urn:li:domain:Test-Domain")),
+            eq(null));
   }
 
   @Test
@@ -132,7 +133,7 @@ public class ProposeDomainResolverTest {
     doThrow(new RemoteInvocationException("Downstream service unreachable"))
         .when(mockActionRequestService)
         .proposeEntityDomain(
-            any(), any(Urn.class), eq(UrnUtils.getUrn("urn:li:domain:Test-Domain")));
+            any(), any(Urn.class), eq(UrnUtils.getUrn("urn:li:domain:Test-Domain")), eq(null));
 
     // WHEN & THEN
     try {

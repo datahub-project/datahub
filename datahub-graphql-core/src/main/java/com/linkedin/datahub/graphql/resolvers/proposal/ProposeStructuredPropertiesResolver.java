@@ -44,6 +44,7 @@ public class ProposeStructuredPropertiesResolver implements DataFetcher<Completa
         bindArgument(environment.getArgument("input"), ProposeStructuredPropertiesInput.class);
     final String targetUrnStr = input.getResourceUrn();
     final List<StructuredPropertyInputParams> propertyParams = input.getStructuredProperties();
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -53,21 +54,23 @@ public class ProposeStructuredPropertiesResolver implements DataFetcher<Completa
           // Step 2: raise the proposal.
           try {
             if (SubResourceType.DATASET_FIELD.equals(input.getSubResourceType())) {
-              // Propose Schema Field Tags
+              // Propose Schema Field Structured Properties
               return this.actionRequestService
                   .proposeSchemaFieldStructuredProperties(
                       context.getOperationContext(),
                       toUrn(targetUrnStr),
                       input.getSubResource(),
-                      toStructuredPropertyValueAssignments(propertyParams))
+                      toStructuredPropertyValueAssignments(propertyParams),
+                      description)
                   .toString();
             } else {
-              // Propose Asset Tags
+              // Propose Asset Structured Properties
               return this.actionRequestService
                   .proposeEntityStructuredProperties(
                       context.getOperationContext(),
                       toUrn(targetUrnStr),
-                      toStructuredPropertyValueAssignments(propertyParams))
+                      toStructuredPropertyValueAssignments(propertyParams),
+                      description)
                   .toString();
             }
           } catch (Exception e) {

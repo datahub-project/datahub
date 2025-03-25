@@ -42,6 +42,7 @@ public class ProposeOwnersResolver implements DataFetcher<CompletableFuture<Stri
         bindArgument(environment.getArgument("input"), ProposeOwnersInput.class);
     final List<OwnerInput> owners = input.getOwners();
     final String targetUrnStr = input.getResourceUrn();
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -53,7 +54,10 @@ public class ProposeOwnersResolver implements DataFetcher<CompletableFuture<Stri
             // Propose Asset Owners
             return this.actionRequestService
                 .proposeEntityOwners(
-                    context.getOperationContext(), toUrn(targetUrnStr), toOwners(owners))
+                    context.getOperationContext(),
+                    toUrn(targetUrnStr),
+                    toOwners(owners),
+                    description)
                 .toString();
           } catch (Exception e) {
             if (e instanceof ActionRequestService.MalformedActionRequestException) {

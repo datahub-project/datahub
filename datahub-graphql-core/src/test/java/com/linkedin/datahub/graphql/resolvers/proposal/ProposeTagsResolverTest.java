@@ -75,8 +75,8 @@ public class ProposeTagsResolverTest {
             eq("fieldName"),
             Mockito.eq(
                 ImmutableList.of(
-                    UrnUtils.getUrn("urn:li:tag:TestTag"),
-                    UrnUtils.getUrn("urn:li:tag:TestTag2")))))
+                    UrnUtils.getUrn("urn:li:tag:TestTag"), UrnUtils.getUrn("urn:li:tag:TestTag2"))),
+            eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -90,7 +90,8 @@ public class ProposeTagsResolverTest {
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn("urn:li:dataset:123")),
             eq("fieldName"),
-            anyList());
+            anyList(),
+            eq(null));
   }
 
   @Test
@@ -115,7 +116,8 @@ public class ProposeTagsResolverTest {
             Mockito.eq(
                 ImmutableList.of(
                     UrnUtils.getUrn("urn:li:tag:TestTag2"),
-                    UrnUtils.getUrn("urn:li:tag:TestTag3")))))
+                    UrnUtils.getUrn("urn:li:tag:TestTag3"))),
+            eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -128,7 +130,8 @@ public class ProposeTagsResolverTest {
         .proposeEntityTags(
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn("urn:li:dataset:456")),
-            anyList());
+            anyList(),
+            eq(null));
   }
 
   @Test
@@ -186,7 +189,7 @@ public class ProposeTagsResolverTest {
     // Stub the service to throw MalformedActionRequestException
     doThrow(new ActionRequestService.MalformedActionRequestException("Invalid request"))
         .when(mockActionRequestService)
-        .proposeSchemaFieldTags(any(), any(Urn.class), eq("fieldName"), anyList());
+        .proposeSchemaFieldTags(any(), any(Urn.class), eq("fieldName"), anyList(), eq(null));
 
     // WHEN & THEN
     try {
@@ -219,7 +222,7 @@ public class ProposeTagsResolverTest {
     // Stub the service to throw RemoteInvocationException
     doThrow(new RemoteInvocationException("Downstream service unreachable"))
         .when(mockActionRequestService)
-        .proposeSchemaFieldTags(any(), any(Urn.class), eq("fieldName"), anyList());
+        .proposeSchemaFieldTags(any(), any(Urn.class), eq("fieldName"), anyList(), eq(null));
 
     // WHEN & THEN
     try {

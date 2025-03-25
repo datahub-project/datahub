@@ -143,6 +143,10 @@ public class ActionRequestUtils {
         actionRequest.setSubResource(actionRequestInfo.getSubResource());
         actionRequest.setSubResourceType(actionRequestInfo.getSubResourceType());
 
+        if (actionRequestInfo.hasDescription()) {
+          actionRequest.setDescription(actionRequestInfo.getDescription());
+        }
+
         final ResolvedAuditStamp createdStamp = new ResolvedAuditStamp();
         final CorpUser emptyCreatedUser = new CorpUser();
         emptyCreatedUser.setUrn(actionRequestInfo.getCreatedBy().toString());
