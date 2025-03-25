@@ -1,7 +1,6 @@
 import contextlib
 import json
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -207,24 +206,12 @@ class ToolMetaExtractor:
     def _extract_hex_query(self, entry: QueryLog) -> bool:
         """
         Returns:
-            bool: whether QueryLog entry is that of hex and hex project info
-            is extracted into entry.
+            bool: whether QueryLog entry is that of hex.
         """
         last_line = _get_last_line(entry.query_text)
 
         if not last_line.startswith("-- Hex query metadata:"):
             return False
-
-        entry.extra_info = entry.extra_info or {}
-        project_id_match = re.search(r'"project_id"\s*:\s*"([^"]+)"', last_line)
-        if project_id_match:
-            entry.extra_info["project_id"] = project_id_match.group(1)
-        project_name_match = re.search(r'"project_name"\s*:\s*"([^"]+)"', last_line)
-        if project_name_match:
-            entry.extra_info["project_name"] = project_name_match.group(1)
-        project_url_match = re.search(r'"project_url"\s*:\s*"([^"]+)"', last_line)
-        if project_url_match:
-            entry.extra_info["project_url"] = project_url_match.group(1)
 
         entry.origin = HEX_PLATFORM_URN
 

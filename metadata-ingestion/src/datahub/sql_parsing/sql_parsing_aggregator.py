@@ -141,7 +141,6 @@ class QueryMetadata:
     used_temp_tables: bool = True
 
     origin: Optional[Urn] = None
-    extra_info: Optional[Dict[str, str]] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -909,9 +908,6 @@ class SqlParsingAggregator(Closeable):
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
                 origin=parsed.origin,
-                extra_info={k: str(v) for k, v in parsed.extra_info.items()}
-                if parsed.extra_info
-                else None,
             )
         )
 
@@ -1474,7 +1470,6 @@ class SqlParsingAggregator(Closeable):
                     created=query.make_created_audit_stamp(),
                     lastModified=query.make_last_modified_audit_stamp(),
                     origin=query.origin.urn() if query.origin else None,
-                    customProperties=query.extra_info,
                 ),
                 models.QuerySubjectsClass(
                     subjects=[

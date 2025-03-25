@@ -94,13 +94,6 @@ limit 100
     )
 
     assert extractor.extract_bi_metadata(entry)
-    assert entry.extra_info
-    assert entry.extra_info.get("project_id") == "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf"
-    assert entry.extra_info.get("project_name") == "PlayNotebook"
-    assert (
-        entry.extra_info.get("project_url")
-        == "https://app.hex.tech/acryl-partnership/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f"
-    )
     assert isinstance(
         entry.origin, DataPlatformUrn
     ) and entry.origin == Urn.from_string("urn:li:dataPlatform:hex")
