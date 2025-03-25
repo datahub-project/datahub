@@ -1,6 +1,7 @@
 namespace com.linkedin.query
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 /**
@@ -9,7 +10,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "queryProperties"
 }
-record QueryProperties {
+record QueryProperties includes CustomProperties {
   /**
    * The Query Statement.
    */
@@ -79,6 +80,11 @@ record QueryProperties {
    * The origin of the Query.
    * This is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from.
    */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": false,
+    "queryByDefault": false
+  }
    origin: optional Urn
 
 }
