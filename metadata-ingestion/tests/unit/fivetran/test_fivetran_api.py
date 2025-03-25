@@ -194,11 +194,16 @@ class FivetranAPIClientTests(unittest.TestCase):
 
     @patch("requests.Session.request")
     def test_list_connector_sync_history(self, mock_request):
-        """Test list_connector_sync_history method"""
-        # Setup mock response with the same structure as the API returns
-        response = MagicMock()
-        response.status_code = 200
-        response.json.return_value = {
+        """Test list_connector_sync_history method with primary sync-history endpoint"""
+        # Setup mock response for connector ID validation
+        id_check_response = MagicMock()
+        id_check_response.status_code = 200
+        id_check_response.json.return_value = {"data": {"id": "connector123"}}
+
+        # Setup mock response for sync history
+        sync_response = MagicMock()
+        sync_response.status_code = 200
+        sync_response.json.return_value = {
             "data": {
                 "items": [
                     {
@@ -216,7 +221,19 @@ class FivetranAPIClientTests(unittest.TestCase):
                 ]
             }
         }
-        mock_request.return_value = response
+
+        # Configure the mock to return different responses based on the endpoint
+        def side_effect(method, url, **kwargs):
+            if url == "/connectors/connector123" and "sync-history" not in url:
+                return id_check_response
+            elif "/connectors/connector123/sync-history" in url:
+                return sync_response
+            # Default response for unexpected calls
+            response = MagicMock()
+            response.status_code = 404
+            return response
+
+        mock_request.side_effect = side_effect
 
         # Call the method
         result = self.client.list_connector_sync_history("connector123", days=7)
@@ -228,13 +245,90 @@ class FivetranAPIClientTests(unittest.TestCase):
         self.assertEqual(result[1]["id"], "sync456")
         self.assertEqual(result[1]["status"], "FAILED")
 
-        # Verify correct URL and parameters
-        mock_request.assert_called_once()
-        self.assertIn(
-            "/connectors/connector123/sync-history", mock_request.call_args[0][1]
-        )
-        self.assertIn("limit", mock_request.call_args[1]["params"])
-        self.assertIn("since", mock_request.call_args[1]["params"])
+        # Verify correct URL and parameters for primary endpoint
+        sync_history_call = [
+            call
+            for call in mock_request.call_args_list
+            if "/connectors/connector123/sync-history" in call[0][1]
+        ][0]
+        self.assertIn("limit", sync_history_call[1]["params"])
+        self.assertIn("since", sync_history_call[1]["params"])
+
+    @patch("requests.Session.request")
+    def test_list_connector_sync_history_fallback_to_logs(self, mock_request):
+        """Test list_connector_sync_history method with fallback to logs endpoint"""
+        # Setup mock response for connector ID validation
+        id_check_response = MagicMock()
+        id_check_response.status_code = 200
+        id_check_response.json.return_value = {"data": {"id": "connector123"}}
+
+        # Setup empty sync history response
+        empty_sync_response = MagicMock()
+        empty_sync_response.status_code = 200
+        empty_sync_response.json.return_value = {"data": {"items": []}}
+
+        # Setup logs response
+        logs_response = MagicMock()
+        logs_response.status_code = 200
+        logs_response.json.return_value = {
+            "data": {
+                "items": [
+                    {
+                        "sync_id": "sync789",
+                        "created_at": "2023-09-20T06:37:00.000Z",
+                        "message": "sync started",
+                    },
+                    {
+                        "sync_id": "sync789",
+                        "created_at": "2023-09-20T06:38:00.000Z",
+                        "message": "sync completed",
+                    },
+                ]
+            }
+        }
+
+        # Configure the mock to return different responses
+        def side_effect(method, url, **kwargs):
+            if (
+                url == "/connectors/connector123"
+                and "sync-history" not in url
+                and "logs" not in url
+            ):
+                return id_check_response
+            elif "/connectors/connector123/sync-history" in url:
+                return empty_sync_response
+            elif "/connectors/connector123/logs" in url:
+                return logs_response
+            # Default response
+            response = MagicMock()
+            response.status_code = 404
+            return response
+
+        mock_request.side_effect = side_effect
+
+        # Call the method
+        result = self.client.list_connector_sync_history("connector123", days=7)
+
+        # Verify we got synthetic history from logs
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], "sync789")
+        self.assertEqual(result[0]["started_at"], "2023-09-20T06:37:00.000Z")
+        self.assertEqual(result[0]["completed_at"], "2023-09-20T06:38:00.000Z")
+        self.assertEqual(result[0]["status"], "COMPLETED")
+
+        # Verify both endpoints were called
+        sync_history_calls = [
+            call
+            for call in mock_request.call_args_list
+            if "/connectors/connector123/sync-history" in call[0][1]
+        ]
+        logs_calls = [
+            call
+            for call in mock_request.call_args_list
+            if "/connectors/connector123/logs" in call[0][1]
+        ]
+        self.assertEqual(len(sync_history_calls), 1)
+        self.assertEqual(len(logs_calls), 1)
 
     @patch("requests.Session.request")
     def test_detect_destination_platform(self, mock_request):

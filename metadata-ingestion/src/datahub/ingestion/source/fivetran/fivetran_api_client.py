@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -51,13 +50,9 @@ class FivetranAPIClient:
     def __init__(self, config: FivetranAPIConfig) -> None:
         self.config = config
         self._session = self._create_session()
-        # Cache for connector schemas
         self._schema_cache: Dict[str, List[Dict[str, Any]]] = {}
-        # Cache for destination details
         self._destination_cache: Dict[str, Dict[str, Any]] = {}
-        # Cache for connector name to ID mapping
         self._connector_name_to_id_cache: Dict[str, str] = {}
-        # Cache for column information
         self._column_cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def _create_session(self) -> requests.Session:
@@ -322,49 +317,6 @@ class FivetranAPIClient:
                 f"Failed to get columns from direct endpoint for {schema_name}.{table_name}: {e}"
             )
             return []
-
-    def get_group_id_by_name(self, group_name: str) -> Optional[str]:
-        """
-        Find a group ID by its name.
-
-        Args:
-            group_name: The name of the group to find
-
-        Returns:
-            The group ID if found, None otherwise
-        """
-        try:
-            # Get all groups first
-            groups = self.list_groups()
-
-            # First check for exact match
-            for group in groups:
-                if group.get("name") == group_name:
-                    group_id = group.get("id")
-                    if group_id:
-                        logger.info(
-                            f"Found exact match group ID {group_id} for name '{group_name}'"
-                        )
-                        return group_id
-
-            # If no exact match, try case-insensitive match
-            for group in groups:
-                if group.get("name", "").lower() == group_name.lower():
-                    group_id = group.get("id")
-                    if group_id:
-                        logger.info(
-                            f"Found case-insensitive match group ID {group_id} for name '{group_name}'"
-                        )
-                        return group_id
-
-            # Log if no match was found
-            logger.warning(f"Could not find group with name: {group_name}")
-            logger.debug(f"Available groups: {[g.get('name') for g in groups]}")
-            return None
-
-        except Exception as e:
-            logger.warning(f"Error trying to find group ID by name: {e}")
-            return None
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
         """
@@ -1146,117 +1098,31 @@ class FivetranAPIClient:
         except Exception as e:
             logger.warning(f"Bulk schema retrieval failed: {e}")
 
-    def _process_column_data(self, columns: Any) -> List[Dict]:
-        """
-        Process column data from various API response formats into a consistent format.
-        """
-        processed_columns = []
-
-        try:
-            if isinstance(columns, dict):
-                # Format: {"column_name": {"type": "string", ...}}
-                for col_name, col_data in columns.items():
-                    if col_data.get("enabled") is False:
-                        continue
-                    processed_columns.append(
-                        {
-                            "name": col_name,
-                            "enabled": True,
-                            "type": col_data.get("type", ""),
-                            "name_in_destination": col_data.get(
-                                "name_in_destination", col_name
-                            ),
-                        }
-                    )
-            elif isinstance(columns, list):
-                # Format: [{"name": "column_name", "type": "string", ...}]
-                for col in columns:
-                    if isinstance(col, dict) and "name" in col:
-                        if col.get("enabled") is False:
-                            continue
-                        processed_columns.append(
-                            {
-                                "name": col.get("name"),
-                                "enabled": True,
-                                "type": col.get("type", ""),
-                                "name_in_destination": col.get(
-                                    "name_in_destination", col.get("name")
-                                ),
-                            }
-                        )
-        except Exception as e:
-            logger.warning(f"Error processing column data: {e}")
-
-        return processed_columns
-
     def list_users(self) -> List[Dict]:
         """Get all users in the Fivetran account."""
         response = self._make_request("GET", "/users")
         return response.get("data", {}).get("items", [])
 
-    def get_destination_details(self, group_id_or_name: str) -> Dict[str, Any]:
+    def get_destination_details(self, group_id: str) -> Dict[str, Any]:
         """Get details about a destination group with enhanced error handling and logging"""
-        if not group_id_or_name:
-            logger.warning("Empty group_id_or_name provided to get_destination_details")
+        if not group_id:
+            logger.warning("Empty group_id provided to get_destination_details")
             return {}
 
         # Check cache first
-        if group_id_or_name in self._destination_cache:
-            logger.debug(f"Using cached destination details for {group_id_or_name}")
-            return self._destination_cache[group_id_or_name]
+        if group_id in self._destination_cache:
+            logger.debug(f"Using cached destination details for {group_id}")
+            return self._destination_cache[group_id]
 
-        # First try directly as an ID
         try:
-            group_id = group_id_or_name
             logger.debug(f"Fetching destination details for group ID: {group_id}")
             response = self._make_request("GET", f"/groups/{group_id}")
             destination_data = response.get("data", {})
+            logger.debug(f"Raw destination data for {group_id}: {destination_data}")
 
-            # If successful, cache and return the result
-            if destination_data and "id" in destination_data:
-                logger.debug(
-                    f"Successfully retrieved destination data for ID {group_id}"
-                )
-                self._destination_cache[group_id] = destination_data
-                return destination_data
-
-        except Exception as direct_id_error:
-            logger.debug(
-                f"Failed to get destination directly by ID {group_id_or_name}: {direct_id_error}"
-            )
-            # Continue to try by name lookup
-
-        # If direct ID lookup failed, try to find ID by name
-        try:
-            # Try to get the ID from the name
-            found_id = self.get_group_id_by_name(group_id_or_name)
-            if found_id:
-                logger.info(f"Found group ID {found_id} for name '{group_id_or_name}'")
-
-                # Fetch details with the found ID
-                response = self._make_request("GET", f"/groups/{found_id}")
-                destination_data = response.get("data", {})
-
-                # Cache using both ID and name for future lookups
-                if destination_data:
-                    self._destination_cache[group_id_or_name] = (
-                        destination_data  # Cache by name
-                    )
-                    self._destination_cache[found_id] = destination_data  # Cache by ID
-                    logger.debug(
-                        f"Retrieved destination details by name lookup: {found_id}"
-                    )
-                    return destination_data
-        except Exception as name_lookup_error:
-            logger.warning(
-                f"Error in name-based lookup for group {group_id_or_name}: {name_lookup_error}"
-            )
-
-        # Additional destination details - try for config data with the ID we found
-        try:
-            # If we have a destination_data with an ID, try to get its config
-            if destination_data and "id" in destination_data:
-                group_id = destination_data["id"]
+            # Additional destination details
+            try:
+                # Try to get destination config
                 logger.debug(f"Fetching config for destination {group_id}")
                 config_response = self._make_request(
                     "GET", f"/groups/{group_id}/config"
@@ -1264,44 +1130,50 @@ class FivetranAPIClient:
                 config_data = config_response.get("data", {})
                 logger.debug(f"Destination config for {group_id}: {config_data}")
                 destination_data["config"] = config_data
-        except Exception as config_e:
-            logger.debug(f"Could not get destination config: {config_e}")
-            # Continue without config data
+            except Exception as config_e:
+                logger.debug(
+                    f"Could not get destination config for {group_id}: {config_e}"
+                )
+                # Continue without config data
 
-        # Check for essential destination info
-        if destination_data and "service" in destination_data:
-            logger.info(f"Destination has service: {destination_data['service']}")
-        elif destination_data and "name" in destination_data:
-            # Try to infer from other fields
-            name = destination_data["name"].lower()
-            logger.debug(f"Checking destination name for clues: {name}")
-            if "bigquery" in name:
-                logger.info(f"Found 'bigquery' in destination name: {name}")
-                destination_data["service"] = "bigquery"
-            elif "snowflake" in name:
-                logger.info(f"Found 'snowflake' in destination name: {name}")
-                destination_data["service"] = "snowflake"
+            # Check for essential destination info
+            if "service" in destination_data:
+                logger.info(
+                    f"Destination {group_id} has service: {destination_data['service']}"
+                )
+            else:
+                logger.warning(
+                    f"No service field found in destination details for {group_id}"
+                )
+                # Try to infer from other fields
+                if "name" in destination_data:
+                    name = destination_data["name"].lower()
+                    logger.debug(f"Checking destination name for clues: {name}")
+                    if "bigquery" in name:
+                        logger.info(f"Found 'bigquery' in destination name: {name}")
+                        destination_data["service"] = "bigquery"
+                    elif "snowflake" in name:
+                        logger.info(f"Found 'snowflake' in destination name: {name}")
+                        destination_data["service"] = "snowflake"
 
-        # If we have valid destination data, cache it
-        if destination_data:
-            self._destination_cache[group_id_or_name] = destination_data
+            # Cache the result
+            self._destination_cache[group_id] = destination_data
             return destination_data
-
-        # If all attempts failed, return empty dict
-        logger.warning(f"Failed to get destination details for {group_id_or_name}")
-        return {}
-
-    def detect_destination_platform(self, group_id_or_name: str) -> str:
-        """Attempt to detect the destination platform from group information"""
-        if not group_id_or_name:
+        except Exception as e:
             logger.warning(
-                "Empty group_id_or_name provided to detect_destination_platform"
+                f"Failed to get destination details for group ID {group_id}: {e}"
             )
-            return "snowflake"  # Default if no group_id_or_name is provided
+            return {}
+
+    def detect_destination_platform(self, group_id: str) -> str:
+        """Attempt to detect the destination platform from group information"""
+        if not group_id:
+            logger.warning("Empty group_id provided to detect_destination_platform")
+            return "snowflake"  # Default if no group_id is provided
 
         try:
-            destination = self.get_destination_details(group_id_or_name)
-            logger.debug(f"Destination details for {group_id_or_name}: {destination}")
+            destination = self.get_destination_details(group_id)
+            logger.debug(f"Destination details for {group_id}: {destination}")
 
             # Get the destination service if available
             service = destination.get("service", "")
@@ -1356,7 +1228,7 @@ class FivetranAPIClient:
                     )
             else:
                 logger.warning(
-                    f"No service field found in destination details for {group_id_or_name}"
+                    f"No service field found in destination details for {group_id}"
                 )
 
             # Check for other clues in the destination details if service is not available
@@ -1373,18 +1245,16 @@ class FivetranAPIClient:
                     return "bigquery"
 
             logger.warning(
-                f"Could not determine platform for destination {group_id_or_name}, defaulting to snowflake"
+                f"Could not determine platform for destination {group_id}, defaulting to snowflake"
             )
             return "snowflake"  # Default to snowflake if detection failed
         except Exception as e:
-            logger.warning(
-                f"Error in detect_destination_platform for {group_id_or_name}: {e}"
-            )
+            logger.warning(f"Error in detect_destination_platform for {group_id}: {e}")
             return "snowflake"  # Default on error
 
-    def get_destination_database(self, group_id_or_name: str) -> str:
+    def get_destination_database(self, group_id: str) -> str:
         """Get the database name for a destination."""
-        destination = self.get_destination_details(group_id_or_name)
+        destination = self.get_destination_details(group_id)
 
         # Check config for database information
         config = destination.get("config", {})
@@ -1436,27 +1306,34 @@ class FivetranAPIClient:
         """
         Get the sync history for a connector with improved error handling.
 
-        Args:
-            connector_id: The connector ID to get history for
-            days: Number of days to look back for history
-
-        Returns:
-            List of sync history entries
+        This method first tries to use the connector ID and falls back to
+        finding the ID by name if needed. It also tries multiple endpoints
+        to maximize the chance of finding history data.
         """
         try:
+            # Ensure we have a valid connector ID
+            valid_connector_id = self.get_connector_id_by_name(connector_id)
+            if not valid_connector_id:
+                logger.warning(
+                    f"Could not find a valid ID for connector: {connector_id}"
+                )
+                valid_connector_id = (
+                    connector_id  # Use what we were given as a last resort
+                )
+
             # Calculate the since timestamp (days ago)
             since_date = datetime.now() - timedelta(days=days)
             since_timestamp = int(since_date.timestamp())
 
             logger.info(
-                f"Getting sync history for connector {connector_id} from the past {days} days"
+                f"Getting sync history for connector {valid_connector_id} from the past {days} days"
             )
 
             # First try: Use the sync-history endpoint (most reliable)
             try:
                 response = self._make_request(
                     "GET",
-                    f"/connectors/{connector_id}/sync-history",
+                    f"/connectors/{valid_connector_id}/sync-history",
                     params={"limit": 100, "since": since_timestamp},
                 )
                 sync_items = response.get("data", {}).get("items", [])
@@ -1480,7 +1357,7 @@ class FivetranAPIClient:
 
                 response = self._make_request(
                     "GET",
-                    f"/connectors/{connector_id}/logs",
+                    f"/connectors/{valid_connector_id}/logs",
                     params={"limit": 100, "since": since_str},
                 )
                 logs = response.get("data", {}).get("items", [])
@@ -1503,7 +1380,7 @@ class FivetranAPIClient:
 
             # Third try: Use connector metadata (last resort)
             try:
-                connector_details = self.get_connector(connector_id)
+                connector_details = self.get_connector(valid_connector_id)
 
                 # Check for last sync timestamp fields
                 if (
@@ -1538,7 +1415,7 @@ class FivetranAPIClient:
 
                     if timestamp:
                         # Create synthetic history entry
-                        sync_id = f"{connector_id}-latest-{int(time.time())}"
+                        sync_id = f"{valid_connector_id}-latest-{int(time.time())}"
                         return [
                             {
                                 "id": sync_id,
@@ -1614,25 +1491,6 @@ class FivetranAPIClient:
                 sync_history.append(entry)
 
         return sync_history
-
-    def _parse_timestamp(self, iso_timestamp: Optional[str]) -> Optional[int]:
-        """Parse ISO timestamp to Unix timestamp."""
-        if not iso_timestamp:
-            return None
-
-        try:
-            # Handle different timestamp formats
-            if "T" in iso_timestamp:
-                # ISO format with T separator
-                dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-                return int(dt.timestamp())
-            else:
-                # Try simple format
-                dt = datetime.strptime(iso_timestamp, "%Y-%m-%d %H:%M:%S")
-                return int(dt.timestamp())
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Failed to parse timestamp {iso_timestamp}: {e}")
-            return None
 
     def extract_connector_metadata(
         self, api_connector: Dict, sync_history: List[Dict]
@@ -1738,7 +1596,7 @@ class FivetranAPIClient:
             sync_frequency=sync_frequency,
             destination_id=destination_id,
             user_id=api_connector.get("created_by", ""),
-            lineage=[],
+            lineage=[],  # Will be filled later by extract_table_lineage
             jobs=jobs,
             additional_properties=additional_properties,
         )
@@ -1891,216 +1749,9 @@ class FivetranAPIClient:
             logger.warning(f"Error parsing timestamp {timestamp_value}: {e}")
             return None
 
-    def _collect_source_column_info(
-        self, schemas: List[Dict]
-    ) -> Dict[str, Dict[str, str]]:
-        """
-        Collect column information for all tables in the schemas.
-
-        Args:
-            schemas: List of schema objects from API
-
-        Returns:
-            Dict mapping table names to Dict of column names and their types
-        """
-        source_table_columns: Dict[str, Dict[str, str]] = {}
-
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            if not schema_name:
-                continue
-
-            for table in schema.get("tables", []):
-                if not isinstance(table, dict):
-                    continue
-
-                table_name = table.get("name", "")
-                if not table_name or not table.get("enabled", True):
-                    continue
-
-                # Create source table name
-                source_table = f"{schema_name}.{table_name}"
-
-                # Process columns
-                columns = table.get("columns", [])
-                if not columns:
-                    continue
-
-                source_table_columns[source_table] = {}
-
-                if isinstance(columns, list):
-                    for column in columns:
-                        if not isinstance(column, dict):
-                            continue
-
-                        column_name = column.get("name", "")
-                        if not column_name:
-                            continue
-
-                        column_type = column.get("type", "")
-                        source_table_columns[source_table][column_name] = column_type
-                elif isinstance(columns, dict):
-                    for column_name, column_data in columns.items():
-                        if isinstance(column_data, dict):
-                            column_type = column_data.get("type", "")
-                        else:
-                            column_type = str(column_data)
-                        source_table_columns[source_table][column_name] = column_type
-
-        return source_table_columns
-
-    def _transform_column_name(self, col_name: str, destination_platform: str) -> str:
-        """
-        Transform column name based on the destination platform.
-
-        Args:
-            col_name: Source column name
-            destination_platform: Destination platform type
-
-        Returns:
-            Transformed column name
-        """
-
-        if not col_name:
-            return ""
-
-        if destination_platform.lower() == "bigquery":
-            # Convert camelCase to snake_case for BigQuery
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", col_name)
-            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-            return s2.lower()
-        else:
-            # For most other systems, uppercase
-            return col_name.upper()
-
-    def _get_destination_names(
-        self,
-        schema_name: str,
-        table_name: str,
-        schema_dest_name: Optional[str],
-        table_dest_name: Optional[str],
-        destination_platform: str,
-    ) -> Tuple[str, str]:
-        """
-        Get destination schema and table names.
-
-        Args:
-            schema_name: Source schema name
-            table_name: Source table name
-            schema_dest_name: Explicit destination schema name if available
-            table_dest_name: Explicit destination table name if available
-            destination_platform: Destination platform type
-
-        Returns:
-            Tuple of (destination_schema, destination_table)
-        """
-        # Get destination schema name (use provided name if available)
-        dest_schema = schema_dest_name if schema_dest_name else schema_name
-
-        # Apply platform-specific transformations if using source name
-        if dest_schema == schema_name:
-            if destination_platform.lower() == "bigquery":
-                dest_schema = schema_name.lower()
-            else:
-                dest_schema = schema_name.upper()
-
-        # Get destination table name (use provided name if available)
-        dest_table = table_dest_name if table_dest_name else table_name
-
-        # Apply platform-specific transformations if using source name
-        if dest_table == table_name:
-            if destination_platform.lower() == "bigquery":
-                dest_table = table_name.lower()
-            else:
-                dest_table = table_name.upper()
-
-        return dest_schema, dest_table
-
-    def _extract_column_lineage_for_table(
-        self,
-        table: Dict,
-        source_table: str,
-        source_table_columns: Dict[str, Dict[str, str]],
-        destination_platform: str,
-    ) -> List[ColumnLineage]:
-        """
-        Extract column lineage for a specific table.
-
-        Args:
-            table: Table data from API
-            source_table: Source table name (schema.table)
-            source_table_columns: Collected column information
-            destination_platform: Destination platform type
-
-        Returns:
-            List of ColumnLineage objects
-        """
-        column_lineage = []
-
-        # Try to get columns from the table
-        columns = table.get("columns", [])
-
-        # If we have column data for this table, extract lineage
-        if columns:
-            # Handle different column formats
-            processed_columns = []
-
-            if isinstance(columns, list):
-                processed_columns = columns
-            elif isinstance(columns, dict):
-                for col_name, col_data in columns.items():
-                    if isinstance(col_data, dict):
-                        col_data = col_data.copy()
-                        col_data["name"] = col_name
-                        processed_columns.append(col_data)
-                    else:
-                        processed_columns.append({"name": col_name})
-
-            # Process each column
-            for column in processed_columns:
-                if not isinstance(column, dict):
-                    continue
-
-                col_name = column.get("name", "")
-                if not col_name or col_name.startswith("_fivetran"):
-                    continue
-
-                # Get destination column name (use name_in_destination if available)
-                dest_col = column.get("name_in_destination", col_name)
-
-                # Apply platform-specific transformations if no explicit destination name
-                if dest_col == col_name:
-                    dest_col = self._transform_column_name(
-                        col_name, destination_platform
-                    )
-
-                column_lineage.append(
-                    ColumnLineage(source_column=col_name, destination_column=dest_col)
-                )
-
-        # If we didn't get column lineage from the table directly,
-        # try to get it from our collected source_table_columns
-        if not column_lineage and source_table in source_table_columns:
-            logger.info(f"Using collected columns for {source_table}")
-            for col_name, _col_type in source_table_columns[source_table].items():
-                if col_name.startswith("_fivetran"):
-                    continue
-
-                # Transform column name
-                dest_col = self._transform_column_name(col_name, destination_platform)
-
-                column_lineage.append(
-                    ColumnLineage(source_column=col_name, destination_column=dest_col)
-                )
-
-        return column_lineage
-
     def extract_table_lineage(self, connector_id: str) -> List[TableLineage]:
         """
         Extract table and column lineage information for a connector.
-
-        This method gets schema information from the API and creates lineage relationships
-        between source tables and their destination counterparts, including column mappings.
         """
         try:
             # Get schemas to extract tables and columns
@@ -2111,85 +1762,21 @@ class FivetranAPIClient:
                 )
                 return []
 
-            # Get destination information
-            connector_details = self.get_connector(connector_id)
-            group_id = None
-            if "group" in connector_details and isinstance(
-                connector_details["group"], dict
-            ):
-                group_id = connector_details["group"].get("id")
+            # Get destination platform information
+            destination_platform = self._get_destination_platform_for_connector(
+                connector_id
+            )
 
-            # Detect destination platform
-            destination_platform = "snowflake"  # Default
-            if group_id:
-                destination_platform = self.detect_destination_platform(group_id)
-
-            # First pass: Collect column information for all tables
-            source_table_columns = self._collect_source_column_info(schemas)
+            # Collect source columns information
+            source_table_columns = self._collect_source_columns(schemas)
 
             # Process schemas to extract lineage
-            lineage_list = []
-
-            # Second pass: Process tables for lineage
-            for schema in schemas:
-                schema_name = schema.get("name", "")
-                if not schema_name:
-                    continue
-
-                # Process each table in the schema
-                for table in schema.get("tables", []):
-                    table_name = table.get("name", "")
-                    if not table_name or not table.get("enabled", True):
-                        continue
-
-                    # Create source table name
-                    source_table = f"{schema_name}.{table_name}"
-
-                    # Get destination names
-                    dest_schema, dest_table = self._get_destination_names(
-                        schema_name=schema_name,
-                        table_name=table_name,
-                        schema_dest_name=schema.get("name_in_destination"),
-                        table_dest_name=table.get("name_in_destination"),
-                        destination_platform=destination_platform,
-                    )
-
-                    # Create full destination table name
-                    destination_table = f"{dest_schema}.{dest_table}"
-
-                    # Extract column lineage
-                    column_lineage = self._extract_column_lineage_for_table(
-                        table=table,
-                        source_table=source_table,
-                        source_table_columns=source_table_columns,
-                        destination_platform=destination_platform,
-                    )
-
-                    # Add this table's lineage to the list
-                    lineage_list.append(
-                        TableLineage(
-                            source_table=source_table,
-                            destination_table=destination_table,
-                            column_lineage=column_lineage,
-                        )
-                    )
-
-            # Add diagnostic logging
-            logger.info(
-                f"Extracted {len(lineage_list)} table lineage entries for connector {connector_id}"
+            lineage_list = self._process_schemas(
+                schemas, destination_platform, source_table_columns
             )
 
-            tables_with_column_lineage = sum(
-                1 for lineage in lineage_list if lineage.column_lineage
-            )
-            column_lineage_count = sum(
-                len(lineage.column_lineage) for lineage in lineage_list
-            )
-
-            logger.info(
-                f"Column lineage stats: {tables_with_column_lineage}/{len(lineage_list)} tables have column lineage, "
-                f"total of {column_lineage_count} column mappings"
-            )
+            # Log statistics about what we found
+            self._log_lineage_stats(lineage_list, connector_id)
 
             return lineage_list
 
@@ -2199,3 +1786,332 @@ class FivetranAPIClient:
                 exc_info=True,
             )
             return []
+
+    def _get_destination_platform_for_connector(self, connector_id: str) -> str:
+        """Get destination platform for a connector."""
+        # Get destination information
+        connector_details = self.get_connector(connector_id)
+        group_id = None
+        if "group" in connector_details and isinstance(
+            connector_details["group"], dict
+        ):
+            group_id = connector_details["group"].get("id")
+
+        # Detect destination platform
+        destination_platform = "snowflake"  # Default
+        if group_id:
+            destination_platform = self.detect_destination_platform(group_id)
+            logger.info(
+                f"Detected destination platform: {destination_platform} for group {group_id}"
+            )
+
+        return destination_platform
+
+    def _collect_source_columns(self, schemas: List[Dict]) -> Dict[str, Dict[str, str]]:
+        """Collect all source columns from schemas."""
+        source_table_columns: Dict[str, Dict[str, str]] = {}
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            for table in schema.get("tables", []):
+                if not isinstance(table, dict):
+                    continue
+
+                table_name = table.get("name", "")
+                if not table_name:
+                    continue
+
+                # Create source table name
+                source_table = f"{schema_name}.{table_name}"
+
+                # Initialize column dictionary for this table
+                source_table_columns[source_table] = {}
+
+                # Collect columns
+                columns = table.get("columns", [])
+                if not columns:
+                    continue
+
+                if isinstance(columns, list):
+                    # Process list of column objects
+                    for col in columns:
+                        if isinstance(col, dict):
+                            col_name = col.get("name")
+                            # Only add entries with a valid string name
+                            if col_name and isinstance(col_name, str):
+                                col_type = col.get("type", "")
+                                # Ensure col_type is a string
+                                if not isinstance(col_type, str):
+                                    col_type = (
+                                        str(col_type) if col_type is not None else ""
+                                    )
+                                source_table_columns[source_table][col_name] = col_type
+                elif isinstance(columns, dict):
+                    # Process dictionary of columns
+                    for col_name, col_data in columns.items():
+                        # Skip if col_name is not a string
+                        if not isinstance(col_name, str):
+                            continue
+
+                        col_type = ""
+                        if isinstance(col_data, dict):
+                            type_value = col_data.get("type", "")
+                            # Ensure col_type is a string
+                            col_type = str(type_value) if type_value is not None else ""
+                        elif col_data is not None:
+                            # Handle case where col_data is a direct type string
+                            col_type = str(col_data)
+
+                        source_table_columns[source_table][col_name] = col_type
+
+        return source_table_columns
+
+    def _process_schemas(
+        self,
+        schemas: List[Dict],
+        destination_platform: str,
+        source_table_columns: Dict[str, Dict[str, str]],
+    ) -> List[TableLineage]:
+        """Process schemas to extract table lineage information."""
+        lineage_list = []
+
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
+            # Use name_in_destination if available for schema
+            schema_name_in_destination = schema.get("name_in_destination")
+
+            # Get destination schema name based on platform
+            dest_schema = self._get_destination_schema_name(
+                schema_name, schema_name_in_destination, destination_platform
+            )
+
+            logger.debug(f"Processing schema {schema_name} -> {dest_schema}")
+
+            # Process each table in the schema
+            for table in schema.get("tables", []):
+                lineage_entry = self._process_table_lineage(
+                    table,
+                    schema_name,
+                    dest_schema,
+                    destination_platform,
+                    source_table_columns,
+                )
+
+                if lineage_entry:
+                    lineage_list.append(lineage_entry)
+
+        return lineage_list
+
+    def _get_destination_schema_name(
+        self,
+        schema_name: str,
+        schema_name_in_destination: Optional[str],
+        destination_platform: str,
+    ) -> str:
+        """Get destination schema name based on source schema and platform."""
+        if schema_name_in_destination:
+            return schema_name_in_destination
+
+        # Apply platform-specific transformations
+        if destination_platform.lower() == "bigquery":
+            return schema_name.lower()
+        else:
+            return schema_name.upper()
+
+    def _process_table_lineage(
+        self,
+        table: Dict,
+        schema_name: str,
+        dest_schema: str,
+        destination_platform: str,
+        source_table_columns: Dict[str, Dict[str, str]],
+    ) -> Optional[TableLineage]:
+        """Process a single table to extract lineage information."""
+        if not isinstance(table, dict):
+            return None
+
+        table_name = table.get("name", "")
+        if not table_name or not table.get("enabled", True):
+            return None
+
+        # Create source table identifier
+        source_table = f"{schema_name}.{table_name}"
+
+        # Get destination table name
+        dest_table = self._get_destination_table_name(
+            table_name, table.get("name_in_destination"), destination_platform
+        )
+
+        # Create full destination table name
+        destination_table = f"{dest_schema}.{dest_table}"
+
+        logger.debug(f"Creating lineage: {source_table} -> {destination_table}")
+
+        # Extract column lineage
+        column_lineage = self._extract_column_lineage(
+            table, source_table, destination_platform, source_table_columns
+        )
+
+        # Create and return the lineage entry
+        return TableLineage(
+            source_table=source_table,
+            destination_table=destination_table,
+            column_lineage=column_lineage,
+        )
+
+    def _get_destination_table_name(
+        self,
+        table_name: str,
+        table_name_in_destination: Optional[str],
+        destination_platform: str,
+    ) -> str:
+        """Get destination table name based on source table and platform."""
+        if table_name_in_destination:
+            return table_name_in_destination
+
+        # Apply platform-specific transformations
+        if destination_platform.lower() == "bigquery":
+            return table_name.lower()
+        else:
+            return table_name.upper()
+
+    def _extract_column_lineage(
+        self,
+        table: Dict,
+        source_table: str,
+        destination_platform: str,
+        source_table_columns: Dict[str, Dict[str, str]],
+    ) -> List[ColumnLineage]:
+        """Extract column lineage for a table."""
+        column_lineage = []
+        columns = table.get("columns", [])
+
+        # First try with columns from the table itself
+        if columns:
+            if isinstance(columns, list):
+                column_lineage = self._process_column_list(
+                    columns, destination_platform
+                )
+            elif isinstance(columns, dict):
+                column_lineage = self._process_column_dict(
+                    columns, destination_platform
+                )
+        # Try with source_table_columns as fallback
+        elif source_table in source_table_columns:
+            column_lineage = self._process_source_columns(
+                source_table_columns[source_table], destination_platform
+            )
+
+        return column_lineage
+
+    def _process_column_list(
+        self, columns: List[Dict], destination_platform: str
+    ) -> List[ColumnLineage]:
+        """Process a list of column dictionaries."""
+        column_lineage = []
+
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+
+            col_name = column.get("name", "")
+            if not col_name or col_name.startswith("_fivetran"):
+                continue
+
+            # Get destination column name
+            dest_col = column.get("name_in_destination", col_name)
+
+            # Apply platform-specific transformations if not explicitly set
+            if dest_col == col_name:
+                dest_col = self._transform_column_name(col_name, destination_platform)
+
+            # Log column mapping for debugging
+            logger.debug(f"Column mapping: {col_name} -> {dest_col}")
+
+            column_lineage.append(
+                ColumnLineage(source_column=col_name, destination_column=dest_col)
+            )
+
+        return column_lineage
+
+    def _process_column_dict(
+        self, columns: Dict[str, Any], destination_platform: str
+    ) -> List[ColumnLineage]:
+        """Process a dictionary of columns."""
+        column_lineage = []
+
+        for col_name, col_data in columns.items():
+            if col_name.startswith("_fivetran"):
+                continue
+
+            # Get destination column name - ensure it's always a string
+            if isinstance(col_data, dict) and "name_in_destination" in col_data:
+                # Get the name_in_destination value and ensure it's a string
+                name_in_dest = col_data.get("name_in_destination")
+                if name_in_dest is not None and isinstance(name_in_dest, str):
+                    dest_col = name_in_dest
+                else:
+                    # Fall back to transformation if name_in_destination is not a valid string
+                    dest_col = self._transform_column_name(
+                        col_name, destination_platform
+                    )
+            else:
+                # Apply platform-specific transformations
+                dest_col = self._transform_column_name(col_name, destination_platform)
+
+            # At this point, dest_col is guaranteed to be a string
+            column_lineage.append(
+                ColumnLineage(source_column=col_name, destination_column=dest_col)
+            )
+
+        return column_lineage
+
+    def _process_source_columns(
+        self, columns: Dict[str, str], destination_platform: str
+    ) -> List[ColumnLineage]:
+        """Process source columns from collected information."""
+        column_lineage = []
+
+        for col_name in columns:
+            if col_name.startswith("_fivetran"):
+                continue
+
+            # Apply platform-specific transformations
+            dest_col = self._transform_column_name(col_name, destination_platform)
+
+            column_lineage.append(
+                ColumnLineage(source_column=col_name, destination_column=dest_col)
+            )
+
+        return column_lineage
+
+    def _transform_column_name(self, col_name: str, destination_platform: str) -> str:
+        """Transform column name based on destination platform."""
+        if destination_platform.lower() == "bigquery":
+            # Convert camelCase to snake_case for BigQuery
+            import re
+
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", col_name)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+            return s2.lower()
+        else:
+            # For most other systems, uppercase
+            return col_name.upper()
+
+    def _log_lineage_stats(
+        self, lineage_list: List[TableLineage], connector_id: str
+    ) -> None:
+        """Log statistics about lineage extraction."""
+        total_tables = len(lineage_list)
+        tables_with_column_lineage = sum(
+            1 for entry in lineage_list if entry.column_lineage
+        )
+        total_column_mappings = sum(len(entry.column_lineage) for entry in lineage_list)
+
+        logger.info(
+            f"Extracted {total_tables} table lineage entries for connector {connector_id}: "
+            f"{tables_with_column_lineage} tables with column mappings, "
+            f"{total_column_mappings} total column mappings"
+        )

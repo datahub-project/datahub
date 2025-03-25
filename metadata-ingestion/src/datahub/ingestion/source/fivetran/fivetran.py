@@ -157,6 +157,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                 destination_details.database = connector.additional_properties.get(
                     "destination_database"
                 )
+            # For BigQuery, use the dataset from the config
             elif (
                 destination_details.platform == "bigquery"
                 and hasattr(self.config, "fivetran_log_config")
@@ -301,13 +302,17 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _create_dataset_urn(
         self, table_name: str, details: PlatformDetail, is_source: bool
     ) -> Optional[DatasetUrn]:
-        """Create a dataset URN for a table."""
+        """Create a dataset URN for a table with enhanced handling for BigQuery datasets."""
         if not table_name:
+            logger.warning("Cannot create dataset URN: empty table name provided")
             return None
 
         try:
             # Handle schema inclusion based on configuration
             if not details.include_schema_in_urn and "." in table_name:
+                logger.debug(
+                    f"Removing schema from table name due to include_schema_in_urn=False: {table_name}"
+                )
                 table_name = table_name.split(".", 1)[1]
 
             # Ensure we have a platform
@@ -318,9 +323,27 @@ class FivetranSource(StatefulIngestionSourceBase):
                     f"Using default platform {platform} for {'source' if is_source else 'destination'} table {table_name}"
                 )
 
-            # Include database in the table name if available and ensure it's lowercase
-            database = details.database.lower() if details.database else ""
-            full_table_name = f"{database}.{table_name}" if database else table_name
+            # Include database in the table name if available
+            database = details.database if details.database else ""
+
+            # Special handling for BigQuery
+            if platform.lower() == "bigquery":
+                # For BigQuery, ensure lowercase database and table name
+                database = database.lower() if database else ""
+                # If include_schema_in_urn=False, table_name won't have the schema part
+                if "." in table_name:
+                    schema, table = table_name.split(".", 1)
+                    table_name = f"{schema.lower()}.{table.lower()}"
+                else:
+                    table_name = table_name.lower()
+
+                # For BigQuery, the database is the project ID and should be included
+                full_table_name = f"{database}.{table_name}" if database else table_name
+                logger.debug(f"BigQuery dataset URN table name: {full_table_name}")
+            else:
+                # For other platforms, follow standard behavior
+                full_table_name = f"{database}.{table_name}" if database else table_name
+                logger.debug(f"Standard dataset URN table name: {full_table_name}")
 
             # Ensure environment is set
             env = details.env or "PROD"
@@ -332,15 +355,19 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"platform_instance={details.platform_instance}"
             )
 
-            return DatasetUrn.create_from_ids(
+            urn = DatasetUrn.create_from_ids(
                 platform_id=platform,
                 table_name=full_table_name,
                 env=env,
                 platform_instance=details.platform_instance,
             )
+
+            logger.debug(f"Created URN: {urn}")
+            return urn
         except Exception as e:
             logger.warning(
-                f"Failed to create {'source' if is_source else 'destination'} URN for {table_name}: {e}"
+                f"Failed to create {'source' if is_source else 'destination'} URN for {table_name}: {e}",
+                exc_info=True,
             )
             return None
 
@@ -358,25 +385,31 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             return
 
+        # Add table-level lineage if we're working with the tables
+        fine_grained_lineage.append(
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=[str(source_urn)],
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[str(dest_urn)],
+            )
+        )
+
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
+
+        # Extract destination platform from the URN
+        dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
+        is_bigquery = dest_platform.lower() == "bigquery"
 
         if not lineage.column_lineage:
             logger.warning(
                 f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}"
             )
-            # Add table-level lineage when no column data is available
-            fine_grained_lineage.append(
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[str(source_urn)],
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD_SET,
-                    downstreams=[str(dest_urn)],
-                )
-            )
             return
 
         logger.info(f"Processing {len(lineage.column_lineage)} column mappings")
 
+        # Filter out invalid column mappings
         valid_lineage = []
         for column_lineage in lineage.column_lineage:
             if (
@@ -384,7 +417,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                 or not column_lineage.destination_column
             ):
                 logger.debug(
-                    "Skipping invalid column mapping with missing source or destination column"
+                    "Skipping invalid column mapping: missing source or destination column"
                 )
                 continue
 
@@ -403,18 +436,17 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Process valid column mappings
         for column_lineage in valid_lineage:
             try:
-                # Log what we're processing
-                logger.debug(
-                    f"Processing: {column_lineage.source_column} -> {column_lineage.destination_column}"
-                )
-
                 # Create field URNs
                 source_field_urn = builder.make_schema_field_urn(
                     str(source_urn),
                     column_lineage.source_column,
                 )
 
+                # For BigQuery, ensure proper case and format
                 dest_column = column_lineage.destination_column
+                if is_bigquery:
+                    # Ensure it's lowercase for BigQuery
+                    dest_column = dest_column.lower()
 
                 dest_field_urn = builder.make_schema_field_urn(
                     str(dest_urn),

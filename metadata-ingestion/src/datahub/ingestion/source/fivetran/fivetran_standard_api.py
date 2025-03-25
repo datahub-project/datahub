@@ -176,19 +176,26 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     lineage = self.api_client.extract_table_lineage(
                         connector.connector_id
                     )
+
+                    # Ensure we have non-empty lineage and log it
+                    if lineage:
+                        logger.info(
+                            f"Extracted {len(lineage)} table lineage entries for connector {connector.connector_id}"
+                        )
+
+                        # Log some column lineage statistics
+                        total_column_mappings = sum(
+                            len(table.column_lineage) for table in lineage
+                        )
+                        logger.info(
+                            f"Extracted {total_column_mappings} column mappings across {len(lineage)} tables"
+                        )
+                    else:
+                        logger.warning(
+                            f"No lineage extracted for connector {connector.connector_id}"
+                        )
+
                     connector.lineage = lineage
-
-                    logger.info(
-                        f"Extracted {len(lineage)} table lineage entries for connector {connector.connector_id}"
-                    )
-
-                    # Log some column lineage statistics
-                    total_column_mappings = sum(
-                        len(table.column_lineage) for table in lineage
-                    )
-                    logger.info(
-                        f"Extracted {total_column_mappings} column mappings across {len(lineage)} tables"
-                    )
 
                 except Exception as e:
                     logger.error(
@@ -721,113 +728,63 @@ class FivetranStandardAPI(FivetranAccessInterface):
         lineage_list = []
         destination_platform = self._get_destination_platform(connector)
 
-        # Get platform details from config based on connector ID
-        source_details = None
-        if self.config and hasattr(self.config, "sources_to_platform_instance"):
-            source_details = self.config.sources_to_platform_instance.get(
-                connector.connector_id
-            )
-            if source_details:
-                logger.info(
-                    f"Using custom platform mapping for connector {connector.connector_id}: {source_details.platform_instance}"
-                )
-
-        # Get destination details from config based on destination ID
-        dest_details = None
-        if self.config and hasattr(self.config, "destination_to_platform_instance"):
-            dest_details = self.config.destination_to_platform_instance.get(
-                connector.destination_id
-            )
-            if dest_details:
-                logger.info(
-                    f"Using custom platform mapping for destination {connector.destination_id}: {dest_details.platform}, database={dest_details.database}"
-                )
-
-        # Process each schema and table to create lineage entries
         for schema in schemas:
-            try:
-                schema_name = schema.get("name", "")
-                if not schema_name:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
+            # Get destination schema name (use name_in_destination if available)
+            dest_schema = schema.get("name_in_destination", schema_name)
+
+            # Apply platform-specific transformations if no explicit destination name
+            if dest_schema == schema_name:
+                if destination_platform.lower() == "bigquery":
+                    dest_schema = schema_name.lower()
+                else:
+                    dest_schema = schema_name.upper()
+
+            # Process each table in the schema
+            for table in schema.get("tables", []):
+                table_name = table.get("name", "")
+                if not table_name or not table.get("enabled", True):
                     continue
 
-                schema_name_in_destination = schema.get("name_in_destination")
+                # Create source table name
+                source_table = f"{schema_name}.{table_name}"
 
-                for table in schema.get("tables", []):
-                    try:
-                        if not isinstance(table, dict):
-                            continue
+                # Get destination table name (use name_in_destination if available)
+                dest_table = table.get("name_in_destination", table_name)
 
-                        table_name = table.get("name", "")
-                        enabled = table.get("enabled", False)
+                # Apply platform-specific transformations if no explicit destination name
+                if dest_table == table_name:
+                    if destination_platform.lower() == "bigquery":
+                        dest_table = table_name.lower()
+                    else:
+                        dest_table = table_name.upper()
 
-                        if not enabled or not table_name:
-                            continue
+                # Create full destination table name
+                destination_table = f"{dest_schema}.{dest_table}"
 
-                        # Create source table identifier
-                        source_table = f"{schema_name}.{table_name}"
-
-                        # Get destination schema name
-                        dest_schema = (
-                            schema_name_in_destination
-                            if schema_name_in_destination
-                            else self._get_destination_schema_name(
-                                schema_name, destination_platform
-                            )
-                        )
-
-                        # Get destination table name
-                        table_name_in_destination = table.get("name_in_destination")
-                        dest_table = (
-                            table_name_in_destination
-                            if table_name_in_destination
-                            else self._get_destination_table_name(
-                                table_name, destination_platform
-                            )
-                        )
-
-                        # Create full destination table name
-                        destination_table = f"{dest_schema}.{dest_table}"
-
-                        # Extract column lineage with the correct platform details
-                        column_lineage = self._extract_column_lineage(
-                            table=table,
-                            source_table=source_table,
-                            destination_platform=destination_platform,
-                            source_table_columns=source_table_columns,
-                        )
-
-                        # Create and add the table lineage entry
-                        lineage_list.append(
-                            TableLineage(
-                                source_table=source_table,
-                                destination_table=destination_table,
-                                column_lineage=column_lineage,
-                            )
-                        )
-
-                        logger.info(
-                            f"Created lineage from {source_table} to {destination_table} with {len(column_lineage)} column mappings"
-                        )
-                    except Exception as table_e:
-                        logger.warning(
-                            f"Error processing table {table.get('name', 'unknown')}: {table_e}"
-                        )
-            except Exception as schema_e:
-                logger.warning(
-                    f"Error processing schema {schema.get('name', 'unknown')}: {schema_e}"
+                # Extract column lineage
+                column_lineage = self._extract_column_lineage(
+                    table=table,
+                    source_table=source_table,
+                    destination_platform=destination_platform,
+                    source_table_columns=source_table_columns,
                 )
 
-        # Log lineage counts
-        if lineage_list:
-            column_mapping_count = sum(
-                len(lineage.column_lineage) for lineage in lineage_list
-            )
-            logger.info(
-                f"Created {len(lineage_list)} table lineage entries with {column_mapping_count} total column mappings for connector {connector.connector_id}"
-            )
-        else:
-            logger.warning(f"No lineage created for connector {connector.connector_id}")
+                # Add this table's lineage to the list
+                lineage_list.append(
+                    TableLineage(
+                        source_table=source_table,
+                        destination_table=destination_table,
+                        column_lineage=column_lineage,
+                    )
+                )
 
+        logger.info(
+            f"Extracted {len(lineage_list)} table lineage entries with {sum(len(tl.column_lineage) for tl in lineage_list)} column mappings"
+        )
         return lineage_list
 
     def _extract_column_lineage(
@@ -838,7 +795,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         source_table_columns: Dict[str, Dict[str, str]],
     ) -> List[ColumnLineage]:
         """
-        Extract column-level lineage for a table with improved API integration.
+        Extract column-level lineage for a table.
         Args:
             table: Table data from API
             source_table: Full source table name (schema.table)
@@ -847,12 +804,11 @@ class FivetranStandardAPI(FivetranAccessInterface):
         Returns:
             List of ColumnLineage objects
         """
-        logger.info(
+        logger.debug(
             f"Extracting column lineage for {source_table} to {destination_platform}"
         )
-        logger.debug(f"Table data keys: {list(table.keys())}")
 
-        # 1. First try to get columns from the table data
+        # 1. Get columns from the table data
         columns = table.get("columns", [])
 
         # Handle different column formats
@@ -867,23 +823,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 else:
                     columns_list.append({"name": col_name, "type": str(col_data)})
             columns = columns_list
-            logger.info(f"Converted dict format to list with {len(columns)} columns")
+            logger.debug(f"Converted dict format to list with {len(columns)} columns")
 
-        # 2. If no columns found, try to retrieve them directly from the API columns endpoint
-        if not columns:
-            logger.info(
-                f"No columns in table data, trying direct API query for {source_table}"
-            )
-            columns = self._get_columns_from_api(source_table)
-
-        # 3. If still no columns, try source_table_columns
-        if not columns and source_table in source_table_columns:
-            logger.info(f"Using columns from source_table_columns for {source_table}")
-            columns = [
-                {"name": col_name, "type": col_type}
-                for col_name, col_type in source_table_columns[source_table].items()
-            ]
-
+        # Create column lineage from the columns we have
         column_lineage = []
         is_bigquery = destination_platform.lower() == "bigquery"
 
@@ -901,6 +843,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
             if not col_name or col_name.startswith("_fivetran"):
                 continue
 
+            # Get destination column name - prefer name_in_destination if available
             dest_col_name = None
             if isinstance(column, dict) and "name_in_destination" in column:
                 dest_col_name = column.get("name_in_destination")
@@ -913,22 +856,21 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 dest_col_name = self._transform_column_name_for_platform(
                     col_name, is_bigquery
                 )
-                logger.debug(f"Transformed name: {col_name} -> {dest_col_name}")
+                logger.debug(f"Transformed column name: {col_name} -> {dest_col_name}")
 
-            if dest_col_name:
-                column_lineage.append(
-                    ColumnLineage(
-                        source_column=col_name,
-                        destination_column=dest_col_name,
-                    )
+            column_lineage.append(
+                ColumnLineage(
+                    source_column=col_name,
+                    destination_column=dest_col_name,
                 )
+            )
 
         if column_lineage:
-            logger.info(
+            logger.debug(
                 f"Created {len(column_lineage)} column lineage entries for {source_table}"
             )
         else:
-            logger.warning(f"Failed to create any column lineage for {source_table}")
+            logger.warning(f"No column lineage created for {source_table}")
 
         return column_lineage
 
@@ -979,40 +921,49 @@ class FivetranStandardAPI(FivetranAccessInterface):
         normalized_source = source_table.lower()
 
         # Try to find in the connector cache
-        for conn_id, connector in getattr(self, "_connector_cache", {}).items():
+        for conn in getattr(self, "_connector_cache", []):
+            if not hasattr(conn, "connector_id"):
+                continue
+
+            # Check if it's a Salesforce connector if the source table name has "salesforce"
+            if (
+                "salesforce" in normalized_source
+                and conn.connector_type.lower() == "salesforce"
+            ):
+                logger.info(
+                    f"Matching Salesforce table {source_table} to connector {conn.connector_id}"
+                )
+                return conn.connector_id
+
             # Check in lineage explicitly
-            for lineage in getattr(connector, "lineage", []):
+            for lineage in getattr(conn, "lineage", []):
                 if (
                     hasattr(lineage, "source_table")
                     and lineage.source_table.lower() == normalized_source
                 ):
-                    return conn_id
+                    return conn.connector_id
 
-            # Try partial matching - especially helpful for schema matching
-            for lineage in getattr(connector, "lineage", []):
+            # Try partial matching - especially helpful for Salesforce objects
+            for lineage in getattr(conn, "lineage", []):
                 if (
                     hasattr(lineage, "source_table")
-                    and "." in lineage.source_table
                     and source_table.split(".")[0] == lineage.source_table.split(".")[0]
                 ):
                     # If schema matches, this is probably the right connector
                     logger.info(
-                        f"Found schema match for {source_table} in connector {conn_id}"
+                        f"Found schema match for {source_table} in connector {conn.connector_id}"
                     )
-                    return conn_id
+                    return conn.connector_id
 
         # If no match found, look for connector type matching the schema name
         schema_name = source_table.split(".")[0] if "." in source_table else ""
         if schema_name:
-            for conn_id, connector in getattr(self, "_connector_cache", {}).items():
-                if (
-                    hasattr(connector, "connector_type")
-                    and connector.connector_type.lower() == schema_name.lower()
-                ):
+            for conn in getattr(self, "_connector_cache", []):
+                if conn.connector_type.lower() == schema_name.lower():
                     logger.info(
-                        f"Matched {source_table} to connector {conn_id} based on schema/type match"
+                        f"Matched {source_table} to connector {conn.connector_id} based on schema/type match"
                     )
-                    return conn_id
+                    return conn.connector_id
 
         # No match found
         return None
@@ -1154,6 +1105,134 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return source_columns
 
+    def _transform_column_name_with_pattern(
+        self, column_name: str, naming_pattern: ColumnNamingPattern
+    ) -> str:
+        """
+        Transform a column name according to the specified naming pattern.
+
+        Args:
+            column_name: The original column name
+            naming_pattern: The target naming pattern
+
+        Returns:
+            Transformed column name
+        """
+        import re
+
+        if not column_name:
+            return ""
+
+        # First normalize by removing special characters (except underscores)
+        normalized = re.sub(r"[^\w]", "", column_name)
+
+        if naming_pattern == ColumnNamingPattern.AUTO:
+            # In auto mode, try to determine the current pattern and preserve it
+            return column_name
+
+        elif naming_pattern == ColumnNamingPattern.SNAKE_CASE:
+            # Convert camelCase or PascalCase to snake_case
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", normalized)
+            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+            return s2.lower()
+
+        elif naming_pattern == ColumnNamingPattern.CAMEL_CASE:
+            # Convert to camelCase
+            # First convert to snake_case if it contains underscores
+            if "_" in normalized:
+                parts = normalized.lower().split("_")
+                return parts[0] + "".join(p.capitalize() for p in parts[1:])
+            # If already camelCase or PascalCase, ensure first letter is lowercase
+            return normalized[0].lower() + normalized[1:]
+
+        elif naming_pattern == ColumnNamingPattern.PASCAL_CASE:
+            # Convert to PascalCase
+            # First convert to snake_case if it contains underscores
+            if "_" in normalized:
+                parts = normalized.lower().split("_")
+                return "".join(p.capitalize() for p in parts)
+            # If already camelCase, capitalize first letter
+            return normalized[0].upper() + normalized[1:]
+
+        elif naming_pattern == ColumnNamingPattern.UPPER_CASE:
+            # Convert to UPPER_CASE
+            # First convert to snake_case if it's camelCase or PascalCase
+            if re.search(r"[a-z][A-Z]", normalized):
+                s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", normalized)
+                s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+                return s2.upper()
+            return normalized.upper()
+
+        elif naming_pattern == ColumnNamingPattern.LOWER_CASE:
+            # Convert to lowercase, preserving underscores
+            return normalized.lower()
+
+        # Default case (should not happen)
+        return column_name
+
+    def _detect_column_naming_pattern(
+        self, column_names: List[str]
+    ) -> ColumnNamingPattern:
+        """
+        Detect the naming pattern from a list of column names.
+
+        Args:
+            column_names: List of column names
+
+        Returns:
+            The detected naming pattern
+        """
+        if not column_names:
+            return ColumnNamingPattern.AUTO
+
+        # Count occurrences of each pattern
+        pattern_counts = {
+            ColumnNamingPattern.SNAKE_CASE: 0,
+            ColumnNamingPattern.CAMEL_CASE: 0,
+            ColumnNamingPattern.PASCAL_CASE: 0,
+            ColumnNamingPattern.UPPER_CASE: 0,
+            ColumnNamingPattern.LOWER_CASE: 0,
+        }
+
+        for name in column_names:
+            if not name:
+                continue
+
+            # Check for snake_case
+            if "_" in name and name.islower():
+                pattern_counts[ColumnNamingPattern.SNAKE_CASE] += 1
+            # Check for camelCase
+            elif name[0].islower() and any(c.isupper() for c in name):
+                pattern_counts[ColumnNamingPattern.CAMEL_CASE] += 1
+            # Check for PascalCase
+            elif name[0].isupper() and any(c.islower() for c in name):
+                pattern_counts[ColumnNamingPattern.PASCAL_CASE] += 1
+            # Check for UPPER_CASE
+            elif name.isupper():
+                pattern_counts[ColumnNamingPattern.UPPER_CASE] += 1
+            # Check for lower_case
+            elif name.islower():
+                pattern_counts[ColumnNamingPattern.LOWER_CASE] += 1
+
+        # Return the most common pattern
+        if not pattern_counts:
+            return ColumnNamingPattern.AUTO
+
+        return max(pattern_counts.items(), key=lambda x: x[1])[0]
+
+    def _get_source_naming_pattern(self, connector_id: str) -> ColumnNamingPattern:
+        """Get the column naming pattern for a source connector."""
+        if (
+            self.config
+            and hasattr(self.config, "sources_to_platform_instance")
+            and connector_id in self.config.sources_to_platform_instance
+        ):
+            platform_detail = self.config.sources_to_platform_instance[connector_id]
+            if hasattr(platform_detail, "column_naming_pattern"):
+                return platform_detail.column_naming_pattern
+
+        return ColumnNamingPattern.AUTO
+
     def _get_destination_naming_pattern(
         self, destination_id: str, platform: str
     ) -> ColumnNamingPattern:
@@ -1252,7 +1331,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
         self, column_name: str, is_bigquery: bool
     ) -> str:
         """
-        Transform column name based on the destination platform.
+        Transform column name based on the destination platform with better handling of edge cases.
 
         Args:
             column_name: Source column name
@@ -1266,24 +1345,28 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         if is_bigquery:
             # For BigQuery:
+            # 1. Convert to lowercase
+            # 2. Replace camelCase with snake_case
+            # 3. Clean up any invalid characters
             import re
 
-            # Step 1: Replace special characters with underscore
-            s0 = re.sub(r"[^a-zA-Z0-9]", "_", column_name)
-
-            # Step 2: Convert camelCase to snake_case
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", s0)
+            # Step 1: Convert camelCase to snake_case with regex
+            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", column_name)
             s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
 
-            # Step 3: Lowercase everything
-            s3 = s2.lower()
+            # Step 2: lowercase and replace non-alphanumeric with underscore
+            transformed = re.sub(r"[^a-zA-Z0-9_]", "_", s2.lower())
 
-            # Step 4: Normalize multiple consecutive underscores
-            s4 = re.sub(r"_+", "_", s3)
+            # Step 3: Remove leading/trailing underscores and collapse multiple underscores
+            transformed = re.sub(r"_+", "_", transformed).strip("_")
 
-            return s4
+            # Log the transformation for debugging
+            if transformed != column_name.lower():
+                logger.debug(f"Transformed column: {column_name} -> {transformed}")
+
+            return transformed
         else:
-            # For most other systems, uppercase without changing special characters
+            # For other platforms like Snowflake, typically uppercase
             return column_name.upper()
 
     def _get_destination_platform(self, connector: Connector) -> str:
