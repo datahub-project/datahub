@@ -621,8 +621,9 @@ class KafkaMirrorSourceConnector(BaseConnector):
         for topic in self.connector_manifest.topic_names:
             # FeliceNamingReplicationPolicy 일 경우 map 에서 source_topic 추출
             # FeliceAffixReplicationPolicy 일 경우 prefix 를 뺀 name 이 source_topic
+            topic_prefix = f"{parser.target_prefix}-" if parser.target_prefix else ""
             source_topic = parser.target_source_map.get(topic) or topic.removeprefix(
-                parser.target_prefix + "-"
+                topic_prefix
             )
             lineage = KafkaConnectLineage(
                 source_dataset=source_topic,
