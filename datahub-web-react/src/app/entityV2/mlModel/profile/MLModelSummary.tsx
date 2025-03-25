@@ -81,7 +81,7 @@ export default function MLModelSummary() {
     const renderDeployments = () => {
         const deployments =
             model?.deployedTo?.relationships?.map((relationship) => relationship.entity).filter(notEmpty) || [];
-            if (deployments.length === 0) return '-';
+        if (deployments.length === 0) return '-';
 
         return (
             <div>

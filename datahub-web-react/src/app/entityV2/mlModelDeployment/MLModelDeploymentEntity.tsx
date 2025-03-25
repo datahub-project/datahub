@@ -91,18 +91,18 @@ export class MLModelDeploymentEntity implements Entity<MlModelDeployment> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
             tabs={[
-                {
-                    name: 'Summary',
-                    component: MlModelDeploymentSummary,
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                },
+                // {
+                //     name: 'Summary',
+                //     component: MlModelDeploymentSummary,
+                // },
+                // {
+                //     name: 'Documentation',
+                //     component: DocumentationTab,
+                // },
+                // {
+                //     name: 'Properties',
+                //     component: PropertiesTab,
+                // },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -111,26 +111,14 @@ export class MLModelDeploymentEntity implements Entity<MlModelDeployment> {
 
     renderPreview = (_: PreviewType, data: MlModelDeployment) => {
         const genericProperties = this.getGenericEntityProperties(data);
-        return (
-            <Preview
-                urn={data.urn}
-                name={this.displayName(data)}
-                data={genericProperties}            
-            />
-        );
+        return <Preview urn={data.urn} name={this.displayName(data)} data={genericProperties} />;
     };
 
     renderSearch = (result: SearchResult) => {
-        const data = result.entity as MlModelDeployment
+        const data = result.entity as MlModelDeployment;
         const genericProperties = this.getGenericEntityProperties(data);
 
-        return (
-            <Preview
-                urn={data.urn}
-                name={this.displayName(data)}
-                data={genericProperties}       
-            />
-        );
+        return <Preview urn={data.urn} name={this.displayName(data)} data={genericProperties} />;
     };
 
     getSidebarSections = () => [
@@ -175,10 +163,8 @@ export class MLModelDeploymentEntity implements Entity<MlModelDeployment> {
         },
     ];
 
-
     displayName = (data: MlModelDeployment) => {
-        // eslint-disable-next-line @typescript-eslint/dot-notation
-        return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
+        return data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModelDeployment: MlModelDeployment) => {

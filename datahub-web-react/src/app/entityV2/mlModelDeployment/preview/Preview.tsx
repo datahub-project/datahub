@@ -83,7 +83,7 @@ export default function Preview({
             dataProduct={dataProduct}
             snippet={snippet}
             deprecation={deprecation}
-            dataTestID="process-instance-item-preview"
+            dataTestID="ml-model-deployment-item-preview"
             insights={insights}
             externalUrl={externalUrl}
             degree={degree}

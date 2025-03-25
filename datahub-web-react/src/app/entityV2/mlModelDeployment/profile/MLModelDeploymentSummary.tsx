@@ -1,14 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
-import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
-import { capitalize } from 'lodash';
 import moment from 'moment';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { MlHyperParam, MlMetric, DataProcessInstanceRunResultType } from '../../../../types.generated';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { GetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
-import { Pill } from '../../../../alchemy-components/components/Pills';
+import { GetMlModelDeploymentQuery } from '../../../../graphql/mlModelDeployment.generated';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -27,33 +23,9 @@ const InfoItemContent = styled.div`
     overflow-wrap: break-word;
 `;
 
-const propertyTableColumns = [
-    {
-        title: 'Name',
-        dataIndex: 'name',
-        width: 450,
-    },
-    {
-        title: 'Value',
-        dataIndex: 'value',
-    },
-];
-
 export default function MLModelDeploymentSummary() {
-    const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
-    const dpi = baseEntity?.dataProcessInstance;
-
-    const formatStatus = (state) => {
-        if (!state || state.length === 0) return '-';
-        const result = state[0]?.result?.resultType;
-        const statusColor = result === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
-        return <Pill label={capitalize(result)} color={statusColor} clickable={false} />;
-    };
-
-    const formatDuration = (state) => {
-        if (!state || state.length === 0) return '-';
-        return formatDetailedDuration(state[0]?.durationMillis);
-    };
+    const baseEntity = useBaseEntity<GetMlModelDeploymentQuery>();
+    const mmd = baseEntity?.mlModelDeployment;
 
     return (
         <TabContent>
@@ -62,41 +34,12 @@ export default function MLModelDeploymentSummary() {
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Created At">
                         <InfoItemContent>
-                            {dpi?.properties?.created?.time
-                                ? moment(dpi.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
+                            {/* {mmd?.properties?.createdAt
+                                ? moment(mmd.properties.createdAt).format('YYYY-MM-DD HH:mm:ss')
+                                : '-'} */}
                         </InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Status">
-                        <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>
-                    </InfoItem>
-                    <InfoItem title="Duration">
-                        <InfoItemContent>{formatDuration(dpi?.state)}</InfoItemContent>
-                    </InfoItem>
-                    <InfoItem title="Run ID">
-                        <InfoItemContent>{dpi?.mlTrainingRunProperties?.id}</InfoItemContent>
-                    </InfoItem>
-                    <InfoItem title="Created By">
-                        <InfoItemContent>{dpi?.properties?.created?.actor}</InfoItemContent>
-                    </InfoItem>
                 </InfoItemContainer>
-                <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Artifacts Location">
-                        <InfoItemContent>{dpi?.mlTrainingRunProperties?.outputUrls}</InfoItemContent>
-                    </InfoItem>
-                </InfoItemContainer>
-                <Typography.Title level={3}>Training Metrics</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.trainingMetrics as MlMetric[]}
-                />
-                <Typography.Title level={3}>Hyper Parameters</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.hyperParams as MlHyperParam[]}
-                />
             </Space>
         </TabContent>
     );

@@ -6,14 +6,7 @@ query getMLModelDeployment($urn: String!) {
         properties {
             description
         }
-        relationships(
-            input: {
-                types: ["DeployedTo"]
-                direction: INCOMING
-                start: 0
-                count: 100
-            }
-        ) {
+        relationships(input: { types: ["DeployedTo"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
     }
