@@ -1,7 +1,16 @@
 source:
   type: fivetran
   config:
-    # Fivetran log connector destination server configurations
+    # Optional - Mode of operation: 'enterprise' for log tables access, 'standard' for REST API, or 'auto' to detect
+    # Default is 'auto' which will detect based on provided configs
+    fivetran_mode: auto
+
+    # Optional - DataJob generation mode: 'consolidated' to create one job per connector, 'per_table' to create one job per table
+    # Default is 'consolidated'
+    datajob_mode: consolidated
+
+    # Enterprise mode configuration (fivetran_log_config)
+    # This section is required if using enterprise mode or auto mode with enterprise preferred
     fivetran_log_config:
       destination_platform: snowflake
       # Optional - If destination platform is 'snowflake', provide snowflake configuration.
@@ -27,28 +36,53 @@ source:
           private_key: "private_key"
         dataset: "fivetran_log_dataset"
 
-    # Optional - filter for certain connector names instead of ingesting everything.
-    # connector_patterns:
-    #   allow:
-    #     - connector_name
+    # Standard mode configuration (api_config)
+    # This section is required if using standard mode or auto mode with standard fallback
+    api_config:
+      api_key: "${FIVETRAN_API_KEY}"
+      api_secret: "${FIVETRAN_API_SECRET}"
+      # Optional - API base URL, default is 'https://api.fivetran.com'
+      base_url: "https://api.fivetran.com"
+      # Optional - Request timeout in seconds, default is 30
+      request_timeout_sec: 30
 
-    # Optional -- A mapping of the connector's all sources to its database.
-    # sources_to_database:
-    #   connector_id: source_db
+    # Optional - filter for certain connector names instead of ingesting everything.
+    connector_patterns:
+      allow:
+        - "postgres.*"
+        - "snowflake.*"
+        # - connector_name
+
+    # Optional - filter for certain destination IDs instead of ingesting everything.
+    destination_patterns:
+      allow:
+        - "my_snowflake_destination_id"
+        # - destination_id
+
+    # Optional - The number of days to look back when extracting connectors' sync history.
+    # Default is 7 days
+    history_sync_lookback_period: 7
 
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
-    # sources_to_platform_instance:
-    #   connector_id:
-    #     platform_instance: cloud_instance
-    #     env: DEV
+    sources_to_platform_instance:
+      connector_id:
+        platform: postgres  # Optional override for platform detection
+        platform_instance: cloud_instance
+        env: DEV
+        database: source_db  # Database name for the source
+        include_schema_in_urn: true  # Optional - whether to include schema in dataset URN, default true
+        column_naming_pattern: auto  # Optional - naming pattern for columns, options: auto, snake_case, camelCase, PascalCase, UPPER_CASE, lower_case
 
     # Optional -- This mapping is optional and only required to configure platform-instance for destination.
     # A mapping of Fivetran destination id to data platform instance
-    # destination_to_platform_instance:
-    #   destination_id:
-    #     platform_instance: cloud_instance
-    #     env: DEV
+    destination_to_platform_instance:
+      destination_id:
+        platform: snowflake  # Optional override for platform detection
+        platform_instance: cloud_instance
+        env: DEV
+        database: dest_db  # Database name for the destination
+        include_schema_in_urn: true  # Optional - whether to include schema in dataset URN, default true
 
 sink:
   # sink configs

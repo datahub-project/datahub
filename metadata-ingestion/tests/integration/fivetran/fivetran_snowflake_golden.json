@@ -763,7 +763,7 @@
                     "upstreams": [
                         "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
                     ],
-                    "downstreamType": "FIELD",
+                    "downstreamType": "FIELD_SET",
                     "downstreams": [
                         "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
                     ],
