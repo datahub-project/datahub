@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Tooltip } from '@components';
 
-import { Assertion, AssertionRunEvent } from '../../../../../../../../../../../types.generated';
+import { Assertion, AssertionRunEvent, AssertionSourceType } from '../../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../../constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../../../../../../shared/time/timeUtils';
 import { getFormattedTimeString } from '../timeline/utils';
@@ -55,8 +55,10 @@ type Props = {
 
 export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
     const assertionRunTime = run.timestampMillis;
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+
     const absoluteRunTime = getFormattedTimeString(assertionRunTime);
-    const resultText = getFormattedResultText(run.result?.type);
+    const resultText = getFormattedResultText(run.result?.type, isSmartAssertion);
     const resultTextColor = getResultColor(run.result?.type) || undefined;
     const reasonText = getFormattedReasonText(assertion, run);
     const highlightColor = getResultColor(run.result?.type);

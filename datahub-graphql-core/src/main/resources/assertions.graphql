@@ -341,12 +341,26 @@ input UpsertDatasetFreshnessAssertionMonitorInput {
   description: String
 
   """
-  The Freshness assertion's schedule
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  You can pass in any value for the 'schedule' parameter, but we recommend setting it as at least daily.
   """
-  schedule: FreshnessAssertionScheduleInput!
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
+
+  """
+  The Freshness assertion's schedule
+  Set to null if inferWithAI is enabled, else required.
+  """
+  schedule: FreshnessAssertionScheduleInput
 
   """
   A cron schedule dictating when the assertion is evaluated.
+  Should match the cron in the 'schedule' field above.
+  For inferWithAI, this is still required even if the schedule is not set.
   """
   evaluationSchedule: CronScheduleInput!
 
@@ -397,6 +411,18 @@ input UpsertDatasetVolumeAssertionMonitorInput {
   The type of the volume assertion being monitored.
   """
   type: VolumeAssertionType!
+
+  """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  The row count predictions will be inferred from the dataset metrics.
+  To start, you can pass in any value for the rowCountTotal or rowCountChange.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
 
   """
   Parameters for a FAILURE Assertion Result if the asset's row count does not meet
@@ -534,6 +560,17 @@ input UpsertDatasetFieldAssertionMonitorInput {
   The entity targeted by this Field check.
   """
   entityUrn: String!
+
+  """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  NOTE: only supported for fieldMetricAssertion for now.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
 
   """
   The definition of an assertion that validates individual values of a field / column for a set of rows.
@@ -902,12 +939,6 @@ extend type Assertion {
   """
   actions: AssertionActions
 
-  """
-  The details related to an Inferred Assertion
-  available if source is "INFERRED"
-  """
-  inferenceDetails: AssertionInferenceDetails
-
 }
 
 """
@@ -960,41 +991,6 @@ enum AssertionActionType {
 }
 
 """
-The details of an Inferred Assertion
-"""
-type AssertionInferenceDetails {
-  """
-  The id of the assertion prediction model.
-  """
-  modelId: String
-
-  """
-  The version of the model used to make the assertion.
-  """
-  modelVersion: String
-
-  """
-  The confidence of the inference, if available.
-  """
-  confidence: Float
-
-  """
-  The parameters used to make the inference.
-  """
-  parameters: [StringMapEntry!]
-
-  """
-  The settings used to adjust the assertion.
-  """
-  adjustmentSettings: AssertionAdjustmentSettings
-
-  """
-  The time the inferred assertion was generated at in milliseconds.
-  """
-  generatedAt: Long
-}
-
-"""
 A set of settings that can be used to adjust assertion values
 This is mainly applied against inferred assertions
 """
@@ -1002,7 +998,7 @@ type AssertionAdjustmentSettings {
   """
   The algorithm to use to adjust assertion values to power the sensitivity control feature
   """
-  algorithm: AdjustmentAlgorithm!
+  algorithm: AdjustmentAlgorithm
 
   """
   The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
@@ -1014,6 +1010,195 @@ type AssertionAdjustmentSettings {
   """
   context: [StringMapEntry!]
 
+  """
+  Exclusion windows for the assertion. If not provided, no exclusion windows are applied.
+  """
+  exclusionWindows: [AssertionExclusionWindow!]
+
+  """
+  The training lookback window in events. If not provided, the default is used.
+  """
+  trainingDataLookbackWindowDays: Int
+
+  """
+  The sensitivity level for the assertion. If not provided, the default is applied.
+  """
+  sensitivity: AssertionMonitorSensitivity
+}
+
+input AssertionAdjustmentSettingsInput {
+  """
+  The algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithm: AdjustmentAlgorithm
+
+  """
+  The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithmName: String
+
+  """
+  The context to use to adjust assertion values
+  """
+  context: [StringMapEntryInput!]
+  
+  """
+  Exclusion windows for the assertion. If not provided, no exclusion windows are applied.
+  """
+  exclusionWindows: [AssertionExclusionWindowInput!]
+
+  """
+  The training lookback window in events. If not provided, the default is used.
+  """
+  trainingDataLookbackWindowDays: Int
+
+  """
+  The sensitivity level for the assertion. If not provided, the default is applied.
+  """
+  sensitivity: AssertionMonitorSensitivityInput
+}
+
+""" Enum representing the type of exclusion window. """
+enum AssertionExclusionWindowType {
+  """ One-off time range to exclude. """
+  FIXED_RANGE
+
+  """ Recurring weekly time range to exclude. """
+  WEEKLY
+
+  """ Specific holiday to exclude. """
+  HOLIDAY
+}
+
+""" Represents a recurring time window that repeats weekly. """
+type WeeklyWindow {
+  """ Days of the week included in the exclusion window.
+  If not specified, all days are included. """
+  daysOfWeek: [DayOfWeek!]
+
+  """ Start time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
+  If not specified, defaults to the start of the day ("00:00"). """
+  startTime: String
+
+  """ End time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
+  If not specified, defaults to the end of the day ("23:59"). """
+  endTime: String
+
+  """ Time zone used to interpret start and end times.
+  Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
+  Defaults to UTC if not specified. """
+  timezone: String
+}
+
+input WeeklyWindowInput {
+  """ Days of the week included in the exclusion window.
+  If not specified, all days are included. """
+  daysOfWeek: [DayOfWeek!]
+
+  """ Start time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
+  If not specified, defaults to the start of the day ("00:00"). """
+  startTime: String
+
+  """ End time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
+  If not specified, defaults to the end of the day ("23:59"). """
+  endTime: String
+
+  """ Time zone used to interpret start and end times.
+  Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
+  Defaults to UTC if not specified. """
+  timezone: String
+}
+
+""" Enum representing days of the week. """
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+""" Represents an exclusion window based on a holiday. Need to add buffers."""
+type HolidayWindow {
+  """ The name of the holiday (e.g., "Thanksgiving"). """
+  name: String!
+
+  """ The region where the holiday is observed (e.g., "US"). """
+  region: String
+
+  """ The time zone associated with the holiday (e.g., "America/New_York"). """
+  timezone: String
+}
+
+input HolidayWindowInput {
+  """ The name of the holiday (e.g., "Thanksgiving"). """
+  name: String!
+
+  """ The region where the holiday is observed (e.g., "US"). """
+  region: String
+
+  """ The time zone associated with the holiday (e.g., "America/New_York"). """
+  timezone: String
+}
+
+""" Information about an assertion exclusion window.
+Used to exclude specific time periods from assertion evaluation or training. """
+type AssertionExclusionWindow {
+  """ The type of exclusion window (e.g., fixed range or holiday-based). """
+  type: AssertionExclusionWindowType!
+
+  """ Display name for this exclusion window. """
+  displayName: String
+
+  """ Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE. """
+  fixedRange: AbsoluteTimeWindow
+
+  """ Recurring weekly exclusion window. """
+  weekly: WeeklyWindow
+
+  """ Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY. """
+  holiday: HolidayWindow
+}
+
+input AssertionExclusionWindowInput {
+  """ The type of exclusion window (e.g., fixed range or holiday-based). """
+  type: AssertionExclusionWindowType!
+
+  """ Display name for this exclusion window. """
+  displayName: String
+
+  """ Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE. """
+  fixedRange: AbsoluteTimeWindowInput
+
+  """ Recurring weekly exclusion window. """
+  weekly: WeeklyWindowInput
+
+  """ Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY. """
+  holiday: HolidayWindowInput
+}
+
+type AssertionMonitorSensitivity {
+  """
+  The sensitivity level, from 1-10.
+  """
+  level: Int!
+}
+
+input AssertionMonitorSensitivityInput {
+  """
+  The sensitivity level, from 1-10.
+  """
+  level: Int!
 }
 
 """
@@ -1044,7 +1229,7 @@ type FreshnessAssertionInfo {
   """
   Produce FAIL Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule.
   """
-  schedule: FreshnessAssertionSchedule!
+  schedule: FreshnessAssertionSchedule
 
   """
   A filter applied when querying an external Dataset or Table
@@ -1070,6 +1255,11 @@ type FreshnessAssertionSchedule {
   A fixed interval schedule. This is populated if the type is FIXED_INTERVAL.
   """
   fixedInterval: FixedIntervalSchedule
+
+  """
+  Evaluation windows for the assertion. If not provided, no evaluation windows are applied.
+  """
+  exclusions: [AssertionExclusionWindow!]
 }
 
 """

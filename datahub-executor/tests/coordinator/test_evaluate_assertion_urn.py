@@ -26,11 +26,6 @@ class TestEvaluateAssertionUrnHandler:
             {
                 "urn": "urn:li:testAssertion",
                 "type": "ASSERTION",
-                "platform": {
-                    "urn": "urn:li:dataPlatform:unknown",
-                    "properties": {"displayName": "N/A", "logoUrl": None},
-                    "info": None,
-                },
                 "info": {
                     "type": "FRESHNESS",
                     "freshnessAssertion": {
@@ -43,27 +38,13 @@ class TestEvaluateAssertionUrnHandler:
                     },
                     "source": {"type": "NATIVE"},
                 },
-                "relationships": {
-                    "start": 0,
-                    "count": 1,
-                    "total": 1,
-                    "relationships": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)",
-                                "properties": {
-                                    "name": "TEST_ASSERTIONS_ALL_TIMES",
-                                    "qualifiedName": "test_db.public.test_assertions_all_times",
-                                },
-                                "platform": {
-                                    "urn": "urn:li:dataPlatform:snowflake",
-                                    "properties": {"displayName": "Snowflake"},
-                                },
-                                "subTypes": {"typeNames": ["Table"]},
-                                "exists": True,
-                            }
-                        }
-                    ],
+                "entity": {
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)",
+                    "table_name": "TEST_ASSERTIONS_ALL_TIMES",
+                    "qualified_name": "test_db.public.test_assertions_all_times",
+                    "platform_urn": "urn:li:dataPlatform:snowflake",
+                    "sub_types": ["Table"],
+                    "exists": True,
                 },
             }
         )
@@ -79,6 +60,7 @@ class TestEvaluateAssertionUrnHandler:
                                 "path": "col_timestamp",
                                 "type": "TIMESTAMP",
                                 "nativeType": "TIMESTAMP_NTZ",
+                                "kind": "HIGH_WATERMARK",
                             },
                         }
                     ),

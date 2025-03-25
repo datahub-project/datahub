@@ -1,28 +1,29 @@
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import React, { useMemo, useState } from 'react';
-import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
-import * as QueryString from 'query-string';
 import {
     ArrowDownOutlined,
     ArrowUpOutlined,
     CaretDownFilled,
     CaretDownOutlined,
+    LoadingOutlined,
     ReloadOutlined,
     SubnodeOutlined,
-    LoadingOutlined,
 } from '@ant-design/icons';
-import { Button, Select, Typography } from 'antd';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { Tooltip } from '@components';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Lineage/ManageLineageMenuFromImpactAnalysis';
+import { Direction } from '@src/app/lineage/types';
+import { Button, Select, Typography } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
+import styled from 'styled-components/macro';
 import { EntityType, LineageDirection } from '../../../../../types.generated';
-import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../constants';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
 import ColumnsLineageSelect from './ColumnLineageSelect';
 import { ImpactAnalysis } from './ImpactAnalysis';
 import { LineageTabContext } from './LineageTabContext';
@@ -73,9 +74,10 @@ interface SchemaFieldEntityData extends GenericEntityProperties {
 
 interface Props {
     defaultDirection: LineageDirection;
+    setVisualizeViewInEditMode: (view: boolean, direction: Direction) => void;
 }
 
-export function LineageColumnView({ defaultDirection }: Props) {
+export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode }: Props) {
     const { urn, entityType, entityData } = useEntityData();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
@@ -153,10 +155,8 @@ export function LineageColumnView({ defaultDirection }: Props) {
                     />
                 </LeftButtonsWrapper>
                 <RightButtonsWrapper>
-                    <ManageLineageMenu
-                        entityUrn={urn}
-                        refetchEntity={() => setShouldRefetch(true)}
-                        setUpdatedLineages={() => {}}
+                    <ManageLineageMenuForImpactAnalysis
+                        setVisualizeViewInEditMode={setVisualizeViewInEditMode}
                         menuIcon={
                             <Button type="text">
                                 <ManageLineageIcon />
@@ -166,9 +166,7 @@ export function LineageColumnView({ defaultDirection }: Props) {
                                 <StyledCaretDown />
                             </Button>
                         }
-                        showLoading
                         entityType={entityType}
-                        entityPlatform={entityData?.platform?.name}
                         canEditLineage={canEditLineage}
                         disableDropdown={!canEditLineage}
                     />

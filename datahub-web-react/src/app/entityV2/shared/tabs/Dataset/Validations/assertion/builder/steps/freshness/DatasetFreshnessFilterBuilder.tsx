@@ -1,19 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Input, Typography } from 'antd';
-import {
-    DatasetFilter,
-    DatasetFilterType,
-    DatasetFreshnessSourceType,
-} from '../../../../../../../../../../types.generated';
+import { DatasetFilterType, DatasetFreshnessSourceType } from '../../../../../../../../../../types.generated';
+import { FreshnessAssertionBuilderFilter } from '../../types';
 
 const Form = styled.div`
     margin-top: 16px;
 `;
 
 type Props = {
-    value?: DatasetFilter | null;
-    onChange: (newFilter?: DatasetFilter) => void;
+    value?: FreshnessAssertionBuilderFilter | null;
+    onChange: (newFilter?: FreshnessAssertionBuilderFilter) => void;
     sourceType?: DatasetFreshnessSourceType | null;
     disabled?: boolean;
 };

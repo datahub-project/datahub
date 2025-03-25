@@ -1,0 +1,20 @@
+namespace com.linkedin.timeseries
+
+record HolidayWindow {
+    /**
+     * The name of the holiday.
+     */
+    name: string
+
+    /**
+     * The region of the holiday.
+     * Example: 'US'
+     */
+    region: optional string
+
+    /**
+     * The timezone of the holiday.
+     * Example: 'America/New_York'
+     */
+    timezone: optional string
+}

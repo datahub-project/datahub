@@ -350,6 +350,14 @@ export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsC
     }));
 };
 
+export const extractLatestGeneratedAt = (monitor?: Monitor): number | undefined => {
+    const generatedAtArr: number[] | undefined = monitor?.info?.assertionMonitor?.assertions
+        .map((assertion) => assertion.context?.inferenceDetails?.generatedAt?.valueOf())
+        .filter((exists) => typeof exists === 'number')
+        .map((ts) => ts as number);
+    return generatedAtArr?.length ? Math.max(...generatedAtArr) : undefined;
+};
+
 export const isMonitorActive = (monitor: Monitor) => {
     return monitor.info?.status?.mode === MonitorMode.Active;
 };

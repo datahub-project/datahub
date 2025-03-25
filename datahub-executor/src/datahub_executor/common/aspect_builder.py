@@ -57,9 +57,9 @@ def build_assertion_result(
     result: AssertionEvaluationResult,
     context: Optional[AssertionEvaluationContext],
 ) -> AssertionResultClass:
-    logger.info(
+    logger.debug(
         f"Attempting to produce Assertion Run Event for assertion run with urn {assertion.urn}. Result {result.type}"
-    )  # TODO - debug
+    )
 
     parameters = result.parameters
     error = None

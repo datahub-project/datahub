@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+import pydantic
 from acryl.executor.request.execution_request import ExecutionRequest
 from pydantic import BaseModel, Field, root_validator, validator
 
@@ -12,6 +13,9 @@ logger = logging.getLogger(__name__)
 class PermissiveBaseModel(BaseModel):
     class Config:
         extra = "allow"
+        allow_population_by_field_name = (
+            True  # Allow parsing via both field name and alias
+        )
 
 
 # The following types are used bound from
@@ -242,6 +246,7 @@ class MonitorMode(Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
     PASSIVE = "PASSIVE"
+    INIT = "INIT"
 
 
 class AssertionValueChangeType(Enum):
@@ -358,7 +363,7 @@ class SchemaFieldSpec(PermissiveBaseModel):
     type: str
 
     # The native type of the field collected from source
-    native_type: Optional[str] = Field(alias="nativeType")
+    native_type: str = Field(alias="nativeType")
 
     kind: Optional[FreshnessFieldKind]
 
@@ -419,7 +424,7 @@ class FreshnessAssertion(PermissiveBaseModel):
 
     type: FreshnessAssertionType
 
-    schedule: FreshnessAssertionSchedule
+    schedule: Optional[FreshnessAssertionSchedule]
 
     filter: Optional[DatasetFilter] = None
 
@@ -586,9 +591,20 @@ class FieldValuesAssertion(PermissiveBaseModel):
     exclude_nulls: bool = Field(alias="excludeNulls")
 
     @validator("parameters", pre=True, always=True)
-    def validate_parameters(cls, parameters: Optional[dict], values: dict) -> dict:
+    def validate_parameters(
+        cls, parameters: Union[dict, AssertionStdParameters], values: dict
+    ) -> Union[dict, AssertionStdParameters]:
+        # Handle None case
         if parameters is None:
             return {}
+
+        # Convert AssertionStdParameters to dict if needed
+        params_dict = {}
+        if isinstance(parameters, AssertionStdParameters):
+            # Convert to dict for validation only
+            params_dict = parameters.dict()
+        else:
+            params_dict = parameters
 
         operator = values.get("operator")
         # validate that the operator type is valid for the parameter type
@@ -600,7 +616,7 @@ class FieldValuesAssertion(PermissiveBaseModel):
             AssertionStdOperator.EQUAL_TO,
             AssertionStdOperator.NOT_EQUAL_TO,
         ]:
-            if parameters["value"] is None:
+            if not params_dict.get("value"):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
@@ -612,23 +628,24 @@ class FieldValuesAssertion(PermissiveBaseModel):
             AssertionStdOperator.IN,
             AssertionStdOperator.NOT_IN,
         ]:
-            if parameters["value"] is None:
+            if not params_dict.get("value"):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
 
         if operator in [AssertionStdOperator.BETWEEN]:
-            if parameters["minValue"] is None or parameters["maxValue"] is None:
+            if not params_dict.get("minValue") or not params_dict.get("maxValue"):
                 raise ValueError(
                     f"Parameter minValue and maxValue are required when operator is {operator.name}"
                 )
 
         if operator in [AssertionStdOperator.REGEX_MATCH]:
-            if parameters["value"] is None:
+            if not params_dict.get("value"):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
 
+        # Return the original parameters
         return parameters
 
     @validator("transform", pre=True, always=True)
@@ -947,10 +964,15 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "info" in values
             and "source" in values["info"]
+            and values["info"]["source"] is not None
             and "type" in values["info"]["source"]
         ):
             values["sourceType"] = values["info"]["source"]["type"]
-        elif "source" in values and "type" in values["source"]:
+        elif (
+            "source" in values
+            and values["source"] is not None
+            and "type" in values["source"]
+        ):
             values["sourceType"] = values["source"]["type"]
 
         if (
@@ -995,15 +1017,106 @@ class AssertionAdjustmentAlgorithm(Enum):
     CUSTOM = "CUSTOM"
 
 
-class AssertionAdjustmentSettings(BaseModel):
+class AssertionExclusionWindowType(str, Enum):
+    """
+    Enum representing the type of exclusion window.
+    """
+
+    FIXED_RANGE = "FIXED_RANGE"
+    WEEKLY = "WEEKLY"
+    HOLIDAY = "HOLIDAY"
+
+
+class DayOfWeek(str, Enum):
+    """
+    Enum representing days of the week.
+    """
+
+    MONDAY = "MONDAY"
+    TUESDAY = "TUESDAY"
+    WEDNESDAY = "WEDNESDAY"
+    THURSDAY = "THURSDAY"
+    FRIDAY = "FRIDAY"
+    SATURDAY = "SATURDAY"
+    SUNDAY = "SUNDAY"
+
+
+class WeeklyWindow(PermissiveBaseModel):
+    """
+    Represents a recurring time window that repeats weekly.
+    """
+
+    days_of_week: Optional[List[DayOfWeek]] = Field(default=None, alias="daysOfWeek")
+    start_time: Optional[str] = Field(
+        default="00:00", alias="startTime"
+    )  # Default start of day
+    end_time: Optional[str] = Field(
+        default="23:59", alias="endTime"
+    )  # Default end of day
+    timezone: Optional[str] = Field(default="UTC", alias="timezone")  # Default to UTC
+
+
+class HolidayWindow(PermissiveBaseModel):
+    """
+    Represents an exclusion window based on a holiday.
+    """
+
+    name: str
+    region: Optional[str] = None
+    timezone: Optional[str] = None
+
+
+class AbsoluteTimeWindow(PermissiveBaseModel):
+    """
+    Represents a fixed time range for an exclusion window.
+    """
+
+    startTimeMillis: int
+    endTimeMillis: int
+
+    @validator("startTimeMillis", "endTimeMillis", pre=True)
+    def coerce_datetime_objects(cls, v: Any) -> int:
+        # This exists purely to make it easier to pass datetime objects / strings in when testing.
+        if not isinstance(v, int):
+            dt = pydantic.parse_obj_as(datetime, v)
+            assert dt.tzinfo is not None, "datetime must be timezone-aware"
+            return int(dt.timestamp() * 1000)
+        return v
+
+
+class AssertionExclusionWindow(PermissiveBaseModel):
+    """
+    Information about an assertion exclusion window.
+    Used to exclude specific time periods from assertion evaluation or training.
+    """
+
+    type: AssertionExclusionWindowType
+    display_name: Optional[str] = Field(default=None, alias="displayName")
+    fixed_range: Optional[AbsoluteTimeWindow] = Field(default=None, alias="fixedRange")
+    weekly: Optional[WeeklyWindow] = Field(default=None, alias="weekly")
+    holiday: Optional[HolidayWindow] = None
+
+
+class AssertionMonitorSensitivity(PermissiveBaseModel):
+    level: int
+
+
+class AssertionAdjustmentSettings(PermissiveBaseModel):
     """
     A set of settings that can be used to adjust assertion values
     This is mainly applied against inferred assertions
     """
 
-    algorithm: AssertionAdjustmentAlgorithm
-    algorithmName: str
+    algorithm: Optional[AssertionAdjustmentAlgorithm]
+    algorithmName: Optional[str]
     context: Optional[Dict[str, str]]
+    exclusion_windows: Optional[List[AssertionExclusionWindow]] = Field(
+        alias="exclusionWindows"
+    )
+    training_data_lookback_window_days: Optional[int] = Field(
+        alias="trainingDataLookbackWindowDays"
+    )
+    sensitivity: Optional[AssertionMonitorSensitivity]
 
 
 class Assertion(AssertionInfo):
@@ -1015,9 +1128,6 @@ class Assertion(AssertionInfo):
 
     # The urn of the connection required to evaluate the assertion. If there is no connection urn we are limited in terms of what we can do
     connection_urn: Optional[str] = Field(alias="connectionUrn")
-
-    # The settings used to adjust the assertion.
-    adjustmentSettings: Optional[AssertionAdjustmentSettings]
 
     # We need "AssertionInfo" aspect in its original form when creating AssertionRunEvent aspect.
     # Ideally, we can write a complete mapper from "Assertion" type here to "AssertionInfo" aspect
@@ -1036,64 +1146,13 @@ class Assertion(AssertionInfo):
     def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"
         # response object provided by the GraphQL API.
-        graphql_entity = None
-
         if (
-            "relationships" in values
-            and "relationships" in values["relationships"]
-            and len(values["relationships"]["relationships"]) > 0
+            "connectionUrn" not in values
+            and "entity" in values
+            and "platformUrn" in values["entity"]
         ):
-            graphql_entity = values["relationships"]["relationships"][0]["entity"]
-
-        if "entity" not in values and graphql_entity:
-            platform_urn = graphql_entity["platform"]["urn"]
-            entity_urn = graphql_entity["urn"]
-            exists = graphql_entity["exists"] if "exists" in graphql_entity else None
-
-            table_name = (
-                graphql_entity["properties"]["name"]
-                if "properties" in graphql_entity
-                and graphql_entity["properties"] is not None
-                and "name" in graphql_entity["properties"]
-                else None
-            )
-            qualified_name = (
-                graphql_entity["properties"]["qualifiedName"]
-                if "properties" in graphql_entity
-                and graphql_entity["properties"] is not None
-                and "qualifiedName" in graphql_entity["properties"]
-                else None
-            )
-
-            sub_types = (
-                graphql_entity["subTypes"]["typeNames"]
-                if "subTypes" in graphql_entity
-                and graphql_entity["subTypes"] is not None
-                and "typeNames" in graphql_entity["subTypes"]
-                else []
-            )
-
-            values["entity"] = {
-                "urn": entity_urn,
-                "platformUrn": platform_urn,
-                "platformInstance": None,
-                "subTypes": sub_types,
-                "table_name": table_name,
-                "qualified_name": qualified_name,
-                "exists": exists,
-            }
-
-        if "connectionUrn" not in values and graphql_entity:
-            platform_urn = graphql_entity["platform"]["urn"]
+            platform_urn = values["entity"]["platformUrn"]
             values["connectionUrn"] = platform_urn
-
-        if (
-            values.get("inferenceDetails")
-            and "adjustmentSettings" in values["inferenceDetails"]
-        ):
-            values["adjustmentSettings"] = values["inferenceDetails"][
-                "adjustmentSettings"
-            ]
 
         if (
             "rawInfoAspect" in values
@@ -1151,15 +1210,31 @@ class EmbeddedAssertion(PermissiveBaseModel):
     raw_assertion: str = Field(alias="rawAssertion")
 
 
+class AssertionInferenceDetails(PermissiveBaseModel):
+    # The time at which an inference was last generated.
+    # This is very important - if an assertion cannot be generated for any reason,
+    # this field will be set to null.
+    #
+    # This is used to determine whether we have generated a valid prediction for
+    # a given smart assertion.
+    generated_at: Optional[int] = Field(alias="generatedAt")
+
+
 class AssertionEvaluationSpecContext(PermissiveBaseModel):
-    # Currently used for Smart Assertions
+    # Currently used for Smart Assertions:
     # An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
     # if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
     embedded_assertions: Optional[List[EmbeddedAssertion]] = Field(
         alias="embeddedAssertions"
     )
 
+    # Deprecated: A legacy way to adjust the assertion using a standard deviation calculated offline.
     std_dev: Optional[float] = Field(alias="stdDev")
+
+    # Currently used for Smart Assertion: Details about the last inference generated for a smart assertion.
+    inference_details: Optional[AssertionInferenceDetails] = Field(
+        alias="inferenceDetails"
+    )
 
     @property
     def has_embedded_assertions(self) -> bool:
@@ -1189,10 +1264,20 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
     raw_parameters: Optional[str] = Field(alias="rawParameters")
 
 
+class AssertionMonitorSettings(PermissiveBaseModel):
+    """Assertion Monitor Settings"""
+
+    inference_settings: Optional[AssertionAdjustmentSettings] = Field(
+        alias="inferenceSettings"
+    )
+
+
 class AssertionMonitor(PermissiveBaseModel):
     """A monitor that evaluates assertions"""
 
     assertions: List[AssertionEvaluationSpec]
+
+    settings: Optional[AssertionMonitorSettings]
 
 
 class Monitor(PermissiveBaseModel):
@@ -1210,6 +1295,48 @@ class Monitor(PermissiveBaseModel):
 
     @root_validator(pre=True)
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        graphql_entity = (
+            values["entity"] if "entity" in values else None
+        )  # dataset entity associated with the monitor
+        entity = None
+        if graphql_entity:
+            platform_urn = graphql_entity["platform"]["urn"]
+            entity_urn = graphql_entity["urn"]
+            exists = graphql_entity["exists"] if "exists" in graphql_entity else None
+
+            table_name = (
+                graphql_entity["properties"]["name"]
+                if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
+                and "name" in graphql_entity["properties"]
+                else None
+            )
+            qualified_name = (
+                graphql_entity["properties"]["qualifiedName"]
+                if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
+                and "qualifiedName" in graphql_entity["properties"]
+                else None
+            )
+
+            sub_types = (
+                graphql_entity["subTypes"]["typeNames"]
+                if "subTypes" in graphql_entity
+                and graphql_entity["subTypes"] is not None
+                and "typeNames" in graphql_entity["subTypes"]
+                else []
+            )
+
+            entity = {
+                "urn": entity_urn,
+                "platformUrn": platform_urn,
+                "platformInstance": None,
+                "subTypes": sub_types,
+                "table_name": table_name,
+                "qualified_name": qualified_name,
+                "exists": exists,
+            }
+
         if "info" in values:
             if "type" in values["info"]:
                 values["type"] = values["info"]["type"]
@@ -1217,6 +1344,15 @@ class Monitor(PermissiveBaseModel):
                 values["executor_id"] = values["info"]["executorId"]
             if "assertionMonitor" in values["info"]:
                 values["assertion_monitor"] = values["info"]["assertionMonitor"]
+
+                assertions = values["assertion_monitor"]["assertions"]
+
+                # These are a bit of HACKs: Copy the entity for the assertion down lower based on the monitor assertion!
+                # This is done because we do need the entity at the monitor level AND the assertion level.
+                # Both monitors & assertions do point to a single related entity, so for now this is okay.
+                for assertion in assertions:
+                    assertion["assertion"]["entity"] = entity
+
             if "status" in values["info"] and "mode" in values["info"]["status"]:
                 values["mode"] = values["info"]["status"]["mode"]
         return values
@@ -1240,11 +1376,13 @@ class AssertionEvaluationContext:
         self,
         dry_run: bool = False,
         monitor_urn: Optional[str] = None,
+        monitor: Optional[AssertionMonitor] = None,
         assertion_evaluation_spec: Optional[AssertionEvaluationSpec] = None,
         base_assertion: Optional[RawAspect] = None,
     ):
         self.dry_run = dry_run
         self.monitor_urn = monitor_urn
+        self.monitor = monitor
         self.evaluation_spec = assertion_evaluation_spec
         self.base_assertion_info = base_assertion
 

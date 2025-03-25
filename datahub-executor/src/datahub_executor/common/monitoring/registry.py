@@ -54,6 +54,16 @@ REGISTRY = {
         "Number of errors occurred while processing assertion requests in worker",
         ["pool_name", "exception"],
     ],
+    "WORKER_MONITOR_TRAINING_REQUESTS": [
+        Gauge,
+        "Number of monitor training requests received/processed by worker",
+        ["pool_name"],
+    ],
+    "WORKER_MONITOR_TRAINING_ERRORS": [
+        Gauge,
+        "Number of errors occurred while processing monitor training requests in worker",
+        ["pool_name", "exception"],
+    ],
     "WORKER_INGESTION_REQUESTS": [
         Gauge,
         "Number of ingestion requests received/processed by worker",
@@ -96,6 +106,15 @@ REGISTRY = {
     "WORKER_ASSERTION_EVALUATE_ERRORS": [
         Gauge,
         "Number of errors occurred while evaluating assertions",
+        ["exception"],
+    ],
+    "WORKER_MONITOR_TRAINING_EXECUTOR_REQUESTS": [
+        Summary,
+        "Number of evaluate requests handled by monitor training executor",
+    ],
+    "WORKER_MONITOR_TRAINING_EXECUTOR_ERRORS": [
+        Gauge,
+        "Number of errors occurred while training monitors",
         ["exception"],
     ],
     "WORKER_INGESTION_CANCEL_REQUESTS": [
@@ -161,6 +180,11 @@ REGISTRY = {
     "SCHEDULER_ASSERTION_REQUESTS": [
         Gauge,
         "Number of assertion requests submitted from scheduler",
+        ["pool_name", "embedded"],
+    ],
+    "SCHEDULER_MONITOR_TRAINING_REQUESTS": [
+        Gauge,
+        "Number of monitor training requests submitted from scheduler",
         ["pool_name", "embedded"],
     ],
     "SCHEDULER_SUBMISSION_ERRORS": [

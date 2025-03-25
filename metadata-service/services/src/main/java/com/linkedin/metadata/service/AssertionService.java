@@ -734,14 +734,16 @@ public class AssertionService extends BaseService {
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nullable final String description,
-      @Nonnull final FreshnessAssertionSchedule schedule,
+      @Nullable final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nullable final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(opContext, "authentication must not be null");
+    if (assertionSource == null || assertionSource.getType() != AssertionSourceType.INFERRED) {
+      Objects.requireNonNull(schedule, "schedule must not be null for non-AI assertions");
+    }
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());

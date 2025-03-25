@@ -228,16 +228,12 @@ fragment monitorDetails on Monitor {
         assertionMonitor {
             assertions {
                 assertion {
-                    ...AssertionDetails
-                }
-                schedule {
-                    cron
-                    timezone
+                    urn
                 }
                 parameters {
                     ...assertionEvaluationParameters
                 }
-            }
+            } 
         }
         status {
             mode

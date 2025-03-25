@@ -3,20 +3,22 @@ import React from 'react';
 import { Collapse } from 'antd';
 import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
+import {
+    AssertionMonitorBuilderState,
+    FreshnessAssertionBuilderSchedule,
+    FreshnessAssertionBuilderFilter,
+    FreshnessAssertionScheduleBuilderTypeOptions,
+} from '../../types';
 import {
     AssertionEvaluationParametersType,
     AssertionType,
     CronSchedule,
-    DatasetFilter,
-    DatasetFreshnessAssertionParameters,
-    FreshnessAssertionSchedule,
-    FreshnessAssertionScheduleType,
 } from '../../../../../../../../../../types.generated';
 import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { DatasetFreshnessScheduleBuilder } from './DatasetFreshnessScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from './DatasetFreshnessSourceBuilder';
 import { DatasetFreshnessFilterBuilder } from './DatasetFreshnessFilterBuilder';
+import { FreshnessInfrenceAdjuster } from '../inferred/FreshnessInfrenceAdjuster';
 
 const Section = styled.div`
     display: flex;
@@ -28,33 +30,38 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
 /**
  * Step for defining the Dataset Freshness assertion
  */
-export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled }: Props) => {
+export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled, isEditMode }: Props) => {
     const freshnessAssertion = state.assertion?.freshnessAssertion;
     const freshnessFilter = freshnessAssertion?.filter;
     const freshnessSchedule = freshnessAssertion?.schedule;
     const freshnessScheduleType = freshnessSchedule?.type;
     const datasetFreshnessParameters = state.parameters?.datasetFreshnessParameters;
 
-    const updateDatasetFreshnessAssertionParameters = (parameters: DatasetFreshnessAssertionParameters) => {
+    const isAiInferenceSelected = freshnessSchedule?.type === FreshnessAssertionScheduleBuilderTypeOptions.AiInferred;
+
+    const updateDatasetFreshnessAssertionParameters = (
+        parameters: Required<AssertionMonitorBuilderState>['parameters']['datasetFreshnessParameters'],
+    ) => {
         updateState({
             ...state,
             parameters: {
                 type: AssertionEvaluationParametersType.DatasetFreshness,
                 datasetFreshnessParameters: {
-                    sourceType: parameters.sourceType,
-                    auditLog: parameters.auditLog as any,
-                    field: parameters.field as any,
+                    sourceType: parameters?.sourceType,
+                    auditLog: parameters?.auditLog,
+                    field: parameters?.field,
                 },
             },
         });
     };
 
-    const updateAssertionSqlFilter = (filter?: DatasetFilter) => {
+    const updateAssertionSqlFilter = (filter?: FreshnessAssertionBuilderFilter) => {
         updateState({
             ...state,
             assertion: {
@@ -85,7 +92,7 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled 
         });
     };
 
-    const updateFreshnessSchedule = (schedule: FreshnessAssertionSchedule) => {
+    const updateFreshnessSchedule = (schedule: FreshnessAssertionBuilderSchedule) => {
         updateState({
             ...state,
             assertion: {
@@ -100,37 +107,50 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled 
 
     return (
         <div>
-            <DatasetFreshnessScheduleBuilder
-                value={freshnessSchedule as FreshnessAssertionSchedule}
-                onChange={updateFreshnessSchedule}
-                disabled={disabled}
-            />
+            {/* Cannot change type for AI inferred freshness assertions */}
+            {!(isEditMode && isAiInferenceSelected) && (
+                <DatasetFreshnessScheduleBuilder
+                    value={freshnessSchedule}
+                    onChange={updateFreshnessSchedule}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                />
+            )}
 
-            <EvaluationScheduleBuilder
-                headerLabel={
-                    state.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.FixedInterval
-                        ? `As of...`
-                        : `Schedule checks at...`
-                }
-                value={state.schedule}
-                onChange={updateAssertionSchedule}
-                assertionType={AssertionType.Freshness}
-                disabled={disabled}
-            />
+            {/* No need to select a schedule for AI inferred freshness assertions */}
+            {!isAiInferenceSelected && (
+                <EvaluationScheduleBuilder
+                    headerLabel={
+                        state.assertion?.freshnessAssertion?.schedule?.type ===
+                        FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval
+                            ? `As of...`
+                            : `Schedule checks at...`
+                    }
+                    value={state.schedule}
+                    onChange={updateAssertionSchedule}
+                    assertionType={AssertionType.Freshness}
+                    disabled={disabled}
+                />
+            )}
 
             <Section>
                 <Collapse>
-                    <Collapse.Panel key="Advanced" header="Advanced">
-                        <DatasetFreshnessSourceBuilder
-                            entityUrn={state.entityUrn as string}
-                            platformUrn={state.platformUrn as string}
-                            scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
-                            value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
-                            onChange={updateDatasetFreshnessAssertionParameters}
-                            disabled={disabled}
-                        />
+                    <Collapse.Panel key="Advanced" header="Freshness detection mechanism">
+                        {state.entityUrn &&
+                            state.platformUrn &&
+                            freshnessScheduleType &&
+                            datasetFreshnessParameters && (
+                                <DatasetFreshnessSourceBuilder
+                                    entityUrn={state.entityUrn}
+                                    platformUrn={state.platformUrn}
+                                    scheduleType={freshnessScheduleType}
+                                    value={datasetFreshnessParameters}
+                                    onChange={updateDatasetFreshnessAssertionParameters}
+                                    disabled={disabled}
+                                />
+                            )}
                         <DatasetFreshnessFilterBuilder
-                            value={freshnessFilter as DatasetFilter}
+                            value={freshnessFilter}
                             onChange={updateAssertionSqlFilter}
                             sourceType={datasetFreshnessParameters?.sourceType}
                             disabled={disabled}
@@ -138,6 +158,10 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled 
                     </Collapse.Panel>
                 </Collapse>
             </Section>
+
+            {isAiInferenceSelected && (
+                <FreshnessInfrenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+            )}
         </div>
     );
 };

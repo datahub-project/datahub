@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.generated';
+import { OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import { getOwnershipTypeName } from '../ownershipUtils';
+import { ExtendedOwner, getOwnershipTypeName } from '../ownershipUtils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 
 const OwnershipTypeContainer = styled.div`
@@ -32,7 +32,7 @@ const OwnersContainer = styled.div`
 
 interface Props {
     ownershipType: OwnershipTypeEntity;
-    owners: Owner[];
+    owners: ExtendedOwner[];
     readOnly?: boolean;
 }
 
@@ -51,6 +51,7 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
                         owner={owner}
                         refetch={refetch}
                         readOnly={readOnly}
+                        hidePopOver={owner.isProposed}
                     />
                 ))}
             </OwnersContainer>

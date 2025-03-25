@@ -1,19 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Input, Typography } from 'antd';
-import {
-    DatasetFilter,
-    DatasetFilterType,
-    DatasetVolumeSourceType,
-} from '../../../../../../../../../../types.generated';
+import { DatasetFilterType, DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
+import { VolumeAssertionBuilderState } from '../../types';
 
 const Form = styled.div`
     margin-top: 16px;
 `;
 
 type Props = {
-    value?: DatasetFilter | null;
-    onChange: (newFilter?: DatasetFilter) => void;
+    value?: VolumeAssertionBuilderState['filter'];
+    onChange: (newFilter?: VolumeAssertionBuilderState['filter']) => void;
     sourceType: DatasetVolumeSourceType;
     disabled?: boolean;
 };

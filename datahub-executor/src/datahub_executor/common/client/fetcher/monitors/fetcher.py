@@ -6,6 +6,7 @@ from tenacity.before_sleep import before_sleep_log
 
 from datahub_executor.common.client.fetcher.base import Fetcher
 from datahub_executor.common.client.fetcher.monitors.graphql.query import (
+    GRAPHQL_LIST_MONITORS_OPERATION,
     GRAPHQL_LIST_MONITORS_QUERY,
 )
 from datahub_executor.common.client.fetcher.monitors.mapper import (
@@ -42,6 +43,7 @@ class MonitorFetcher(Fetcher):
         result = paginate_datahub_query_results(
             graph=self.graph,
             query=GRAPHQL_LIST_MONITORS_QUERY,
+            operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
             query_key="searchAcrossEntities",
             result_key="searchResults",
             user_params={

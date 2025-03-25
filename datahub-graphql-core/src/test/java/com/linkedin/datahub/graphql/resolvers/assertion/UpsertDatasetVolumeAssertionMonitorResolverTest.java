@@ -11,10 +11,14 @@ import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AbsoluteTimeWindowInput;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionInput;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
 import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettingsInput;
+import com.linkedin.datahub.graphql.generated.AssertionExclusionWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionMonitorSensitivityInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
@@ -41,6 +45,7 @@ import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorSettings;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
 import com.linkedin.monitor.MonitorInfo;
@@ -48,9 +53,11 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.timeseries.AbsoluteTimeWindow;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -60,17 +67,39 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
-  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
 
   private static final String TEST_EXECUTOR_ID = "testExecutorId";
+  private static final long TEST_TIMESTAMP = 1234567890L;
+
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_INPUT =
       new UpsertDatasetVolumeAssertionMonitorInput(
           TEST_DATASET_URN.toString(),
           "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
+          true,
+          AssertionAdjustmentSettingsInput.builder()
+              .setAlgorithm(com.linkedin.datahub.graphql.generated.AdjustmentAlgorithm.CUSTOM)
+              .setAlgorithmName("custom")
+              .setTrainingDataLookbackWindowDays(10)
+              .setExclusionWindows(
+                  List.of(
+                      AssertionExclusionWindowInput.builder()
+                          .setDisplayName("baller")
+                          .setType(
+                              com.linkedin.datahub.graphql.generated.AssertionExclusionWindowType
+                                  .FIXED_RANGE)
+                          .setFixedRange(
+                              AbsoluteTimeWindowInput.builder()
+                                  .setStartTimeMillis(0L)
+                                  .setEndTimeMillis(1L)
+                                  .build())
+                          .build()))
+              .setSensitivity(AssertionMonitorSensitivityInput.builder().setLevel(1).build())
+              .build(),
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
               new AssertionStdParametersInput(
@@ -95,6 +124,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           null,
           "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
+          null,
+          null,
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
               new AssertionStdParametersInput(
@@ -119,6 +150,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
           "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
+          null,
+          null,
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
               new AssertionStdParametersInput(
@@ -143,11 +176,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           .setType(AssertionType.VOLUME)
           .setSource(
               new AssertionSource()
-                  .setType(AssertionSourceType.NATIVE)
-                  .setCreated(
-                      new AuditStamp()
-                          .setTime(System.currentTimeMillis())
-                          .setActor(TEST_ACTOR_URN)))
+                  .setType(AssertionSourceType.INFERRED)
+                  .setCreated(new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN)))
           .setVolumeAssertion(
               new VolumeAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
@@ -210,8 +240,25 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           .setType(MonitorType.ASSERTION)
           .setAssertionMonitor(
               new AssertionMonitor()
-                  .setAssertions(
-                      new AssertionEvaluationSpecArray(ImmutableList.of(evaluationSpec))))
+                  .setAssertions(new AssertionEvaluationSpecArray(ImmutableList.of(evaluationSpec)))
+                  .setSettings(
+                      new AssertionMonitorSettings()
+                          .setAdjustmentSettings(
+                              new AssertionAdjustmentSettings()
+                                  .setAlgorithm(com.linkedin.assertion.AdjustmentAlgorithm.CUSTOM)
+                                  .setAlgorithmName("custom")
+                                  .setTrainingDataLookbackWindowDays(10)
+                                  .setSensitivity(new AssertionMonitorSensitivity().setLevel(1))
+                                  .setExclusionWindows(
+                                      new AssertionExclusionWindowArray(
+                                          List.of(
+                                              new AssertionExclusionWindow()
+                                                  .setType(AssertionExclusionWindowType.FIXED_RANGE)
+                                                  .setFixedRange(
+                                                      new AbsoluteTimeWindow()
+                                                          .setStartTimeMillis(0L)
+                                                          .setEndTimeMillis(1L))
+                                                  .setDisplayName("baller")))))))
           .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
           .setExecutorId(TEST_EXECUTOR_ID);
 
@@ -223,7 +270,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -247,7 +294,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -260,7 +307,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq(
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()));
+            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+            Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
   }
 
   @Test
@@ -271,7 +319,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -290,7 +338,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 Mockito.eq(
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -304,7 +353,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -319,7 +368,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -341,7 +390,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -373,7 +422,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -407,7 +456,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = initMockGraphClient();
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -444,7 +493,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
   }
 
   private GraphClient initMockGraphClient() {
@@ -474,7 +524,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     GraphClient graphClient = initMockGraphClient();
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), graphClient);
+            mockService, Mockito.mock(MonitorService.class), graphClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -509,7 +559,10 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), Mockito.mock((GraphClient.class)));
+            mockService,
+            Mockito.mock(MonitorService.class),
+            Mockito.mock((GraphClient.class)),
+            () -> TEST_TIMESTAMP);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -547,7 +600,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), mockClient);
+            mockService, Mockito.mock(MonitorService.class), mockClient, () -> TEST_TIMESTAMP);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -582,7 +635,10 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
         new UpsertDatasetVolumeAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), initMockGraphClient());
+            mockService,
+            Mockito.mock(MonitorService.class),
+            initMockGraphClient(),
+            () -> TEST_TIMESTAMP);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

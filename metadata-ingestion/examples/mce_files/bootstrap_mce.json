@@ -3820,5 +3820,549 @@
           "runId": "datahub-2024_04_08-13_00_44",
           "lastRunId": "no-run-id-provided"
       }
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d2075ec9-b8bb-4a82-8021-c727d77dc94a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "json": {
+        "volumeAssertion": null,
+        "lastUpdated": {
+          "actor": "urn:li:corpuser:admin",
+          "time": 1741134969094
+        },
+        "description": "Test",
+        "source": {
+          "type": "INFERRED",
+          "created": {
+            "actor": "urn:li:corpuser:admin",
+            "time": 1741134969093
+          }
+        },
+        "type": "VOLUME"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD),56703a60-39b5-41c4-8865-f2467d4c2dd8)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+      "json": {
+        "type": "ASSERTION",
+        "assertionMonitor": {
+          "assertions": [
+            {
+              "schedule": {
+                "cron": "* * * * *",
+                "timezone": "America/Los_Angeles"
+              },
+              "assertion": "urn:li:assertion:d2075ec9-b8bb-4a82-8021-c727d77dc94a",
+              "parameters": {
+                "type": "DATASET_VOLUME",
+                "datasetVolumeParameters": {
+                  "sourceType": "INFORMATION_SCHEMA"
+                }
+              },
+              "context": {
+                "embeddedAssertions": []
+              }
+            }
+          ],
+          "settings": {
+            "adjustmentSettings": {
+              "exclusionWindows": [
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "USER_DEFINED"
+                },
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "ANOMALY"
+                }
+              ],
+              "trainingDataLookbackWindowDays": 30,
+              "sensitivity": {
+                "level": 10
+              }
+            }
+          }
+        },
+        "status": {
+          "mode": "ACTIVE"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:freshness-test",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "json": {
+        "freshnessAssertion": null,
+        "lastUpdated": {
+          "actor": "urn:li:corpuser:admin",
+          "time": 1741134969094
+        },
+        "description": "Test",
+        "source": {
+          "type": "INFERRED",
+          "created": {
+            "actor": "urn:li:corpuser:admin",
+            "time": 1741134969093
+          }
+        },
+        "type": "FRESHNESS"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD),test-freshness-monitor)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+      "json": {
+        "type": "ASSERTION",
+        "assertionMonitor": {
+          "assertions": [
+            {
+              "schedule": {
+                "cron": "* * * * *",
+                "timezone": "America/Los_Angeles"
+              },
+              "assertion": "urn:li:assertion:freshness-test",
+              "parameters": {
+                "type": "DATASET_FRESHNESS",
+                "datasetFreshnessParameters": {
+                  "sourceType": "INFORMATION_SCHEMA"
+                }
+              }
+            }
+          ],
+          "settings": {
+            "adjustmentSettings": {
+              "exclusionWindows": [
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "USER_DEFINED"
+                },
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "ANOMALY"
+                }
+              ],
+              "trainingDataLookbackWindowDays": 60,
+              "sensitivity": {
+                "level": 10
+              }
+            }
+          }
+        },
+        "status": {
+          "mode": "ACTIVE"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741651200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741652121349}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741564800000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741565792918}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741219200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741219236164}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741132800000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741132913783}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741132800000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741132969480}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741046400000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741047357190}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741219200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741219600147}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741046400000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741047202013}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741478400000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741479264850}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1741478400000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1741479058528}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740528000000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740528175508}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1739923200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1739923751438}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740528000000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740528200775}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740614400000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740614866342}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740096000000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740096300547}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1739923200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1739924112951}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740268800000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740269320378}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740009600000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740010561197}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1740528000000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1740528969214}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1739923200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1739923244880}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:field-metrics-test",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "json": {
+        "fieldAssertion": {
+          "type": "FIELD_METRIC",
+          "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+          "fieldMetricAssertion": {
+            "field": {
+              "path": "salesid",
+              "type": "NUMBER",
+              "nativeType": "integer"
+            },
+            "metric": "NULL_PERCENTAGE",
+            "operator": "BETWEEN",
+            "parameters": {
+              "maxValue": {
+                "value": "0",
+                "type": "NUMBER"
+              },
+              "minValue": {
+                "value": "0",
+                "type": "NUMBER"
+              }
+            }
+          }
+        },
+        "lastUpdated": {
+          "actor": "urn:li:corpuser:admin",
+          "time": 1741134969094
+        },
+        "description": "Test",
+        "source": {
+          "type": "INFERRED",
+          "created": {
+            "actor": "urn:li:corpuser:admin",
+            "time": 1741134969093
+          }
+        },
+        "type": "FIELD"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD),test-field-metric)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+      "json": {
+        "type": "ASSERTION",
+        "assertionMonitor": {
+          "assertions": [
+            {
+              "schedule": {
+                "cron": "* * * * *",
+                "timezone": "America/Los_Angeles"
+              },
+              "assertion": "urn:li:assertion:field-metrics-test",
+              "parameters": {
+                "type": "DATASET_FIELD",
+                "datasetFieldParameters": {
+                  "sourceType": "ALL_ROWS_QUERY"
+                }
+              }
+            }
+          ],
+          "settings": {
+            "adjustmentSettings": {
+              "exclusionWindows": [
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "USER_DEFINED"
+                },
+                {
+                  "type": "FIXED_RANGE",
+                  "displayName": "Fixed",
+                  "fixedRange": {
+                    "startTimeMillis": 0,
+                    "endTimeMillis": 1
+                  },
+                  "source": "ANOMALY"
+                }
+              ],
+              "trainingDataLookbackWindowDays": 60,
+              "sensitivity": {
+                "level": 10
+              }
+            }
+          }
+        },
+        "status": {
+          "mode": "ACTIVE"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1712548844817,
+      "runId": "datahub-2024_04_08-13_00_44",
+      "lastRunId": "no-run-id-provided"
+    }
   }
 ]

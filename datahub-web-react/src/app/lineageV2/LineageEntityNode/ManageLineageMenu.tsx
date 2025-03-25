@@ -1,13 +1,15 @@
 import { ArrowLeftOutlined, ArrowRightOutlined, MoreOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
 import Colors from '@components/theme/foundations/colors';
 import { Button, Dropdown, Menu } from 'antd';
-import { Popover } from '@components';
+import * as QueryString from 'query-string';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import React, { useCallback, useContext, useState } from 'react';
 import { EntityType, LineageDirection } from '../../../types.generated';
-import ManageLineageModal from '../manualLineage/ManageLineageModal';
-import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '../common';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entityV2/shared/constants';
+import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '../common';
+import ManageLineageModal from '../manualLineage/ManageLineageModal';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
@@ -63,13 +65,45 @@ const PopoverContent = styled.span`
 interface Props {
     node: LineageEntity;
     refetch: Record<LineageDirection, () => void>;
+    isRootUrn: boolean;
 }
 
-export default function ManageLineageMenu({ node, refetch }: Props) {
+export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
     const { displayedMenuNode, setDisplayedMenuNode } = useContext(LineageDisplayContext);
     const isMenuVisible = displayedMenuNode === node.urn;
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(LineageDirection.Upstream);
+    const location = useLocation();
+    const history = useHistory();
+
+    // Check for lineageEditDirection URL parameter when component mounts
+    useEffect(() => {
+        if (isRootUrn) {
+            const params = QueryString.parse(location.search);
+            const editDirection = params.lineageEditDirection as string;
+
+            if (editDirection) {
+                // Convert string parameter to LineageDirection enum
+                const direction =
+                    editDirection.toLowerCase() === 'downstream'
+                        ? LineageDirection.Downstream
+                        : LineageDirection.Upstream;
+
+                // Clear the parameter from URL
+                const newParams = { ...params };
+                delete newParams.lineageEditDirection;
+                const newSearch = QueryString.stringify(newParams);
+                history.replace({
+                    pathname: location.pathname,
+                    search: newSearch,
+                });
+
+                // Open the modal with the specified direction
+                setLineageDirection(direction);
+                setIsModalVisible(true);
+            }
+        }
+    }, [isRootUrn, location, history]);
 
     function manageLineage(direction: LineageDirection) {
         setLineageDirection(direction);
@@ -99,7 +133,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
 
     return (
         <Wrapper>
-            <StyledButton onClick={handleMenuClick} type="text">
+            <StyledButton onClick={handleMenuClick} type="text" data-testid={`manage-lineage-menu-${node.urn}`}>
                 <Dropdown
                     open={isMenuVisible}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
@@ -119,7 +153,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
                                                 isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }
                                             }
                                         >
-                                            <MenuItemContent>
+                                            <MenuItemContent data-testid="edit-upstream-lineage">
                                                 <ArrowLeftOutlined />
                                                 &nbsp; Edit Upstream
                                             </MenuItemContent>
@@ -135,7 +169,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
                                             content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard)}
                                             overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
                                         >
-                                            <MenuItemContent>
+                                            <MenuItemContent data-testid="edit-downstream-lineage">
                                                 <ArrowRightOutlined />
                                                 &nbsp; Edit Downstream
                                             </MenuItemContent>

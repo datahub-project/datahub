@@ -12,7 +12,10 @@ from kombu.transport.SQS import Channel
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.assertion.helpers import handle_assertions_signal_requests
-from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
+from datahub_executor.common.constants import (
+    RUN_ASSERTION_TASK_NAME,
+    RUN_MONITOR_TRAINING_TASK_NAME,
+)
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.identity.base import (
@@ -24,6 +27,10 @@ from datahub_executor.common.ingestion.helpers import (
     extract_execution_request_weight,
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
+)
+from datahub_executor.common.monitor.executor import MonitorExecutor
+from datahub_executor.common.monitor.helpers import (
+    handle_monitor_training_signal_requests,
 )
 from datahub_executor.common.monitoring.base import (
     METRIC,
@@ -57,6 +64,7 @@ discovery = None
 
 ingestion_executor = None
 assertion_executor = None
+monitor_executor = None
 
 # Health check status
 celery_liveness = 0
@@ -105,7 +113,7 @@ def safe_execute_ingestion(er: ExecutionRequest, submitted_at: float) -> None:
 
 def monitor_thread() -> None:
     global graph
-    global ingestion_executor, assertion_executor
+    global ingestion_executor, assertion_executor, monitor_executor
     global celery_liveness, celery_readiness, celery_shutdown
 
     max_allowed_staleness = DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL * 3
@@ -116,16 +124,17 @@ def monitor_thread() -> None:
     while not celery_shutdown:
         ingestions_running = False
         assertions_running = False
+        monitors_running = False
 
         # check for any signal requests on running tasks
-        if ingestion_executor is not None:
+        if ingestion_executor is not None and graph is not None:
             ingestions_running = handle_ingestion_signal_requests(
                 graph, ingestion_executor
             )
         if assertion_executor is not None:
-            assertions_running = handle_assertions_signal_requests(
-                graph, assertion_executor
-            )
+            assertions_running = handle_assertions_signal_requests(assertion_executor)
+        if monitor_executor is not None:
+            monitors_running = handle_monitor_training_signal_requests(monitor_executor)
 
         # Update readiness file if worker is up
         if celery_readiness:
@@ -141,7 +150,7 @@ def monitor_thread() -> None:
                 logger.warning("monitor: celery liveness check recovered.")
                 warning_last_logged = 0
                 failure_last_logged = 0
-        elif ingestions_running or assertions_running:
+        elif ingestions_running or assertions_running or monitors_running:
             touch_heartbeat_file(DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE)
             if (now - warning_last_logged) > log_frequency:
                 logger.warning(
@@ -162,7 +171,7 @@ def monitor_thread() -> None:
 @celeryd_init.connect
 def worker_startup(*args, **kwargs):
     global graph, monitor, discovery
-    global assertion_executor, ingestion_executor
+    global assertion_executor, ingestion_executor, monitor_executor
 
     monitoring_start()
     graph = create_datahub_graph()
@@ -179,6 +188,7 @@ def worker_startup(*args, **kwargs):
         ingestion_executor = setup_ingestion_executor()
 
     assertion_executor = AssertionExecutor()
+    monitor_executor = MonitorExecutor()
 
     # Start monitoring thread
     monitor = Thread(target=monitor_thread)
@@ -205,6 +215,28 @@ def assertion_request(execution_request: ExecutionRequest) -> None:
     else:
         METRIC(
             "WORKER_ASSERTION_ERRORS",
+            pool_name=DATAHUB_EXECUTOR_POOL_ID,
+            exception="UnsupportedRequest",
+        ).inc()
+        logger.error(
+            f"Unsupported ExecutionRequest type {execution_request.name} provided. Skipping execution of {execution_request.exec_id}.."
+        )
+        return
+
+
+@typing.no_type_check
+@app.task
+def monitor_training_request(execution_request: ExecutionRequest) -> None:
+    if execution_request.name == RUN_MONITOR_TRAINING_TASK_NAME:
+        METRIC(
+            "WORKER_MONITOR_TRAINING_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
+        ).inc()
+
+        global monitor_executor
+        monitor_executor.execute(execution_request)
+    else:
+        METRIC(
+            "WORKER_MONITOR_TRAINING_ERRORS",
             pool_name=DATAHUB_EXECUTOR_POOL_ID,
             exception="UnsupportedRequest",
         ).inc()
@@ -257,7 +289,7 @@ def heartbeat(**kwargs):
 @worker_shutting_down.connect
 def shutdown(**kwargs):
     global celery_shutdown, celery_readiness
-    global discovery, tp, monitor, assertion_executor
+    global discovery, tp, monitor, assertion_executor, monitor_executor
 
     celery_shutdown = True
     celery_readiness = False
@@ -270,5 +302,7 @@ def shutdown(**kwargs):
         tp.shutdown()
     if assertion_executor is not None:
         assertion_executor.shutdown()
+    if monitor_executor is not None:
+        monitor_executor.shutdown()
 
     monitoring_stop()

@@ -1,5 +1,7 @@
 namespace com.linkedin.monitor
 
+import com.linkedin.assertion.AssertionInferenceDetails
+
 /**
  * Additional context about assertion being evaluated.
  */
@@ -10,6 +12,11 @@ record AssertionEvaluationContext {
     * if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
     */
     embeddedAssertions: optional array[EmbeddedAssertion]
+
+    /**
+     * Details about the assertion inference.
+     */
+    inferenceDetails: optional AssertionInferenceDetails
 
     /**
      * The std deviation of the metric values used for training.

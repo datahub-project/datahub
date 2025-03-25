@@ -18,17 +18,16 @@ extend type Query {
   """
   globalSettings: GlobalSettings
 
-
   """
   Fetch the Global Settings related to the Views feature.
   Requires the 'Manage Global Views' Platform Privilege.
   """
   globalViewsSettings: GlobalViewsSettings
 
-    """
-    Fetch the global settings related to the docs propagation feature.
-    """
-    docPropagationSettings: DocPropagationSettings
+  """
+  Fetch the global settings related to the docs propagation feature.
+  """
+  docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -47,7 +46,9 @@ extend type Mutation {
   """
   Update the doc propagation settings.
   """
-  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
+  updateDocPropagationSettings(
+    input: UpdateDocPropagationSettingsInput!
+  ): Boolean!
 
   """
   Update the help link displayed in the help dropdown in the header of the UI.
@@ -59,7 +60,9 @@ extend type Mutation {
   Update the Organization Display Preferences in the UI.
   Requires the 'Manage Organization Display Preferences' Platform Privilege.
   """
-  updateOrganizationDisplayPreferences(input: UpdateOrganizationDisplayPreferencesInput!): Boolean!
+  updateOrganizationDisplayPreferences(
+    input: UpdateOrganizationDisplayPreferencesInput!
+  ): Boolean!
 }
 
 """
@@ -175,7 +178,7 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
-  
+
   """
   Whether the user can create and delete posts pinned to the home page.
   """
@@ -350,7 +353,6 @@ type QueriesTabConfig {
   queriesTabResultSize: Int
 }
 
-
 """
 Configuration for different entity profiles
 """
@@ -376,10 +378,10 @@ type EntityProfileConfig {
 Configuration for a search result
 """
 type SearchResultsVisualConfig {
-    """
-    Whether a search result should highlight the name/description if it was matched on those fields.
-    """
-    enableNameHighlight: Boolean
+  """
+  Whether a search result should highlight the name/description if it was matched on those fields.
+  """
+  enableNameHighlight: Boolean
 }
 
 """
@@ -467,7 +469,6 @@ type AuthConfig {
   """
   tokenAuthEnabled: Boolean!
 }
-
 
 """
 Configurations related to the Policies Feature
@@ -698,7 +699,7 @@ type OidcSettings {
   userNameClaim: String
 
   """
-    ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
+  ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
   """
   userNameClaimRegex: String
 
@@ -1042,7 +1043,7 @@ input UpdateOidcSettingsInput {
   userNameClaim: String
 
   """
-    ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
+  ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
   """
   userNameClaimRegex: String
 
@@ -1101,7 +1102,7 @@ input UpdateOidcSettingsInput {
   """
   extractJwtAccessTokenClaims: Boolean
 
-   """
+  """
   ADVANCED. Which jws algorithm to use.
   """
   preferredJwsAlgorithm: String
@@ -1347,6 +1348,11 @@ type FeatureFlagsConfig {
   If turned on, show the redesigned search bar's autocomplete
   """
   showSearchBarAutocompleteRedesign: Boolean!
+
+  """
+  If enabled, allow on-demand creation of smart assertions.
+  """
+  onlineSmartAssertionsEnabled: Boolean!
 }
 
 """

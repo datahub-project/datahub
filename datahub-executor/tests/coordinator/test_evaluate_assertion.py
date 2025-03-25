@@ -34,6 +34,7 @@ class TestEvaluateAssertionHandler:
                             "path": "col_timestamp",
                             "type": "TIMESTAMP",
                             "nativeType": "TIMESTAMP_NTZ",
+                            "kind": None,
                         },
                     },
                 },

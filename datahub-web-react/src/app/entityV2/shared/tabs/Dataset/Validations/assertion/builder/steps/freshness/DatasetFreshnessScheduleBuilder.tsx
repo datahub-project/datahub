@@ -1,14 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Radio, RadioChangeEvent, Typography } from 'antd';
-import {
-    FixedIntervalSchedule,
-    FreshnessAssertionSchedule,
-    FreshnessAssertionScheduleType,
-} from '../../../../../../../../../../types.generated';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { FreshnessAssertionScheduleType } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { FixedIntervalScheduleBuilder } from './FixedIntervalSchedulerBuilder';
 import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '../../constants';
+import { FreshnessAssertionBuilderSchedule, FreshnessAssertionScheduleBuilderTypeOptions } from '../../types';
 
 const Form = styled.div`
     margin: 16px 0 24px;
@@ -48,26 +46,31 @@ const TextContainer = styled.div`
     flex-direction: column;
     gap: 4px;
 `;
-
 type Props = {
-    value: FreshnessAssertionSchedule;
-    onChange: (schedule: FreshnessAssertionSchedule) => void;
+    value?: FreshnessAssertionBuilderSchedule;
+    onChange: (schedule: FreshnessAssertionBuilderSchedule) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: Props) => {
-    const { type: scheduleType, fixedInterval } = value;
+export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled, isEditMode }: Props) => {
+    const { type: scheduleType, fixedInterval } = value ?? {};
+
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
+    const isDetectWithAIEnabled = !isEditMode && onlineSmartAssertionsEnabled;
 
     const handleScheduleTypeChange = (newScheduleType: FreshnessAssertionScheduleType) => {
         onChange({
             ...value,
             type: newScheduleType,
             // If we are switching to fixed interval assertion, be sure to set a default interval!
-            fixedInterval: value.fixedInterval ?? DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE.schedule?.fixedInterval,
+            fixedInterval: value?.fixedInterval ?? DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE.schedule?.fixedInterval,
         });
     };
 
-    const handleFixedIntervalScheduleChange = (newFixedSchedule: FixedIntervalSchedule) => {
+    const handleFixedIntervalScheduleChange = (
+        newFixedSchedule: FreshnessAssertionBuilderSchedule['fixedInterval'],
+    ) => {
         onChange({
             ...value,
             fixedInterval: newFixedSchedule,
@@ -83,7 +86,7 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
                 disabled={disabled}
             >
                 <RadioContainer>
-                    <StyledRadio value={FreshnessAssertionScheduleType.SinceTheLastCheck}>
+                    <StyledRadio value={FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck}>
                         <TextContainer>
                             <Typography.Text strong>Since the previous check</Typography.Text>
                             <Typography.Text type="secondary">
@@ -93,10 +96,10 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
                     </StyledRadio>
                 </RadioContainer>
                 <RadioContainer>
-                    <StyledRadio value={FreshnessAssertionScheduleType.FixedInterval}>
+                    <StyledRadio value={FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval}>
                         <TextContainer>
                             <FixedIntervalScheduleBuilder
-                                value={fixedInterval as FixedIntervalSchedule}
+                                value={fixedInterval}
                                 onChange={handleFixedIntervalScheduleChange}
                                 disabled={disabled}
                                 // Prevents clicks inside Select dropdown from malfunctioning when nested inside Radio:
@@ -111,12 +114,21 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
                         </TextContainer>
                     </StyledRadio>
                 </RadioContainer>
+                {/* Cannot change an imperative freshness assertion to an inferred freshness assertion */}
+                {isDetectWithAIEnabled && (
+                    <RadioContainer>
+                        <StyledRadio value={FreshnessAssertionScheduleBuilderTypeOptions.AiInferred}>
+                            <TextContainer>
+                                <Typography.Text strong>Detect with AI</Typography.Text>
+                                <Typography.Text type="secondary">
+                                    We&apos;ll verify that this table updates within the &apos;normal&apos; historical
+                                    cadence. If there are any anomalies, the check will fail.
+                                </Typography.Text>
+                            </TextContainer>
+                        </StyledRadio>
+                    </RadioContainer>
+                )}
             </RadioGroup>
-
-            {/* Testing reducing noise */}
-            {/* <Typography.Paragraph type="secondary">
-                If the table is not updated within the expected time range, this assertion will fail.
-            </Typography.Paragraph> */}
         </Form>
     );
 };

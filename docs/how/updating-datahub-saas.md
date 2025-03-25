@@ -29,12 +29,15 @@ This is over and above updating-datahub.md file
 
 ### Deprecations
 
+- #5287: The unused observability Anomaly entity has been removed from the system, replaced by MonitorAnomalyEvent. This should not affect existing deployments, as the entity was not consumed anywhere.
+
 ### Other Notable Changes
 
 ### Environment Variables
 
 - [datahub-gms] `DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS`: CSV listing aspects that the system should reference to determine an ingestion source that can execute an assertion. Default: datasetProperties
 - [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
+- [datahub-gms] `ONLINE_SMART_ASSERTIONS_ENABLED`: Flag to allow on-demand creation of smart assertions in the UI, and let them run online. (TODO @John extend to indicate that this variable is also in use in executor)
 
 ## v0.3.8
 
@@ -52,8 +55,8 @@ This is over and above updating-datahub.md file
 - [datahub-executor-coordinator] `FRESHNESS_ASSERTION_EVALUATION_BUFFER_SECONDS`: The tail buffer to add to freshness assertion boundaries. This defaults to 5 minutes, but can be extended if the customer has a lot of queued queries coming into their data warehouse.
 - [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_INTERVAL`: Remote executor discovery ping interval in seconds. Default: 30
 - [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD`: Time in seconds after which stale discovery status records are flagged as expired. Default: 3600 (1 hour)
-- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD` Time in seconds after which stale discovery status records are deleted from the database. Default: 24 * 3600 (1 month)
-- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER`: How often sweeper discovery purge task is executed in seconds. Default: 24 * 3600 (1 day)
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD` Time in seconds after which stale discovery status records are deleted from the database. Default: 24 \* 3600 (1 month)
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER`: How often sweeper discovery purge task is executed in seconds. Default: 24 \* 3600 (1 day)
 - [datahub-executor-coordinator] `DATAHUB_EXECUTOR_SWEEPER_RESTART_MAX_ATTEMPTS`: Maximum number of automated restarts of ABORTED tasks. Default: 3
 - [datahub-executor-coordinator] `EXECUTOR_TASK_MEMORY_LIMIT`: See [Remote Executor Troubleshooting](https://www.notion.so/acryldata/Remote-Executor-Troubleshooting-120fc6a6427780e48a6bc900f6e2a358?pvs=4#168fc6a642778060a2a1d135ee61e559)
 - [datahub-executor-coordinator] `EXECUTOR_TASK_WEIGHT`: See [Remote Executor Troubleshooting](https://www.notion.so/acryldata/Remote-Executor-Troubleshooting-120fc6a6427780e48a6bc900f6e2a358?pvs=4#154fc6a64277800a855df67d6e11705f)
@@ -91,7 +94,7 @@ This is over and above updating-datahub.md file
 datahub-gms
 
 - `FORM_CREATION_ENABLED` (app default: true, helm default should be: true): Controls whether users can see the Create Forms flow in the UI. This is important to be enabled for Compliance Forms feature, but if customers do not want it they can disable.
-- `FORM_ANALYTICS_ENABLED` (app default: false, helm default should be: false): Controls whether users can see the "Analytics" sub-tab within the Compliance Forms page. This is disabled until we have form analytics ingestion source + UI ready for V1 (likely 1-2 releases from now). Caveat: This can be enabled for anyone who requests it explicitly. 
+- `FORM_ANALYTICS_ENABLED` (app default: false, helm default should be: false): Controls whether users can see the "Analytics" sub-tab within the Compliance Forms page. This is disabled until we have form analytics ingestion source + UI ready for V1 (likely 1-2 releases from now). Caveat: This can be enabled for anyone who requests it explicitly.
 - `SHOW_MANAGE_STRUCTURED_PROPERTIES` (app default: true, helm default should be: true): Controls whether the Structured Properties page is visible and accessible viat he UI. This allows users to create and update structured properties. It should be enabled by default unless folks request otherwise.
 - `SCHEMA_FIELD_CLL_ENABLED` (app default: false, helm default should be: true): Controls whether the Column-level lineage focus view is accessible via the lineage Graph. This should actually be TRUE for all customers by default, unless explicitly opted out of.
 - `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS` (app default: true, helm default should be: true): Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.
@@ -115,19 +118,20 @@ datahub-gms
 ### Other Notable Changes
 
 ### Environment Variables
+
 - `SCHEMA_FIELD_CLL_ENABLED` (default: false) - Turns on the schema-field level lineage feature, by adding
-links to the schema field drawer header and to lineage visualization columns. These links bring the user to
-the schema field entity page Lineage tab, which shows a column-level lineage graph. From there, users can
-explore lineage like normal, with links to other columns and links back to dataset-level lineage. Without
-the flag enabled, schema-field lineage is still available but there are no direct links to it, so it's
-hidden from users.
+  links to the schema field drawer header and to lineage visualization columns. These links bring the user to
+  the schema field entity page Lineage tab, which shows a column-level lineage graph. From there, users can
+  explore lineage like normal, with links to other columns and links back to dataset-level lineage. Without
+  the flag enabled, schema-field lineage is still available but there are no direct links to it, so it's
+  hidden from users.
 - `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS` (default: false) - Should be enabled if `SCHEMA_FIELD_CLL_ENABLED`
-is enabled without the schema field side effect being enabled (via `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED`).
-This will tell the schema-field level lineage visualization to ignore the status of the schema field
-when determining if it should be included in the lineage graph, because most schema fields will not
-exist in the schema field index / database without the side effect. The side effect has yet to be load
-tested on a production environment, so this enables turning on schema-field level lineage now,
-while that testing is being completed.
+  is enabled without the schema field side effect being enabled (via `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED`).
+  This will tell the schema-field level lineage visualization to ignore the status of the schema field
+  when determining if it should be included in the lineage graph, because most schema fields will not
+  exist in the schema field index / database without the side effect. The side effect has yet to be load
+  tested on a production environment, so this enables turning on schema-field level lineage now,
+  while that testing is being completed.
 
 ## v0.3.5
 
@@ -138,27 +142,28 @@ while that testing is being completed.
 ### Deprecations
 
 ### Other Notable Changes
-* Metadata test results should now not appear in entity pages for tests that have been soft deleted.
-* Incident related entity change events now include the type, title, description, stage & message of the incident
-* A new privilege has been introduced ("Manage User Subscriptions"), granted to admins, will allow DataHub operators to create & subscriptions for other users using GraphQL. In order to do so, add `userUrn` property to the input objects in the graphQL calls.
-* Timeline API version calculations may change due to bug fixes, the following scenarios have been modified:
+
+- Metadata test results should now not appear in entity pages for tests that have been soft deleted.
+- Incident related entity change events now include the type, title, description, stage & message of the incident
+- A new privilege has been introduced ("Manage User Subscriptions"), granted to admins, will allow DataHub operators to create & subscriptions for other users using GraphQL. In order to do so, add `userUrn` property to the input objects in the graphQL calls.
+- Timeline API version calculations may change due to bug fixes, the following scenarios have been modified:
   1. Loop counter was incorrectly incremented twice in the case where a native data type was changed.
   2. Rename events did not correctly check for TECHNICAL_SCHEMA ChangeCategory.
   3. Rename logic did not handle empty descriptions properly.
   4. Handles primary key changes under a single change event
 
 ### Environment Variables
+
 - `HIDE_DBT_SOURCE_IN_LINEAGE` (default: false) - Only should be enabled if the user is running dbt
-ingestion with `skip_sources_in_lineage: true` (requires either `entities_enabled.sources: NO` or 
-`prefer_sql_parser_lineage: true`). This will hide the dbt source entities from the lineage graph,
-even though the graph index stores an edge between a dbt source and its sibling, and represent the
-warehouse sibling as a "combined" entity. If the user is on the dbt entity page's lineage tab, the
-visualization will show the warehouse sibling as the home node.
+  ingestion with `skip_sources_in_lineage: true` (requires either `entities_enabled.sources: NO` or
+  `prefer_sql_parser_lineage: true`). This will hide the dbt source entities from the lineage graph,
+  even though the graph index stores an edge between a dbt source and its sibling, and represent the
+  warehouse sibling as a "combined" entity. If the user is on the dbt entity page's lineage tab, the
+  visualization will show the warehouse sibling as the home node.
 
 ## v0.3.4
 
 ### Breaking Changes
-
 
 ### Potential Downtime
 
@@ -168,7 +173,7 @@ visualization will show the warehouse sibling as the home node.
 
 ### Other Notable Changes
 
-* Behavior of Custom Properties Metadata Tests has changed, querying the customProperties field directly returns the keys
+- Behavior of Custom Properties Metadata Tests has changed, querying the customProperties field directly returns the keys
   in the map and each key is referencable as a subquery part. This enables more advanced use cases without the need of using
   Regex matching. So instead of querying `datasetProperties.customProperties` with a Regex operator to filter on a specific property
   being present you can just query `datasetProperties.customProperties.myProp`
@@ -197,7 +202,7 @@ latest lineage results at the cost of performance.
 system will share a maximum of 1000 upstreams and 1000 downstreams. Change this
 env variable to share higher numbers.
 
-`GRAPHQL_QUERY_INTROSPECTION_ENABLED` (default: true) - Whether to enable introspection queries in the GraphQL API. By default, this was already true. 
+`GRAPHQL_QUERY_INTROSPECTION_ENABLED` (default: true) - Whether to enable introspection queries in the GraphQL API. By default, this was already true.
 
 #### Acryl Observe
 
@@ -206,9 +211,9 @@ env variable to share higher numbers.
 `BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` (default: true) - Whether to broadcast stateful incident update notifications. This is useful for propagating
 stateful incident changes to other systems.
 
-`RUN_ASSERTIONS_ENABLED` (default: false) - Whether to enable running assertions in Acryl Observe. 
+`RUN_ASSERTIONS_ENABLED` (default: false) - Whether to enable running assertions in Acryl Observe.
 This is a new feature that allows you to refresh native Acryl assertions from the UI. Currently ONLY supported for NON-REMOTE-EXECUTOR assertions.
-Some customers have explicitly requested this (Mozilla). 
+Some customers have explicitly requested this (Mozilla).
 
 `STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED` (datahub-integrations-service, default: false) - Whether to enable updating messages based on
 state recorded in datahub-gms backend. This is today powering stateful incident messages, where the original incident notification is updated
@@ -222,8 +227,8 @@ DATAHUB_MONITORS_HOST. Should be part of updated Helm Chart.
 `DATAHUB_EXECUTOR_PORT` (default: 9004) - Port of the DataHub executor. Used for connecting to the executor service. Migrated from
 DATAHUB_MONITORS_PORT. Should be part of updated Helm Chart.
 
-`DATAHUB_EXECUTOR_USE_SSL` (default: false) - Whether to use SSL when connecting to the DataHub executor. 
-Migrated from DATAHUB_MONITORS_USE_SSL. Should be part of updated Helm Chart. 
+`DATAHUB_EXECUTOR_USE_SSL` (default: false) - Whether to use SSL when connecting to the DataHub executor.
+Migrated from DATAHUB_MONITORS_USE_SSL. Should be part of updated Helm Chart.
 
 #### Metadata Change Proposal Throttle
 
@@ -289,7 +294,7 @@ This is a new feature that allows metadata test predicates to be executed agains
 
 - Introduced a new environment variable that allows you to configure a default lookback window when viewing lineage in the UI. When `LINEAGE_DEFAULT_LAST_DAYS_FILTER` is set (an integer), we will default filter for lineage within the last `x` days. For example, if you set this value to `7`, we will default show you lineage within the last 7 days. Not setting this variable results in default showing lineage all time as per usual. The user can always change their filter window, this variable just changes the default when they first go to lineage.
 - Introduced a new environment variable that allows you to share an entity with another Acryl instance. With `METADATA_SHARE_ENABLED` is set to `true`, you will see an option under the share menu on an entity profile to send an entity to another instance.
-- Introduce a new environment variable to enable schema assertion authoring in the UI: `SCHEMA_ASSERTION_MONITORS_ENABLED`. It is currently defaulted to OFF since this is the first release with the feature. Will first roll out to folks who explicitly request. 
+- Introduce a new environment variable to enable schema assertion authoring in the UI: `SCHEMA_ASSERTION_MONITORS_ENABLED`. It is currently defaulted to OFF since this is the first release with the feature. Will first roll out to folks who explicitly request.
 
 System Update: Search Percentile Index Job
 

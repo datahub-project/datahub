@@ -1,0 +1,42 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Represents a recurring time window that repeats weekly.
+ * Used to define exclusion periods for model training based on day of week and time of day.
+ */
+record WeeklyWindow {
+  /**
+   * Days of the week to include in the window.
+   * If not specified, all days are included.
+   */
+  daysOfWeek: array[enum DayOfWeek {
+    MONDAY
+    TUESDAY
+    WEDNESDAY
+    THURSDAY
+    FRIDAY
+    SATURDAY
+    SUNDAY
+  }]
+
+  /**
+   * Start time for the window on each specified day.
+   * Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9am, "17:30" for 5:30pm).
+   * If not specified, defaults to start of day ("00:00").
+   */
+  startTime: optional string
+
+  /**
+   * End time for the window on each specified day.
+   * Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5pm, "23:59" for end of day).
+   * If not specified, defaults to end of day ("23:59").
+   */
+  endTime: optional string
+
+  /**
+   * Time zone to interpret start and end times in.
+   * Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
+   * If not specified, defaults to UTC.
+   */
+  timezone: optional string
+}

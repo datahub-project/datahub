@@ -2,6 +2,12 @@ import logging
 import traceback
 from typing import Optional, Union
 
+from datahub.metadata.schema_classes import (
+    MonitorErrorClass,
+    MonitorErrorTypeClass,
+    MonitorStateClass,
+)
+
 from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
     extract_assertion_evaluation_result_error,
 )
@@ -9,6 +15,9 @@ from datahub_executor.common.connection.provider import ConnectionProvider
 from datahub_executor.common.exceptions import (
     AssertionResultException,
     InvalidParametersException,
+)
+from datahub_executor.common.monitor.client.client import (
+    MonitorClient,
 )
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.assertion_state_provider import (
@@ -47,10 +56,88 @@ class AssertionEvaluator:
         connection_provider: ConnectionProvider,
         state_provider: AssertionStateProvider,
         source_provider: SourceProvider,
+        monitor_client: MonitorClient,
     ):
         self.connection_provider = connection_provider
         self.state_provider = state_provider
         self.source_provider = source_provider
+        self.monitor_client = monitor_client
+
+    def evaluate(
+        self,
+        assertion: Assertion,
+        parameters: AssertionEvaluationParameters,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        try:
+            result = self._evaluate_internal(
+                assertion,
+                parameters if parameters is not None else self.default_parameters,
+                context,
+            )
+
+            # Assertion evaluated successfully.
+            if context.monitor_urn:
+                if result.type != AssertionResultType.INIT:
+                    self._update_monitor_state(
+                        context.monitor_urn,
+                        MonitorStateClass.EVALUATION,
+                        error_message=None,
+                    )
+                else:
+                    self._update_monitor_state(
+                        context.monitor_urn,
+                        MonitorStateClass.TRAINING,
+                        error_message=None,
+                    )
+
+            return result
+        except AssertionResultException as e:
+            error = extract_assertion_evaluation_result_error(e)
+            result = AssertionEvaluationResult(
+                AssertionResultType.ERROR,
+                error=error,
+            )
+            if context.monitor_urn:
+                self._update_monitor_state(
+                    context.monitor_urn,
+                    MonitorStateClass.ERROR,
+                    f"An error occurred while attempting to connect to data source for assertion: {str(e)}",
+                )
+            logger.exception(
+                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Caused by: {e}"
+            )
+            return result
+        except Exception as e:
+            logger.exception(
+                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
+            )
+            stack_trace_string = traceback.format_exc(limit=2)
+            if context.monitor_urn:
+                self._update_monitor_state(
+                    context.monitor_urn,
+                    "ERROR",
+                    f"An unknown error occurred while attempting to evaluate assertion: {str(e)}",
+                )
+            return AssertionEvaluationResult(
+                AssertionResultType.ERROR,
+                error=AssertionEvaluationResultError(
+                    type=AssertionResultErrorType.UNKNOWN_ERROR,
+                    properties={
+                        "assertion_urn": assertion.urn,
+                        "message": repr(e),
+                        "stacktrace": stack_trace_string,
+                    },
+                ),
+            )
+
+    def _evaluate_internal(
+        self,
+        assertion: Assertion,
+        parameters: AssertionEvaluationParameters,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        raise NotImplementedError()
 
     def _compare_values(
         self,
@@ -156,49 +243,28 @@ class AssertionEvaluator:
             current_value, operator, new_value, new_min_value, new_max_value
         )
 
-    def _evaluate_internal(
+    def _update_monitor_state(
         self,
-        assertion: Assertion,
-        parameters: AssertionEvaluationParameters,
-        context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
-        raise NotImplementedError()
+        monitor_urn: str,
+        new_state: str,
+        error_message: Optional[str],
+    ) -> None:
+        """
+        Patches the monitor's state in DataHub using the MonitorClient.
+        """
+        logger.debug(f"Updating monitor state for {monitor_urn} => {new_state}")
 
-    def evaluate(
-        self,
-        assertion: Assertion,
-        parameters: AssertionEvaluationParameters,
-        context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+        error = (
+            MonitorErrorClass(type=MonitorErrorTypeClass.UNKNOWN, message=error_message)
+            if error_message
+            else None
+        )
+
         try:
-            return self._evaluate_internal(
-                assertion,
-                parameters if parameters is not None else self.default_parameters,
-                context,
+            self.monitor_client.patch_monitor_state(
+                monitor_urn=monitor_urn, new_state=new_state, error=error
             )
-        except AssertionResultException as e:
-            error = extract_assertion_evaluation_result_error(e)
-            result = AssertionEvaluationResult(
-                AssertionResultType.ERROR,
-                error=error,
-            )
-            logger.exception(
-                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Caused by: {e}"
-            )
-            return result
         except Exception as e:
             logger.exception(
-                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
-            )
-            stack_trace_string = traceback.format_exc(limit=2)
-            return AssertionEvaluationResult(
-                AssertionResultType.ERROR,
-                error=AssertionEvaluationResultError(
-                    type=AssertionResultErrorType.UNKNOWN_ERROR,
-                    properties={
-                        "assertion_urn": assertion.urn,
-                        "message": repr(e),
-                        "stacktrace": stack_trace_string,
-                    },
-                ),
+                f"Failed to patch monitor state={new_state} for {monitor_urn}: {e}"
             )

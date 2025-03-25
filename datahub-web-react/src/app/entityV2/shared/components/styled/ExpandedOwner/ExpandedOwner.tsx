@@ -2,16 +2,17 @@ import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { StyledLink } from '@src/app/previewV2/EntityHeader';
+import { colors } from '@src/alchemy-components';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
-import { EntityType, Owner } from '../../../../../../types.generated';
-import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
+import { EntityType } from '../../../../../../types.generated';
+import { ExtendedOwner, getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import OwnerContent from './OwnerContent';
 import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
 
-const OwnerTag = styled(Tag)`
+const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     padding: 1px;
     padding-right: 6px;
     margin-bottom: 8px;
@@ -21,13 +22,13 @@ const OwnerTag = styled(Tag)`
     font-weight: 600;
     border-color: #9da7c0 !important;
     padding: 2px 6px 2px 3px;
-
     max-width: inherit;
+    border: ${(props) => props.$isProposedOwner && `1px dashed ${colors.gray[200]} !important`};
 `;
 
 type Props = {
     entityUrn?: string;
-    owner: Owner;
+    owner: ExtendedOwner;
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
@@ -98,10 +99,18 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         });
     };
 
+    const isProposedOwner = owner.isProposed;
+
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
-            {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
-            {!readOnly && (
+        <OwnerTag
+            onClose={onClose}
+            closable={!!entityUrn && !readOnly && !isProposedOwner}
+            $isProposedOwner={isProposedOwner}
+        >
+            {(readOnly || isProposedOwner) && (
+                <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+            )}
+            {!readOnly && !isProposedOwner && (
                 <StyledLink
                     to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
                     {...linkProps}

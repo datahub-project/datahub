@@ -43,7 +43,7 @@ record FreshnessAssertionInfo {
         "fieldName": "scheduleType"
       }
     }
-    schedule: FreshnessAssertionSchedule
+    schedule: optional FreshnessAssertionSchedule
 
     /**
      * A definition of the specific filters that should be applied, when performing monitoring.

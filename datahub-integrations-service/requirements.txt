@@ -292,7 +292,9 @@ idna==3.7
 ijson==3.2.3
     # via acryl-datahub
 importlib-metadata==7.1.0
-    # via great-expectations
+    # via
+    #   build
+    #   great-expectations
 importlib-resources==6.4.0 ; python_full_version < '3.12'
     # via schwifty
 inflect==7.2.1

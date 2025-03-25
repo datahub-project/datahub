@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { AssertionResultType, AssertionRunEvent } from '../../../../../../../../../types.generated';
+import { AssertionRunEvent } from '../../../../../../../../../types.generated';
 import { getResultDotIcon } from '../../../assertionUtils';
 
 const StyledAssertionResultDotContainer = styled.div`
@@ -16,7 +16,7 @@ type Props = {
 
 // TODO: Add our beautiful new tooltip here.
 export const AssertionResultDot = ({ run, disabled, size = 14 }: Props) => {
-    const icon = getResultDotIcon(run?.result?.type as AssertionResultType, size, disabled);
+    const icon = getResultDotIcon(run?.result?.type, size, disabled);
     return (
         <StyledAssertionResultDotContainer
             className="assertion-result-dot"

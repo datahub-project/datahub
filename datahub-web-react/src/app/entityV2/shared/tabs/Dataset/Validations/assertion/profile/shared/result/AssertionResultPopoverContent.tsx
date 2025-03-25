@@ -4,7 +4,12 @@ import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import { Assertion, AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../types.generated';
+import {
+    Assertion,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionSourceType,
+} from '../../../../../../../../../../types.generated';
 import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
 import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
@@ -120,7 +125,7 @@ export const AssertionResultPopoverContent = ({
     const hasReason = !!reasonText;
 
     // Context
-    const expectedText = run ? getFormattedExpectedResultText(assertion, run) : undefined;
+    const expectedText = run ? getFormattedExpectedResultText(assertion.info, run) : undefined;
     const hasContext = !!expectedText;
 
     // Error
@@ -130,6 +135,8 @@ export const AssertionResultPopoverContent = ({
     // Platform
     const isExternal = isExternalAssertion(assertion);
     const hasPlatform = !!assertion.platform;
+
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
 
     return (
         <>
@@ -150,7 +157,7 @@ export const AssertionResultPopoverContent = ({
                     )}
                 </TimestampContainer>
                 <Actions>
-                    <AssertionResultPill result={result} type={resultStatusType} />
+                    <AssertionResultPill result={result} type={resultStatusType} isSmartAssertion={isSmartAssertion} />
                     {(showProfileButton && onClickProfileButton && (
                         <PrimaryButton title="Details" onClick={onClickProfileButton} />
                     )) ||

@@ -26,16 +26,16 @@ from datahub_executor.common.types import (
 # Sample Assertion and Context
 entity = AssertionEntity(
     urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    platformUrn="urn:li:dataPlatform:hive",
-    platformInstance=None,
-    subTypes=None,
+    platform_urn="urn:li:dataPlatform:hive",
+    platform_instance=None,
+    sub_types=None,
 )
 assertion = Assertion(
     urn="urn:li:assertion:e3663fd5-8477-4d18-adea-62b48c0de1f9",
     type=AssertionType.FRESHNESS,
     entity=entity,
-    connectionUrn="urn:li:dataPlatform:hive",
-    freshnessAssertion=None,
+    connection_urn="urn:li:dataPlatform:hive",
+    freshness_assertion=None,
     raw_info_aspect=RawAspect(
         aspectName="assertionInfo",
         payload='{"type":"FRESHNESS","freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
@@ -45,8 +45,8 @@ assertion_nonparseable = Assertion(
     urn="urn:li:assertion:e3663fd5-8477-4d18-adea-62b48c0de1f9",
     type=AssertionType.FRESHNESS,
     entity=entity,
-    connectionUrn="urn:li:dataPlatform:hive",
-    freshnessAssertion=None,
+    connection_urn="urn:li:dataPlatform:hive",
+    freshness_assertion=None,
     raw_info_aspect=RawAspect(
         aspectName="assertionInfo",
         payload='{"freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
@@ -54,10 +54,10 @@ assertion_nonparseable = Assertion(
 )
 parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
+    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+        source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
         field=None,
-        auditLog=None,
+        audit_log=None,
     ),
 )
 context = AssertionEvaluationContext(
@@ -66,7 +66,7 @@ context = AssertionEvaluationContext(
         assertion=assertion,
         schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
         parameters=parameters,
-        rawParameters='{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"}',
+        raw_parameters='{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"}',
     ),
     base_assertion=RawAspect(
         aspectName="assertionInfo",
@@ -79,7 +79,7 @@ context_nonparseable = AssertionEvaluationContext(
         assertion=assertion,
         schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
         parameters=parameters,
-        rawParameters='{"datasetFreshnessParameters":{"sourceType":"OPERATION"},"type":null}',
+        raw_parameters='{"datasetFreshnessParameters":{"sourceType":"OPERATION"},"type":null}',
     ),
     base_assertion=RawAspect(
         aspectName="assertionInfo",

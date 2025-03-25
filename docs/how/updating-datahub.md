@@ -42,7 +42,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12797: Previously endpoints when used in ASYNC mode would not validate URNs, entity & aspect names immediately. Starting with this release, even in ASYNC mode, these requests will be returned with http code 400.
 
-
 ### Known Issues
 
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
@@ -85,7 +84,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #12020 - Removed `sql_parser` configuration from the Redash source, as Redash now exclusively uses the sqlglot-based parser for lineage extraction.
 - #12020 - Removed `datahub.utilities.sql_parser`, `datahub.utilities.sql_parser_base` and `datahub.utilities.sql_lineage_parser_impl` module along with `SqlLineageSQLParser` and `DefaultSQLParser`. Use `create_lineage_sql_parsed_result` from `datahub.sql_parsing.sqlglot_lineage` module instead.
 - #11518 - DataHub Garbage Collection: Various entities that are soft-deleted
-  (after 10d) or are timeseries *entities* (dataprocess, execution requests)
+  (after 10d) or are timeseries _entities_ (dataprocess, execution requests)
   will be removed automatically using logic in the `datahub-gc` ingestion
   source.
 - #12067 - Default behavior of DataJobPatchBuilder in Python sdk has been

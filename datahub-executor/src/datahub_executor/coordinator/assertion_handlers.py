@@ -29,12 +29,15 @@ from datahub_executor.common.types import (
     AssertionEvaluationSpec,
     AssertionSourceType,
     CronSchedule,
-    Monitor,
 )
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
     DATAHUB_EXECUTOR_POOL_ID,
+)
+from datahub_executor.coordinator.utils import (
+    extract_assertion_entity_from_graphql,
+    extract_assertion_monitor_parameters,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
 
@@ -122,6 +125,8 @@ def _evaluate_assertion(
     dry_run: bool,
     async_flag: bool,
 ) -> Optional[AssertionResultSchema]:
+    # For evaluate assertion by urn, the monitor urn will be present.
+    # For evaluate assertion by inputs - used for test assertion flow - the monitor URN will be null.
     monitor_urn = assertion.monitor.get("urn", None) if assertion.monitor else None
     executor_id = (
         assertion.monitor.get("executor_id", DATAHUB_EXECUTOR_EMBEDDED_POOL_ID)
@@ -180,22 +185,20 @@ def handle_post_evaluate_assertion(
     # Setup the test assertion
     entity = AssertionEntity(
         urn=assertion_input.entityUrn,
-        platformUrn=assertion_input.connectionUrn,  # this makes the assumption that connectionUrn coming from the front-end is the same as the platformUrn
-        platformInstance=None,
-        subTypes=None,
+        platform_urn=assertion_input.connectionUrn,  # this makes the assumption that connectionUrn coming from the front-end is the same as the platformUrn
         table_name=table_name,
         qualified_name=qualified_name,
     )
     assertion = Assertion(
         urn="urn:li:assertion:test",
-        connectionUrn=assertion_input.connectionUrn,
+        connection_urn=assertion_input.connectionUrn,
         type=assertion_input.type,
         entity=entity,
-        freshnessAssertion=assertion_input.assertion.freshness_assertion,
-        volumeAssertion=assertion_input.assertion.volume_assertion,
-        sqlAssertion=assertion_input.assertion.sql_assertion,
-        fieldAssertion=assertion_input.assertion.field_assertion,
-        schemaAssertion=assertion_input.assertion.schema_assertion,
+        freshness_assertion=assertion_input.assertion.freshness_assertion,
+        volume_assertion=assertion_input.assertion.volume_assertion,
+        sql_assertion=assertion_input.assertion.sql_assertion,
+        field_assertion=assertion_input.assertion.field_assertion,
+        schema_assertion=assertion_input.assertion.schema_assertion,
     )
 
     return _evaluate_assertion(
@@ -253,29 +256,17 @@ def _get_parameters_for_assertion(
     if supplied_parameters:
         return supplied_parameters.to_internal_params()
 
-    if assertion.monitor is not None:
-        try:
-            monitor = Monitor.parse_obj(assertion.monitor)
-            if monitor.assertion_monitor is None:
-                raise ValueError("assertion_monitor is empty")
-
-            for candidate in monitor.assertion_monitor.assertions:
-                if candidate.assertion.urn == assertion.urn:
-                    return candidate.parameters
-        except Exception as e:
-            logger.error(
-                f"Failed to parse monitor object for assertion {assertion.urn}: {e}"
-            )
-            raise fastapi.HTTPException(
-                status_code=422,
-                detail=f"Failed to parse monitor object for assertion {assertion.urn}",
-            )
-
-    logger.error(f"No assertion evaluation parameters supplied for {assertion.urn}")
-    raise fastapi.HTTPException(
-        status_code=422,
-        detail=f"No assertion evaluation parameters supplied for {assertion.urn}",
-    )
+    try:
+        return extract_assertion_monitor_parameters(assertion.monitor, assertion.urn)
+    except Exception as e:
+        logger.exception(
+            f"Cannot run assertion. Failed to extract monitor parameters for {assertion.urn}!",
+            e,
+        )
+        raise fastapi.HTTPException(
+            status_code=422,
+            detail=f"Failed to extract monitor parameters required to evaluate assertion {assertion.urn}",
+        )
 
 
 def handle_post_evaluate_assertion_urn(
@@ -320,7 +311,10 @@ def handle_evaluate_assertion_urn(
     )
 
     try:
-        assertion = Assertion.parse_obj(result["assertion"])
+        assertion = result["assertion"]
+        assertion_entity = extract_assertion_entity_from_graphql(assertion)
+        assertion["entity"] = assertion_entity
+        assertion = Assertion.parse_obj(assertion)
     except Exception as e:
         # on non-existent assertion, graphql is still returning a result in result["assertion"] but the parsing fails
         logger.warning(e)

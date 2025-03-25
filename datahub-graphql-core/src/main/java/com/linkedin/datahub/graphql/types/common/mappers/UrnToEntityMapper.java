@@ -228,11 +228,6 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Incident) partialEntity).setUrn(input.toString());
       ((Incident) partialEntity).setType(EntityType.INCIDENT);
     }
-    if (input.getEntityType().equals(ANOMALY_ENTITY_NAME)) {
-      partialEntity = new Anomaly();
-      ((Anomaly) partialEntity).setUrn(input.toString());
-      ((Anomaly) partialEntity).setType(EntityType.ANOMALY);
-    }
     if (input.getEntityType().equals(DATA_CONTRACT_ENTITY_NAME)) {
       partialEntity = new DataContract();
       ((DataContract) partialEntity).setUrn(input.toString());

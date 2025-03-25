@@ -104,7 +104,7 @@ def start_scheduler(graph: DataHubGraph, sighandler: List[Callable]) -> None:
         ingestion_fetcher = IngestionFetcher(graph, get_ingestion_config())
 
         # Create a scheduler
-        scheduler = ExecutionRequestScheduler(None, None, None, None)
+        scheduler = ExecutionRequestScheduler(None, None, None, None, None)
 
         # Create a manager
         manager = ExecutionRequestManager(
@@ -114,7 +114,7 @@ def start_scheduler(graph: DataHubGraph, sighandler: List[Callable]) -> None:
         sighandler.append(scheduler.shutdown)
         sighandler.append(manager.shutdown)
 
-        logger.info("Successfully created fetcher scheduler.")
+        logger.debug("Successfully created execution request scheduler.")
 
         async_queue_start()
         sighandler.append(async_queue_stop)

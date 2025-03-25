@@ -33,7 +33,7 @@ public class RemoteExecutorType
 
   @Override
   public EntityType type() {
-    return EntityType.ANOMALY;
+    return EntityType.REMOTE_EXECUTOR;
   }
 
   @Override

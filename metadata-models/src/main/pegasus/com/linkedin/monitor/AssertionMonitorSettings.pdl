@@ -1,10 +1,16 @@
 namespace com.linkedin.monitor
 
+import com.linkedin.assertion.AssertionAdjustmentSettings
 
 /**
  * General purpose settings for the assertion monitor.
  */
 record AssertionMonitorSettings {
+    /**
+     * In adjustment settings, the settings
+     */
+    adjustmentSettings: optional AssertionAdjustmentSettings
+
     /**
      * Capabilities that are currently enabled for the assertion monitor.
      */

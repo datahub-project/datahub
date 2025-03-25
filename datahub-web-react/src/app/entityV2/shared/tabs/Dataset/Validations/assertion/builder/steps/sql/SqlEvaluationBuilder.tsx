@@ -2,6 +2,7 @@ import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
 import { Select } from 'antd';
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 import { AssertionMonitorBuilderState } from '../../types';
 import { SQL_OPERATION_OPTIONS, SqlOperationOptionEnum, getOperationOption, getSqlOperationOptions } from './utils';
 import { SqlParametersBuilder } from './SqlParametersBuilder';
@@ -42,7 +43,7 @@ export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
                     changeType: operation.changeType,
                     parameters: {
                         ...value.assertion?.sqlAssertion?.parameters,
-                        ...operation.parameters,
+                        ...nullsToUndefined(operation.parameters),
                     },
                 },
             },

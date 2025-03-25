@@ -3,7 +3,13 @@ import React, { useState } from 'react';
 import { Form } from 'antd';
 import { Button, Tooltip } from '@components';
 import styled from 'styled-components';
-import { Assertion, AssertionType, Monitor, Entity } from '../../../../../../../../../types.generated';
+import {
+    Assertion,
+    Monitor,
+    Entity,
+    AssertionType,
+    AssertionSourceType,
+} from '../../../../../../../../../types.generated';
 import { EditButton } from './EditButton';
 import { AssertionSettingsHeader } from './AssertionSettingsHeader';
 import { AssertionMonitorBuilderState } from '../types';
@@ -11,19 +17,19 @@ import { createAssertionMonitorBuilderState, getAssertionInput } from '../utils'
 import { SaveButton } from './SaveButton';
 import { useUpsertAssertionMonitor } from '../useUpsertAssertionMonitor';
 import { useUpdateAssertionMetadataWithBuilderState } from '../useUpdateAssertionMetadata';
-import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
-import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
-import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
-import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
 import {
     AssertionEditabilityScopeType,
     getAssertionEditabilityType,
 } from '../../profile/summary/shared/assertionUtils';
 import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
-import { SchemaAssertionBuilder } from '../steps/schema/SchemaAssertionBuilder';
 import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
 import { useTestAssertionModal } from '../steps/utils';
 import { TestAssertionModal } from '../steps/preview/TestAssertionModal';
+import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
+import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
+import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
+import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
+import { SchemaAssertionBuilder } from '../steps/schema/SchemaAssertionBuilder';
 
 type Props = {
     assertion: Assertion;
@@ -48,6 +54,8 @@ export const AssertionSettings = (props: Props) => {
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(initialState);
     const [editing, setEditing] = useState<boolean>(false);
     const [form] = Form.useForm();
+
+    const isAiInferred = props.assertion.info?.source?.type === AssertionSourceType.Inferred;
 
     const editabilityType = getAssertionEditabilityType(props.assertion);
 
@@ -129,7 +137,7 @@ export const AssertionSettings = (props: Props) => {
                     description={builderState.assertion?.description || undefined}
                     showDivider={false}
                     action={
-                        (!editing && (
+                        !editing ? (
                             <EditButton
                                 disabled={!props.editAllowed}
                                 tooltip={finalTooltip}
@@ -137,24 +145,26 @@ export const AssertionSettings = (props: Props) => {
                                     if (props.editAllowed) setEditing(true);
                                 }}
                             />
-                        )) || (
+                        ) : (
                             <>
                                 <AssertionContainer>
-                                    <Tooltip
-                                        title={
-                                            isTestAssertionActionDisabled
-                                                ? 'Trying assertions is not supported for sources with remote executors.'
-                                                : 'Try this assertion out!'
-                                        }
-                                    >
-                                        <StyledButton
-                                            variant="outline"
-                                            onClick={tryTestAssertion}
-                                            disabled={isTestAssertionActionDisabled}
+                                    {!isAiInferred && (
+                                        <Tooltip
+                                            title={
+                                                isTestAssertionActionDisabled
+                                                    ? 'Trying assertions is not supported for sources with remote executors.'
+                                                    : 'Try this assertion out!'
+                                            }
                                         >
-                                            Try it out
-                                        </StyledButton>
-                                    </Tooltip>
+                                            <StyledButton
+                                                variant="outline"
+                                                onClick={tryTestAssertion}
+                                                disabled={isTestAssertionActionDisabled}
+                                            >
+                                                Try it out
+                                            </StyledButton>
+                                        </Tooltip>
+                                    )}
                                     <SaveButton tooltip="Save changes to this assertion" onClick={save} />
                                 </AssertionContainer>
 
@@ -183,6 +193,7 @@ export const AssertionSettings = (props: Props) => {
                         state={builderState}
                         updateState={setBuilderState}
                         disabled={isFullEditingDisabled}
+                        isEditMode
                     />
                 ) : null}
                 {props.assertion.info?.type === AssertionType.Volume ? (
@@ -190,6 +201,7 @@ export const AssertionSettings = (props: Props) => {
                         state={builderState}
                         updateState={setBuilderState}
                         disabled={isFullEditingDisabled}
+                        isEditMode
                     />
                 ) : null}
                 {props.assertion.info?.type === AssertionType.Field ? (
@@ -197,6 +209,7 @@ export const AssertionSettings = (props: Props) => {
                         state={builderState}
                         updateState={setBuilderState}
                         disabled={isFullEditingDisabled}
+                        isEditMode
                     />
                 ) : null}
                 {props.assertion.info?.type === AssertionType.DataSchema ? (

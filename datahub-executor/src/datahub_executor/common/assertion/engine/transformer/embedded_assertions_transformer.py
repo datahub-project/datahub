@@ -76,7 +76,9 @@ class EmbeddedAssertionsTransformer(AssertionTransformer):
         if not embedded_assertion_to_run:
             return assertion
 
-        logger.info(f"Updating smart assertion with embedded assertion {assertion.urn}")
+        logger.debug(
+            f"Updating smart assertion with embedded assertion {assertion.urn}"
+        )
         run_id = f"smart-assertion-{assertion.urn}-{str(now_ms)}"
         mcpw = MetadataChangeProposalWrapper(
             entityUrn=assertion.urn,

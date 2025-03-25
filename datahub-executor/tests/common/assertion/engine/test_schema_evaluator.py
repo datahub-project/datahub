@@ -19,6 +19,9 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
     DataHubIngestionSourceConnectionProvider,
 )
 from datahub_executor.common.exceptions import InvalidParametersException
+from datahub_executor.common.monitor.client.client import (
+    MonitorClient,
+)
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
@@ -58,30 +61,31 @@ class TestSchemaEvaluator:
         self.connection_provider = Mock(spec=DataHubIngestionSourceConnectionProvider)
         self.state_provider = Mock(spec=DataHubMonitorStateProvider)
         self.source_provider = Mock(spec=SourceProvider)
+        self.monitor_client = Mock(spec=MonitorClient)
         self.evaluator = SchemaAssertionEvaluator(
             self.connection_provider,
             self.state_provider,
             self.source_provider,
+            self.monitor_client,
         )
         self.assertion = Assertion(
             urn="urn:li:assertion:test",
             type=AssertionType.DATA_SCHEMA,
             entity=AssertionEntity(
                 urn="urn:li:dataset:test",
-                platformUrn="urn:li:dataPlatform:snowflake",
-                platformInstance=None,
-                subTypes=None,
+                platform_urn="urn:li:dataPlatform:snowflake",
+                platform_instance=None,
+                sub_types=None,
                 table_name="test_table",
-                qualifiedName="test_db.public.test_table",
+                qualified_name="test_db.public.test_table",
             ),
-            connectionUrn="urn:li:dataPlatform:snowflake",
-            schemaAssertion=None,
+            connection_urn="urn:li:dataPlatform:snowflake",
         )
         self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_SCHEMA,
             dataset_schema_parameters=DatasetSchemaAssertionParameters(
-                sourceType=DatasetSchemaSourceType.DATAHUB_SCHEMA
+                source_type=DatasetSchemaSourceType.DATAHUB_SCHEMA
             ),
         )
 

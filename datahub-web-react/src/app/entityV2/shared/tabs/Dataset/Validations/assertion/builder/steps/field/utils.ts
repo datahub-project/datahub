@@ -1,3 +1,4 @@
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 import {
     Assertion,
     AssertionEvaluationParametersType,
@@ -19,7 +20,11 @@ import {
 } from '../../../../../../../../../../types.generated';
 import { downgradeV2FieldPath } from '../../../../../../../../dataset/profile/schema/utils/utils';
 import { HIGH_WATERMARK_FIELD_TYPES } from '../../constants';
-import { AssertionMonitorBuilderState } from '../../types';
+import {
+    AssertionMonitorBuilderState,
+    FieldMetricAssertionBuilderOperator,
+    FieldMetricAssertionBuilderOperatorOptions,
+} from '../../types';
 import { isEntityEligibleForAssertionMonitoring, isStructField } from '../../utils';
 
 export const getFieldAssertionTypeKey = (fieldAssertionType?: FieldAssertionType | null) => {
@@ -61,17 +66,17 @@ export const getEligibleChangedRowColumns = (fields: SchemaField[]) => {
 };
 
 export const FIELD_TYPE_CONFIG = {
-    [FieldAssertionType.FieldValues]: {
-        label: 'Column Value',
-        value: FieldAssertionType.FieldValues,
-        description: 'Validate every row’s value for the column using custom conditions',
-        requiresConnection: true,
-    },
     [FieldAssertionType.FieldMetric]: {
         label: 'Column Metric',
         value: FieldAssertionType.FieldMetric,
         description: 'Validate the column using common column metrics',
         requiresConnection: false,
+    },
+    [FieldAssertionType.FieldValues]: {
+        label: 'Column Value',
+        value: FieldAssertionType.FieldValues,
+        description: 'Validate every row’s value for the column using custom conditions',
+        requiresConnection: true,
     },
 };
 
@@ -502,13 +507,22 @@ export const getSelectedFieldValuesOperatorOption = (
     return getFieldValuesOperatorOptions(fieldType).find((o) => o.value === operator);
 };
 
-export const getFieldMetricOperatorOptions = () => {
-    return getFieldValuesOperatorOptions(SchemaFieldDataType.Number).filter(
+export const getFieldMetricOperatorOptions = ({ disableAiInferred }: { disableAiInferred?: boolean } = {}) => {
+    const options = getFieldValuesOperatorOptions(SchemaFieldDataType.Number).filter(
         (o) => ![AssertionStdOperator.Null, AssertionStdOperator.NotNull, AssertionStdOperator.In].includes(o.value),
     );
+    if (disableAiInferred) {
+        return options;
+    }
+    return [
+        {
+            label: 'Detect anomalies with AI',
+            value: FieldMetricAssertionBuilderOperatorOptions.AiInferred,
+            hideParameters: true,
+        },
+    ].concat(options);
 };
-
-export const getSelectedFieldMetricOperatorOption = (operator?: AssertionStdOperator | null) => {
+export const getSelectedFieldMetricOperatorOption = (operator?: FieldMetricAssertionBuilderOperator | null) => {
     if (!operator) return null;
     return getFieldMetricOperatorOptions().find((o) => o.value === operator);
 };
@@ -552,7 +566,7 @@ export const getFieldMetricSourceTypeOptions = () => {
 export const getDefaultDatasetFieldAssertionState = (connectionForEntityExists: boolean) => {
     return {
         // eslint-disable-next-line no-constant-condition
-        type: connectionForEntityExists ? FieldAssertionType.FieldValues : FieldAssertionType.FieldMetric,
+        type: connectionForEntityExists ? FieldAssertionType.FieldMetric : FieldAssertionType.FieldMetric,
         fieldValuesAssertion: {
             field: {},
             failThreshold: {
@@ -643,7 +657,7 @@ export const fieldAssertionToBuilderState = (
         },
         parameters: {
             type: AssertionEvaluationParametersType.DatasetField,
-            datasetFieldParameters,
+            datasetFieldParameters: nullsToUndefined(datasetFieldParameters),
         },
     };
 };

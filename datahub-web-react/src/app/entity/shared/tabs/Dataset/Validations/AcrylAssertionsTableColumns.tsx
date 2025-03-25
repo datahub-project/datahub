@@ -5,6 +5,7 @@ import { AuditOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 import WarningIcon from '@ant-design/icons/WarningFilled';
+import { extractLatestGeneratedAt } from '@src/app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     Assertion,
     EntityType,
@@ -89,9 +90,8 @@ export function DetailsColumn({
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
-    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
-        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
-        : undefined;
+    const generatedAt = extractLatestGeneratedAt(monitor);
+    const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
     return (

@@ -124,6 +124,7 @@ query appConfig {
             showTaskCenterRedesign
             usePropagationsFramework
             displayExecutorPools
+            onlineSmartAssertionsEnabled
         }
         chromeExtensionConfig {
             enabled

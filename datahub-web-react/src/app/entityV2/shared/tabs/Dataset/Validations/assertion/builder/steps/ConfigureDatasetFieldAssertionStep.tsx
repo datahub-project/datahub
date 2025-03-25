@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button, Tooltip } from '@components';
-import { AssertionBuilderStep, StepProps } from '../types';
+import { AssertionBuilderStep, FieldMetricAssertionBuilderOperatorOptions, StepProps } from '../types';
 import {
     AssertionEvaluationParametersInput,
     AssertionType,
@@ -41,6 +41,9 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
     const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(
         state.entityUrn ?? '',
     );
+    const isAiInferred =
+        state.assertion?.fieldAssertion?.fieldMetricAssertion?.operator ===
+        FieldMetricAssertionBuilderOperatorOptions.AiInferred;
 
     return (
         <Step>
@@ -53,21 +56,23 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
                     Back
                 </Button>
                 <ControlsGroup>
-                    <Tooltip
-                        title={
-                            isTestAssertionActionDisabled
-                                ? 'Trying assertions is not supported for sources with remote executors.'
-                                : 'Try this assertion out!'
-                        }
-                    >
-                        <Button
-                            variant="outline"
-                            onClick={handleTestAssertionSubmit}
-                            disabled={isTestAssertionActionDisabled}
+                    {!isAiInferred && (
+                        <Tooltip
+                            title={
+                                isTestAssertionActionDisabled
+                                    ? 'Trying assertions is not supported for sources with remote executors.'
+                                    : 'Try this assertion out!'
+                            }
                         >
-                            Try it out
-                        </Button>
-                    </Tooltip>
+                            <Button
+                                variant="outline"
+                                onClick={handleTestAssertionSubmit}
+                                disabled={isTestAssertionActionDisabled}
+                            >
+                                Try it out
+                            </Button>
+                        </Tooltip>
+                    )}
                     <Button onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>Next</Button>
                 </ControlsGroup>
             </Controls>

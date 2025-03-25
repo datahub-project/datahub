@@ -1,4 +1,4 @@
-import { OwnershipType, OwnershipTypeEntity } from '../../../../../../../types.generated';
+import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../types.generated';
 import { forcePluralize } from '../../../../../../shared/textUtil';
 
 /**
@@ -44,3 +44,16 @@ export const getDescriptionFromType = (type: OwnershipType) => {
 export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
     return (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) || 'Other';
 }
+
+type WithProposedFlag<T> = T & { isProposed?: boolean };
+
+export type ExtendedOwner = WithProposedFlag<Owner>;
+
+export const combineOwners = (owners: Owner[], proposedOwners: Owner[]): ExtendedOwner[] => {
+    const proposedOwnersWithFlag = proposedOwners.map((owner) => ({
+        ...owner,
+        isProposed: true,
+    }));
+
+    return [...owners, ...proposedOwnersWithFlag];
+};

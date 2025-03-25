@@ -576,7 +576,7 @@ class BigQuerySource(Source):
         metric: FieldMetricType,
         filter_sql: Optional[str],
         prev_high_watermark_value: Optional[str],
-        changed_rows_field: Optional[FreshnessFieldSpec],
+        changed_rows_field: Optional[SchemaFieldSpec],
     ) -> float:
         # if applicable, setup a "last checked" sql fragment to filter the query further
         # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')

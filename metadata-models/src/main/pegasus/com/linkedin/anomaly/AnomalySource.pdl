@@ -10,10 +10,6 @@ record AnomalySource {
   /**
   * Message associated with the anomaly
   */
-  @Searchable = {
-    "addToFilters": true,
-    "filterNameOverride": "Source Type"
-  }
   type: enum AnomalySourceType {
     /**
      * An assertion has failed, triggering the anomaly.
@@ -25,9 +21,7 @@ record AnomalySource {
   * Reference to an URN related to the source of an anomaly.
   * If this anomaly was raised due to an inferred assertion failure, then this will contain the urn of the source Assertion.
   */
-  @Searchable = {
-    "fieldType": "URN"
-  }
+  @TimeseriesField = {}
   sourceUrn: optional Urn
 
   /**

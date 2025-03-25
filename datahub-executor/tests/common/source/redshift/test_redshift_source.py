@@ -136,7 +136,9 @@ class TestRedshiftSource:
         self.value_parameters = AssertionStdParameters(
             value=AssertionStdParameter(
                 value="77", type=AssertionStdParameterType.NUMBER
-            )
+            ),
+            min_value=None,
+            max_value=None,
         )
 
     @patch.object(RedshiftSource, "_build_audit_log_results")
@@ -445,11 +447,10 @@ class TestRedshiftSource:
             path="col_string",
             type="STRING",
             native_type="STRING",
+            kind=None,
         )
         changed_rows_field = FreshnessFieldSpec(
-            path="not_high_watermark",
-            type="STRING",
-            native_type="string",
+            path="not_high_watermark", type="STRING", native_type="string", kind=None
         )
         with pytest.raises(AssertionResultException):
             self.redshift_source._build_field_values_query(
@@ -474,14 +475,13 @@ class TestRedshiftSource:
             dataset_part_2="test_table",
         )
         field = FreshnessFieldSpec(
-            path="col_string",
-            type="STRING",
-            native_type="STRING",
+            path="col_string", type="STRING", native_type="STRING", kind=None
         )
         changed_rows_field = FreshnessFieldSpec(
             path="col_date",
             type="TIMESTAMP",
             native_type="TIMESTAMP WITHOUT TIME ZONE",
+            kind=None,
         )
         self.redshift_source._build_field_values_query(
             db_params,
@@ -508,14 +508,10 @@ class TestRedshiftSource:
             dataset_part_2="test_table",
         )
         field = FreshnessFieldSpec(
-            path="col_string",
-            type="STRING",
-            native_type="STRING",
+            path="col_string", type="STRING", native_type="STRING", kind=None
         )
         changed_rows_field = FreshnessFieldSpec(
-            path="col_integer",
-            type="INTEGER",
-            native_type="INTEGER",
+            path="col_integer", type="INTEGER", native_type="INTEGER", kind=None
         )
         self.redshift_source._build_field_values_query(
             db_params,

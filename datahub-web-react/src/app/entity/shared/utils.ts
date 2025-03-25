@@ -212,8 +212,6 @@ export function formatEntityType(type: string): string {
             return EntityType.Monitor;
         case 'incident': // Constants.INCIDENT_ENTITY_NAME
             return EntityType.Incident;
-        case 'anomaly': // Constants.ANOMALY_ENTITY_NAME
-            return EntityType.Anomaly;
         case 'datacontract': // Constants.DATA_CONTRACT_ENTITY_NAME
             return EntityType.DataContract;
 

@@ -82,7 +82,7 @@ export const AssertionListItemActions = ({
                     <ExternalUrlAction assertion={assertion} isExpandedView />
                 </Menu.Item>
             ) : null}
-            {isRunAssertionsEnabled && !monitor && !isNonNative && isReachable ? (
+            {isRunAssertionsEnabled && monitor && !isNonNative && isReachable ? (
                 <Menu.Item key="3">
                     <RunAction
                         assertion={assertion}

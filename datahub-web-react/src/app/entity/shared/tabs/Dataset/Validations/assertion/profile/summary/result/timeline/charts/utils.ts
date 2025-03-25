@@ -157,7 +157,8 @@ const tryGetWindowStartDateForFreshnessAssertionFixedInterval = (
     assertionInfo: FreshnessAssertionInfo,
 ): Date | undefined => {
     // Get the current run time minus interval
-    const interval = assertionInfo.schedule.fixedInterval;
+    // NOTE: this should always be defined for an assertion run
+    const interval = assertionInfo.schedule?.fixedInterval;
     if (!interval) return undefined;
     const intervalInMS = INTERVAL_TO_MS[interval.unit] * interval.multiple;
     const windowStartMillis = mountedDataPoint.time - intervalInMS;
@@ -253,7 +254,8 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (
 
     // 4. Get the start of the window
     let windowStartDate: Date | undefined;
-    switch (assertionInfo.freshnessAssertion.schedule.type) {
+    // NOTE: this should always be defined for an assertion run
+    switch (assertionInfo.freshnessAssertion.schedule?.type) {
         case FreshnessAssertionScheduleType.SinceTheLastCheck: {
             windowStartDate = tryGetWindowStartDateForFreshnessAssertionSinceTheLastCheck(
                 mountedDataPoint,

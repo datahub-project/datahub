@@ -532,9 +532,10 @@ const getFormattedExpectedTextForSqlAssertion = (run: AssertionRunEvent): string
 const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): string | undefined => {
     const info = run.result?.assertion?.freshnessAssertion;
     if (!info) return undefined;
-    switch (info.schedule.type) {
+    // NOTE: this should always be defined for an assertion run
+    switch (info.schedule?.type) {
         case FreshnessAssertionScheduleType.Cron: {
-            if (!info.schedule.cron) return undefined;
+            if (!info.schedule?.cron) return undefined;
             const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text;
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs

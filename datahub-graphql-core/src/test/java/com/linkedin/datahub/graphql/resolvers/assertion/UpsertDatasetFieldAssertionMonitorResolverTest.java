@@ -62,10 +62,12 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
-  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
+
+  private static final long TEST_TIMESTAMP_MILLIS = 1000L;
 
   private static final String TEST_EXECUTOR_ID = "testExecutorId";
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_INPUT =
@@ -73,6 +75,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
           FieldAssertionType.FIELD_METRIC,
           "description",
           TEST_DATASET_URN.toString(),
+          false,
+          null,
           null,
           new FieldMetricAssertionInput(
               new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
@@ -96,6 +100,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
       new UpsertDatasetFieldAssertionMonitorInput(
           FieldAssertionType.FIELD_METRIC,
           "description",
+          null,
+          false,
           null,
           null,
           new FieldMetricAssertionInput(
@@ -121,6 +127,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
           FieldAssertionType.FIELD_METRIC,
           "description",
           "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
+          false,
+          null,
           null,
           new FieldMetricAssertionInput(
               new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
@@ -147,9 +155,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
               new AssertionSource()
                   .setType(AssertionSourceType.NATIVE)
                   .setCreated(
-                      new AuditStamp()
-                          .setTime(System.currentTimeMillis())
-                          .setActor(TEST_ACTOR_URN)))
+                      new AuditStamp().setTime(TEST_TIMESTAMP_MILLIS).setActor(TEST_ACTOR_URN)))
           .setFieldAssertion(
               new FieldAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
@@ -234,7 +240,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -258,7 +264,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -271,7 +277,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq(
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()));
+            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+            Mockito.isNull());
   }
 
   @Test
@@ -282,7 +289,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -304,7 +311,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -330,7 +337,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -364,7 +371,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = initMockGraphClient();
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -401,7 +408,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.isNull());
   }
 
   private GraphClient initMockGraphClient() {
@@ -431,7 +439,10 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = initMockGraphClient();
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), graphClient);
+            mockService,
+            Mockito.mock(MonitorService.class),
+            graphClient,
+            () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -466,7 +477,10 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), Mockito.mock((GraphClient.class)));
+            mockService,
+            Mockito.mock(MonitorService.class),
+            Mockito.mock((GraphClient.class)),
+            () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -493,7 +507,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -512,7 +526,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
                 Mockito.eq(
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.isNull()))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -526,7 +541,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -552,7 +567,10 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), mockClient);
+            mockService,
+            Mockito.mock(MonitorService.class),
+            mockClient,
+            () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -587,7 +605,10 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
-            mockService, Mockito.mock(MonitorService.class), initMockGraphClient());
+            mockService,
+            Mockito.mock(MonitorService.class),
+            initMockGraphClient(),
+            () -> TEST_TIMESTAMP_MILLIS);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

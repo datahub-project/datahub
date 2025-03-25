@@ -14,7 +14,11 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH,
     DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION,
 )
-from datahub_executor.worker.celery_sqs.app import assertion_request, ingestion_request
+from datahub_executor.worker.celery_sqs.app import (
+    assertion_request,
+    ingestion_request,
+    monitor_training_request,
+)
 from datahub_executor.worker.celery_sqs.config import update_celery_credentials
 from datahub_executor.worker.celery_sqs.init import app
 
@@ -51,6 +55,43 @@ def apply_remote_assertion_request(
             routing_key=f"{executor_id}.assertion_request",
         )
         return execution_request.args["urn"]
+    else:
+        # not implemented
+        logger.error(
+            f"Worker implementation {DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION} is not available."
+        )
+
+
+def apply_remote_monitor_training_request(
+    execution_request: ExecutionRequest, executor_id: str
+) -> Any:
+    if executor_id == CLI_EXECUTOR_ID:
+        return
+    if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
+        logger.info(
+            f"Going to submit SQS assertion execution request {execution_request.args['urn']} via {executor_id}"
+        )
+
+        # before we try to send a task over celery, we make sure we have valid SQS creds
+        if not update_celery_credentials(app, False, executor_id):
+            return execution_request.args["urn"]
+
+        message_size = len(execution_request.json())
+        if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
+            METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
+            logger.error(
+                f"Monitor Training ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
+            )
+            return execution_request.args["monitor"]["urn"]
+
+        # for others (monitors/assertions) we directly trigger the task run.
+        monitor_training_request.apply_async(
+            args=[execution_request],
+            task_id=execution_request.exec_id,
+            queue=executor_id,
+            routing_key=f"{executor_id}.monitor_training",
+        )
+        return execution_request.exec_id
     else:
         # not implemented
         logger.error(

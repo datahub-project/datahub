@@ -106,6 +106,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showTaskCenterRedesign: false,
         usePropagationsFramework: false,
         displayExecutorPools: false,
+        onlineSmartAssertionsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

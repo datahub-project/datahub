@@ -32,11 +32,21 @@ dependencies = [
   "acryl-executor==0.1.11",
   "acryl-datahub-actions==0.1.4",
   "pycurl==7.45.3",
-  "psutil>=7.0.0"
+  "psutil>=7.0.0",
+  "pandas>=1.2.0",
+  "numpy==1.26.4",
+  "prophet==1.1.5",
+  "scikit-learn>=1.2.2",
+  "joblib >= 1.3.2",
 ]
 
 [project.optional-dependencies]
 dev = [
+  # Dev tools
+  "streamlit",
+  "streamlit-ext",
+  "plotly",
+  # Lint/test dependencies
   "ruff==0.9.6",
   "pytest",
   "mypy",
@@ -49,6 +59,9 @@ dev = [
   "faker",
   "types-pytz",
 ]
+
+[tool.uv.pip]
+python-version = "3.10"
 
 [tool.ruff]
 target-version = "py310"

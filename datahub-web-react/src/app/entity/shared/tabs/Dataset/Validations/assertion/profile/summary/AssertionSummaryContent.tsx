@@ -34,6 +34,7 @@ export const AssertionSummaryContent = ({ assertion, monitor }: Props) => {
             <AssertionSummarySection title="Schedule details">
                 <AssertionScheduleSummary
                     assertion={assertion}
+                    monitor={monitor}
                     schedule={schedule}
                     lastEvaluatedAtMillis={lastEvaluatedAtMillis}
                     nextEvaluatedAtMillis={nextEvaluatedAtMillis}

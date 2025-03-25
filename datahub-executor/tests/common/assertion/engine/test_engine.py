@@ -19,29 +19,24 @@ from datahub_executor.common.types import (
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     FreshnessFieldKind,
-    SchemaFieldSpec,
+    FreshnessFieldSpec,
 )
 
 # Sample Assertion and Context
 entity = AssertionEntity(
     urn="urn:li:dataset:test",
-    platformUrn="urn:li:dataPlatform:snowflake",
-    platformInstance=None,
-    subTypes=None,
+    platform_urn="urn:li:dataPlatform:snowflake",
 )
 assertion = Assertion(
     urn="urn:li:assertion:test",
     type=AssertionType.DATASET,
     entity=entity,
-    connectionUrn="urn:li:dataPlatform:snowflake",
-    freshnessAssertion=None,
+    connection_urn="urn:li:dataPlatform:snowflake",
 )
 parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
-        field=None,
-        auditLog=None,
+    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+        source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
     ),
 )
 context = AssertionEvaluationContext()
@@ -88,15 +83,14 @@ def test_evaluate_stateful_assertion() -> None:
     )
     parameters = AssertionEvaluationParameters(
         type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-        datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-            sourceType=DatasetFreshnessSourceType.FIELD_VALUE,
-            field=SchemaFieldSpec(
+        dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+            source_type=DatasetFreshnessSourceType.FIELD_VALUE,
+            field=FreshnessFieldSpec(
                 path="col_timestamp",
                 type="TIME",
                 native_type="TIMESTAMP",
                 kind=FreshnessFieldKind.HIGH_WATERMARK,
             ),
-            auditLog=None,
         ),
     )
     # Mock the AssertionResultHandler

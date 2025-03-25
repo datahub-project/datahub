@@ -822,12 +822,6 @@ entities:
     keyAspect: recommendationModuleKey
     aspects:
       - recommendationModule
-  - name: anomaly
-    doc: Anomalies represent issues that were detected based on inferred or auto-generated assertions.
-    category: core
-    keyAspect: anomalyKey
-    aspects:
-      - anomalyInfo
   - name: actionRequest
     category: internal
     keyAspect: actionRequestKey
@@ -847,6 +841,12 @@ entities:
     aspects:
       - monitorInfo
       - monitorTimeseriesState
+      - monitorAnomalyEvent
+  - name: monitorSuite
+    category: core
+    keyAspect: monitorSuiteKey
+    aspects:
+      - monitorSuiteInfo
   - name: linkPreview
     category: internal
     keyAspect: linkPreviewKey

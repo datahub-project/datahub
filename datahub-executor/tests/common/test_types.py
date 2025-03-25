@@ -12,7 +12,7 @@ class TestFieldValuesAssertion:
             "field": {
                 "path": "id",
                 "type": "STRING",
-                "native_type": "STRING",
+                "nativeType": "STRING",
             },
             "transform": {"type": "LENGTH"},
             "operator": "EQUAL_TO",

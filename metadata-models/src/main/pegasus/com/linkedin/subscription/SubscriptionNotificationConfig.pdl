@@ -1,6 +1,5 @@
 namespace com.linkedin.subscription
 
-import com.linkedin.common.Urn
 import com.linkedin.event.notification.settings.NotificationSettings
 
 record SubscriptionNotificationConfig {

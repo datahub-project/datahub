@@ -49,15 +49,16 @@ interface DomainContentProps {
     onClose?: (e: any) => void;
     tagStyle?: any | undefined;
     fontSize?: number;
+    iconSize?: number;
 }
 
-function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize }: DomainContentProps) {
+export function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize, iconSize }: DomainContentProps) {
     const entityRegistry = useEntityRegistry();
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
-            <DomainColoredIcon domain={domain} size={28} />
+            <DomainColoredIcon domain={domain} size={iconSize || 28} />
             {displayName}
             {closable && (
                 <CloseButton onClick={onClose}>

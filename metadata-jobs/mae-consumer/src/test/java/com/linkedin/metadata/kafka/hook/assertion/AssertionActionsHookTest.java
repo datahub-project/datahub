@@ -9,13 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.anomaly.AnomalyInfo;
-import com.linkedin.anomaly.AnomalySource;
-import com.linkedin.anomaly.AnomalySourceProperties;
-import com.linkedin.anomaly.AnomalySourceType;
-import com.linkedin.anomaly.AnomalyState;
-import com.linkedin.anomaly.AnomalyStatus;
-import com.linkedin.anomaly.AnomalyType;
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActionType;
@@ -75,7 +68,6 @@ import org.testng.annotations.Test;
 public class AssertionActionsHookTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:test-1");
-  private static final Urn TEST_ANOMALY_URN = UrnUtils.getUrn("urn:li:anomaly:test-2");
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -431,11 +423,9 @@ public class AssertionActionsHookTest {
   }
 
   @Test
-  public void testInvokeInferredAssertionRunEventSuccessNoAnomaly() throws Exception {
+  public void testInvokeInferredAssertionRunEventSuccess() throws Exception {
     SystemEntityClient entityClient =
         mockSystemEntityClient(
-            null,
-            null,
             TEST_ASSERTION_URN,
             new AssertionInfo()
                 .setType(AssertionType.DATASET)
@@ -479,114 +469,12 @@ public class AssertionActionsHookTest {
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
                     GLOBAL_TAGS_ASPECT_NAME)));
 
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
     // Verify that nothing was ingested in this case -- no anomalies to ingest since it was a
     // success.
     Mockito.verify(entityClient, Mockito.times(0))
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean());
-  }
-
-  @Test
-  public void testInvokeAssertionRunEventSuccessActionsActiveAnomaly() throws Exception {
-    AnomalyInfo activeAnomalyInfo =
-        new AnomalyInfo()
-            .setEntity(TEST_DATASET_URN)
-            .setStatus(
-                new AnomalyStatus()
-                    .setState(AnomalyState.ACTIVE)
-                    .setLastUpdated(
-                        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))
-            .setSource(
-                new AnomalySource()
-                    .setSourceUrn(TEST_ASSERTION_URN)
-                    .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
-            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L))
-            .setType(AnomalyType.DATASET_COLUMN);
-
-    SystemEntityClient entityClient =
-        mockSystemEntityClient(
-            TEST_ANOMALY_URN,
-            activeAnomalyInfo,
-            TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setSource(
-                    new AssertionSource()
-                        .setType(AssertionSourceType.INFERRED)) // Inferred Assertion!
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(
-                entityClient,
-                Mockito.mock(GraphClient.class),
-                true,
-                Mockito.mock(OpenApiClient.class),
-                objectMapper)
-            .init(mockOperationContext());
-
-    MetadataChangeLog event =
-        buildMetadataChangeLog(
-            TEST_ASSERTION_URN,
-            ASSERTION_RUN_EVENT_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
-
-    hook.invoke(event);
-
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
-            any(OperationContext.class),
-            Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
-
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
-    AnomalyInfo expectedInfo = new AnomalyInfo(activeAnomalyInfo.data());
-    expectedInfo.setStatus(
-        new AnomalyStatus()
-            .setState(AnomalyState.RESOLVED)
-            .setLastUpdated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L)));
-
-    Mockito.verify(entityClient, Mockito.times(1))
-        .ingestProposal(
-            any(OperationContext.class),
-            Mockito.argThat(
-                new AssertionActionsHookAnomalyInfoMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean());
   }
 
@@ -850,12 +738,10 @@ public class AssertionActionsHookTest {
   }
 
   @Test
-  public void testInvokeInferredAssertionRunEventFailureNoAnomaly() throws Exception {
+  public void testInvokeInferredAssertionRunEventFailure() throws Exception {
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
-            null,
-            null,
             TEST_ASSERTION_URN,
             new AssertionInfo()
                 .setType(AssertionType.DATASET)
@@ -898,123 +784,6 @@ public class AssertionActionsHookTest {
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
                     GLOBAL_TAGS_ASPECT_NAME)));
-
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
-    AnomalyInfo expectedInfo = new AnomalyInfo();
-    expectedInfo.setType(AnomalyType.DATASET_COLUMN);
-    expectedInfo.setEntity(TEST_DATASET_URN);
-    expectedInfo.setSource(
-        new AnomalySource()
-            .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE)
-            .setSourceUrn(TEST_ASSERTION_URN)
-            .setProperties(new AnomalySourceProperties().setAssertionRunEventTime(1L)));
-    expectedInfo.setStatus(
-        new AnomalyStatus()
-            .setState(AnomalyState.ACTIVE)
-            .setLastUpdated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L)));
-    expectedInfo.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L));
-
-    // Verify that a new anomaly was created
-    Mockito.verify(entityClient, Mockito.times(1))
-        .ingestProposal(
-            any(OperationContext.class),
-            Mockito.argThat(
-                new AssertionActionsHookAnomalyInfoMatcher(
-                    AspectUtils.buildMetadataChangeProposal(
-                        TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean());
-  }
-
-  @Test
-  public void testInvokeInferredAssertionRunEventFailureWithAnomaly() throws Exception {
-    AnomalyInfo activeAnomalyInfo =
-        new AnomalyInfo()
-            .setEntity(TEST_DATASET_URN)
-            .setStatus(
-                new AnomalyStatus()
-                    .setState(AnomalyState.ACTIVE)
-                    .setLastUpdated(
-                        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))
-            .setSource(
-                new AnomalySource()
-                    .setSourceUrn(TEST_ASSERTION_URN)
-                    .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
-            .setType(AnomalyType.DATASET_COLUMN);
-
-    SystemEntityClient entityClient =
-        mockSystemEntityClient(
-            TEST_ANOMALY_URN,
-            activeAnomalyInfo,
-            TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setSource(
-                    new AssertionSource()
-                        .setType(AssertionSourceType.INFERRED)) // Inferred Assertion!
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(
-                entityClient,
-                Mockito.mock(GraphClient.class),
-                true,
-                Mockito.mock(OpenApiClient.class),
-                objectMapper)
-            .init(mockOperationContext());
-
-    MetadataChangeLog event =
-        buildMetadataChangeLog(
-            TEST_ASSERTION_URN,
-            ASSERTION_RUN_EVENT_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE));
-
-    hook.invoke(event);
-
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
-            any(OperationContext.class),
-            Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
-
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
-    // Verify that no anomaly is raised since one already exists!
-    Mockito.verify(entityClient, Mockito.times(0))
-        .ingestProposal(
-            any(OperationContext.class),
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean());
   }
 
   @Test
@@ -1173,157 +942,6 @@ public class AssertionActionsHookTest {
         .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
   }
 
-  @Test
-  public void testInvokeAssertionSoftDeletedActiveAnomaly() throws Exception {
-    // If assertion is soft deleted, then any active anomalies resulting from it should be removed.
-
-    AnomalyInfo activeAnomalyInfo =
-        new AnomalyInfo()
-            .setEntity(TEST_DATASET_URN)
-            .setStatus(
-                new AnomalyStatus()
-                    .setState(AnomalyState.ACTIVE)
-                    .setLastUpdated(
-                        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))
-            .setSource(
-                new AnomalySource()
-                    .setSourceUrn(TEST_ASSERTION_URN)
-                    .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
-            .setType(AnomalyType.DATASET_COLUMN);
-
-    SystemEntityClient entityClient =
-        mockSystemEntityClient(
-            TEST_ANOMALY_URN,
-            activeAnomalyInfo,
-            TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(
-                entityClient,
-                Mockito.mock(GraphClient.class),
-                true,
-                Mockito.mock(OpenApiClient.class),
-                objectMapper)
-            .init(mockOperationContext());
-
-    MetadataChangeLog event =
-        buildMetadataChangeLog(
-            TEST_ASSERTION_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, buildStatus(true));
-
-    hook.invoke(event);
-
-    Mockito.verify(entityClient, Mockito.times(0))
-        .getV2(
-            any(OperationContext.class),
-            Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
-
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
-    // Verify that we've deleted the active anomalies.
-    Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
-    Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
-  }
-
-  @Test
-  public void testInvokeAssertionHardDeletedActiveAnomaly() throws Exception {
-    // If assertion is hard deleted, then any active anomalies resulting from it should be removed.
-
-    AnomalyInfo activeAnomalyInfo =
-        new AnomalyInfo()
-            .setEntity(TEST_DATASET_URN)
-            .setStatus(
-                new AnomalyStatus()
-                    .setState(AnomalyState.ACTIVE)
-                    .setLastUpdated(
-                        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn(SYSTEM_ACTOR))))
-            .setSource(
-                new AnomalySource()
-                    .setSourceUrn(TEST_ASSERTION_URN)
-                    .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
-            .setType(AnomalyType.DATASET_COLUMN);
-
-    SystemEntityClient entityClient =
-        mockSystemEntityClient(
-            TEST_ANOMALY_URN,
-            activeAnomalyInfo,
-            TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(
-                entityClient,
-                Mockito.mock(GraphClient.class),
-                true,
-                Mockito.mock(OpenApiClient.class),
-                objectMapper)
-            .init(mockOperationContext());
-
-    MetadataChangeLog event =
-        buildMetadataChangeLog(
-            TEST_ASSERTION_URN, ASSERTION_KEY_ASPECT_NAME, ChangeType.DELETE, null);
-
-    hook.invoke(event);
-
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(0))
-        .getV2(
-            any(OperationContext.class),
-            Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
-
-    // Ensure that we searched for the active anomalies associated with the assertion..
-    Mockito.verify(entityClient, Mockito.times(1))
-        .search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt());
-
-    // Verify that we've deleted the active anomalies.
-    Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
-    Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_ANOMALY_URN));
-  }
-
   private SystemEntityClient mockSystemEntityClient(
       Urn incidentUrn,
       IncidentInfo incidentInfo,
@@ -1403,29 +1021,9 @@ public class AssertionActionsHookTest {
     return mockClient;
   }
 
-  private SystemEntityClient mockSystemEntityClient(
-      Urn anomalyUrn, AnomalyInfo anomalyInfo, Urn assertionUrn, AssertionInfo assertionInfo)
+  private SystemEntityClient mockSystemEntityClient(Urn assertionUrn, AssertionInfo assertionInfo)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-
-    if (anomalyUrn != null) {
-      when(mockClient.getV2(
-              any(OperationContext.class),
-              Mockito.eq(ANOMALY_ENTITY_NAME),
-              Mockito.eq(anomalyUrn),
-              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME))))
-          .thenReturn(
-              new EntityResponse()
-                  .setUrn(anomalyUrn)
-                  .setEntityName(ANOMALY_ENTITY_NAME)
-                  .setAspects(
-                      new EnvelopedAspectMap(
-                          ImmutableMap.of(
-                              ANOMALY_INFO_ASPECT_NAME,
-                              new EnvelopedAspect()
-                                  .setName(ANOMALY_INFO_ASPECT_NAME)
-                                  .setValue(new Aspect(anomalyInfo.data()))))));
-    }
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
@@ -1450,26 +1048,6 @@ public class AssertionActionsHookTest {
                                   .setName(ASSERTION_INFO_ASPECT_NAME)
                                   .setValue(new Aspect(assertionInfo.data()))))));
     }
-
-    SearchEntityArray searchEntities =
-        anomalyUrn == null
-            ? new SearchEntityArray(Collections.emptyList())
-            : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
-
-    when(mockClient.search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt()))
-        .thenReturn(
-            new SearchResult()
-                .setNumEntities(1)
-                .setPageSize(1)
-                .setFrom(0)
-                .setEntities(searchEntities));
 
     return mockClient;
   }

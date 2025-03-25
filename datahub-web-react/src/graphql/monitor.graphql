@@ -1,5 +1,21 @@
 #import "./assertion_monitor_shared.graphql"
 
+fragment assertionAdjustmentSettings on AssertionAdjustmentSettings {
+    algorithm
+    algorithmName
+    context {
+        key
+        value
+    }
+    exclusionWindows {
+        ...assertionExclusionWindow
+    }
+    trainingDataLookbackWindowDays
+    sensitivity {
+        level
+    }
+}
+
 fragment monitorDetails on Monitor {
     urn
     type
@@ -16,6 +32,14 @@ fragment monitorDetails on Monitor {
                 }
                 parameters {
                     ...assertionEvaluationParameters
+                }
+                context {
+                    ...assertionEvaluationContext
+                }
+            }
+            settings {
+                inferenceSettings {
+                    ...assertionAdjustmentSettings
                 }
             }
         }

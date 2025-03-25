@@ -20,9 +20,10 @@ type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const FieldMetricBuilder = ({ value, onChange, disabled }: Props) => {
+export const FieldMetricBuilder = ({ value, onChange, disabled, isEditMode }: Props) => {
     const form = Form.useFormInstance();
     const fieldType = value.assertion?.fieldAssertion?.fieldMetricAssertion?.field?.type;
     const metricType = value.assertion?.fieldAssertion?.fieldMetricAssertion?.metric;
@@ -68,10 +69,18 @@ export const FieldMetricBuilder = ({ value, onChange, disabled }: Props) => {
                     placeholder="Select a metric"
                     onChange={(newMetricType) => updateMetricType(newMetricType)}
                     options={options}
-                    disabled={disabled}
+                    // Do not allow editing after assertion is created
+                    disabled={disabled || isEditMode}
                 />
             </StyledFormItem>
-            {metricType && <FieldMetricParameterBuilder value={value} onChange={onChange} disabled={disabled} />}
+            {metricType && (
+                <FieldMetricParameterBuilder
+                    value={value}
+                    onChange={onChange}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                />
+            )}
         </Section>
     );
 };

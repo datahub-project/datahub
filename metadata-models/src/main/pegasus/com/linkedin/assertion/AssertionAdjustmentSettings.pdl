@@ -2,7 +2,7 @@ namespace com.linkedin.assertion
 
 /**
 * A set of settings that can be used to adjust assertion values
-* This is mainly applied against inferred assertions
+* NOTE: This is only applied against inferred assertions
 **/
 record AssertionAdjustmentSettings  {
 
@@ -12,16 +12,37 @@ record AssertionAdjustmentSettings  {
   * Note that for algorithm "STDDEV" which leverages the standard deviation of trailing values,
   * the "stdDev" field must be provided inside of AssertionEvaluationContext.pdl by the offline pipeline.
   **/
-  algorithm: AdjustmentAlgorithm
+  algorithm: optional AdjustmentAlgorithm
 
   /**
   * The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
   **/
-  algorithmName: string
+  algorithmName: optional string
 
   /**
   * The context to use to adjust assertion values
   **/
   context: optional map[string, string]
 
+  /**
+   * The user-defined exclusion windows for the assertion.
+   */
+  exclusionWindows: optional array[AssertionExclusionWindow]
+
+  /**
+   * Exclude the anomaly data points for the assertion. These are detected automatically by the system.
+   */
+  anomalyExclusionWindows: optional array[AssertionExclusionWindow]
+
+  /**
+  * The lookback window configuration for retrieving training data points.
+  * Defines how far back in time to look when gathering data for training.
+  * Defaults to 60 days if not specified.
+  */
+  trainingDataLookbackWindowDays: optional long
+
+  /**
+  * The sensitivity level for an assertion
+  */
+  sensitivity: optional AssertionMonitorSensitivity
 }

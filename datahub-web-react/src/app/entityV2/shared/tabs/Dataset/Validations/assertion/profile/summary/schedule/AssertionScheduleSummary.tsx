@@ -3,9 +3,9 @@ import React from 'react';
 import styled from 'styled-components';
 import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
 
-import { Assertion, AssertionSourceType, CronSchedule } from '../../../../../../../../../../types.generated';
+import { Assertion, AssertionSourceType, CronSchedule, Monitor } from '../../../../../../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../../../../../../shared/time/timeUtils';
-import { getCronAsText } from '../../../../acrylUtils';
+import { extractLatestGeneratedAt, getCronAsText } from '../../../../acrylUtils';
 import { AssertionScheduleSummarySection } from './AssertionScheduleSummarySection';
 import { isExternalAssertion } from '../../shared/isExternalAssertion';
 import { ProviderSummarySection } from './ProviderSummarySection';
@@ -35,6 +35,7 @@ const StyledLastUpdatedLogo = styled(InferredAssertionLogo)`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     schedule?: CronSchedule;
     lastEvaluatedAtMillis?: number | undefined;
     nextEvaluatedAtMillis?: number | undefined;
@@ -46,6 +47,7 @@ type Props = {
  */
 export const AssertionScheduleSummary = ({
     assertion,
+    monitor,
     schedule,
     lastEvaluatedAtMillis,
     nextEvaluatedAtMillis,
@@ -88,10 +90,8 @@ export const AssertionScheduleSummary = ({
      * For smart assertions, show the last time the rule was updated.
      */
     const isSmartAssertion = assertion?.info?.source?.type === AssertionSourceType.Inferred;
-    const generatedAt =
-        isSmartAssertion && assertion?.inferenceDetails?.generatedAt
-            ? new Date(assertion?.inferenceDetails?.generatedAt)
-            : undefined;
+    const generatedAtTs = isSmartAssertion && monitor ? extractLatestGeneratedAt(monitor) : undefined;
+    const generatedAt = generatedAtTs ? new Date(generatedAtTs) : undefined;
     const lastUpdatedAtTimeLocal = generatedAt
         ? `${generatedAt.toLocaleDateString()} at ${generatedAt.toLocaleTimeString()} (${localeTimezone})`
         : null;
@@ -140,8 +140,8 @@ export const AssertionScheduleSummary = ({
                 {lastUpdatedAtTimeLocal ? (
                     <AssertionScheduleSummarySection
                         icon={<StyledLastUpdatedLogo />}
-                        title="Last updated"
-                        subtitle={`This Smart Assertion was last updated at ${lastUpdatedAtTimeLocal}.`}
+                        title="Last trained"
+                        subtitle={`Monitor predictions were last refreshed at ${lastUpdatedAtTimeLocal}.`}
                         tooltip={lastUpdatedAtTimeGmt}
                         showDivider={false}
                     />
