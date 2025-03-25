@@ -26,6 +26,31 @@
 },
 {
     "entityType": "query",
+    "entityUrn": "urn:li:query:null_last_modified",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageFeatures",
+    "aspect": {
+        "json": {
+            "queryCountLast30Days": 397,
+            "topUsersLast30Days": [
+                "urn:li:corpuser:user2",
+                "urn:li:corpuser:user3",
+                "urn:li:corpuser:user0",
+                "urn:li:corpuser:user4",
+                "urn:li:corpuser:user1"
+            ],
+            "runsPercentileLast30days": 0,
+            "lastExecutedAt": 0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-v6ai9l",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
     "entityUrn": "urn:li:query:4",
     "changeType": "UPSERT",
     "aspectName": "queryUsageFeatures",

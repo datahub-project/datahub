@@ -1088,7 +1088,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 runsPercentileLast30days=int(
                     row.get("queries_rank_percentile", 0) or 0
                 ),
-                lastExecutedAt=int(row.get("last_modified_at", 0)),
+                lastExecutedAt=int(row.get("last_modified_at", 0) or 0),
                 topUsersLast30Days=(
                     list(chain.from_iterable(row.get("top_users", [])))
                     if row.get("top_users")
