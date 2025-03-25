@@ -61,19 +61,19 @@ class BaseProcedure:
     def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
         return make_data_job_urn(
             orchestrator=database_key.platform,
-            flow_id=get_procedure_flow_name(database_key, schema_key),
+            flow_id=_get_procedure_flow_name(database_key, schema_key),
             job_id=self.get_procedure_identifier(),
             cluster=database_key.env or DEFAULT_ENV,
             platform_instance=database_key.instance,
         )
 
 
-def generate_flow_workunits(
+def _generate_flow_workunits(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> Iterable[MetadataWorkUnit]:
     """Generate flow workunits for database and schema"""
 
-    procedure_flow_name = get_procedure_flow_name(database_key, schema_key)
+    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
 
     flow_urn = make_data_flow_urn(
         orchestrator=database_key.platform,
@@ -114,7 +114,7 @@ def generate_flow_workunits(
     ).as_workunit()
 
 
-def get_procedure_flow_name(
+def _get_procedure_flow_name(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
     if schema_key:
@@ -126,7 +126,7 @@ def get_procedure_flow_name(
     return procedure_flow_name
 
 
-def generate_job_workunits(
+def _generate_job_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     procedure: BaseProcedure,
@@ -220,7 +220,7 @@ def generate_procedure_container_workunits(
 ) -> Iterable[MetadataWorkUnit]:
     """Generate container workunits for database and schema"""
 
-    yield from generate_flow_workunits(database_key, schema_key)
+    yield from _generate_flow_workunits(database_key, schema_key)
 
 
 def generate_procedure_workunits(
@@ -229,7 +229,7 @@ def generate_procedure_workunits(
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
 ) -> Iterable[MetadataWorkUnit]:
-    yield from generate_job_workunits(database_key, schema_key, procedure)
+    yield from _generate_job_workunits(database_key, schema_key, procedure)
 
     if schema_resolver:
         job_urn = procedure.to_urn(database_key, schema_key)
