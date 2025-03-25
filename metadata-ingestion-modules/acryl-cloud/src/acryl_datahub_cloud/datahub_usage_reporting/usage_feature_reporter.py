@@ -286,41 +286,53 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def soft_deleted_batch(self, results: Iterable) -> Iterable[Dict]:
         with PerfTimer() as timer:
             for doc in results:
-                yield {
-                    "entity_urn": doc["_source"]["urn"],
-                    "last_modified_at": (
-                        doc["_source"]["lastModifiedAt"]
-                        if "lastModifiedAt" in doc["_source"]
-                        and doc["_source"]["lastModifiedAt"]
-                        else (
+                try:
+                    if "urn" not in doc["_source"]:
+                        logger.warning(f"Urn not found in ES doc {doc}. Skipping...")
+                        continue
+
+                    yield {
+                        "entity_urn": doc["_source"]["urn"],
+                        "last_modified_at": (
                             doc["_source"]["lastModifiedAt"]
                             if "lastModifiedAt" in doc["_source"]
                             and doc["_source"]["lastModifiedAt"]
+                            else (
+                                doc["_source"]["lastModifiedAt"]
+                                if "lastModifiedAt" in doc["_source"]
+                                and doc["_source"]["lastModifiedAt"]
+                                else None
+                            )
+                        ),
+                        "removed": (
+                            doc["_source"]["removed"]
+                            if "removed" in doc["_source"] and doc["_source"]["removed"]
+                            else False
+                        ),
+                        "siblings": (
+                            doc["_source"]["siblings"]
+                            if "siblings" in doc["_source"]
+                            and doc["_source"]["siblings"]
+                            else []
+                        ),
+                        "combinedSearchRankingMultiplier": (
+                            doc["_source"]["combinedSearchRankingMultiplier"]
+                            if "combinedSearchRankingMultiplier" in doc["_source"]
+                            and doc["_source"]["combinedSearchRankingMultiplier"]
                             else None
-                        )
-                    ),
-                    "removed": (
-                        doc["_source"]["removed"]
-                        if "removed" in doc["_source"] and doc["_source"]["removed"]
-                        else False
-                    ),
-                    "siblings": (
-                        doc["_source"]["siblings"]
-                        if "siblings" in doc["_source"] and doc["_source"]["siblings"]
-                        else []
-                    ),
-                    "combinedSearchRankingMultiplier": (
-                        doc["_source"]["combinedSearchRankingMultiplier"]
-                        if "combinedSearchRankingMultiplier" in doc["_source"]
-                        and doc["_source"]["combinedSearchRankingMultiplier"]
-                        else None
-                    ),
-                    "isView": (
-                        "View" in doc["_source"]["typeNames"]
-                        if "typeNames" in doc["_source"] and doc["_source"]["typeNames"]
-                        else False
-                    ),
-                }
+                        ),
+                        "isView": (
+                            "View" in doc["_source"]["typeNames"]
+                            if "typeNames" in doc["_source"]
+                            and doc["_source"]["typeNames"]
+                            else False
+                        ),
+                    }
+                except KeyError as e:
+                    logger.warning(
+                        f"Unable to process row {doc} from ES. It failed with {e}"
+                    )
+                    continue
             time_taken = timer.elapsed_seconds()
             logger.info(f"Entities processing took {time_taken:.3f} seconds")
 
@@ -477,27 +489,38 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def process_batch(self, results: Iterable) -> Iterable[Dict]:
         with PerfTimer() as timer:
             for doc in results:
+                if "urn" not in doc["_source"]:
+                    logger.warning(f"Urn not found in ES doc {doc}. Skipping...")
+                    continue
                 match = re.match(platform_regexp, doc["_source"]["urn"])
                 if match:
                     platform = match.group(1)
                     self.report.dataset_platforms_count[platform] += 1
                 else:
-                    logger.warning("Platform not found in urn. Skipping...")
+                    logger.warning(
+                        f"Platform not found in urn  {doc['_source']['urn']} in doc {doc}. Skipping..."
+                    )
                     continue
 
-                yield {
-                    "timestampMillis": doc["_source"]["timestampMillis"],
-                    "urn": doc["_source"]["urn"],
-                    "eventGranularity": doc["_source"]["eventGranularity"],
-                    "totalSqlQueries": doc["_source"]["totalSqlQueries"],
-                    "uniqueUserCount": doc["_source"]["uniqueUserCount"],
-                    "userCounts": (
-                        doc["_source"]["event"]["userCounts"]
-                        if "userCounts" in doc["_source"]["event"]
-                        else None
-                    ),
-                    "platform": platform,
-                }
+                try:
+                    yield {
+                        "timestampMillis": doc["_source"]["timestampMillis"],
+                        "urn": doc["_source"]["urn"],
+                        "eventGranularity": doc["_source"].get("eventGranularity"),
+                        "totalSqlQueries": doc["_source"].get("totalSqlQueries", 0),
+                        "uniqueUserCount": doc["_source"].get("uniqueUserCount", 0),
+                        "userCounts": (
+                            doc["_source"]["event"]["userCounts"]
+                            if "userCounts" in doc["_source"]["event"]
+                            else None
+                        ),
+                        "platform": platform,
+                    }
+                except KeyError as e:
+                    logger.warning(
+                        f"Unable to process row {doc} from ES. The error was: {e}"
+                    )
+                    continue
 
             time_taken = timer.elapsed_seconds()
             logger.info(f"DatasetUsage processing took {time_taken:.3f} seconds")
