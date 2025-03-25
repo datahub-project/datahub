@@ -257,12 +257,14 @@ public class ActionRequestService extends BaseService {
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply tags to
    * @param tagUrns the urns of the tags to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeEntityTags(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Urn> tagUrns)
+      @Nonnull final List<Urn> tagUrns,
+      @Nullable final String description)
       throws AlreadyRequestedException,
           AlreadyAppliedException,
           RemoteInvocationException,
@@ -280,7 +282,8 @@ public class ActionRequestService extends BaseService {
     }
 
     // Step 3: Propose the tag change.
-    return createTagAssociationActionRequest(opContext, entityUrn, finalTagUrns, null, null);
+    return createTagAssociationActionRequest(
+        opContext, entityUrn, finalTagUrns, null, null, description);
   }
 
   /**
@@ -291,13 +294,15 @@ public class ActionRequestService extends BaseService {
    * @param entityUrn the urn of the entity to apply tags to
    * @param schemaFieldPath the field path to apply tags to
    * @param tagUrns the urns of the tags to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeSchemaFieldTags(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String schemaFieldPath,
-      @Nonnull final List<Urn> tagUrns)
+      @Nonnull final List<Urn> tagUrns,
+      @Nullable final String description)
       throws AlreadyAppliedException,
           AlreadyRequestedException,
           MalformedActionRequestException,
@@ -317,7 +322,12 @@ public class ActionRequestService extends BaseService {
 
     // Step 2: Propose the tag change.
     return createTagAssociationActionRequest(
-        opContext, entityUrn, finalTagUrns, SubResourceType.DATASET_FIELD, schemaFieldPath);
+        opContext,
+        entityUrn,
+        finalTagUrns,
+        SubResourceType.DATASET_FIELD,
+        schemaFieldPath,
+        description);
   }
 
   /*--------------------------------------------------------------------------
@@ -330,12 +340,14 @@ public class ActionRequestService extends BaseService {
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply terms to
    * @param termUrns the urns of the glossary terms to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeEntityTerms(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Urn> termUrns)
+      @Nonnull final List<Urn> termUrns,
+      @Nullable final String description)
       throws AlreadyRequestedException,
           AlreadyAppliedException,
           RemoteInvocationException,
@@ -352,7 +364,8 @@ public class ActionRequestService extends BaseService {
     }
 
     // Step 3: Propose the term change
-    return createTermAssociationActionRequest(opContext, entityUrn, finalTermUrns, null, null);
+    return createTermAssociationActionRequest(
+        opContext, entityUrn, finalTermUrns, null, null, description);
   }
 
   /**
@@ -362,13 +375,15 @@ public class ActionRequestService extends BaseService {
    * @param entityUrn the urn of the entity to apply terms to
    * @param schemaFieldPath the field path
    * @param termUrns the urns of the glossary terms to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeSchemaFieldTerms(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String schemaFieldPath,
-      @Nonnull final List<Urn> termUrns)
+      @Nonnull final List<Urn> termUrns,
+      @Nullable final String description)
       throws AlreadyAppliedException,
           AlreadyRequestedException,
           MalformedActionRequestException,
@@ -389,7 +404,12 @@ public class ActionRequestService extends BaseService {
 
     // Step 3: Propose the term change
     return createTermAssociationActionRequest(
-        opContext, entityUrn, finalTermUrns, SubResourceType.DATASET_FIELD, schemaFieldPath);
+        opContext,
+        entityUrn,
+        finalTermUrns,
+        SubResourceType.DATASET_FIELD,
+        schemaFieldPath,
+        description);
   }
 
   /*--------------------------------------------------------------------------
@@ -402,12 +422,14 @@ public class ActionRequestService extends BaseService {
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply properties to
    * @param propertyValueAssignments the new property value assignments
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeEntityStructuredProperties(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<StructuredPropertyValueAssignment> propertyValueAssignments)
+      @Nonnull final List<StructuredPropertyValueAssignment> propertyValueAssignments,
+      @Nullable final String description)
       throws AlreadyRequestedException,
           AlreadyAppliedException,
           RemoteInvocationException,
@@ -428,7 +450,7 @@ public class ActionRequestService extends BaseService {
 
     // Step 3: Propose the structured property change
     return createStructuredPropertyAssociationActionRequest(
-        opContext, entityUrn, finalPropertyAssignments, null, null);
+        opContext, entityUrn, finalPropertyAssignments, null, null, description);
   }
 
   /**
@@ -438,13 +460,15 @@ public class ActionRequestService extends BaseService {
    * @param entityUrn the urn of the entity to apply properties to
    * @param schemaFieldPath the field path
    * @param propertyValueAssignments the urns of the structured properties to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeSchemaFieldStructuredProperties(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String schemaFieldPath,
-      @Nonnull final List<StructuredPropertyValueAssignment> propertyValueAssignments)
+      @Nonnull final List<StructuredPropertyValueAssignment> propertyValueAssignments,
+      @Nullable final String description)
       throws AlreadyAppliedException,
           AlreadyRequestedException,
           MalformedActionRequestException,
@@ -471,7 +495,8 @@ public class ActionRequestService extends BaseService {
         entityUrn,
         finalPropertyAssignments,
         SubResourceType.DATASET_FIELD,
-        schemaFieldPath);
+        schemaFieldPath,
+        description);
   }
 
   /*--------------------------------------------------------------------------
@@ -483,12 +508,14 @@ public class ActionRequestService extends BaseService {
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply terms to
    * @param domainUrn the urns of the domain to apply
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeEntityDomain(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final Urn domainUrn)
+      @Nonnull final Urn domainUrn,
+      @Nullable final String description)
       throws AlreadyRequestedException,
           AlreadyAppliedException,
           RemoteInvocationException,
@@ -501,7 +528,8 @@ public class ActionRequestService extends BaseService {
     final Urn finalDomainUrn = filterEntityDomainToPropose(opContext, entityUrn, domainUrn);
 
     // Step 3: Propose the domain change
-    return createDomainAssociationActionRequest(opContext, entityUrn, finalDomainUrn, null, null);
+    return createDomainAssociationActionRequest(
+        opContext, entityUrn, finalDomainUrn, null, null, description);
   }
 
   /*--------------------------------------------------------------------------
@@ -513,12 +541,14 @@ public class ActionRequestService extends BaseService {
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply terms to
    * @param owners the owners to propose
+   * @param description the description for proposal
    * @return the urn of the action request
    */
   public Urn proposeEntityOwners(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Owner> owners)
+      @Nonnull final List<Owner> owners,
+      @Nullable final String description)
       throws AlreadyRequestedException,
           AlreadyAppliedException,
           RemoteInvocationException,
@@ -536,7 +566,7 @@ public class ActionRequestService extends BaseService {
     }
 
     // Step 3: Propose the owners change
-    return createOwnersAssociationActionRequest(opContext, entityUrn, finalOwners);
+    return createOwnersAssociationActionRequest(opContext, entityUrn, finalOwners, description);
   }
 
   /*--------------------------------------------------------------------------
@@ -1297,7 +1327,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final List<Urn> termUrns,
       @Nullable final SubResourceType subResourceType,
-      @Nullable final String subResource)
+      @Nullable final String subResource,
+      @Nullable final String description)
       throws RemoteInvocationException {
 
     // First, get the assignees (authorized actors) for the term change proposal.
@@ -1314,7 +1345,8 @@ public class ActionRequestService extends BaseService {
             assignees.getUsers(),
             assignees.getGroups(),
             assignees.getRoles(),
-            opContext.getAuditStamp().getActor());
+            opContext.getAuditStamp().getActor(),
+            description);
 
     // Ingest the aspects
     this.entityClient.batchIngestProposals(opContext, mcps, false);
@@ -1335,7 +1367,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
 
     return createActionRequestMcps(
         TERM_ASSOCIATION_PROPOSAL_TYPE,
@@ -1346,7 +1379,8 @@ public class ActionRequestService extends BaseService {
         assignedUsers,
         assignedGroups,
         assignedRoles,
-        actorUrn);
+        actorUrn,
+        description);
   }
 
   @Nonnull
@@ -1678,7 +1712,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final List<Urn> tagUrns,
       @Nullable final SubResourceType subResourceType,
-      @Nullable final String subResource)
+      @Nullable final String subResource,
+      @Nullable final String description)
       throws RemoteInvocationException {
 
     // First, get the assignees for the tag change proposal.
@@ -1695,7 +1730,8 @@ public class ActionRequestService extends BaseService {
             assignees.getUsers(),
             assignees.getGroups(),
             assignees.getRoles(),
-            opContext.getAuditStamp().getActor());
+            opContext.getAuditStamp().getActor(),
+            description);
 
     // Finally, Ingest the aspects!
     this.entityClient.batchIngestProposals(opContext, mcps, false);
@@ -1716,7 +1752,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
     return createActionRequestMcps(
         TAG_ASSOCIATION_PROPOSAL_TYPE,
         entityUrn,
@@ -1726,7 +1763,8 @@ public class ActionRequestService extends BaseService {
         assignedUsers,
         assignedGroups,
         assignedRoles,
-        actorUrn);
+        actorUrn,
+        description);
   }
 
   @Nonnull
@@ -1739,7 +1777,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
     final Urn actionRequestUrn =
         UrnUtils.getUrn(String.format("urn:li:actionRequest:%s", UUID.randomUUID()));
 
@@ -1757,7 +1796,8 @@ public class ActionRequestService extends BaseService {
             assignedUsers,
             assignedGroups,
             assignedRoles,
-            actorUrn);
+            actorUrn,
+            description);
     final MetadataChangeProposal actionRequestInfoProposal =
         AspectUtils.buildMetadataChangeProposal(
             actionRequestUrn, ACTION_REQUEST_INFO_ASPECT_NAME, actionRequestInfo);
@@ -2102,7 +2142,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn creator) {
+      @Nonnull final Urn creator,
+      @Nullable final String description) {
 
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(type);
@@ -2126,6 +2167,9 @@ public class ActionRequestService extends BaseService {
     info.setParams(params);
     info.setCreated(System.currentTimeMillis());
     info.setCreatedBy(creator);
+    if (description != null) {
+      info.setDescription(description);
+    }
 
     return info;
   }
@@ -2436,7 +2480,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final List<StructuredPropertyValueAssignment> propertyValueAssignments,
       @Nullable final SubResourceType subResourceType,
-      @Nullable final String subResource)
+      @Nullable final String subResource,
+      @Nullable final String description)
       throws RemoteInvocationException {
 
     // First, get the assignees for the structured property change proposal.
@@ -2453,7 +2498,8 @@ public class ActionRequestService extends BaseService {
             assignees.getUsers(),
             assignees.getGroups(),
             assignees.getRoles(),
-            opContext.getAuditStamp().getActor());
+            opContext.getAuditStamp().getActor(),
+            description);
 
     // Finally, ingest the aspects!
     this.entityClient.batchIngestProposals(opContext, mcps, false);
@@ -2473,7 +2519,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
     return createActionRequestMcps(
         STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE,
         entityUrn,
@@ -2483,7 +2530,8 @@ public class ActionRequestService extends BaseService {
         assignedUsers,
         assignedGroups,
         assignedRoles,
-        actorUrn);
+        actorUrn,
+        description);
   }
 
   @Nonnull
@@ -2580,7 +2628,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn domainUrn,
       @Nullable final SubResourceType subResourceType,
-      @Nullable final String subResource)
+      @Nullable final String subResource,
+      @Nullable final String description)
       throws RemoteInvocationException {
 
     // First, get the assignees (authorized actors) for the domain change proposal.
@@ -2596,7 +2645,8 @@ public class ActionRequestService extends BaseService {
             assignees.getUsers(),
             assignees.getGroups(),
             assignees.getRoles(),
-            opContext.getAuditStamp().getActor());
+            opContext.getAuditStamp().getActor(),
+            description);
 
     // Ingest the aspects
     this.entityClient.batchIngestProposals(opContext, mcps, false);
@@ -2614,7 +2664,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
 
     return createActionRequestMcps(
         DOMAIN_ASSOCIATION_PROPOSAL_TYPE,
@@ -2625,7 +2676,8 @@ public class ActionRequestService extends BaseService {
         assignedUsers,
         assignedGroups,
         assignedRoles,
-        actorUrn);
+        actorUrn,
+        description);
   }
 
   @Nonnull
@@ -2765,7 +2817,8 @@ public class ActionRequestService extends BaseService {
   private Urn createOwnersAssociationActionRequest(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Owner> owners)
+      @Nonnull final List<Owner> owners,
+      @Nullable final String description)
       throws RemoteInvocationException {
 
     // First, get the assignees (authorized actors) for the owners change proposal.
@@ -2779,7 +2832,8 @@ public class ActionRequestService extends BaseService {
             assignees.getUsers(),
             assignees.getGroups(),
             assignees.getRoles(),
-            opContext.getAuditStamp().getActor());
+            opContext.getAuditStamp().getActor(),
+            description);
 
     // Ingest the aspects
     this.entityClient.batchIngestProposals(opContext, mcps, false);
@@ -2795,7 +2849,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final Urn actorUrn) {
+      @Nonnull final Urn actorUrn,
+      @Nullable final String description) {
 
     return createActionRequestMcps(
         OWNER_ASSOCIATION_PROPOSAL_TYPE,
@@ -2806,7 +2861,8 @@ public class ActionRequestService extends BaseService {
         assignedUsers,
         assignedGroups,
         assignedRoles,
-        actorUrn);
+        actorUrn,
+        description);
   }
 
   @Nonnull

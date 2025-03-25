@@ -100,7 +100,8 @@ public class ProposeStructuredPropertiesResolverTest {
                         .setPropertyUrn(UrnUtils.getUrn("urn:li:structuredProperty:testProperty2"))
                         .setValues(
                             new PrimitivePropertyValueArray(
-                                ImmutableList.of(PrimitivePropertyValue.create(123.0))))))))
+                                ImmutableList.of(PrimitivePropertyValue.create(123.0)))))),
+            eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -114,7 +115,8 @@ public class ProposeStructuredPropertiesResolverTest {
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn("urn:li:dataset:123")),
             eq("fieldName"),
-            anyList());
+            anyList(),
+            eq(null));
   }
 
   @Test
@@ -158,7 +160,8 @@ public class ProposeStructuredPropertiesResolverTest {
                         .setPropertyUrn(UrnUtils.getUrn("urn:li:structuredProperty:testProperty2"))
                         .setValues(
                             new PrimitivePropertyValueArray(
-                                ImmutableList.of(PrimitivePropertyValue.create(123.0))))))))
+                                ImmutableList.of(PrimitivePropertyValue.create(123.0)))))),
+            eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -171,7 +174,8 @@ public class ProposeStructuredPropertiesResolverTest {
         .proposeEntityStructuredProperties(
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn("urn:li:dataset:456")),
-            anyList());
+            anyList(),
+            eq(null));
   }
 
   @Test
@@ -294,7 +298,8 @@ public class ProposeStructuredPropertiesResolverTest {
     // Stub the service to throw MalformedActionRequestException
     doThrow(new ActionRequestService.MalformedActionRequestException("Invalid request"))
         .when(mockActionRequestService)
-        .proposeSchemaFieldStructuredProperties(any(), any(Urn.class), eq("fieldName"), anyList());
+        .proposeSchemaFieldStructuredProperties(
+            any(), any(Urn.class), eq("fieldName"), anyList(), eq(null));
 
     // WHEN & THEN
     try {
@@ -338,7 +343,8 @@ public class ProposeStructuredPropertiesResolverTest {
     // Stub the service to throw RemoteInvocationException
     doThrow(new RemoteInvocationException("Downstream service unreachable"))
         .when(mockActionRequestService)
-        .proposeSchemaFieldStructuredProperties(any(), any(Urn.class), eq("fieldName"), anyList());
+        .proposeSchemaFieldStructuredProperties(
+            any(), any(Urn.class), eq("fieldName"), anyList(), eq(null));
 
     // WHEN & THEN
     try {

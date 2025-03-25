@@ -96,7 +96,7 @@ public class ProposeOwnersResolverTest {
     // Stub the ActionRequestService for schema field Domain
     Urn proposedRequestUrn = UrnUtils.getUrn("urn:li:actionRequest:999");
     when(mockActionRequestService.proposeEntityOwners(
-            any(), eq(UrnUtils.getUrn(TEST_DATASET_URN)), eq(expectedProposedOwners)))
+            any(), eq(UrnUtils.getUrn(TEST_DATASET_URN)), eq(expectedProposedOwners), eq(null)))
         .thenReturn(proposedRequestUrn);
 
     // WHEN
@@ -109,7 +109,8 @@ public class ProposeOwnersResolverTest {
         .proposeEntityOwners(
             eq(mockQueryContext.getOperationContext()),
             eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-            eq(expectedProposedOwners));
+            eq(expectedProposedOwners),
+            eq(null));
   }
 
   @Test
@@ -169,7 +170,7 @@ public class ProposeOwnersResolverTest {
     // Stub the service to throw RemoteInvocationException
     doThrow(new RemoteInvocationException("Downstream service unreachable"))
         .when(mockActionRequestService)
-        .proposeEntityOwners(any(), any(Urn.class), any());
+        .proposeEntityOwners(any(), any(Urn.class), any(), eq(null));
 
     // WHEN & THEN
     try {
@@ -447,7 +448,7 @@ public class ProposeOwnersResolverTest {
     // Stub the service to throw EntityDoesNotExistException
     doThrow(new EntityDoesNotExistException("Resource does not exist"))
         .when(mockActionRequestService)
-        .proposeEntityOwners(any(), any(Urn.class), any());
+        .proposeEntityOwners(any(), any(Urn.class), any(), eq(null));
 
     // WHEN & THEN
     try {

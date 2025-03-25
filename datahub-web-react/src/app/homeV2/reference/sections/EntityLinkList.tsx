@@ -49,6 +49,7 @@ type Props = {
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
     showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
@@ -64,6 +65,7 @@ export const EntityLinkList = ({
     showMore = false,
     showMoreCount,
     showHealthIcon = false,
+    showDeprecatedIcon = false,
     empty,
     onClickMore,
     onClickTitle,
@@ -99,6 +101,7 @@ export const EntityLinkList = ({
                                 }
                                 render={render}
                                 showHealthIcon={showHealthIcon}
+                                showDeprecatedIcon={showDeprecatedIcon}
                             />
                         );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}

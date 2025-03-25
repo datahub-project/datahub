@@ -4,3 +4,4 @@
 {"_source":{"urn":"urn:li:query:3","removed:":false,"lastModifiedAt":1718967980309,"platform":  "snowflake"}}
 {"_source":{"urn":"urn:li:query:4","removed:":true,"lastModifiedAt":1719572780309,"platform":  "snowflake"}}
 {"_source":{"urn":"urn:li:query:removed_query","removed:":true,"lastModifiedAt":1719572780309,"platform":  "snowflake"}}
+{"_source":{"urn":"urn:li:query:null_last_modified","removed:":true,"lastModifiedAt":null,"platform":  "snowflake"}}

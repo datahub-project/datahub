@@ -37,6 +37,7 @@ public class ProposeTagsResolver implements DataFetcher<CompletableFuture<String
         bindArgument(environment.getArgument("input"), ProposeTagsInput.class);
     final List<String> tagUrnStrs = input.getTagUrns();
     final String targetUrnStr = input.getResourceUrn();
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -52,13 +53,17 @@ public class ProposeTagsResolver implements DataFetcher<CompletableFuture<String
                       context.getOperationContext(),
                       toUrn(targetUrnStr),
                       input.getSubResource(),
-                      toUrns(tagUrnStrs))
+                      toUrns(tagUrnStrs),
+                      description)
                   .toString();
             } else {
               // Propose Asset Tags
               return this.actionRequestService
                   .proposeEntityTags(
-                      context.getOperationContext(), toUrn(targetUrnStr), toUrns(tagUrnStrs))
+                      context.getOperationContext(),
+                      toUrn(targetUrnStr),
+                      toUrns(tagUrnStrs),
+                      description)
                   .toString();
             }
           } catch (Exception e) {

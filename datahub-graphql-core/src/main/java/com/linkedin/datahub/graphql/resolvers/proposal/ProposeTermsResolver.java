@@ -37,6 +37,7 @@ public class ProposeTermsResolver implements DataFetcher<CompletableFuture<Strin
         bindArgument(environment.getArgument("input"), ProposeTermsInput.class);
     final List<String> termUrnStrs = input.getTermUrns();
     final String targetUrnStr = input.getResourceUrn();
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -52,13 +53,17 @@ public class ProposeTermsResolver implements DataFetcher<CompletableFuture<Strin
                       context.getOperationContext(),
                       toUrn(targetUrnStr),
                       input.getSubResource(),
-                      toUrns(termUrnStrs))
+                      toUrns(termUrnStrs),
+                      description)
                   .toString();
             } else {
               // Propose Asset Terms
               return this.actionRequestService
                   .proposeEntityTerms(
-                      context.getOperationContext(), toUrn(targetUrnStr), toUrns(termUrnStrs))
+                      context.getOperationContext(),
+                      toUrn(targetUrnStr),
+                      toUrns(termUrnStrs),
+                      description)
                   .toString();
             }
           } catch (Exception e) {

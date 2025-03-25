@@ -277,7 +277,7 @@ public class ActionRequestServiceTest {
     // When
     Urn result =
         actionRequestService.proposeEntityTags(
-            mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+            mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
 
     // Then
     assertNotNull(result, "Returned URN from proposeEntityTags should not be null.");
@@ -340,7 +340,7 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityTags(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -350,7 +350,7 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityTags(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
   }
 
   // =======================
@@ -371,7 +371,7 @@ public class ActionRequestServiceTest {
 
     // Expect success, but only the new tag gets proposed
     Urn result =
-        actionRequestService.proposeEntityTags(mockOpContext, TEST_ENTITY_URN, requestedTags);
+        actionRequestService.proposeEntityTags(mockOpContext, TEST_ENTITY_URN, requestedTags, null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals
@@ -403,7 +403,7 @@ public class ActionRequestServiceTest {
 
     // No previously proposed tags
     actionRequestService.proposeEntityTags(
-        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2));
+        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2), null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -454,7 +454,7 @@ public class ActionRequestServiceTest {
 
     // Now propose both tags
     actionRequestService.proposeEntityTags(
-        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2));
+        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2), null);
   }
 
   // ============================================================================
@@ -474,7 +474,8 @@ public class ActionRequestServiceTest {
             mockOpContext,
             TEST_ENTITY_URN,
             TEST_FIELD_PATH,
-            Collections.singletonList(TEST_TAG_URN));
+            Collections.singletonList(TEST_TAG_URN),
+            null);
 
     // Then
     assertNotNull(result);
@@ -538,7 +539,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTags(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -550,7 +555,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTags(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -560,7 +569,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTags(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyAppliedException.class)
@@ -573,7 +586,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTags(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -622,7 +639,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTags(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   // =======================
@@ -643,7 +664,7 @@ public class ActionRequestServiceTest {
     // Expect success, only the new tag (TEST_TAG_URN_2) is proposed
     Urn result =
         actionRequestService.proposeSchemaFieldTags(
-            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, requestedTags);
+            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, requestedTags, null);
     assertNotNull(result);
 
     // Check we propose exactly 1 new tag
@@ -676,7 +697,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2));
+        Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -732,7 +754,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2));
+        Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2),
+        null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -745,7 +768,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         someOtherEntityUrn,
         TEST_FIELD_PATH,
-        Collections.singletonList(TEST_TAG_URN));
+        Collections.singletonList(TEST_TAG_URN),
+        null);
   }
 
   // ============================================================================
@@ -761,7 +785,7 @@ public class ActionRequestServiceTest {
     // When
     Urn result =
         actionRequestService.proposeEntityTerms(
-            mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+            mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
 
     // Then
     assertNotNull(result, "Returned URN from proposeEntityTerms should not be null.");
@@ -825,7 +849,7 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityTerms(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -835,7 +859,7 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityTerms(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(TEST_TAG_URN), null);
   }
 
   // =======================
@@ -856,7 +880,8 @@ public class ActionRequestServiceTest {
 
     // Expect success, but only the new term gets proposed
     Urn result =
-        actionRequestService.proposeEntityTerms(mockOpContext, TEST_ENTITY_URN, requestedTerms);
+        actionRequestService.proposeEntityTerms(
+            mockOpContext, TEST_ENTITY_URN, requestedTerms, null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals
@@ -890,7 +915,7 @@ public class ActionRequestServiceTest {
 
     // No previously proposed terms
     actionRequestService.proposeEntityTerms(
-        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2));
+        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2), null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -941,7 +966,7 @@ public class ActionRequestServiceTest {
 
     // Now propose both tags
     actionRequestService.proposeEntityTerms(
-        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2));
+        mockOpContext, TEST_ENTITY_URN, Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2), null);
   }
 
   // ============================================================================
@@ -961,7 +986,8 @@ public class ActionRequestServiceTest {
             mockOpContext,
             TEST_ENTITY_URN,
             TEST_FIELD_PATH,
-            Collections.singletonList(TEST_TERM_URN));
+            Collections.singletonList(TEST_TERM_URN),
+            null);
 
     // Then
     assertNotNull(result);
@@ -1026,7 +1052,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTerms(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TERM_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1038,7 +1068,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTerms(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TERM_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1049,7 +1083,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTerms(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TERM_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyAppliedException.class)
@@ -1063,7 +1101,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTerms(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TERM_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -1112,7 +1154,11 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeSchemaFieldTerms(
-        mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, Collections.singletonList(TEST_TERM_URN));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        TEST_FIELD_PATH,
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   // =======================
@@ -1134,7 +1180,7 @@ public class ActionRequestServiceTest {
     // Expect success, only the new tag (TEST_TERM_URN_2) is proposed
     Urn result =
         actionRequestService.proposeSchemaFieldTerms(
-            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, requestedTags);
+            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, requestedTags, null);
     assertNotNull(result);
 
     // Check we propose exactly 1 new tag
@@ -1170,7 +1216,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2));
+        Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -1226,7 +1273,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2));
+        Arrays.asList(TEST_TERM_URN, TEST_TERM_URN_2),
+        null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -1239,7 +1287,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         someOtherEntityUrn,
         TEST_FIELD_PATH,
-        Collections.singletonList(TEST_TERM_URN));
+        Collections.singletonList(TEST_TERM_URN),
+        null);
   }
 
   // ============================================================================
@@ -1254,7 +1303,8 @@ public class ActionRequestServiceTest {
 
     // When
     Urn result =
-        actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+        actionRequestService.proposeEntityDomain(
+            mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
 
     // Then
     assertNotNull(result, "Returned URN from proposeEntityDomain should not be null.");
@@ -1305,7 +1355,7 @@ public class ActionRequestServiceTest {
         .thenReturn(false);
 
     // When
-    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1315,7 +1365,7 @@ public class ActionRequestServiceTest {
         .thenReturn(false);
 
     // When
-    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
   }
 
   // =======================
@@ -1332,7 +1382,8 @@ public class ActionRequestServiceTest {
 
     // Expect success, but only the new domain gets proposed
     Urn result =
-        actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+        actionRequestService.proposeEntityDomain(
+            mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
 
     assertNotNull(result);
 
@@ -1362,7 +1413,7 @@ public class ActionRequestServiceTest {
         .thenReturn(Collections.singletonList(TEST_DOMAIN_URN));
 
     // No previously proposed domains
-    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -1412,7 +1463,7 @@ public class ActionRequestServiceTest {
                     existingActionRequestInfo, existingActionRequestStatus)));
 
     // Now propose domains
-    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN, null);
   }
 
   // --------------------------------------------------------------------------------
@@ -1624,7 +1675,8 @@ public class ActionRequestServiceTest {
 
     // When
     Urn result =
-        actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+        actionRequestService.proposeEntityOwners(
+            mockOpContext, TEST_ENTITY_URN, ownersToPropose, null);
 
     // Then
     assertNotNull(result, "Returned URN from proposeEntityOwners should not be null.");
@@ -1677,7 +1729,7 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityOwners(
-        mockOpContext, TEST_ENTITY_URN, Collections.emptyList());
+        mockOpContext, TEST_ENTITY_URN, Collections.emptyList(), null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1694,7 +1746,7 @@ public class ActionRequestServiceTest {
                 .setTypeUrn(TEST_OWNER_TYPE_URN));
 
     // When
-    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose, null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1712,7 +1764,7 @@ public class ActionRequestServiceTest {
                 .setTypeUrn(TEST_OWNER_TYPE_URN));
 
     // When
-    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose, null);
   }
 
   // =======================
@@ -1738,7 +1790,8 @@ public class ActionRequestServiceTest {
                 .setTypeUrn(TEST_OWNER_TYPE_URN));
 
     Urn result =
-        actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+        actionRequestService.proposeEntityOwners(
+            mockOpContext, TEST_ENTITY_URN, ownersToPropose, null);
 
     assertNotNull(result);
 
@@ -1770,7 +1823,8 @@ public class ActionRequestServiceTest {
         .thenReturn(alreadyProposedOwners);
 
     // No previously proposed owners
-    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, alreadyProposedOwners);
+    actionRequestService.proposeEntityOwners(
+        mockOpContext, TEST_ENTITY_URN, alreadyProposedOwners, null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -1829,7 +1883,7 @@ public class ActionRequestServiceTest {
                     existingActionRequestInfo, existingActionRequestStatus)));
 
     // Now propose owners
-    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose, null);
   }
 
   // ============================================================================
@@ -1855,7 +1909,8 @@ public class ActionRequestServiceTest {
         actionRequestService.proposeEntityStructuredProperties(
             mockOpContext,
             TEST_ENTITY_URN,
-            Collections.singletonList(structuredPropertyAssignment));
+            Collections.singletonList(structuredPropertyAssignment),
+            null);
 
     // Then
     assertNotNull(
@@ -1922,7 +1977,10 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityStructuredProperties(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(structuredPropertyAssignment));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -1940,7 +1998,10 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityStructuredProperties(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(structuredPropertyAssignment));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   // =======================
@@ -1972,7 +2033,8 @@ public class ActionRequestServiceTest {
         actionRequestService.proposeEntityStructuredProperties(
             mockOpContext,
             TEST_ENTITY_URN,
-            ImmutableList.of(alreadyAppliedProperty, nonExistantStructuredPropertyProposed));
+            ImmutableList.of(alreadyAppliedProperty, nonExistantStructuredPropertyProposed),
+            null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals
@@ -2013,7 +2075,7 @@ public class ActionRequestServiceTest {
 
     // No previously proposed tags
     actionRequestService.proposeEntityStructuredProperties(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(alreadyAppliedProperty));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(alreadyAppliedProperty), null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -2079,7 +2141,7 @@ public class ActionRequestServiceTest {
                     ImmutableList.of(PrimitivePropertyValue.create("testValue"))));
 
     actionRequestService.proposeEntityStructuredProperties(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(proposedProperty));
+        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(proposedProperty), null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -2102,7 +2164,10 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.proposeEntityStructuredProperties(
-        mockOpContext, TEST_ENTITY_URN, Collections.singletonList(structuredPropertyAssignment));
+        mockOpContext,
+        TEST_ENTITY_URN,
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -2130,7 +2195,8 @@ public class ActionRequestServiceTest {
     actionRequestService.proposeEntityStructuredProperties(
         mockOpContext,
         TEST_ENTITY_URN,
-        ImmutableList.of(structuredPropertyAssignment, duplicateStructuredPropertyAssignment));
+        ImmutableList.of(structuredPropertyAssignment, duplicateStructuredPropertyAssignment),
+        null);
   }
 
   @Test
@@ -2210,7 +2276,7 @@ public class ActionRequestServiceTest {
     // Expect success, but only the new property gets added
     Urn result =
         actionRequestService.proposeEntityStructuredProperties(
-            mockOpContext, TEST_ENTITY_URN, ImmutableList.of(proposedProperty));
+            mockOpContext, TEST_ENTITY_URN, ImmutableList.of(proposedProperty), null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals
@@ -2257,7 +2323,8 @@ public class ActionRequestServiceTest {
             mockOpContext,
             TEST_ENTITY_URN,
             TEST_FIELD_PATH,
-            Collections.singletonList(structuredPropertyAssignment));
+            Collections.singletonList(structuredPropertyAssignment),
+            null);
 
     // Then
     assertNotNull(
@@ -2329,7 +2396,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Collections.singletonList(structuredPropertyAssignment));
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   @Test(expectedExceptions = EntityDoesNotExistException.class)
@@ -2350,7 +2418,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Collections.singletonList(structuredPropertyAssignment));
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   // =======================
@@ -2383,7 +2452,8 @@ public class ActionRequestServiceTest {
             mockOpContext,
             TEST_ENTITY_URN,
             TEST_FIELD_PATH,
-            ImmutableList.of(alreadyAppliedProperty, nonExistantStructuredPropertyProposed));
+            ImmutableList.of(alreadyAppliedProperty, nonExistantStructuredPropertyProposed),
+            null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals
@@ -2427,7 +2497,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Collections.singletonList(alreadyAppliedProperty));
+        Collections.singletonList(alreadyAppliedProperty),
+        null);
   }
 
   @Test(expectedExceptions = AlreadyRequestedException.class)
@@ -2498,7 +2569,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Collections.singletonList(proposedProperty));
+        Collections.singletonList(proposedProperty),
+        null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -2524,7 +2596,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        Collections.singletonList(structuredPropertyAssignment));
+        Collections.singletonList(structuredPropertyAssignment),
+        null);
   }
 
   @Test(expectedExceptions = MalformedActionRequestException.class)
@@ -2553,7 +2626,8 @@ public class ActionRequestServiceTest {
         mockOpContext,
         TEST_ENTITY_URN,
         TEST_FIELD_PATH,
-        ImmutableList.of(structuredPropertyAssignment, duplicateStructuredPropertyAssignment));
+        ImmutableList.of(structuredPropertyAssignment, duplicateStructuredPropertyAssignment),
+        null);
   }
 
   @Test
@@ -2633,7 +2707,11 @@ public class ActionRequestServiceTest {
     // Expect success, but only the new property gets added
     Urn result =
         actionRequestService.proposeSchemaFieldStructuredProperties(
-            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH, ImmutableList.of(proposedProperty));
+            mockOpContext,
+            TEST_ENTITY_URN,
+            TEST_FIELD_PATH,
+            ImmutableList.of(proposedProperty),
+            null);
     assertNotNull(result);
 
     // Capture the batchIngestProposals

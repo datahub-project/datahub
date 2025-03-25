@@ -6,13 +6,15 @@ import FilterOption from '../../FilterOption';
 import { SearchFilterLabel } from '../../styledComponents';
 import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
 
-const IconNameWrapper = styled.span`
+const IconNameWrapper = styled.div`
     display: flex;
     align-items: center;
 `;
 
 const IconWrapper = styled.span`
     margin-right: 8px;
+    display: flex;
+    flex-direction: column;
 `;
 
 interface Props {

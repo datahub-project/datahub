@@ -35,6 +35,7 @@ public class ProposeDomainResolver implements DataFetcher<CompletableFuture<Stri
         bindArgument(environment.getArgument("input"), ProposeDomainInput.class);
     final String domainUrnStr = input.getDomainUrn();
     final String targetUrnStr = input.getResourceUrn();
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -46,7 +47,10 @@ public class ProposeDomainResolver implements DataFetcher<CompletableFuture<Stri
             // Propose Asset Domain
             return this.actionRequestService
                 .proposeEntityDomain(
-                    context.getOperationContext(), toUrn(targetUrnStr), toUrn(domainUrnStr))
+                    context.getOperationContext(),
+                    toUrn(targetUrnStr),
+                    toUrn(domainUrnStr),
+                    description)
                 .toString();
           } catch (Exception e) {
             if (e instanceof ActionRequestService.MalformedActionRequestException) {
