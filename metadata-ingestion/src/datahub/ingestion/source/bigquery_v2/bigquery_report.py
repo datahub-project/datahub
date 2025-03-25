@@ -8,7 +8,7 @@ import pydantic
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -77,7 +77,7 @@ class BigQueryQueriesExtractorReport(Report):
 
 @dataclass
 class BigQueryV2Report(
-    ProfilingSqlReport,
+    SQLSourceReport,
     IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
@@ -141,7 +141,7 @@ class BigQueryV2Report(
     profiling_skipped_invalid_partition_type: Dict[str, str] = field(
         default_factory=TopKDict
     )
-    profiling_skipped_partition_profiling_disabled: List[str] = field(
+    profiling_skipped_partition_profiling_disabled: LossyList[str] = field(
         default_factory=LossyList
     )
     allow_pattern: Optional[str] = None
@@ -190,6 +190,3 @@ class BigQueryV2Report(
     num_skipped_external_table_lineage: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
-
-    def set_ingestion_stage(self, project_id: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{project_id}: {stage}")

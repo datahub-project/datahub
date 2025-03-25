@@ -8,7 +8,6 @@ import deepdiff.serialization
 import yaml
 from deepdiff import DeepDiff
 from deepdiff.model import DiffLevel
-from deepdiff.operator import BaseOperator
 from typing_extensions import Literal
 
 ReportType = Literal[
@@ -59,25 +58,10 @@ class AspectForDiff:
 
 @dataclasses.dataclass
 class DeltaInfo:
-    """Information about an MCP used to construct a diff delta.
-
-    In a separate class so it can be ignored by DeepDiff via MCPDeltaInfoOperator.
-    """
+    """Information about an MCP used to construct a diff delta."""
 
     idx: int  # Location in list of MCEs in golden file
     original: Dict[str, Any]  # Original json-serialized MCP
-
-
-class DeltaInfoOperator(BaseOperator):
-    """Warning: Doesn't seem to be working right now.
-    Ignored via an ignore path as an extra layer of defense.
-    """
-
-    def __init__(self):
-        super().__init__(types=[DeltaInfo])
-
-    def give_up_diffing(self, *args: Any, **kwargs: Any) -> bool:
-        return True
 
 
 AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
@@ -176,7 +160,6 @@ class MCPDiff:
                     t2=t2,
                     exclude_regex_paths=ignore_paths,
                     ignore_order=True,
-                    custom_operators=[DeltaInfoOperator()],
                 )
                 if diff:
                     aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
@@ -246,7 +229,7 @@ class MCPDiff:
         for urn in self.aspect_changes.keys() - self.urns_added - self.urns_removed:
             aspect_map = self.aspect_changes[urn]
             s.append(f"Urn changed, {urn}:")
-            for aspect_name, aspect_diffs in aspect_map.items():
+            for aspect_diffs in aspect_map.values():
                 for i, ga in aspect_diffs.aspects_added.items():
                     s.append(self.report_aspect(ga, i, "added"))
                     if verbose:

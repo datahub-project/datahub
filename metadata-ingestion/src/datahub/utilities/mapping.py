@@ -171,7 +171,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.
@@ -349,9 +349,9 @@ class OperationProcessor:
                         elements=[institutional_memory_element]
                     )
 
-                    aspect_map[
-                        Constants.ADD_DOC_LINK_OPERATION
-                    ] = institutional_memory_aspect
+                    aspect_map[Constants.ADD_DOC_LINK_OPERATION] = (
+                        institutional_memory_aspect
+                    )
                 else:
                     raise Exception(
                         f"Expected 1 item of type list for the documentation_link meta_mapping config,"

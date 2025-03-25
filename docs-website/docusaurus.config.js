@@ -11,8 +11,17 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  staticDirectories: ["static", "genStatic"],
+  staticDirectories: ["static"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        httpEquiv: 'Content-Security-Policy',
+        content: "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*"
+      }
+    },
+  ],
   scripts: [
     {
       src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
@@ -26,6 +35,13 @@ module.exports = {
     },
     {
       src: "https://app.revenuehero.io/scheduler.min.js"
+    },
+    {
+      src: "https://tag.clearbitscripts.com/v1/pk_2e321cabe30432a5c44c0424781aa35f/tags.js",
+      referrerPolicy: "strict-origin-when-cross-origin"
+    },
+    {
+      src: "/scripts/reo.js",
     }
   ],
   noIndex: isSaas,
@@ -68,7 +84,7 @@ module.exports = {
     announcementBar: {
           id: "announcement-3",
           content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Watch Metadata & AI Summit sessions on-demand.</p><a href="https://www.youtube.com/@DataHubProject/videos" target="_blank" class="button">Watch Now<span> →</span></a></div>',
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0</p><a href="https://youtu.be/B3IA6cLaKEk" target="_blank" class="button">Watch Now<span> →</span></a></div>',
           backgroundColor: "#111",
           textColor: "#ffffff",
           isCloseable: false,
@@ -143,7 +159,7 @@ module.exports = {
               label: "Adoption Stories",
             },
             {
-              href: "https://medium.com/datahub-project/",
+              href: "https://medium.com/datahub-project",
               label: "Blog",
             },
             {
@@ -158,7 +174,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "/slack",
+              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
               label: "Join Slack",
             },
             {
@@ -180,7 +196,7 @@ module.exports = {
           ],
         },
         {
-          href: "/slack",
+          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {
@@ -234,7 +250,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://medium.com/datahub-project/",
+              href: "https://medium.com/datahub-project",
             },
             {
               label: "Town Halls",
@@ -281,8 +297,9 @@ module.exports = {
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
     algolia: {
+      // This is the "Search API Key" in Algolia, which means that it is ok to be public.
+      apiKey: "2adf840a044a5ecbf7bdaac88cbf9ee5",
       appId: "RK0UG797F3",
-      apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
       insights: true,
       contextualSearch: true,
@@ -327,6 +344,7 @@ module.exports = {
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
             require.resolve("./src/components/SecondNavbar/styles.module.scss"),
+            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {

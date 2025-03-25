@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+
+from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -11,9 +13,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 
 if TYPE_CHECKING:
     from airflow.models.connection import Connection
+
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DataHubRestEmitter
     from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
+    from datahub.ingestion.graph.client import DataHubGraph
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
 
@@ -93,6 +97,9 @@ class DatahubRestHook(BaseHook):
         return datahub.emitter.rest_emitter.DataHubRestEmitter(
             host, token, **extra_args
         )
+
+    def make_graph(self) -> "DataHubGraph":
+        return self.make_emitter().to_graph()
 
     def emit(
         self,
@@ -297,3 +304,45 @@ class DatahubGenericHook(BaseHook):
 
     # Retained for backwards compatibility.
     emit_mces = emit
+
+
+class DatahubCompositeHook(BaseHook):
+    """
+    A hook that can emit metadata to multiple DataHub instances.
+
+    :param datahub_conn_ids: References to the DataHub connections.
+    :type datahub_conn_ids: List[str]
+    """
+
+    hooks: List[DatahubGenericHook] = []
+
+    def __init__(self, datahub_conn_ids: List[str]) -> None:
+        self.datahub_conn_ids = datahub_conn_ids
+
+    def make_emitter(self) -> CompositeEmitter:
+        print(f"Create emitters for {self.datahub_conn_ids}")
+        return CompositeEmitter(
+            [
+                self._get_underlying_hook(conn_id).make_emitter()
+                for conn_id in self.datahub_conn_ids
+            ]
+        )
+
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
+        emitter = self.make_emitter()
+
+        for item in items:
+            print(f"emitting item {item}")
+            emitter.emit(item)
+
+    def _get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:
+        return DatahubGenericHook(conn_id)

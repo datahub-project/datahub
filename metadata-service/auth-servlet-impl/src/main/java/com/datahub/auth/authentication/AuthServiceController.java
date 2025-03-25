@@ -35,11 +35,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 
 @Slf4j
 @RestController
+@RequestMapping("/auth")
 public class AuthServiceController {
 
   private static final String USER_ID_FIELD_NAME = "userId";
@@ -138,7 +140,9 @@ public class AuthServiceController {
     }
 
     log.info("Attempting to generate session token for user {}", userId.asText());
-    final String actorId = AuthenticationContext.getAuthentication().getActor().getId();
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    final String actorId = authentication.getActor().getId();
+    final String actorUrn = authentication.getActor().toUrnStr();
     return CompletableFuture.supplyAsync(
         () -> {
           // 1. Verify that only those authorized to generate a token (datahub system) are able to.
@@ -164,7 +168,7 @@ public class AuthServiceController {
           }
           throw HttpClientErrorException.create(
               HttpStatus.UNAUTHORIZED,
-              "Unauthorized to perform this action.",
+              actorUrn + " unauthorized to perform this action.",
               new HttpHeaders(),
               null,
               null);

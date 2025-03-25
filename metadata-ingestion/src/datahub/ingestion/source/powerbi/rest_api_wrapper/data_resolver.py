@@ -84,13 +84,14 @@ class DataResolverBase(ABC):
         tenant_id: str,
         metadata_api_timeout: int,
     ):
-        self.__access_token: Optional[str] = None
-        self.__access_token_expiry_time: Optional[datetime] = None
-        self.__tenant_id = tenant_id
+        self._access_token: Optional[str] = None
+        self._access_token_expiry_time: Optional[datetime] = None
+
+        self._tenant_id = tenant_id
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self._get_authority_url()}")
         # Power-Bi Auth (Service Principal Auth)
-        self.__msal_client = msal.ConfidentialClientApplication(
+        self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
             authority=DataResolverBase.AUTHORITY + tenant_id,
@@ -168,18 +169,18 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self.__tenant_id}"
+        return f"{DataResolverBase.AUTHORITY}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
 
-    def get_access_token(self):
-        if self.__access_token is not None and not self._is_access_token_expired():
-            return self.__access_token
+    def get_access_token(self) -> str:
+        if self._access_token is not None and not self._is_access_token_expired():
+            return self._access_token
 
         logger.info("Generating PowerBi access token")
 
-        auth_response = self.__msal_client.acquire_token_for_client(
+        auth_response = self._msal_client.acquire_token_for_client(
             scopes=[DataResolverBase.SCOPE]
         )
 
@@ -193,24 +194,24 @@ class DataResolverBase(ABC):
 
         logger.info("Generated PowerBi access token")
 
-        self.__access_token = "Bearer {}".format(
+        self._access_token = "Bearer {}".format(
             auth_response.get(Constant.ACCESS_TOKEN)
         )
         safety_gap = 300
-        self.__access_token_expiry_time = datetime.now() + timedelta(
+        self._access_token_expiry_time = datetime.now() + timedelta(
             seconds=(
                 max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
             )
         )
 
-        logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
+        logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
 
-        return self.__access_token
+        return self._access_token
 
     def _is_access_token_expired(self) -> bool:
-        if not self.__access_token_expiry_time:
+        if not self._access_token_expiry_time:
             return True
-        return self.__access_token_expiry_time < datetime.now()
+        return self._access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
@@ -336,41 +337,6 @@ class DataResolverBase(ABC):
         -tiles), there is no information available on pagination
 
         """
-
-        def new_dataset_or_report(tile_instance: Any) -> dict:
-            """
-            Find out which is the data source for tile. It is either REPORT or DATASET
-            """
-            report_fields = {
-                Constant.REPORT: (
-                    self.get_report(
-                        workspace=workspace,
-                        report_id=tile_instance.get(Constant.REPORT_ID),
-                    )
-                    if tile_instance.get(Constant.REPORT_ID) is not None
-                    else None
-                ),
-                Constant.CREATED_FROM: Tile.CreatedFrom.UNKNOWN,
-            }
-
-            # reportId and datasetId are exclusive in tile_instance
-            # if datasetId is present that means tile is created from dataset
-            # if reportId is present that means tile is created from report
-            # if both i.e. reportId and datasetId are not present then tile is created from some visualization
-            if tile_instance.get(Constant.REPORT_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.REPORT
-            elif tile_instance.get(Constant.DATASET_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.DATASET
-            else:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.VISUALIZATION
-
-            title: Optional[str] = tile_instance.get(Constant.TITLE)
-            _id: Optional[str] = tile_instance.get(Constant.ID)
-            created_from: Any = report_fields[Constant.CREATED_FROM]
-            logger.info(f"Tile {title}({_id}) is created from {created_from}")
-
-            return report_fields
-
         tile_list_endpoint: str = self.get_tiles_endpoint(
             workspace, dashboard_id=dashboard.id
         )
@@ -392,8 +358,18 @@ class DataResolverBase(ABC):
                 title=instance.get(Constant.TITLE),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
+                report_id=instance.get(Constant.REPORT_ID),
                 dataset=None,
-                **new_dataset_or_report(instance),
+                report=None,
+                createdFrom=(
+                    # In the past we considered that only one of the two report_id or dataset_id would be present
+                    # but we have seen cases where both are present. If both are present, we prioritize the report.
+                    Tile.CreatedFrom.REPORT
+                    if instance.get(Constant.REPORT_ID)
+                    else Tile.CreatedFrom.DATASET
+                    if instance.get(Constant.DATASET_ID)
+                    else Tile.CreatedFrom.VISUALIZATION
+                ),
             )
             for instance in tile_dict
             if instance is not None
@@ -404,8 +380,9 @@ class DataResolverBase(ABC):
     def itr_pages(
         self,
         endpoint: str,
-        parameter_override: Dict = {},
+        parameter_override: Optional[Dict] = None,
     ) -> Iterator[List[Dict]]:
+        parameter_override = parameter_override or {}
         params: dict = {
             "$skip": 0,
             "$top": self.TOP,
@@ -424,9 +401,9 @@ class DataResolverBase(ABC):
 
             response.raise_for_status()
 
-            assert (
-                Constant.VALUE in response.json()
-            ), "'value' key is not present in paginated response"
+            assert Constant.VALUE in response.json(), (
+                "'value' key is not present in paginated response"
+            )
 
             if not response.json()[Constant.VALUE]:  # if it is an empty list then break
                 break
@@ -446,13 +423,13 @@ class DataResolverBase(ABC):
         if raw_app is None:
             return None
 
-        assert (
-            Constant.ID in raw_app
-        ), f"{Constant.ID} is required field not present in server response"
+        assert Constant.ID in raw_app, (
+            f"{Constant.ID} is required field not present in server response"
+        )
 
-        assert (
-            Constant.NAME in raw_app
-        ), f"{Constant.NAME} is required field not present in server response"
+        assert Constant.NAME in raw_app, (
+            f"{Constant.NAME} is required field not present in server response"
+        )
 
         return App(
             id=raw_app[Constant.ID],

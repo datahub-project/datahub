@@ -36,6 +36,7 @@
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS"
@@ -61,6 +62,9 @@
       "privileges": [
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
@@ -137,7 +141,8 @@
       },
       "privileges": [
         "VIEW_DATASET_USAGE",
-        "VIEW_DATASET_PROFILE"
+        "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS"
       ],
       "displayName": "All Users - View Dataset Sensitive Information",
       "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
@@ -185,6 +190,7 @@
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES"
       ],
@@ -228,6 +234,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",
@@ -274,6 +281,7 @@
         "MANAGE_TAGS",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES"
       ],
@@ -315,6 +323,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
@@ -422,12 +431,14 @@
         "VIEW_ENTITY_PAGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE"
       ],
       "displayName": "Readers - Metadata Policy",
       "description": "Readers can view all assets.",
@@ -466,6 +477,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",

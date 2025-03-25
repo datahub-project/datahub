@@ -26,7 +26,7 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
         <>
             <Divider />
             <FieldPromptsTitle data-testid="field-level-requirements">Field-Level Requirements</FieldPromptsTitle>
-            {entityWithSchema?.schemaMetadata?.fields.map((field) => (
+            {entityWithSchema?.schemaMetadata?.fields?.map((field) => (
                 <VirtualScrollChild key={field.fieldPath} height={50} triggerOnce>
                     <SchemaFieldDropdown prompts={prompts} field={field as SchemaField} associatedUrn={associatedUrn} />
                 </VirtualScrollChild>

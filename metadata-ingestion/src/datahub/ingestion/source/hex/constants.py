@@ -1,0 +1,3 @@
+HEX_PLATFORM_NAME = "hex"
+HEX_API_BASE_URL_DEFAULT = "https://app.hex.tech/api/v1"
+HEX_API_PAGE_SIZE_DEFAULT = 100

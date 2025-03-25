@@ -2,11 +2,11 @@ plugins {
   id("com.palantir.git-version") apply false
 }
 apply plugin: 'java-library'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -57,7 +57,13 @@ dependencies {
   //implementation "io.acryl:datahub-client:0.10.2"
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
-  compileOnly "org.apache.spark:spark-sql_2.12:3.1.3"
+  compileOnly("org.apache.spark:spark-sql_2.12:3.1.3") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
   compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
 
   testCompileOnly externalDependency.lombok
@@ -163,14 +169,10 @@ checkShadowJar {
   dependsOn shadowJar
 }
 
-jacocoTestReport {
-  dependsOn test // tests are required to run before generating the report
-}
 
 test {
   forkEvery = 1
   useJUnit()
-  finalizedBy jacocoTestReport
 }
 
 assemble {

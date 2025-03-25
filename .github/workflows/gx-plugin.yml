@@ -18,6 +18,7 @@ on:
       - "metadata-models/**"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,7 +28,6 @@ jobs:
   gx-plugin:
     runs-on: ubuntu-latest
     env:
-      SPARK_VERSION: 3.0.3
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
@@ -48,7 +48,8 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: actions/checkout@v4
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -60,7 +61,7 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ always() && matrix.python-version == '3.11' && matrix.extraPythonRequirement == 'great-expectations~=0.17.0' }}
         with:
           name: Test Results (GX Plugin ${{ matrix.python-version}})
@@ -68,22 +69,27 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov with ingestion flag
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .
+          directory: ./build/coverage-reports/metadata-ingestion-modules/gx-plugin/
           fail_ci_if_error: false
-          flags: gx-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          flags: ingestion-gx-plugin
           name: pytest-gx
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

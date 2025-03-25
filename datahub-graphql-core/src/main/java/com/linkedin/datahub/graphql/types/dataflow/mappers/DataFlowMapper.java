@@ -16,6 +16,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
@@ -106,6 +107,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
+    mappingHelper.mapToResult(context, CONTAINER_ASPECT_NAME, DataFlowMapper::mapContainers);
     mappingHelper.mapToResult(
         BROWSE_PATHS_V2_ASPECT_NAME,
         (dataFlow, dataMap) ->
@@ -114,7 +116,8 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -203,6 +206,17 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     dataFlow.setGlobalTags(globalTags);
     dataFlow.setTags(globalTags);
+  }
+
+  private static void mapContainers(
+      @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
+    final com.linkedin.container.Container gmsContainer =
+        new com.linkedin.container.Container(dataMap);
+    dataFlow.setContainer(
+        Container.builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
   }
 
   private static void mapDomains(

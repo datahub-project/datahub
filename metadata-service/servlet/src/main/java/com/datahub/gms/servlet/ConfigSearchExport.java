@@ -6,7 +6,6 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -17,6 +16,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -40,10 +40,6 @@ public class ConfigSearchExport extends HttpServlet {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private static AspectRetriever getAspectRetriever(WebApplicationContext ctx) {
-    return (AspectRetriever) ctx.getBean("aspectRetriever");
-  }
-
   private static OperationContext getOperationContext(WebApplicationContext ctx) {
     return (OperationContext) ctx.getBean("systemOperationContext");
   }
@@ -53,9 +49,9 @@ public class ConfigSearchExport extends HttpServlet {
   }
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
+    OperationContext systemOpContext = getOperationContext(ctx);
     SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
-    AspectRetriever aspectRetriever = getAspectRetriever(ctx);
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+    EntityRegistry entityRegistry = systemOpContext.getEntityRegistry();
     QueryFilterRewriteChain queryFilterRewriteChain = getQueryFilterRewriteChain(ctx);
 
     CSVWriter writer = CSVWriter.builder().printWriter(pw).build();
@@ -92,7 +88,7 @@ public class ConfigSearchExport extends HttpServlet {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
                   SearchRequestHandler.getBuilder(
-                          entityRegistry,
+                          systemOpContext,
                           entitySpec,
                           searchConfiguration,
                           null,
@@ -110,7 +106,7 @@ public class ConfigSearchExport extends HttpServlet {
                           null,
                           0,
                           0,
-                          null);
+                          List.of());
 
               FunctionScoreQueryBuilder rankingQuery =
                   ((FunctionScoreQueryBuilder)

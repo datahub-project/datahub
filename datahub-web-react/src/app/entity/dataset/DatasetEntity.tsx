@@ -37,6 +37,7 @@ import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPath
 import { getLastUpdatedMs } from './shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -84,6 +85,8 @@ export class DatasetEntity implements Entity<Dataset> {
     getAutoCompleteFieldName = () => 'name';
 
     getPathName = () => 'dataset';
+
+    getGraphName = () => 'dataset';
 
     getEntityName = () => 'Dataset';
 
@@ -214,7 +217,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataset) => {
-                        const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -237,7 +240,7 @@ export class DatasetEntity implements Entity<Dataset> {
         {
             component: SidebarSiblingsSection,
             display: {
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblingsSearch?.total || 0) > 0,
             },
         },
         {
@@ -258,7 +261,11 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: DataProductSection,
-        }, // TODO: Add back once entity-level recommendations are complete.
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },

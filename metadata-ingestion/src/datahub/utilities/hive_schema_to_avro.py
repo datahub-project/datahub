@@ -142,10 +142,10 @@ class HiveColumnToAvroConverter:
                 fields.append({"name": field_name, "type": field_type})
 
         if kwargs.get("ustruct_seqn") is not None:
-            struct_name = f'__structn_{kwargs["ustruct_seqn"]}_{str(uuid.uuid4()).replace("-", "")}'
+            struct_name = f"__structn_{kwargs['ustruct_seqn']}_{str(uuid.uuid4()).replace('-', '')}"
 
         else:
-            struct_name = f'__struct_{str(uuid.uuid4()).replace("-", "")}'
+            struct_name = f"__struct_{str(uuid.uuid4()).replace('-', '')}"
         return {
             "type": "record",
             "name": struct_name,

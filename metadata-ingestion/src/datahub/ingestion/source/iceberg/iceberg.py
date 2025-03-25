@@ -2,13 +2,16 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
+    NoSuchTableError,
+    ServerError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -66,8 +69,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchema,
     SchemaField,
@@ -79,6 +80,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TimeStampClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -104,7 +106,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+    "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class IcebergSource(StatefulIngestionSourceBase):
@@ -144,6 +146,13 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
         for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
             try:
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
@@ -174,13 +183,9 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
-        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
-            LOGGER.debug(f"Processing dataset for path {dataset_path}")
-            dataset_name = ".".join(dataset_path)
-            if not self.config.table_pattern.allowed(dataset_name):
-                # Dataset name is rejected by pattern, report as dropped.
-                self.report.report_dropped(dataset_name)
-                return
+        def _try_processing_dataset(
+            dataset_path: Tuple[str, ...], dataset_name: str
+        ) -> Iterable[MetadataWorkUnit]:
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
@@ -191,10 +196,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
-                    self.report.report_table_load_time(time_taken)
-                LOGGER.debug(
-                    f"Loaded table: {table.identifier}, time taken: {time_taken}"
-                )
+                    self.report.report_table_load_time(
+                        time_taken, dataset_name, table.metadata_location
+                    )
+                LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
                 self.report.report_warning(
@@ -206,14 +211,62 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             except NoSuchIcebergTableError as e:
                 self.report.report_warning(
-                    "no-iceberg-table",
+                    "not-an-iceberg-table",
                     f"Failed to create workunit for {dataset_name}. {e}",
                 )
                 LOGGER.warning(
                     f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
                 )
+            except NoSuchTableError as e:
+                self.report.report_warning(
+                    "no-such-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                )
+            except ValueError as e:
+                if "Could not initialize FileIO" not in str(e):
+                    raise
+                self.report.warning(
+                    "Could not initialize FileIO",
+                    f"Could not initialize FileIO for {dataset_path} due to: {e}",
+                )
+
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            try:
+                LOGGER.debug(f"Processing dataset for path {dataset_path}")
+                dataset_name = ".".join(dataset_path)
+                if not self.config.table_pattern.allowed(dataset_name):
+                    # Dataset name is rejected by pattern, report as dropped.
+                    self.report.report_dropped(dataset_name)
+                    LOGGER.debug(
+                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                    )
+                    return
+
+                yield from _try_processing_dataset(dataset_path, dataset_name)
             except Exception as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                self.report.report_failure(
+                    "general",
+                    f"Failed to create workunit for dataset {dataset_path}: {e}",
+                )
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
@@ -243,48 +296,35 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[Status(removed=False)],
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=Status(removed=False)
+            ).as_workunit()
 
-            # Dataset properties aspect.
-            custom_properties = table.metadata.properties.copy()
-            custom_properties["location"] = table.metadata.location
-            custom_properties["format-version"] = str(table.metadata.format_version)
-            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
-            if table.current_snapshot():
-                custom_properties["snapshot-id"] = str(
-                    table.current_snapshot().snapshot_id
-                )
-                custom_properties[
-                    "manifest-list"
-                ] = table.current_snapshot().manifest_list
-            dataset_properties = DatasetPropertiesClass(
-                name=table.name()[-1],
-                tags=[],
-                description=table.metadata.properties.get("comment", None),
-                customProperties=custom_properties,
+            dataset_properties = self._get_dataset_properties_aspect(
+                dataset_name, table
             )
-            dataset_snapshot.aspects.append(dataset_properties)
-            # Dataset ownership aspect.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=dataset_properties
+            ).as_workunit()
+
             dataset_ownership = self._get_ownership_aspect(table)
             if dataset_ownership:
                 LOGGER.debug(
                     f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
                 )
-                dataset_snapshot.aspects.append(dataset_ownership)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=dataset_ownership
+                ).as_workunit()
 
             schema_metadata = self._create_schema_metadata(dataset_name, table)
-            dataset_snapshot.aspects.append(schema_metadata)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=schema_metadata
+            ).as_workunit()
+            yield self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        self.report.report_table_processing_time(timer.elapsed_seconds())
-        yield MetadataWorkUnit(id=dataset_name, mce=mce)
-
-        dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
+        self.report.report_table_processing_time(
+            timer.elapsed_seconds(), dataset_name, table.metadata_location
+        )
 
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
@@ -333,6 +373,40 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _get_dataset_properties_aspect(
+        self, dataset_name: str, table: Table
+    ) -> DatasetPropertiesClass:
+        additional_properties = {}
+        custom_properties = table.metadata.properties.copy()
+        custom_properties["location"] = table.metadata.location
+        custom_properties["format-version"] = str(table.metadata.format_version)
+        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        if table.current_snapshot():
+            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
+            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+            additional_properties["lastModified"] = TimeStampClass(
+                int(table.current_snapshot().timestamp_ms)
+            )
+        if "created-at" in custom_properties:
+            try:
+                dt = dateutil_parser.isoparse(custom_properties["created-at"])
+                additional_properties["created"] = TimeStampClass(
+                    int(dt.timestamp() * 1000)
+                )
+            except Exception as ex:
+                LOGGER.warning(
+                    f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
+                )
+
+        return DatasetPropertiesClass(
+            name=table.name()[-1],
+            description=table.metadata.properties.get("comment", None),
+            customProperties=custom_properties,
+            lastModified=additional_properties.get("lastModified"),
+            created=additional_properties.get("created"),
+            qualifiedName=dataset_name,
+        )
+
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
         if self.config.user_ownership_property:
@@ -361,22 +435,18 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
         return OwnershipClass(owners=owners) if owners else None
 
-    def _get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[MetadataWorkUnit]:
-        # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
-
-        return None
+    def _get_dataplatform_instance_aspect(self, dataset_urn: str) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None,
+            ),
+        ).as_workunit()
 
     def _create_schema_metadata(
         self, dataset_name: str, table: Table

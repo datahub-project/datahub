@@ -10,6 +10,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 import more_itertools
 
 import datahub.emitter.mce_builder as builder
+import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
@@ -42,12 +43,13 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, resolver
+from datahub.ingestion.source.powerbi.m_query import parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -182,7 +184,9 @@ class Mapper:
         return [schema_mcp]
 
     def make_fine_grained_lineage_class(
-        self, lineage: resolver.Lineage, dataset_urn: str
+        self,
+        lineage: datahub.ingestion.source.powerbi.m_query.data_classes.Lineage,
+        dataset_urn: str,
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages: List[FineGrainedLineage] = []
 
@@ -234,7 +238,9 @@ class Mapper:
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
 
-        upstream_lineage: List[resolver.Lineage] = parser.get_upstream_tables(
+        upstream_lineage: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
             table=table,
             reporter=self.__reporter,
             platform_instance_resolver=self.__dataplatform_instance_resolver,
@@ -576,8 +582,11 @@ class Mapper:
             if tile.dataset is not None and tile.dataset.webUrl is not None:
                 custom_properties[Constant.DATASET_WEB_URL] = tile.dataset.webUrl
 
-            if tile.report is not None and tile.report.id is not None:
-                custom_properties[Constant.REPORT_ID] = tile.report.id
+            if tile.report_id is not None:
+                custom_properties[Constant.REPORT_ID] = tile.report_id
+
+            if tile.report is not None and tile.report.webUrl is not None:
+                custom_properties[Constant.REPORT_WEB_URL] = tile.report.webUrl
 
             return custom_properties
 
@@ -657,6 +666,7 @@ class Mapper:
         workspace: powerbi_data_classes.Workspace,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dashboard_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dashboard to Datahub dashboard
@@ -686,6 +696,7 @@ class Mapper:
             lastModified=ChangeAuditStamps(),
             dashboardUrl=dashboard.webUrl,
             customProperties={**chart_custom_properties(dashboard)},
+            dashboards=dashboard_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -881,9 +892,7 @@ class Mapper:
                         set(user_rights) & set(self.__config.ownership.owner_criteria)
                     )
                     > 0
-                ):
-                    user_mcps.extend(self.to_datahub_user(user))
-                elif self.__config.ownership.owner_criteria is None:
+                ) or self.__config.ownership.owner_criteria is None:
                     user_mcps.extend(self.to_datahub_user(user))
                 else:
                     continue
@@ -926,7 +935,7 @@ class Mapper:
         dashboard: powerbi_data_classes.Dashboard,
         workspace: powerbi_data_classes.Workspace,
     ) -> List[EquableMetadataWorkUnit]:
-        mcps = []
+        mcps: List[MetadataChangeProposalWrapper] = []
 
         logger.info(
             f"Converting dashboard={dashboard.displayName} to datahub dashboard"
@@ -938,10 +947,31 @@ class Mapper:
         )
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
+
+        # collect all downstream reports (dashboards)
+        dashboard_edges = []
+        for t in dashboard.tiles:
+            if t.report:
+                dashboard_urn = builder.make_dashboard_urn(
+                    platform=self.__config.platform_name,
+                    platform_instance=self.__config.platform_instance,
+                    name=t.report.get_urn_part(),
+                )
+                edge = EdgeClass(
+                    destinationUrn=dashboard_urn,
+                )
+                dashboard_edges.append(edge)
+
         # Lets convert dashboard to datahub dashboard
-        dashboard_mcps: List[
-            MetadataChangeProposalWrapper
-        ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
+        dashboard_mcps: List[MetadataChangeProposalWrapper] = (
+            self.to_datahub_dashboard_mcp(
+                dashboard=dashboard,
+                workspace=workspace,
+                chart_mcps=chart_mcps,
+                user_mcps=user_mcps,
+                dashboard_edges=dashboard_edges,
+            )
+        )
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -1162,7 +1192,12 @@ class Mapper:
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
         # Let's convert report to datahub dashboard
-        report_mcps = self.report_to_dashboard(workspace, report, chart_mcps, user_mcps)
+        report_mcps = self.report_to_dashboard(
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=user_mcps,
+        )
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -1294,7 +1329,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
             data_platform.value.powerbi_data_platform_name
-            for data_platform in resolver.SupportedDataPlatform
+            for data_platform in SupportedDataPlatform
         ]
 
         for key in self.source_config.dataset_type_mapping.keys():
@@ -1316,14 +1351,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     context=",".join(
                         [
                             dataset.name
-                            for dataset in workspace.independent_datasets
+                            for dataset in workspace.independent_datasets.values()
                             if dataset.name
                         ]
                     ),
                 )
             return
 
-        for dataset in workspace.independent_datasets:
+        for dataset in workspace.independent_datasets.values():
             yield from auto_workunit(
                 stream=self.mapper.to_datahub_dataset(
                     dataset=dataset,
@@ -1434,7 +1469,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from auto_workunit(self.emit_app(workspace=workspace))
 
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             try:
                 # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -1453,7 +1488,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 if wu is not None:
                     yield wu
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace
             ):
@@ -1466,9 +1501,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit
     ) -> Optional[MetadataWorkUnit]:
-        dashboard_info_aspect: Optional[
-            DashboardInfoClass
-        ] = work_unit.get_aspect_of_type(DashboardInfoClass)
+        dashboard_info_aspect: Optional[DashboardInfoClass] = (
+            work_unit.get_aspect_of_type(DashboardInfoClass)
+        )
 
         if dashboard_info_aspect and self.source_config.patch_metadata:
             return convert_dashboard_info_to_patch(
@@ -1481,7 +1516,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
-        # This will result in creating checkpoint for each workspace_id
+        # This will result in creating a checkpoint for each workspace_id
         if self.source_config.modified_since:
             return []  # Handle these in get_workunits_internal
         else:
@@ -1492,7 +1527,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
-        Datahub Ingestion framework invoke this method
+        Datahub Ingestion framework invokes this method
         """
         logger.info("PowerBi plugin execution is started")
         # Validate dataset type mapping

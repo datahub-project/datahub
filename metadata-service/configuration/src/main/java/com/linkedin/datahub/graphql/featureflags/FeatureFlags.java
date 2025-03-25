@@ -13,6 +13,7 @@ public class FeatureFlags {
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private boolean platformBrowseV2 = false;
+  private boolean lineageGraphV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean erModelRelationshipFeatureEnabled = false;
@@ -22,6 +23,18 @@ public class FeatureFlags {
   private boolean businessAttributeEntityEnabled = false;
   private boolean dataContractsEnabled = false;
   private boolean editableDatasetNameEnabled = false;
+  private boolean themeV2Enabled = false;
+  private boolean themeV2Default = false;
+  private boolean themeV2Toggleable = false;
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
+  private boolean showManageStructuredProperties = false;
+  private boolean hideDbtSourceInLineage = false;
+  private boolean schemaFieldCLLEnabled = false;
+  private boolean schemaFieldLineageIgnoreStatus = false;
+  private boolean showNavBarRedesign = false;
+  private boolean showAutoCompleteResults = false;
+  private boolean dataProcessInstanceEntityEnabled = true;
+  private boolean entityVersioning = false;
+  private boolean showSearchBarAutocompleteRedesign = false;
 }

@@ -16,6 +16,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -31,18 +32,25 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import (
+    DEFAULT_REST_SINK_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
+    DatahubRestEmitter,
+    RestSinkEndpoint,
+    RestTraceMode,
+)
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+from datahub.ingestion.graph.config import (
     DatahubClientConfig as DatahubClientConfig,
 )
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
+    RawSearchFilterRule,
     RemovedStatusFilter,
-    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -67,6 +75,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -103,7 +112,7 @@ class RelatedEntity:
     via: Optional[str] = None
 
 
-def _graphql_entity_type(entity_type: str) -> str:
+def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
@@ -124,7 +133,7 @@ def _graphql_entity_type(entity_type: str) -> str:
     return entity_type
 
 
-class DataHubGraph(DatahubRestEmitter):
+class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
@@ -138,6 +147,8 @@ class DataHubGraph(DatahubRestEmitter):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
+            openapi_ingestion=DEFAULT_REST_SINK_ENDPOINT == RestSinkEndpoint.OPENAPI,
+            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
         )
 
         self.server_id = _MISSING_SERVER_ID
@@ -178,18 +189,24 @@ class DataHubGraph(DatahubRestEmitter):
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
+        session_config = emitter._session_config
+        if isinstance(session_config.timeout, tuple):
+            # TODO: This is slightly lossy. Eventually, we want to modify the emitter
+            # to accept a tuple for timeout_sec, and then we'll be able to remove this.
+            timeout_sec: Optional[float] = session_config.timeout[0]
+        else:
+            timeout_sec = session_config.timeout
         return cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
-                timeout_sec=emitter._read_timeout_sec,
-                retry_status_codes=emitter._retry_status_codes,
-                retry_max_times=emitter._retry_max_times,
-                extra_headers=emitter._session.headers,
-                disable_ssl_verification=emitter._session.verify is False,
-                # TODO: Support these headers.
-                # ca_certificate_path=emitter._ca_certificate_path,
-                # client_certificate_path=emitter._client_certificate_path,
+                timeout_sec=timeout_sec,
+                retry_status_codes=session_config.retry_status_codes,
+                retry_max_times=session_config.retry_max_times,
+                extra_headers=session_config.extra_headers,
+                disable_ssl_verification=session_config.disable_ssl_verification,
+                ca_certificate_path=session_config.ca_certificate_path,
+                client_certificate_path=session_config.client_certificate_path,
             )
         )
 
@@ -241,9 +258,11 @@ class DataHubGraph(DatahubRestEmitter):
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
+            logger.error(
+                f"Failed to emit {len(sink.report.failures)} records\n{sink.report.as_string()}"
+            )
             raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
+                f"Failed to emit {len(sink.report.failures)} records"
             )
 
     def emit_all(
@@ -320,7 +339,7 @@ class DataHubGraph(DatahubRestEmitter):
         aspect_type_name: Optional[str] = None,
         version: int = 0,
     ) -> Optional[Aspect]:
-        assert aspect_type.ASPECT_NAME == aspect
+        assert aspect == aspect_type.ASPECT_NAME
         return self.get_aspect(
             entity_urn=entity_urn,
             aspect_type=aspect_type,
@@ -510,9 +529,9 @@ class DataHubGraph(DatahubRestEmitter):
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
-        assert len(aspects) == len(
-            aspect_types
-        ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        assert len(aspects) == len(aspect_types), (
+            f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        )
 
         # TODO: generate aspects list from type classes
         response_json = self.get_entity_raw(entity_urn, aspects)
@@ -771,9 +790,7 @@ class DataHubGraph(DatahubRestEmitter):
         results: Dict = self._post_generic(url, search_body)
         num_entities = results["value"]["numEntities"]
         logger.debug(f"Matched {num_entities} containers")
-        entities_yielded: int = 0
         for x in results["value"]["entities"]:
-            entities_yielded += 1
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
 
@@ -787,13 +804,13 @@ class DataHubGraph(DatahubRestEmitter):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
+        extraFilters: Optional[List[RawSearchFilterRule]] = None,
     ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
         """Fetch schema info for datasets that match all of the given filters.
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
-        types = [_graphql_entity_type("dataset")]
+        types = [entity_type_to_graphql("dataset")]
 
         # Add the query default of * if no query is specified.
         query = query or "*"
@@ -855,7 +872,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_urns_by_filter(
         self,
         *,
-        entity_types: Optional[List[str]] = None,
+        entity_types: Optional[Sequence[str]] = None,
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
@@ -863,8 +880,8 @@ class DataHubGraph(DatahubRestEmitter):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extraFilters: Optional[List[RawSearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -955,8 +972,8 @@ class DataHubGraph(DatahubRestEmitter):
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
-        extra_and_filters: Optional[List[SearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
         extra_source_fields: Optional[List[str]] = None,
         skip_cache: bool = False,
     ) -> Iterable[dict]:
@@ -1099,7 +1116,8 @@ class DataHubGraph(DatahubRestEmitter):
                     f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
                 )
 
-    def _get_types(self, entity_types: Optional[List[str]]) -> Optional[List[str]]:
+    @classmethod
+    def _get_types(cls, entity_types: Optional[Sequence[str]]) -> Optional[List[str]]:
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:
@@ -1107,7 +1125,9 @@ class DataHubGraph(DatahubRestEmitter):
                     "entity_types cannot be an empty list; use None for all entities"
                 )
 
-            types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
+            types = [
+                entity_type_to_graphql(entity_type) for entity_type in entity_types
+            ]
         return types
 
     def get_latest_pipeline_checkpoint(
@@ -1537,7 +1557,7 @@ class DataHubGraph(DatahubRestEmitter):
         return fragment
 
     def _run_assertion_build_params(
-        self, params: Optional[Dict[str, str]] = {}
+        self, params: Optional[Dict[str, str]] = None
     ) -> List[Any]:
         if params is None:
             return []
@@ -1556,9 +1576,11 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         urn: str,
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1567,9 +1589,7 @@ class DataHubGraph(DatahubRestEmitter):
                     ... assertionResult
                 }
             }
-        """ % (
-            self._assertion_result_shared()
-        )
+        """ % (self._assertion_result_shared())
 
         variables = {
             "assertionUrn": urn,
@@ -1589,9 +1609,11 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         urns: List[str],
         save_result: bool = True,
-        parameters: Optional[Dict[str, str]] = {},
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1628,10 +1650,14 @@ class DataHubGraph(DatahubRestEmitter):
     def run_assertions_for_asset(
         self,
         urn: str,
-        tag_urns: Optional[List[str]] = [],
-        parameters: Optional[Dict[str, str]] = {},
+        tag_urns: Optional[List[str]] = None,
+        parameters: Optional[Dict[str, str]] = None,
         async_flag: bool = False,
     ) -> Dict:
+        if tag_urns is None:
+            tag_urns = []
+        if parameters is None:
+            parameters = {}
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1669,9 +1695,10 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         entity_name: str,
         urns: List[str],
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         with_system_metadata: bool = False,
     ) -> Dict[str, Any]:
+        aspects = aspects or []
         payload = {
             "urns": urns,
             "aspectNames": aspects,
@@ -1819,4 +1846,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph

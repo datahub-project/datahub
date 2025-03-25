@@ -91,4 +91,11 @@ record CorpUserEditableInfo {
    * Email address to contact the user
    */
   email: optional string
+
+  /**
+   * Information sources that have been used to populate this CorpUserEditableInfo.
+   * These include platform resources, such as Slack members or Looker users.
+   * They can also refer to other semantic urns in the future.
+   */
+  informationSources: optional array[Urn]
 }

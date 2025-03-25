@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
 import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
 import { useEntityData, useMutationUrn } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
@@ -103,6 +103,20 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         }
     };
 
+    const onConfirmDelete = (link) => {
+        Modal.confirm({
+            title: `Delete Link '${link?.description}'`,
+            content: `Are you sure you want to remove this Link?`,
+            onOk() {
+                handleDeleteLink(link);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     return entityData ? (
         <>
             <Modal
@@ -162,7 +176,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
                                         <DeleteOutlined />
                                     </Button>
                                 </>
@@ -182,10 +196,8 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                 description={
                                     <>
                                         Added {formatDateString(link.created.time)} by{' '}
-                                        <Link
-                                            to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, link.author.urn)}`}
-                                        >
-                                            {link.author.username}
+                                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
+                                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
                                         </Link>
                                     </>
                                 }

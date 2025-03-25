@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Dict,
@@ -14,7 +13,7 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn, parse_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -32,6 +31,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
+    SystemMetadataClass,
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
@@ -48,7 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
+    stream: Iterable[
+        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper, MetadataWorkUnit]
+    ],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
 
@@ -58,16 +60,19 @@ def auto_workunit(
                 id=MetadataWorkUnit.generate_workunit_id(item),
                 mce=item,
             )
-        else:
+        elif isinstance(item, MetadataChangeProposalWrapper):
             yield item.as_workunit()
+        else:
+            yield item
 
 
 def create_dataset_props_patch_builder(
     dataset_urn: str,
     dataset_properties: DatasetPropertiesClass,
+    system_metadata: Optional[SystemMetadataClass] = None,
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a table's or view's attributes and dataset properties"""
-    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder = DatasetPatchBuilder(dataset_urn, system_metadata)
     patch_builder.set_display_name(dataset_properties.name)
     patch_builder.set_description(dataset_properties.description)
     patch_builder.set_created(dataset_properties.created)
@@ -148,7 +153,7 @@ def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Itera
         report.report_workunit(wu)
         yield wu
 
-    if report.events_produced == 0:
+    if report.event_not_produced_warn and report.events_produced == 0:
         report.warning(
             title="No metadata was produced by the source",
             message="Please check the source configuration, filters, and permissions.",
@@ -249,6 +254,10 @@ def auto_browse_path_v2(
     emitted_urns: Set[str] = set()
     containers_used_as_parent: Set[str] = set()
     for urn, batch in _batch_workunits_by_urn(stream):
+        # Do not generate browse path v2 for entities that do not support it
+        if not entity_supports_aspect(guess_entity_type(urn), BrowsePathsV2Class):
+            yield from batch
+            continue
         container_path: Optional[List[BrowsePathEntryClass]] = None
         legacy_path: Optional[List[BrowsePathEntryClass]] = None
         browse_path_v2: Optional[List[BrowsePathEntryClass]] = None
@@ -477,10 +486,7 @@ def auto_empty_dataset_usage_statistics(
     if invalid_timestamps:
         logger.warning(
             f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
-            ", ".join(
-                str(datetime.fromtimestamp(ts / 1000, tz=timezone.utc))
-                for ts in invalid_timestamps
-            )
+            ", ".join(str(parse_ts_millis(ts)) for ts in invalid_timestamps)
         )
 
     for bucket in bucket_timestamps:

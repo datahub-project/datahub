@@ -1,5 +1,5 @@
 import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '../../../../../../types.generated';
+import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import SingleSelectInput from './SingleSelectInput';
 import MultiSelectInput from './MultiSelectInput';
 import StringInput from './StringInput';
@@ -60,7 +60,11 @@ export default function StructuredPropertyInput({
                 <DateInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Number && (
-                <NumberInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
+                <NumberInput
+                    selectedValues={selectedValues}
+                    cardinality={cardinality}
+                    updateSelectedValues={updateSelectedValues}
+                />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && (
                 <UrnInput

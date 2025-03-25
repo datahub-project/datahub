@@ -10,11 +10,13 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.EntityServiceTest;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -51,8 +53,10 @@ public class CassandraEntityServiceTest
   public CassandraEntityServiceTest() throws EntityRegistryException {}
 
   @BeforeClass
-  public void setupContainer() {
+  public void beforeClass() {
     _cassandraContainer = CassandraTestUtils.setupContainer();
+    _mockProducer = mock(EventProducer.class);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
   }
 
   @AfterClass
@@ -67,11 +71,13 @@ public class CassandraEntityServiceTest
   }
 
   private void configureComponents() {
+    reset(_mockProducer);
+    reset(_mockUpdateIndicesService);
+
     CqlSession session = CassandraTestUtils.createTestSession(_cassandraContainer);
     _aspectDao = new CassandraAspectDao(session);
     _aspectDao.setConnectionValidated(true);
-    _mockProducer = mock(EventProducer.class);
-    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
@@ -93,12 +99,15 @@ public class CassandraEntityServiceTest
                             .entityService(_entityServiceImpl)
                             .entityRegistry(_testEntityRegistry)
                             .build())
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(
+                            () -> _testEntityRegistry))
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
   }

@@ -3,14 +3,17 @@ package com.linkedin.metadata.entity.validation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
+import com.linkedin.metadata.utils.EntityApiUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
+import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UrnValidationUtil;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -18,8 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ValidationApiUtils {
-  public static final int URN_NUM_BYTES_LIMIT = 512;
-  public static final String URN_DELIMITER_SEPARATOR = "␟";
+  public static final String STRICT_URN_VALIDATION_ENABLED = "STRICT_URN_VALIDATION_ENABLED";
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
@@ -37,53 +39,44 @@ public class ValidationApiUtils {
         });
   }
 
-  public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
-    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
-    validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
-    RecordTemplateValidator.validate(
-        EntityApiUtils.buildKeyAspect(entityRegistry, urn),
-        validationResult -> {
-          throw new IllegalArgumentException(
-              "Invalid urn: " + urn + "\n Cause: " + validationResult.getMessages());
-        },
-        validator);
-
-    if (urn.toString().trim().length() != urn.toString().length()) {
-      throw new IllegalArgumentException(
-          "Error: cannot provide an URN with leading or trailing whitespace");
-    }
-    if (!Constants.SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())
-        && URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
-      throw new IllegalArgumentException(
-          "Error: cannot provide an URN longer than "
-              + Integer.toString(URN_NUM_BYTES_LIMIT)
-              + " bytes (when URL encoded)");
-    }
-    if (urn.toString().contains(URN_DELIMITER_SEPARATOR)) {
-      throw new IllegalArgumentException(
-          "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
-    }
-    try {
-      Urn.createFromString(urn.toString());
-    } catch (URISyntaxException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
-  /**
-   * Validates a {@link RecordTemplate} and logs a warning if validation fails.
-   *
-   * @param record record to be validated.ailure.
-   */
-  public static void validateOrWarn(RecordTemplate record) {
-    RecordTemplateValidator.validate(
+  public static void validateTrimOrThrow(RecordTemplate record) {
+    RecordTemplateValidator.validateTrim(
         record,
         validationResult -> {
-          log.warn(String.format("Failed to validate record %s against its schema.", record));
+          throw new ValidationException(
+              String.format(
+                  "Failed to validate record with class %s: %s",
+                  record.getClass().getName(), validationResult.getMessages().toString()));
         });
   }
 
-  public static AspectSpec validate(EntitySpec entitySpec, String aspectName) {
+  @Nonnull
+  public static Urn validateUrn(@Nonnull EntityRegistry entityRegistry, final Urn urn) {
+    if (urn == null) {
+      throw new ValidationException("Cannot validate null URN.");
+    }
+
+    UrnValidationUtil.validateUrn(
+        entityRegistry,
+        urn,
+        Boolean.TRUE.equals(
+            Boolean.parseBoolean(
+                System.getenv().getOrDefault(STRICT_URN_VALIDATION_ENABLED, "false"))));
+    return urn;
+  }
+
+  @Nonnull
+  public static EntitySpec validateEntity(
+      @Nonnull EntityRegistry entityRegistry, String entityType) {
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+    if (entitySpec == null) {
+      throw new ValidationException("Unknown entity: " + entityType);
+    }
+    return entitySpec;
+  }
+
+  @Nonnull
+  public static AspectSpec validateAspect(@Nonnull EntitySpec entitySpec, String aspectName) {
     if (aspectName == null || aspectName.isEmpty()) {
       throw new UnsupportedOperationException(
           "Aspect name is required for create and update operations");
@@ -92,7 +85,7 @@ public class ValidationApiUtils {
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
 
     if (aspectSpec == null) {
-      throw new RuntimeException(
+      throw new ValidationException(
           String.format("Unknown aspect %s for entity %s", aspectName, entitySpec.getName()));
     }
 
@@ -109,7 +102,7 @@ public class ValidationApiUtils {
     validator.setCurrentEntitySpec(entitySpec);
     Consumer<ValidationResult> resultFunction =
         validationResult -> {
-          throw new IllegalArgumentException(
+          throw new ValidationException(
               "Invalid format for aspect: "
                   + entitySpec.getName()
                   + "\n Cause: "
@@ -120,7 +113,45 @@ public class ValidationApiUtils {
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
     if (aspect != null) {
-      RecordTemplateValidator.validate(aspect, resultFunction, validator);
+      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
     }
+  }
+
+  /**
+   * Given an MCP validate 3 primary components: URN, Entity, Aspect validate against the
+   * EntityRegistry
+   *
+   * @param entityRegistry the entity registry
+   * @param mcp the MetadataChangeProposal to validate
+   * @return the validated MetadataChangeProposal
+   */
+  public static MetadataChangeProposal validateMCP(
+      @Nonnull EntityRegistry entityRegistry, MetadataChangeProposal mcp) {
+    if (mcp == null) {
+      throw new UnsupportedOperationException("MetadataChangeProposal is required.");
+    }
+
+    final EntitySpec entitySpec;
+    final Urn urn;
+    if (mcp.getEntityUrn() != null) {
+      urn = mcp.getEntityUrn();
+      entitySpec = validateEntity(entityRegistry, urn.getEntityType());
+    } else {
+      entitySpec = validateEntity(entityRegistry, mcp.getEntityType());
+      urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+      mcp.setEntityUrn(urn);
+    }
+
+    if (!Objects.equals(mcp.getEntityType(), urn.getEntityType())) {
+      throw new ValidationException(
+          String.format(
+              "URN entity type does not match MCP entity type. %s != %s",
+              urn.getEntityType(), mcp.getEntityType()));
+    }
+
+    validateUrn(entityRegistry, urn);
+    validateAspect(entitySpec, mcp.getAspectName());
+
+    return mcp;
   }
 }

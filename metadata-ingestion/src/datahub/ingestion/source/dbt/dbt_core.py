@@ -167,6 +167,7 @@ def extract_dbt_entities(
     use_identifiers: bool,
     tag_prefix: str,
     only_include_if_in_catalog: bool,
+    include_database_name: bool,
     report: DBTSourceReport,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -267,7 +268,7 @@ def extract_dbt_entities(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
             dbt_package_name=manifest_node.get("package_name"),
-            database=manifest_node["database"],
+            database=manifest_node["database"] if include_database_name else None,
             schema=manifest_node["schema"],
             name=name,
             alias=manifest_node.get("alias"),
@@ -342,6 +343,9 @@ class DBTRunResult(BaseModel):
     def timing_map(self) -> Dict[str, DBTRunTiming]:
         return {x.name: x for x in self.timing if x.name}
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
 
 class DBTRunMetadata(BaseModel):
     dbt_schema_version: str
@@ -354,12 +358,7 @@ def _parse_test_result(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
 ) -> Optional[DBTTestResult]:
-    if run_result.status == "success":
-        # This was probably a docs generate run result, so this isn't actually
-        # a test result.
-        return None
-
-    if run_result.status != "pass":
+    if not run_result.has_success_status():
         native_results = {"message": run_result.message or ""}
         if run_result.failures:
             native_results.update({"failures": str(run_result.failures)})
@@ -488,7 +487,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     ) -> Dict:
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
-        elif re.match("^s3://", uri):
+        elif is_s3_uri(uri):
             u = urlparse(uri)
             assert aws_connection
             response = aws_connection.get_s3_client().get_object(
@@ -543,14 +542,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         all_catalog_entities = {**catalog_nodes, **catalog_sources}
 
         nodes = extract_dbt_entities(
-            all_manifest_entities,
-            all_catalog_entities,
-            sources_results,
-            manifest_adapter,
-            self.config.use_identifiers,
-            self.config.tag_prefix,
-            self.config.only_include_if_in_catalog,
-            self.report,
+            all_manifest_entities=all_manifest_entities,
+            all_catalog_entities=all_catalog_entities,
+            sources_results=sources_results,
+            manifest_adapter=manifest_adapter,
+            use_identifiers=self.config.use_identifiers,
+            tag_prefix=self.config.tag_prefix,
+            only_include_if_in_catalog=self.config.only_include_if_in_catalog,
+            include_database_name=self.config.include_database_name,
+            report=self.report,
         )
 
         return (

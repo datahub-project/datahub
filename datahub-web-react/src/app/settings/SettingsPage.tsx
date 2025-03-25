@@ -111,9 +111,9 @@ export const SettingsPage = () => {
     const me = useUserContext();
     const { config } = useAppConfig();
 
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
-    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
-    const isViewsEnabled = config?.viewsConfig.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
+    const isViewsEnabled = config?.viewsConfig?.enabled;
     const { readOnlyModeEnabled } = config.featureFlags;
 
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;

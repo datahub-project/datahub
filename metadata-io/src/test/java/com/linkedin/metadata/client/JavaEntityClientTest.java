@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -90,7 +91,7 @@ public class JavaEntityClientTest {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 
   @Test
@@ -221,18 +222,7 @@ public class JavaEntityClientTest {
                     .urn(testUrn)
                     .request(
                         ProposedItem.builder()
-                            .metadataChangeProposal(mcp)
-                            .entitySpec(
-                                opContext
-                                    .getEntityRegistry()
-                                    .getEntitySpec(Constants.CONTAINER_ENTITY_NAME))
-                            .aspectSpec(
-                                opContext
-                                    .getEntityRegistry()
-                                    .getEntitySpec(Constants.CONTAINER_ENTITY_NAME)
-                                    .getAspectSpec(Constants.STATUS_ASPECT_NAME))
-                            .auditStamp(auditStamp)
-                            .build())
+                            .build(mcp, auditStamp, opContext.getEntityRegistry()))
                     .result(UpdateAspectResult.builder().mcp(mcp).urn(testUrn).build())
                     .isUpdate(true)
                     .publishedMCL(true)

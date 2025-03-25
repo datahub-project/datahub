@@ -1129,8 +1129,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 5
         }
@@ -1197,6 +1197,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -1479,6 +1484,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -2047,6 +2057,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -2668,6 +2683,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -3184,6 +3204,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -3335,6 +3360,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -3863,6 +3893,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4371,6 +4406,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4846,6 +4886,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -5352,6 +5397,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -5744,6 +5794,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -6109,6 +6164,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6504,6 +6564,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6952,6 +7017,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7370,6 +7440,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7709,6 +7784,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -8076,6 +8156,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -8337,6 +8422,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -8785,6 +8875,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -9127,6 +9222,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9496,6 +9596,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9888,6 +9993,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -10336,6 +10446,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -10486,8 +10601,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 3
         }
@@ -10534,6 +10649,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10644,6 +10764,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/tableau/default/Dvdrental Workbook"
@@ -10746,6 +10871,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10865,6 +10995,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -11295,6 +11430,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -13255,6 +13395,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Dvdrental Workbook"
@@ -13593,6 +13738,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -14508,6 +14658,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -15469,6 +15624,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -22344,6 +22504,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Executive Dashboard"
@@ -26461,6 +26626,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -31818,6 +31988,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Workbook published ds"
@@ -32159,6 +32334,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -32928,6 +33108,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -34332,107 +34517,6 @@
                     "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
                     "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_project_hierarchy"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test",
-                        "platform": "urn:li:dataPlatform:tableau",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "price",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "R8",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "seller_city",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "WSTR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "Custom SQL Query",
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
-                        "materialized": false,
-                        "viewLogic": "select seller_city, price from demo-custom-323403.bigquery_demo.sellers sell LEFT JOIN (\nselect * from demo-custom-323403.bigquery_demo.order_items\n) items on items.seller_id=sell.seller_id",
-                        "viewLanguage": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_project_hierarchy"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "View",
-                "Custom SQL"
             ]
         }
     },
@@ -43764,23 +43848,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_project_hierarchy"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

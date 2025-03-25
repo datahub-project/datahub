@@ -10,9 +10,21 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div`
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
+    background-color: white;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow: hidden;
+        margin: 5px;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        height: 100%;
+    `}
 `;
 
 const PageHeaderContainer = styled.div`
@@ -44,7 +56,13 @@ const ListContainer = styled.div``;
 enum TabType {
     Sources = 'Sources',
     Secrets = 'Secrets',
+    RemoteExecutors = 'Executors',
 }
+
+const TabTypeToListComponent = {
+    [TabType.Sources]: <IngestionSourceList />,
+    [TabType.Secrets]: <SecretsList />,
+};
 
 export const ManageIngestionPage = () => {
     /**
@@ -52,10 +70,11 @@ export const ManageIngestionPage = () => {
      */
     const me = useUserContext();
     const { config, loaded } = useAppConfig();
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -65,11 +84,12 @@ export const ManageIngestionPage = () => {
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
     const onClickTab = (newTab: string) => {
-        setSelectedTab(TabType[newTab]);
+        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
+        setSelectedTab(matchingTab || selectedTab);
     };
 
     return (
-        <PageContainer>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Data Sources</PageTitle>
@@ -81,7 +101,7 @@ export const ManageIngestionPage = () => {
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
-            <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
+            <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>
         </PageContainer>
     );
 };

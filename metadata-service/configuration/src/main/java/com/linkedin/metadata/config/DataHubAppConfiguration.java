@@ -50,6 +50,9 @@ public class DataHubAppConfiguration {
   /** Configuration for caching */
   private CacheConfiguration cache;
 
+  /** Configuration for the chrome extension */
+  private ChromeExtensionConfiguration chromeExtension;
+
   /** Ebean related configuration */
   private EbeanConfiguration ebean;
 
@@ -58,4 +61,7 @@ public class DataHubAppConfiguration {
 
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
+
+  /** Timeseries Aspect Service configuration */
+  private TimeseriesAspectServiceConfig timeseriesAspectService;
 }

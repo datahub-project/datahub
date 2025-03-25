@@ -169,6 +169,11 @@ const datasetPrimaryWithSiblings = {
         isPrimary: true,
         siblings: [datasetUnprimary],
     },
+    siblingsSearch: {
+        count: 1,
+        total: 1,
+        searchResults: [{ entity: datasetUnprimary, matchedFields: [] }],
+    },
 };
 
 const datasetUnprimaryWithPrimarySiblings = {
@@ -177,6 +182,11 @@ const datasetUnprimaryWithPrimarySiblings = {
         isPrimary: false,
         siblings: [datasetPrimary],
     },
+    siblingsSearch: {
+        count: 1,
+        total: 1,
+        searchResults: [{ entity: datasetPrimary, matchedFields: [] }],
+    },
 };
 
 const datasetUnprimaryWithNoPrimarySiblings = {
@@ -184,6 +194,11 @@ const datasetUnprimaryWithNoPrimarySiblings = {
     siblings: {
         isPrimary: false,
         siblings: [datasetUnprimary],
+    },
+    siblingsSearch: {
+        count: 1,
+        total: 1,
+        searchResults: [{ entity: datasetUnprimary, matchedFields: [] }],
     },
 };
 
@@ -203,10 +218,10 @@ describe('siblingUtils', () => {
 
             // merges schema metadata properly  by fieldPath
             expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(4);
-            expect(combinedData.dataset.schemaMetadata?.fields[0].fieldPath).toEqual('new_one');
-            expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('DUPLICATE_FIELD');
-            expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('user_id');
-            expect(combinedData.dataset.schemaMetadata?.fields[3].fieldPath).toEqual('user_name');
+            expect(combinedData.dataset.schemaMetadata?.fields[0]?.fieldPath).toEqual('new_one');
+            expect(combinedData.dataset.schemaMetadata?.fields[1]?.fieldPath).toEqual('DUPLICATE_FIELD');
+            expect(combinedData.dataset.schemaMetadata?.fields[2]?.fieldPath).toEqual('user_id');
+            expect(combinedData.dataset.schemaMetadata?.fields[3]?.fieldPath).toEqual('user_name');
 
             // will overwrite string properties w/ primary
             expect(combinedData.dataset.editableProperties.description).toEqual('secondary description');

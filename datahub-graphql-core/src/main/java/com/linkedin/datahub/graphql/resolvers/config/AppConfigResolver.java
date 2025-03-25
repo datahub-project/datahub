@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
+import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
+import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -50,6 +52,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
   private final FeatureFlags _featureFlags;
+  private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -63,7 +66,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
-      final FeatureFlags featureFlags) {
+      final FeatureFlags featureFlags,
+      final ChromeExtensionConfiguration chromeExtensionConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -76,6 +80,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
     _featureFlags = featureFlags;
+    _chromeExtensionConfiguration = chromeExtensionConfiguration;
   }
 
   @Override
@@ -135,6 +140,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
       }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -187,10 +193,28 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
+            .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
+            .setThemeV2Default(_featureFlags.isThemeV2Default())
+            .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
+            .setLineageGraphV2(_featureFlags.isLineageGraphV2())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
+            .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+            .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+            .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
+            .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowSearchBarAutocompleteRedesign(
+                _featureFlags.isShowSearchBarAutocompleteRedesign())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
+
+    final ChromeExtensionConfig chromeExtensionConfig = new ChromeExtensionConfig();
+    chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
+    chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
+    appConfig.setChromeExtensionConfig(chromeExtensionConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

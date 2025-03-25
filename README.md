@@ -18,26 +18,37 @@ export const Logo = (props) => {
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
+<a href="https://datahubproject.io">
 <img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
+</a>
 </p>
 <!-- -->
 
 # DataHub: The Data Discovery Platform for the Modern Data Stack
-## Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
-[![Version](https://img.shields.io/github/v/release/datahub-project/datahub?include_prereleases)](https://github.com/datahub-project/datahub/releases/latest)
-[![PyPI version](https://badge.fury.io/py/acryl-datahub.svg)](https://badge.fury.io/py/acryl-datahub)
-[![build & test](https://github.com/datahub-project/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/datahub-project/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
-[![Docker Pulls](https://img.shields.io/docker/pulls/acryldata/datahub-gms.svg)](https://hub.docker.com/r/acryldata/datahub-gms)
-[![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://datahubproject.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/datahub-project/datahub)](https://github.com/datahub-project/datahub/pulls?q=is%3Apr)
-[![License](https://img.shields.io/github/license/datahub-project/datahub)](https://github.com/datahub-project/datahub/blob/master/LICENSE)
-[![YouTube](https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=social)](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
-[![Medium](https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/datahub-project)
-[![Follow](https://img.shields.io/twitter/follow/datahubproject?label=Follow&style=social)](https://twitter.com/datahubproject)
-### 🏠 Hosted DataHub Docs (Courtesy of Acryl Data): [datahubproject.io](https://datahubproject.io/docs)
+
+### Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="20"/> [Acryl Data](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="20"/> [LinkedIn](https://engineering.linkedin.com)
+
+<div>
+  <a target="_blank" href="https://github.com/datahub-project/datahub/blob/master/LICENSE">
+    <img alt="Apache 2.0 License" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?label=license&labelColor=133554&color=1890ff" /></a>
+  <a target="_blank" href="https://pypi.org/project/acryl-datahub/">
+    <img alt="PyPI" src="https://img.shields.io/pypi/dm/acryl-datahub?label=downloads&labelColor=133554&color=1890ff" /></a>
+  <a target="_blank" href="https://github.com/datahub-project/datahub/pulse">
+    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?label=commits&labelColor=133554&color=1890ff" /></a>
+  <br />
+  <a target="_blank" href="https://pages.acryl.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme">
+    <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" /></a>
+  <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
+    <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
+  <a href="https://blog.datahubproject.io/">
+    <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" /></a>
+  <a href="https://x.com/datahubproject">
+    <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" /></a>
+</div>
 
 ---
+
+### 🏠 Docs: [datahubproject.io](https://datahubproject.io/docs)
 
 [Quickstart](https://datahubproject.io/docs/quickstart) |
 [Features](https://datahubproject.io/docs/) |
@@ -47,6 +58,7 @@ HOSTED_DOCS_ONLY-->
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
+
 > 📣 DataHub Town Hall is the 4th Thursday at 9am US PT of every month - [add it to your calendar!](https://rsvp.datahubproject.io/)
 >
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
@@ -70,11 +82,11 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-req
 
 ## Demo and Screenshots
 
-There's a [hosted demo environment](https://demo.datahubproject.io/) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally
+There's a [hosted demo environment](https://demo.datahubproject.io/) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally.
 
 ## Quickstart
 
-Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quickstart) to get a copy of DataHub up & running locally using [Docker](https://docker.com). As the guide assumes some basic knowledge of Docker, we'd recommend you to go through the "Hello World" example of [A Docker Tutorial for Beginners](https://docker-curriculum.com) if Docker is completely foreign to you.
+Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
 
 ## Development
 
@@ -106,7 +118,7 @@ We welcome contributions from the community. Please refer to our [Contributing G
 
 ## Community
 
-Join our [Slack workspace](https://datahubproject.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+Join our [Slack workspace](https://pages.acryl.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
 
 ## Security
 
@@ -154,11 +166,10 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Udemy](https://www.udemy.com/)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
+- [Wealthsimple](https://www.wealthsimple.com)
 - [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
-
-
 
 ## Select Articles & Talks
 

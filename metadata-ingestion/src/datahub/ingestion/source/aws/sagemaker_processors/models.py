@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -64,6 +65,8 @@ ENDPOINT_STATUS_MAP: Dict[str, str] = {
     "Failed": DeploymentStatusClass.FAILED,
     "Unknown": DeploymentStatusClass.UNKNOWN,
 }
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -209,7 +212,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=endpoint_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{endpoint_details["EndpointName"]}',
+            id=f"{endpoint_details['EndpointName']}",
             mce=mce,
         )
 
@@ -385,6 +388,26 @@ class ModelProcessor:
             model_metrics,
         )
 
+    @staticmethod
+    def get_group_name_from_arn(arn: str) -> str:
+        """
+        Extract model package group name from a SageMaker ARN.
+
+        Args:
+            arn (str): Full ARN of the model package group
+
+        Returns:
+            str: Name of the model package group
+
+        Example:
+            >>> ModelProcessor.get_group_name_from_arn("arn:aws:sagemaker:eu-west-1:123456789:model-package-group/my-model-group")
+            'my-model-group'
+        """
+        logger.debug(
+            f"Extracting group name from ARN: {arn} because group was not seen before"
+        )
+        return arn.split("/")[-1]
+
     def get_model_wu(
         self,
         model_details: "DescribeModelOutputTypeDef",
@@ -425,8 +448,14 @@ class ModelProcessor:
         model_group_arns = model_uri_groups | model_image_groups
 
         model_group_names = sorted(
-            [self.group_arn_to_name[x] for x in model_group_arns]
+            [
+                self.group_arn_to_name[x]
+                if x in self.group_arn_to_name
+                else self.get_group_name_from_arn(x)
+                for x in model_group_arns
+            ]
         )
+
         model_group_urns = [
             builder.make_ml_model_group_urn("sagemaker", x, self.env)
             for x in model_group_names
@@ -474,7 +503,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{model_details["ModelName"]}',
+            id=f"{model_details['ModelName']}",
             mce=mce,
         )
 
