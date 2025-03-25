@@ -138,7 +138,7 @@ class TestMapper(unittest.TestCase):
         # check URNs
 
         work_units = list(mapper.map_project(project))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
             and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
@@ -249,21 +249,35 @@ class TestMapper(unittest.TestCase):
         dashboard_usage_statistics_wus = [
             wu for wu in work_units if wu.get_aspect_of_type(DashboardUsageStatistics)
         ]
-        assert len(dashboard_usage_statistics_wus) == 1
-        assert isinstance(
-            dashboard_usage_statistics_wus[0].metadata, MetadataChangeProposalWrapper
-        ) and isinstance(
-            dashboard_usage_statistics_wus[0].metadata.aspect, DashboardUsageStatistics
+        assert len(dashboard_usage_statistics_wus) == 2
+        usage_stats_all_time_wu = dashboard_usage_statistics_wus[0]
+        usage_stats_last_7_days_wu = dashboard_usage_statistics_wus[1]
+        assert (
+            isinstance(usage_stats_all_time_wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(
+                usage_stats_all_time_wu.metadata.aspect, DashboardUsageStatistics
+            )
+            and isinstance(
+                usage_stats_last_7_days_wu.metadata, MetadataChangeProposalWrapper
+            )
+            and isinstance(
+                usage_stats_last_7_days_wu.metadata.aspect, DashboardUsageStatistics
+            )
         )
-        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 10
-        assert dashboard_usage_statistics_wus[
-            0
-        ].metadata.aspect.eventGranularity == TimeWindowSizeClass(
-            unit=CalendarIntervalClass.WEEK, multiple=1
+        assert (
+            usage_stats_all_time_wu.metadata.aspect.viewsCount == 100
+            and usage_stats_last_7_days_wu.metadata.aspect.viewsCount == 10
         )
-        assert dashboard_usage_statistics_wus[
-            0
-        ].metadata.aspect.lastViewedAt == make_ts_millis(datetime(2022, 1, 1))
+        assert (
+            not usage_stats_all_time_wu.metadata.aspect.eventGranularity
+            and usage_stats_last_7_days_wu.metadata.aspect.eventGranularity
+            == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
+        )
+        assert (
+            usage_stats_all_time_wu.metadata.aspect.lastViewedAt
+            == usage_stats_last_7_days_wu.metadata.aspect.lastViewedAt
+            == make_ts_millis(datetime(2022, 1, 1))
+        )
 
         # what if we set patch_metadata to True
 
@@ -275,7 +289,7 @@ class TestMapper(unittest.TestCase):
         # mostly the same
 
         work_units = list(mapper.map_project(project))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         assert all(
             isinstance(
                 wu.metadata, MetadataChangeProposalWrapper | MetadataChangeProposalClass
@@ -306,7 +320,7 @@ class TestMapper(unittest.TestCase):
         # mostly the same but additional instance DataPlatformInstanceClass
 
         work_units = list(mapper.map_project(project))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         platform_instance_wus = [
             wu for wu in work_units if wu.get_aspect_of_type(DataPlatformInstanceClass)
         ]
@@ -354,7 +368,7 @@ class TestMapper(unittest.TestCase):
         # check URNs
 
         work_units = list(mapper.map_component(component))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
             and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
@@ -462,21 +476,35 @@ class TestMapper(unittest.TestCase):
         dashboard_usage_statistics_wus = [
             wu for wu in work_units if wu.get_aspect_of_type(DashboardUsageStatistics)
         ]
-        assert len(dashboard_usage_statistics_wus) == 1
-        assert isinstance(
-            dashboard_usage_statistics_wus[0].metadata, MetadataChangeProposalWrapper
-        ) and isinstance(
-            dashboard_usage_statistics_wus[0].metadata.aspect, DashboardUsageStatistics
+        assert len(dashboard_usage_statistics_wus) == 2
+        usage_stats_all_time_wu = dashboard_usage_statistics_wus[0]
+        usage_stats_last_7_days_wu = dashboard_usage_statistics_wus[1]
+        assert (
+            isinstance(usage_stats_all_time_wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(
+                usage_stats_all_time_wu.metadata.aspect, DashboardUsageStatistics
+            )
+            and isinstance(
+                usage_stats_last_7_days_wu.metadata, MetadataChangeProposalWrapper
+            )
+            and isinstance(
+                usage_stats_last_7_days_wu.metadata.aspect, DashboardUsageStatistics
+            )
         )
-        assert dashboard_usage_statistics_wus[0].metadata.aspect.viewsCount == 10
-        assert dashboard_usage_statistics_wus[
-            0
-        ].metadata.aspect.eventGranularity == TimeWindowSizeClass(
-            unit=CalendarIntervalClass.WEEK, multiple=1
+        assert (
+            usage_stats_all_time_wu.metadata.aspect.viewsCount == 100
+            and usage_stats_last_7_days_wu.metadata.aspect.viewsCount == 10
         )
-        assert dashboard_usage_statistics_wus[
-            0
-        ].metadata.aspect.lastViewedAt == make_ts_millis(datetime(2022, 1, 1))
+        assert (
+            not usage_stats_all_time_wu.metadata.aspect.eventGranularity
+            and usage_stats_last_7_days_wu.metadata.aspect.eventGranularity
+            == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
+        )
+        assert (
+            usage_stats_all_time_wu.metadata.aspect.lastViewedAt
+            == usage_stats_last_7_days_wu.metadata.aspect.lastViewedAt
+            == make_ts_millis(datetime(2022, 1, 1))
+        )
 
         # what if we set patch_metadata to True
 
@@ -488,7 +516,7 @@ class TestMapper(unittest.TestCase):
         # mostly the same
 
         work_units = list(mapper.map_component(component))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         assert all(
             isinstance(
                 wu.metadata, MetadataChangeProposalWrapper | MetadataChangeProposalClass
@@ -521,7 +549,7 @@ class TestMapper(unittest.TestCase):
         # mostly the same but additional DataPlatformInstanceClass
 
         work_units = list(mapper.map_component(component))
-        assert len(work_units) == 7
+        assert len(work_units) == 8
         platform_instance_wus = [
             wu for wu in work_units if wu.get_aspect_of_type(DataPlatformInstanceClass)
         ]
@@ -668,14 +696,23 @@ class TestMapper(unittest.TestCase):
             last_viewed_at=datetime(2022, 1, 1, 0, 0, 0),
         )
 
-        dashboard_usage_statistics = mapper._dashboard_usage_statistics(analytics)
-        assert dashboard_usage_statistics is not None
-        assert dashboard_usage_statistics.viewsCount == 10
-        assert dashboard_usage_statistics.eventGranularity == TimeWindowSizeClass(
-            unit=CalendarIntervalClass.WEEK, multiple=1
+        usage_stats_all_time, usage_stats_last_7_days = (
+            mapper._dashboard_usage_statistics(analytics)
         )
-        assert dashboard_usage_statistics.lastViewedAt == make_ts_millis(
-            datetime(2022, 1, 1)
+        assert usage_stats_all_time and usage_stats_last_7_days
+        assert (
+            usage_stats_all_time.viewsCount == 100
+            and usage_stats_last_7_days.viewsCount == 10
+        )
+        assert (
+            not usage_stats_all_time.eventGranularity
+            and usage_stats_last_7_days.eventGranularity
+            == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
+        )
+        assert (
+            usage_stats_all_time.lastViewedAt
+            == usage_stats_last_7_days.lastViewedAt
+            == make_ts_millis(datetime(2022, 1, 1))
         )
 
         analytics = Analytics(
@@ -686,8 +723,10 @@ class TestMapper(unittest.TestCase):
             last_viewed_at=None,
         )
 
-        dashboard_usage_statistics = mapper._dashboard_usage_statistics(analytics)
-        assert dashboard_usage_statistics is None
+        usage_stats_all_time, usage_stats_last_7_days = (
+            mapper._dashboard_usage_statistics(analytics)
+        )
+        assert not usage_stats_all_time and not usage_stats_last_7_days
 
         analytics = Analytics(
             appviews_all_time=None,
@@ -697,13 +736,15 @@ class TestMapper(unittest.TestCase):
             last_viewed_at=None,
         )
 
-        dashboard_usage_statistics = mapper._dashboard_usage_statistics(analytics)
-        assert dashboard_usage_statistics is not None
-        assert dashboard_usage_statistics.viewsCount == 10
-        assert dashboard_usage_statistics.eventGranularity == TimeWindowSizeClass(
+        usage_stats_all_time, usage_stats_last_7_days = (
+            mapper._dashboard_usage_statistics(analytics)
+        )
+        assert not usage_stats_all_time and usage_stats_last_7_days
+        assert usage_stats_last_7_days.viewsCount == 10
+        assert usage_stats_last_7_days.eventGranularity == TimeWindowSizeClass(
             unit=CalendarIntervalClass.WEEK, multiple=1
         )
-        assert dashboard_usage_statistics.lastViewedAt is None
+        assert usage_stats_last_7_days.lastViewedAt is None
 
     def test_platform_instance_aspect(self):
         mapper = Mapper(

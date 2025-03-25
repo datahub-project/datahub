@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from datahub._codegen.aspect import (
     _Aspect,  # TODO: is there a better import than this one?
@@ -136,8 +136,8 @@ class Mapper:
 
         ownership = self._ownership(creator=project.creator, owner=project.owner)
 
-        dashboard_usage_statistics = self._dashboard_usage_statistics(
-            analytics=project.analytics
+        usage_stats_all_time, usage_stats_last_7_days = (
+            self._dashboard_usage_statistics(analytics=project.analytics)
         )
 
         yield from self._yield_mcps(
@@ -149,7 +149,8 @@ class Mapper:
                 container,
                 tags,
                 ownership,
-                dashboard_usage_statistics,
+                usage_stats_all_time,
+                usage_stats_last_7_days,
             ],
         )
 
@@ -184,8 +185,8 @@ class Mapper:
 
         ownership = self._ownership(creator=component.creator, owner=component.owner)
 
-        dashboard_usage_statistics = self._dashboard_usage_statistics(
-            analytics=component.analytics
+        usage_stats_all_time, usage_stats_last_7_days = (
+            self._dashboard_usage_statistics(analytics=component.analytics)
         )
 
         yield from self._yield_mcps(
@@ -197,7 +198,8 @@ class Mapper:
                 container,
                 tags,
                 ownership,
-                dashboard_usage_statistics,
+                usage_stats_all_time,
+                usage_stats_last_7_days,
             ],
         )
 
@@ -297,19 +299,39 @@ class Mapper:
 
     def _dashboard_usage_statistics(
         self, analytics: Optional[Analytics]
-    ) -> Optional[DashboardUsageStatisticsClass]:
-        # we are mapping here only the last 7 days of views
-        # we could emit multiple events for different time windows or make which metric to track configurable
-        if analytics and (analytics.appviews_last_7_days or analytics.last_viewed_at):
-            return DashboardUsageStatisticsClass(
-                timestampMillis=make_ts_millis(datetime.now()),
+    ) -> Tuple[
+        Optional[DashboardUsageStatisticsClass], Optional[DashboardUsageStatisticsClass]
+    ]:
+        tm_millis = make_ts_millis(datetime.now())
+        last_viewed_at = (
+            make_ts_millis(analytics.last_viewed_at)
+            if analytics and analytics.last_viewed_at
+            else None
+        )
+
+        usage_all_time: Optional[DashboardUsageStatisticsClass] = (
+            DashboardUsageStatisticsClass(
+                timestampMillis=tm_millis,
+                viewsCount=analytics.appviews_all_time,
+                lastViewedAt=last_viewed_at,
+            )
+            if analytics and analytics.appviews_all_time
+            else None
+        )
+
+        usage_last_7_days: Optional[DashboardUsageStatisticsClass] = (
+            DashboardUsageStatisticsClass(
+                timestampMillis=tm_millis,
                 viewsCount=analytics.appviews_last_7_days,
                 eventGranularity=TimeWindowSizeClass(
                     unit=CalendarIntervalClass.WEEK, multiple=1
                 ),
-                lastViewedAt=make_ts_millis(analytics.last_viewed_at),
+                lastViewedAt=last_viewed_at,
             )
-        return None
+            if analytics and analytics.appviews_last_7_days
+            else None
+        )
+        return (usage_all_time, usage_last_7_days)
 
     def _platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
