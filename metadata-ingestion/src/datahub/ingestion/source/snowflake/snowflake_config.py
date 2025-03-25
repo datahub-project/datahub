@@ -291,7 +291,7 @@ class SnowflakeV2Config(
 
     include_procedures: bool = Field(
         default=True,
-        description="If enabled, procedures will be ingested as separate entities from tables/views.",
+        description="If enabled, procedures will be ingested as pipelines/tasks.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
