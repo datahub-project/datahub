@@ -52,7 +52,8 @@ RUN apt-get update && apt-get upgrade -y \
     libodbc2 \
     && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && apt-get clean \
-    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+    && rm -rf /var/lib/apt \
+    && rm -rf /var/lib/cache
 
 COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 
@@ -83,24 +84,25 @@ FROM ${BASE_IMAGE} AS full-install
 USER 0
 RUN apt-get update && apt-get install -y -qq \
     default-jre-headless \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
+    && rm -rf /var/lib/apt \
+    && rm -rf /var/lib/cache
 
 RUN if [ $(arch) = "x86_64" ]; then \
-    mkdir /opt/oracle && \
-    cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/2115000/instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_21_15 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
-    ldconfig; \
+      mkdir /opt/oracle && \
+      cd /opt/oracle && \
+      wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/2115000/instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+      unzip instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+      rm instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+      sh -c "echo /opt/oracle/instantclient_21_15 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+      ldconfig; \
     else \
-    mkdir /opt/oracle && \
-    cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_19_23 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
-    ldconfig; \
+      mkdir /opt/oracle && \
+      cd /opt/oracle && \
+      wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+      unzip instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+      rm instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+      sh -c "echo /opt/oracle/instantclient_19_23 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+      ldconfig; \
     fi;
 
 USER datahub
