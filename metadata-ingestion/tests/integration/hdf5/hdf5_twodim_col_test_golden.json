@@ -1,0 +1,1036 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "twodim",
+            "platform": "urn:li:dataPlatform:hdf5",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "col0",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col1",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col2",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col3",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col4",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col5",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col6",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col7",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col8",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col9",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col10",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col11",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col12",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col13",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col14",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col15",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col16",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col17",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col18",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col19",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col20",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col21",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col22",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col23",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "col24",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "description": "Two-dimensional dataset with 4 rows and 25 columns of random floating-point numbers",
+                "dataset_shape": "(4, 25)",
+                "dataset_dtype": "float64",
+                "dataset_size": "100"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hdf5",
+                "env": "PROD",
+                "folder_abs_path": ""
+            },
+            "name": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hdf5",
+                "env": "PROD",
+                "folder_abs_path": "/twodim"
+            },
+            "name": "twodim",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388098,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 4,
+            "columnCount": 25,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "col0",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.3745401188473625",
+                    "max": "0.9695846277645586",
+                    "mean": "0.71",
+                    "median": "0.76",
+                    "stdev": "0.22",
+                    "sampleValues": [
+                        "0.3745401188473625",
+                        "0.7851759613930136",
+                        "0.9695846277645586",
+                        "0.7290071680409873"
+                    ]
+                },
+                {
+                    "fieldPath": "col1",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.19967378215835974",
+                    "max": "0.9507143064099162",
+                    "mean": "0.67",
+                    "median": "0.77",
+                    "stdev": "0.28",
+                    "sampleValues": [
+                        "0.9507143064099162",
+                        "0.19967378215835974",
+                        "0.7751328233611146",
+                        "0.7712703466859457"
+                    ]
+                },
+                {
+                    "fieldPath": "col2",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.07404465173409036",
+                    "max": "0.9394989415641891",
+                    "mean": "0.56",
+                    "median": "0.62",
+                    "stdev": "0.32",
+                    "sampleValues": [
+                        "0.7319939418114051",
+                        "0.5142344384136116",
+                        "0.9394989415641891",
+                        "0.07404465173409036"
+                    ]
+                },
+                {
+                    "fieldPath": "col3",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.3584657285442726",
+                    "max": "0.8948273504276488",
+                    "mean": "0.61",
+                    "median": "0.6",
+                    "stdev": "0.19",
+                    "sampleValues": [
+                        "0.5986584841970366",
+                        "0.5924145688620425",
+                        "0.8948273504276488",
+                        "0.3584657285442726"
+                    ]
+                },
+                {
+                    "fieldPath": "col4",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.046450412719997725",
+                    "max": "0.5978999788110851",
+                    "mean": "0.23",
+                    "median": "0.14",
+                    "stdev": "0.22",
+                    "sampleValues": [
+                        "0.15601864044243652",
+                        "0.046450412719997725",
+                        "0.5978999788110851",
+                        "0.11586905952512971"
+                    ]
+                },
+                {
+                    "fieldPath": "col5",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.15599452033620265",
+                    "max": "0.9218742350231168",
+                    "mean": "0.64",
+                    "median": "0.74",
+                    "stdev": "0.3",
+                    "sampleValues": [
+                        "0.15599452033620265",
+                        "0.6075448519014384",
+                        "0.9218742350231168",
+                        "0.8631034258755935"
+                    ]
+                },
+                {
+                    "fieldPath": "col6",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.05808361216819946",
+                    "max": "0.6232981268275579",
+                    "mean": "0.24",
+                    "median": "0.13",
+                    "stdev": "0.23",
+                    "sampleValues": [
+                        "0.05808361216819946",
+                        "0.17052412368729153",
+                        "0.0884925020519195",
+                        "0.6232981268275579"
+                    ]
+                },
+                {
+                    "fieldPath": "col7",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.06505159298527952",
+                    "max": "0.8661761457749352",
+                    "mean": "0.36",
+                    "median": "0.26",
+                    "stdev": "0.3",
+                    "sampleValues": [
+                        "0.8661761457749352",
+                        "0.06505159298527952",
+                        "0.1959828624191452",
+                        "0.3308980248526492"
+                    ]
+                },
+                {
+                    "fieldPath": "col8",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.045227288910538066",
+                    "max": "0.9488855372533332",
+                    "mean": "0.41",
+                    "median": "0.33",
+                    "stdev": "0.38",
+                    "sampleValues": [
+                        "0.6011150117432088",
+                        "0.9488855372533332",
+                        "0.045227288910538066",
+                        "0.06355835028602363"
+                    ]
+                },
+                {
+                    "fieldPath": "col9",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.3109823217156622",
+                    "max": "0.9656320330745594",
+                    "mean": "0.58",
+                    "median": "0.52",
+                    "stdev": "0.27",
+                    "sampleValues": [
+                        "0.7080725777960455",
+                        "0.9656320330745594",
+                        "0.32533033076326434",
+                        "0.3109823217156622"
+                    ]
+                },
+                {
+                    "fieldPath": "col10",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.020584494295802447",
+                    "max": "0.8083973481164611",
+                    "mean": "0.39",
+                    "median": "0.36",
+                    "stdev": "0.28",
+                    "sampleValues": [
+                        "0.020584494295802447",
+                        "0.8083973481164611",
+                        "0.388677289689482",
+                        "0.32518332202674705"
+                    ]
+                },
+                {
+                    "fieldPath": "col11",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.2713490317738959",
+                    "max": "0.9699098521619943",
+                    "mean": "0.57",
+                    "median": "0.52",
+                    "stdev": "0.29",
+                    "sampleValues": [
+                        "0.9699098521619943",
+                        "0.3046137691733707",
+                        "0.2713490317738959",
+                        "0.7296061783380641"
+                    ]
+                },
+                {
+                    "fieldPath": "col12",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.09767211400638387",
+                    "max": "0.8324426408004217",
+                    "mean": "0.6",
+                    "median": "0.73",
+                    "stdev": "0.3",
+                    "sampleValues": [
+                        "0.8324426408004217",
+                        "0.09767211400638387",
+                        "0.8287375091519293",
+                        "0.6375574713552131"
+                    ]
+                },
+                {
+                    "fieldPath": "col13",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.21233911067827616",
+                    "max": "0.8872127425763265",
+                    "mean": "0.54",
+                    "median": "0.52",
+                    "stdev": "0.27",
+                    "sampleValues": [
+                        "0.21233911067827616",
+                        "0.6842330265121569",
+                        "0.3567533266935893",
+                        "0.8872127425763265"
+                    ]
+                },
+                {
+                    "fieldPath": "col14",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.18182496720710062",
+                    "max": "0.4722149251619493",
+                    "mean": "0.34",
+                    "median": "0.36",
+                    "stdev": "0.12",
+                    "sampleValues": [
+                        "0.18182496720710062",
+                        "0.4401524937396013",
+                        "0.28093450968738076",
+                        "0.4722149251619493"
+                    ]
+                },
+                {
+                    "fieldPath": "col15",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.1195942459383017",
+                    "max": "0.5426960831582485",
+                    "mean": "0.24",
+                    "median": "0.15",
+                    "stdev": "0.18",
+                    "sampleValues": [
+                        "0.18340450985343382",
+                        "0.12203823484477883",
+                        "0.5426960831582485",
+                        "0.1195942459383017"
+                    ]
+                },
+                {
+                    "fieldPath": "col16",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.14092422497476265",
+                    "max": "0.713244787222995",
+                    "mean": "0.41",
+                    "median": "0.4",
+                    "stdev": "0.21",
+                    "sampleValues": [
+                        "0.3042422429595377",
+                        "0.4951769101112702",
+                        "0.14092422497476265",
+                        "0.713244787222995"
+                    ]
+                },
+                {
+                    "fieldPath": "col17",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.034388521115218396",
+                    "max": "0.8021969807540397",
+                    "mean": "0.53",
+                    "median": "0.64",
+                    "stdev": "0.31",
+                    "sampleValues": [
+                        "0.5247564316322378",
+                        "0.034388521115218396",
+                        "0.8021969807540397",
+                        "0.7607850486168974"
+                    ]
+                },
+                {
+                    "fieldPath": "col18",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.07455064367977082",
+                    "max": "0.9093204020787821",
+                    "mean": "0.49",
+                    "median": "0.5",
+                    "stdev": "0.3",
+                    "sampleValues": [
+                        "0.43194501864211576",
+                        "0.9093204020787821",
+                        "0.07455064367977082",
+                        "0.5612771975694962"
+                    ]
+                },
+                {
+                    "fieldPath": "col19",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.2587799816000169",
+                    "max": "0.9868869366005173",
+                    "mean": "0.58",
+                    "median": "0.53",
+                    "stdev": "0.31",
+                    "sampleValues": [
+                        "0.2912291401980419",
+                        "0.2587799816000169",
+                        "0.9868869366005173",
+                        "0.770967179954561"
+                    ]
+                },
+                {
+                    "fieldPath": "col20",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.49379559636439074",
+                    "max": "0.7722447692966574",
+                    "mean": "0.64",
+                    "median": "0.64",
+                    "stdev": "0.1",
+                    "sampleValues": [
+                        "0.6118528947223795",
+                        "0.662522284353982",
+                        "0.7722447692966574",
+                        "0.49379559636439074"
+                    ]
+                },
+                {
+                    "fieldPath": "col21",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.13949386065204183",
+                    "max": "0.5227328293819941",
+                    "mean": "0.29",
+                    "median": "0.26",
+                    "stdev": "0.15",
+                    "sampleValues": [
+                        "0.13949386065204183",
+                        "0.31171107608941095",
+                        "0.1987156815341724",
+                        "0.5227328293819941"
+                    ]
+                },
+                {
+                    "fieldPath": "col22",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.005522117123602399",
+                    "max": "0.5200680211778108",
+                    "mean": "0.31",
+                    "median": "0.36",
+                    "stdev": "0.19",
+                    "sampleValues": [
+                        "0.29214464853521815",
+                        "0.5200680211778108",
+                        "0.005522117123602399",
+                        "0.42754101835854963"
+                    ]
+                },
+                {
+                    "fieldPath": "col23",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.02541912674409519",
+                    "max": "0.8154614284548342",
+                    "mean": "0.44",
+                    "median": "0.46",
+                    "stdev": "0.29",
+                    "sampleValues": [
+                        "0.3663618432936917",
+                        "0.5467102793432796",
+                        "0.8154614284548342",
+                        "0.02541912674409519"
+                    ]
+                },
+                {
+                    "fieldPath": "col24",
+                    "uniqueCount": 4,
+                    "nullCount": 0,
+                    "min": "0.10789142699330445",
+                    "max": "0.7068573438476171",
+                    "mean": "0.36",
+                    "median": "0.32",
+                    "stdev": "0.24",
+                    "sampleValues": [
+                        "0.45606998421703593",
+                        "0.18485445552552704",
+                        "0.7068573438476171",
+                        "0.10789142699330445"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+                },
+                {
+                    "id": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
+                    "urn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

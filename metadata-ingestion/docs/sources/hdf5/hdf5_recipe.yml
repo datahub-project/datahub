@@ -1,0 +1,8 @@
+source:
+  type: hdf5
+  config:
+    path_list:
+      - "/data/scientific/hdf5/datafile.h5"
+      - "/data/research/current/*.h5"
+    profiling:
+      enabled: true

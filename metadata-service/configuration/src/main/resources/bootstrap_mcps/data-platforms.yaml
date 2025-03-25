@@ -757,4 +757,13 @@
     displayName: vertexai
     type: OTHERS
     logoUrl: "/assets/platforms/vertexai.png"
-
+- entityUrn: urn:li:dataPlatform:hdf5
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: hdf5
+    displayName: HDF5
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hdf5.png"
