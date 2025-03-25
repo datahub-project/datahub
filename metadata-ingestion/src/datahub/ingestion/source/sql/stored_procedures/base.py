@@ -214,7 +214,6 @@ def generate_procedure_lineage(
             )
 
 
-# TODO: Maybe use db_name, schema_name, platform_instance, env as input instead ?
 def generate_procedure_container_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],

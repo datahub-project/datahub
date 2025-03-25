@@ -64,9 +64,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
-    gen_database_key,
     gen_schema_container,
-    gen_schema_key,
     get_dataplatform_instance_aspect,
     get_domain_wu,
 )
@@ -553,21 +551,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.include_technical_schema:
-            yield from generate_procedure_container_workunits(
-                gen_database_key(
-                    self.snowflake_identifier(db_name),
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                gen_schema_key(
-                    db_name=self.snowflake_identifier(db_name),
-                    schema=snowflake_schema.name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-            )
+            if procedures:
+                yield from generate_procedure_container_workunits(
+                    self.identifiers.gen_database_key(
+                        db_name,
+                    ),
+                    self.identifiers.gen_schema_key(
+                        db_name=db_name,
+                        schema_name=snowflake_schema.name,
+                    ),
+                )
             for procedure in procedures:
                 yield from self._process_procedure(procedure, snowflake_schema, db_name)
 
@@ -854,13 +847,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()
 
-        schema_container_key = gen_schema_key(
-            db_name=self.snowflake_identifier(db_name),
-            schema=self.snowflake_identifier(schema_name),
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        schema_container_key = self.identifiers.gen_schema_key(db_name, schema_name)
 
         if self.config.extract_tags_as_structured_properties:
             yield from self.gen_column_tags_as_structured_properties(dataset_urn, table)
@@ -1129,11 +1116,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-        database_container_key = gen_database_key(
-            self.snowflake_identifier(database.name),
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+        database_container_key = self.identifiers.gen_database_key(
+            database.name,
         )
 
         yield from gen_database_container(
@@ -1182,21 +1166,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        schema_name = self.snowflake_identifier(schema.name)
-        database_container_key = gen_database_key(
-            database=self.snowflake_identifier(db_name),
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        database_container_key = self.identifiers.gen_database_key(db_name)
 
-        schema_container_key = gen_schema_key(
-            db_name=self.snowflake_identifier(db_name),
-            schema=schema_name,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        schema_container_key = self.identifiers.gen_schema_key(db_name, schema.name)
 
         yield from gen_schema_container(
             name=schema.name,
@@ -1432,18 +1404,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # TODO: For CLL, we should process procedures after all tables are processed
             yield from generate_procedure_workunits(
                 procedure,
-                database_key=gen_database_key(
-                    self.snowflake_identifier(db_name),
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
+                database_key=self.identifiers.gen_database_key(
+                    db_name,
                 ),
-                schema_key=gen_schema_key(
-                    db_name=self.snowflake_identifier(db_name),
-                    schema=self.snowflake_identifier(snowflake_schema.name),
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
+                schema_key=self.identifiers.gen_schema_key(
+                    db_name, snowflake_schema.name
                 ),
                 schema_resolver=(
                     self.aggregator._schema_resolver if self.aggregator else None
