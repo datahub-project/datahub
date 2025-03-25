@@ -1416,7 +1416,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to ingest stored procedure", procedure.name, exc=e
+                title="Failed to ingest stored procedure", 
+                context=procedure.name, 
+                exc=e,
             )
 
     def get_columns_for_stream(
