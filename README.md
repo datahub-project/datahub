@@ -173,7 +173,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 ## Select Articles & Talks
 
-- [DataHub Blog](https://medium.com/datahub-project/)
+- [DataHub Blog](https://medium.com/datahub-project)
 - [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 - [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
 - [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
