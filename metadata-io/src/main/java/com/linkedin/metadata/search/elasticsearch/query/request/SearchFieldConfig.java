@@ -27,7 +27,8 @@ public class SearchFieldConfig {
   public static final float DEFAULT_BOOST = 1.0f;
 
   // Fields that can be filtered on directly, without appending the ".keyword" suffix.
-  // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not hardcoded.
+  // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not
+  // hardcoded.
   public static final Set<String> KEYWORD_FIELDS =
       Set.of(
           "urn",

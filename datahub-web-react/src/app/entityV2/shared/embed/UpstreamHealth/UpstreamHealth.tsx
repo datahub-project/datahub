@@ -81,7 +81,7 @@ export default function UpstreamHealth() {
                     urn,
                     query: '*',
                     startTimeMillis,
-                    types: [EntityType.Dataset],
+                    types: [],
                     count: DATASET_COUNT,
                     start,
                     direction: LineageDirection.Upstream,
@@ -157,6 +157,7 @@ export default function UpstreamHealth() {
         directUpstreamData?.searchAcrossLineage?.searchResults,
         directUpstreamEntities.length,
         directUpstreamData?.searchAcrossLineage?.total,
+        entityRegistry
     ]);
 
     useEffect(() => {
@@ -172,6 +173,7 @@ export default function UpstreamHealth() {
         indirectUpstreamData?.searchAcrossLineage?.searchResults,
         indirectUpstreamEntities.length,
         indirectUpstreamData?.searchAcrossLineage?.total,
+        entityRegistry
     ]);
 
     function loadMoreDirectUpstreamData() {

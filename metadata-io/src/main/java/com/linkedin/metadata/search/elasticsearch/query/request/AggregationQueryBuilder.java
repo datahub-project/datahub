@@ -209,7 +209,6 @@ public class AggregationQueryBuilder {
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
     final List<String> facetsFromAnnotation = new ArrayList<>();
     if (annotation.isAddToFilters()) {
-      System.out.println("Adding to default facet fields: " + annotation.getFieldName());
       facetsFromAnnotation.add(annotation.getFieldName());
     }
     if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
