@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
@@ -96,7 +97,10 @@ public class CorpUserMapper {
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
-      mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
+      mappingHelper.mapToResult(
+          ORIGIN_ASPECT_NAME,
+          (corpUser, dataMap) ->
+              corpUser.setOrigin(OriginMapper.map(context, new Origin(dataMap))));
     } else {
       com.linkedin.datahub.graphql.generated.Origin mappedUserOrigin =
           new com.linkedin.datahub.graphql.generated.Origin();
@@ -190,22 +194,5 @@ public class CorpUserMapper {
             && corpUserCredentials.hasSalt()
             && corpUserCredentials.hasHashedPassword();
     corpUser.setIsNativeUser(isNativeUser);
-  }
-
-  private void mapEntityOriginType(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
-    Origin userOrigin = new Origin(dataMap);
-    com.linkedin.datahub.graphql.generated.Origin mappedUserOrigin =
-        new com.linkedin.datahub.graphql.generated.Origin();
-    if (userOrigin.hasType()) {
-      mappedUserOrigin.setType(
-          com.linkedin.datahub.graphql.generated.OriginType.valueOf(
-              userOrigin.getType().toString()));
-    } else {
-      mappedUserOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
-    }
-    if (userOrigin.hasExternalType()) {
-      mappedUserOrigin.setExternalType(userOrigin.getExternalType());
-    }
-    corpUser.setOrigin(mappedUserOrigin);
   }
 }
