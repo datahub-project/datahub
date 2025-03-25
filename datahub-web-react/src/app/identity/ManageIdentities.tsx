@@ -51,7 +51,7 @@ interface Props {
     version?: string; // used to help with cypress tests bouncing between versions. wait till correct version loads
 }
 
-export const ManageIdentities = ({ version }: { version?: string }) => {
+export const ManageIdentities = ({ version }: Props) => {
     /**
      * Determines which view should be visible: users or groups list.
      */
