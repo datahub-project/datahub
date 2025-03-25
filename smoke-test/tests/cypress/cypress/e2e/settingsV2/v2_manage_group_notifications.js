@@ -1,6 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-const test_group_urn = "urn:li:corpGroup:bfoo";
+const test_group_urn = "urn:li:corpGroup:test-notifications-group";
 
 describe("group notifications test", () => {
   before(() => {
