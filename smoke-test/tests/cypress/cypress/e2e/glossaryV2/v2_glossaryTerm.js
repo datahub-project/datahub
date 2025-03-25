@@ -1,6 +1,6 @@
 const nevigateGlossaryPage = () => {
   cy.visit("/glossary");
-  cy.waitTextVisible("Business Glossary");
+  cy.get('[data-testid="glossaryPageV2"]').should("be.visible");
 };
 
 const applyAdvancedSearchFilter = (filterType, value) => {
