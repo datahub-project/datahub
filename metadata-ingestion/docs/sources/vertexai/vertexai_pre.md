@@ -53,10 +53,6 @@ Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and
 
 #### Concept Mapping
 
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-### Concept Mapping
-
 This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 
 |                                                       Source Concept                                                       |                                                                   Source Concept Type                                                                    |                                                                                                                  DataHub Concept | Notes                                                                                                                                                                                                                                |
