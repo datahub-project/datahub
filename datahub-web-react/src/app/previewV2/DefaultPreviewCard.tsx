@@ -273,7 +273,6 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
-    console.log('dataProcessInstanceProps', dataProcessInstanceProps);
     const shouldShowRightColumn =
         dataProcessInstanceProps?.startTime || dataProcessInstanceProps?.duration || dataProcessInstanceProps?.status;
 
