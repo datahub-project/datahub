@@ -54,7 +54,7 @@ HOSTED_DOCS_ONLY-->
 
 > ✨ DataHub Community Highlights:
 >
-> - Read our Monthly Project Updates [here](https://blog.datahubproject.io/tagged/project-updates).
+> - Read our Monthly Project Updates [here](https://medium.com/datahub-project/tagged/project-updates).
 > - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Check out our most-read blog post, [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
 > - Join us on [Slack](docs/slack.md)! Ask questions and keep up with the latest announcements.
@@ -162,7 +162,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 ## Select Articles & Talks
 
-- [DataHub Blog](https://blog.datahubproject.io/)
+- [DataHub Blog](https://medium.com/datahub-project/)
 - [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 - [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
 - [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)

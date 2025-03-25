@@ -163,7 +163,7 @@ Only the v2 plugin supports automatic lineage extraction. If you're using the v1
 To automatically extract lineage information, the v2 plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
 As such, we support a superset of the default operators that Airflow/OpenLineage supports.
 
-The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
+The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce175677), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
 
 Supported operators:
 

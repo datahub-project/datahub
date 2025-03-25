@@ -452,4 +452,4 @@ source:
 
 ### DataHub Blog
 
-* [PII Classification just got easier with DataHub](https://blog.datahubproject.io/pii-classification-just-got-easier-with-datahub-6bab2b63abcb)
+* [PII Classification just got easier with DataHub](https://medium.com/datahub-project/pii-classification-just-got-easier-with-datahub-6bab2b63abcb)

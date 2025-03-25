@@ -12,7 +12,7 @@ const featuresContent = [
     description: (
       <>
         Combine technical, operational and business metadata to provide a{" "}
-        <Link to="https://blog.datahubproject.io/the-3-must-haves-of-metadata-management-part-1-bf128517ff6e">360 degree view</Link> of your data
+        <Link to="https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-1-bf128517ff6e">360 degree view</Link> of your data
         entities.
       </>
     ),
@@ -23,7 +23,7 @@ const featuresContent = [
     description: (
       <>
         Apply “shift-left” practices to{" "}
-        <Link to="https://blog.datahubproject.io/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb">pre-enrich important metadata</Link>{" "}
+        <Link to="https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb">pre-enrich important metadata</Link>{" "}
         using ingestion transformers, support for dbt meta-mapping and other features.
       </>
     ),

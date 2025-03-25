@@ -906,7 +906,7 @@ With data lineage, you can
 - Maintaining Data Integrity
 - Simplify and Refine Complex Relationships
 - Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
-- [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
+- [Propagate Metadata](https://medium.com/datahub-project/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
 
 
 ## Viewing Lineage
@@ -1078,7 +1078,7 @@ we have a SQL queries connector that generates column-level lineage and detailed
 
 If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://datahubproject.io/docs/python-sdk/clients/))
 
-For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
+For more information, refer to the [Extracting Column-Level Lineage from SQL](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567) 
 
 
 :::tip Our Roadmap
@@ -1090,9 +1090,9 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
 
 - [DataHub Basics: Lineage 101](https://www.youtube.com/watch?v=rONGpsndzRw&t=1s)
 - [DataHub November 2022 Town Hall](https://www.youtube.com/watch?v=BlCLhG8lGoY&t=1s) - Including Manual Lineage Demo
-- [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
-- [Harnessing the Power of Data Lineage with DataHub](https://blog.datahubproject.io/harnessing-the-power-of-data-lineage-with-datahub-ad086358dec4)
-- [Data Lineage: What It Is And Why It Matters](https://blog.datahubproject.io/data-lineage-what-it-is-and-why-it-matters-1a8d9846f0bd)
+- [Data in Context: Lineage Explorer in DataHub](https://medium.com/datahub-project/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
+- [Harnessing the Power of Data Lineage with DataHub](https://medium.com/datahub-project/harnessing-the-power-of-data-lineage-with-datahub-ad086358dec4)
+- [Data Lineage: What It Is And Why It Matters](https://medium.com/datahub-project/data-lineage-what-it-is-and-why-it-matters-1a8d9846f0bd)
                         """
         )
 

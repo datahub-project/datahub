@@ -143,7 +143,7 @@ module.exports = {
               label: "Adoption Stories",
             },
             {
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project/",
               label: "Blog",
             },
             {
@@ -234,7 +234,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project/",
             },
             {
               label: "Town Halls",

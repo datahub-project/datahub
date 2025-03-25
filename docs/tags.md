@@ -86,7 +86,7 @@ You can easily fetch the Tags for an entity with a given its URN using the **tag
 ### DataHub Blog
 
 * [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios
-Managing PII in DataHub: A Practitioner’s Guide](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+Managing PII in DataHub: A Practitioner’s Guide](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
 
 ## FAQ and Troubleshooting
 
