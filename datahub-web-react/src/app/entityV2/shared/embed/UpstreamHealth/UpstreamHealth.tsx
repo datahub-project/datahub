@@ -3,12 +3,13 @@ import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ErrorRounded } from '@mui/icons-material';
-import { isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { Dataset, EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
+    IS_DEPRECATED_FILTER_NAME,
 } from '../../../../search/utils/constants';
 import { useAppConfig } from '../../../../useAppConfig';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
@@ -71,6 +72,9 @@ export default function UpstreamHealth() {
             skip: !lineageEnabled,
             variables: {
                 input: {
+                    searchFlags: {
+                        skipCache: true,
+                    },
                     urn,
                     query: '*',
                     startTimeMillis,
@@ -102,6 +106,20 @@ export default function UpstreamHealth() {
                                 },
                                 {
                                     field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+                                    condition: FilterOperator.Equal,
+                                    values: ['true'],
+                                },
+                            ],
+                        },
+                        {
+                            and: [
+                                {
+                                    field: 'degree',
+                                    condition: FilterOperator.Equal,
+                                    values: degree,
+                                },
+                                {
+                                    field: IS_DEPRECATED_FILTER_NAME,
                                     condition: FilterOperator.Equal,
                                     values: ['true'],
                                 },
@@ -185,8 +203,12 @@ export default function UpstreamHealth() {
         setIndirectUpstreamsDataStart(newStart);
     }
 
-    const unhealthyDirectUpstreams = directUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
-    const unhealthyIndirectUpstreams = indirectUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
+    const unhealthyDirectUpstreams = directUpstreamEntities.filter(
+        (e) => (e.health && isUnhealthy(e.health)) || isDeprecated(e),
+    );
+    const unhealthyIndirectUpstreams = indirectUpstreamEntities.filter(
+        (e) => (e.health && isUnhealthy(e.health)) || isDeprecated(e),
+    );
 
     const hasUnhealthyUpstreams = unhealthyDirectUpstreams.length || unhealthyIndirectUpstreams.length;
 
@@ -216,6 +238,8 @@ export default function UpstreamHealth() {
                             indirectUpstreamsDataTotal - (indirectUpstreamsDataStart + DATASET_COUNT),
                             0,
                         )}
+                        showDeprecatedIcon
+                        showHealthIcon
                     />
                 )}
             </CTAWrapper>

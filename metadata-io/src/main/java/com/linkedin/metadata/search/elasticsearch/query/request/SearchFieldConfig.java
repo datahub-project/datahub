@@ -26,6 +26,8 @@ import lombok.experimental.Accessors;
 public class SearchFieldConfig {
   public static final float DEFAULT_BOOST = 1.0f;
 
+  // Fields that can be filtered on directly, without appending the ".keyword" suffix.
+  // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not hardcoded.
   public static final Set<String> KEYWORD_FIELDS =
       Set.of(
           "urn",
@@ -38,7 +40,8 @@ public class SearchFieldConfig {
           "viewCountLast30DaysFeature",
           "usageCountLast30DaysFeature",
           "createdAt",
-          "lastModifiedAt");
+          "lastModifiedAt",
+          "deprecated");
   public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
   public static final float URN_BOOST_SCORE = 10.0f;
 

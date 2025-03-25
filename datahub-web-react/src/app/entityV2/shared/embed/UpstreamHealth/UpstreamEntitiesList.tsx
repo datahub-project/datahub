@@ -12,6 +12,8 @@ type Props = {
     loadMoreIndirectEntities: () => void;
     remainingDirectEntities: number;
     remainingIndirectEntities: number;
+    showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
 };
 
 const Container = styled.div`
@@ -47,6 +49,8 @@ const UpstreamEntitiesList = ({
     loadMoreIndirectEntities,
     remainingDirectEntities,
     remainingIndirectEntities,
+    showHealthIcon,
+    showDeprecatedIcon,
 }: Props) => {
     return (
         <Container>
@@ -63,7 +67,8 @@ const UpstreamEntitiesList = ({
                             showMoreComponent={
                                 <ShowMoreWrapper>{`Show ${remainingDirectEntities} more`}</ShowMoreWrapper>
                             }
-                            showHealthIcon
+                            showHealthIcon={showHealthIcon}
+                            showDeprecatedIcon={showDeprecatedIcon}
                         />
                     </>
                 )}
