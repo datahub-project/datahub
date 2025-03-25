@@ -292,7 +292,8 @@ class TestMapper(unittest.TestCase):
         assert len(work_units) == 8
         assert all(
             isinstance(
-                wu.metadata, MetadataChangeProposalWrapper | MetadataChangeProposalClass
+                wu.metadata,
+                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
             )
             and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
             for wu in work_units
@@ -519,7 +520,8 @@ class TestMapper(unittest.TestCase):
         assert len(work_units) == 8
         assert all(
             isinstance(
-                wu.metadata, MetadataChangeProposalWrapper | MetadataChangeProposalClass
+                wu.metadata,
+                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
             )
             and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
             for wu in work_units
@@ -531,7 +533,8 @@ class TestMapper(unittest.TestCase):
             wu
             for wu in work_units
             if isinstance(
-                wu.metadata, MetadataChangeProposalWrapper | MetadataChangeProposalClass
+                wu.metadata,
+                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
             )
             and wu.metadata.changeType == "PATCH"
         ]
