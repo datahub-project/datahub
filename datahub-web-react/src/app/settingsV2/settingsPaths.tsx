@@ -28,7 +28,7 @@ const ACRYL_PATHS = [
 export const PATHS = [
     { path: 'views', content: <ManageViews /> },
     { path: 'tokens', content: <AccessTokens /> },
-    { path: 'identities', content: <ManageIdentities /> },
+    { path: 'identities', content: <ManageIdentities version="v2" /> },
     { path: 'policies', content: <ManagePolicies /> },
     { path: 'preferences', content: <Preferences /> },
     { path: 'permissions', content: <ManagePermissions /> },
