@@ -408,7 +408,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
                     extraFilters=[
                         SearchFilterRule(
                             field="created",
-                            condition="GREATER_THAN",
+                            condition="LESS_THAN",
                             values=[
                                 str(
                                     int(

@@ -280,7 +280,7 @@ class SoftDeletedEntitiesCleanup:
                 extraFilters=[
                     SearchFilterRule(
                         field="created",
-                        condition="GREATER_THAN",
+                        condition="LESS_THAN",
                         values=[f"{created_from}"],
                     ).to_raw()
                 ],
