@@ -602,6 +602,7 @@ class VertexAISource(Source):
                         else None
                     ),
                     customProperties=None,
+                    externalUrl=self._make_model_external_url(model),
                 ),
                 SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL_GROUP]),
                 ContainerClass(container=self._get_project_container().as_urn()),
