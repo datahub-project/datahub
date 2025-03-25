@@ -40,7 +40,7 @@ HOSTED_DOCS_ONLY-->
     <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" /></a>
   <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
     <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
-  <a href="https://blog.datahubproject.io/">
+  <a href="https://medium.com/datahub-project">
     <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" /></a>
   <a href="https://x.com/datahubproject">
     <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" /></a>
