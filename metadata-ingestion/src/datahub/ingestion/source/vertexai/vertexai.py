@@ -1306,7 +1306,7 @@ class VertexAISource(Source):
 
     def _make_pipeline_external_url(self, pipeline_name: str) -> str:
         """
-        Experiment Run external URL in Vertex AI
+        Pipeline Run external URL in Vertex AI
         https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/pipeline-example-more-tasks-3-20250320210739?project=acryl-poc
         """
         external_url: str = (
