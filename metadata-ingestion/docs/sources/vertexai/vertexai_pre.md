@@ -77,15 +77,15 @@ This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 | [`Experiment Run`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.ExperimentRun) |                                                                                                                                                          |                        [`DataProcessInstance`](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance/) | An Experiment Run represents a single execution of a ML workflow. An Experiment Run tracks ML parameters, metricis, artifacts and metadata                                                                                           |
 |   [`Execution`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Execution)    |                                                                                                                                                          |                        [`DataProcessInstance`](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance/) | Metadata Execution resource for Vertex AI. Metadata Execution is started in a experiment run and captures input and output artifacts.                                                                                                |
 
-Concept Mapping Diagram
+Vertex AI Concept Diagram:
 ![img.png](concept-mapping.png)
 
 #### Lineage
 
-Lineage is emitted using Vertex AI API for
+Lineage is emitted using Vertex AI API to capture the following relationships:
 
-- Output Model training by AutoML Job  
-- Input Dataset used by Auto ML Job 
-- Endpoint to which a Model is deployed 
-- Experiment runs executed in an Experiment 
+- A training job and a model (which training job produce a model)
+- A dataset and a training job (which dataset was consumed by a training job to train a model) 
+- Experiment runs and an experiment
+- Metadata execution and an experiment run 
 
