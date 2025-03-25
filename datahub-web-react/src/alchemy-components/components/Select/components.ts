@@ -11,21 +11,23 @@ const sharedTransition = `${transition.property.colors} ${transition.easing['eas
 /**
  * Base Select component styling
  */
-export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly, fontSize, isOpen, width }) => ({
-    ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen }),
-    display: 'flex',
-    flexDirection: 'row' as const,
-    gap: spacing.xsm,
-    transition: sharedTransition,
-    justifyContent: 'space-between',
-    alignSelf: 'end',
-    minHeight: '42px',
-    alignItems: 'center',
-    overflow: 'auto',
-    textWrapMode: 'nowrap',
-    backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
-    width: width === 'full' ? '100%' : `max-content`,
-}));
+export const SelectBase = styled.div<SelectStyleProps>(
+    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position }) => ({
+        ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen }),
+        display: 'flex',
+        flexDirection: 'row' as const,
+        gap: spacing.xsm,
+        transition: sharedTransition,
+        justifyContent: 'space-between',
+        alignSelf: position || 'end',
+        minHeight: '42px',
+        alignItems: 'center',
+        overflow: 'auto',
+        textWrapMode: 'nowrap',
+        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
+        width: width === 'full' ? '100%' : `max-content`,
+    }),
+);
 
 export const SelectLabelContainer = styled.div({
     display: 'flex',
@@ -69,23 +71,25 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
     };
 });
 
-export const Dropdown = styled.div({
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    borderRadius: radius.md,
-    background: colors.white,
-    zIndex: 900,
-    transition: sharedTransition,
-    boxShadow: shadows.dropdown,
-    padding: spacing.xsm,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    marginTop: '4px',
-    maxHeight: '360px',
-    overflow: 'auto',
+export const Dropdown = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => {
+    return {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        borderRadius: radius.md,
+        background: colors.white,
+        zIndex: 900,
+        transition: sharedTransition,
+        boxShadow: shadows.dropdown,
+        padding: spacing.xsm,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        marginTop: '4px',
+        maxHeight: ignoreMaxHeight ? undefined : '360px',
+        overflow: 'auto',
+    };
 });
 
 export const SearchInputContainer = styled.div({
@@ -188,8 +192,9 @@ export const OptionLabel = styled.label<{
     isSelected: boolean;
     isMultiSelect?: boolean;
     isDisabled?: boolean;
-}>(({ isSelected, isMultiSelect, isDisabled }) => ({
-    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled),
+    applyHoverWidth?: boolean;
+}>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth }) => ({
+    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth),
 }));
 export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
     ({ isSelected, isDisabled }) => ({

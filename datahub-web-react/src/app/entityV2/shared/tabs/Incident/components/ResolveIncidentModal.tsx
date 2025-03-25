@@ -1,7 +1,5 @@
 import React from 'react';
-import { Modal, Form, Input } from 'antd';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal, Button, Form, Input } from 'antd';
 import { IncidentState } from '../../../../../../types.generated';
 
 const { TextArea } = Input;
@@ -37,14 +35,12 @@ export const ResolveIncidentModal = ({
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[
-                    <ModalButtonContainer>
-                        <Button variant="text" onClick={handleClose}>
-                            Cancel
-                        </Button>
-                        <Button variant="filled" form="resolveIncidentForm" key="submit" data-testid="confirm-resolve">
-                            Resolve
-                        </Button>
-                    </ModalButtonContainer>,
+                    <Button type="text" onClick={handleClose}>
+                        Cancel
+                    </Button>,
+                    <Button form="resolveIncidentForm" key="submit" htmlType="submit" data-testid="confirm-resolve">
+                        Resolve
+                    </Button>,
                 ]}
             >
                 <Form form={form} name="resolveIncidentForm" onFinish={onResolvedIncident} layout="vertical">
