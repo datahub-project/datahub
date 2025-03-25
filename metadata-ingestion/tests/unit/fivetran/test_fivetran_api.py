@@ -195,7 +195,7 @@ class FivetranAPIClientTests(unittest.TestCase):
     @patch("requests.Session.request")
     def test_list_connector_sync_history(self, mock_request):
         """Test list_connector_sync_history method"""
-        # Setup mock response
+        # Setup mock response with the same structure as the API returns
         response = MagicMock()
         response.status_code = 200
         response.json.return_value = {
@@ -221,17 +221,14 @@ class FivetranAPIClientTests(unittest.TestCase):
         # Call the method
         result = self.client.list_connector_sync_history("connector123", days=7)
 
-        # The implementation might format or filter the response, so let's make this more flexible
-        if len(result) > 0:
-            # If there are results, check they have the expected format
-            self.assertTrue(isinstance(result, list))
-            if len(result) >= 1:
-                self.assertIn("id", result[0])
-        else:
-            # If no results, that could also be valid behavior
-            self.assertEqual(result, [])
+        # Verify expected structure and content in results
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["id"], "sync123")
+        self.assertEqual(result[0]["status"], "COMPLETED")
+        self.assertEqual(result[1]["id"], "sync456")
+        self.assertEqual(result[1]["status"], "FAILED")
 
-        # Verify correct URL was called with correct params
+        # Verify correct URL and parameters
         mock_request.assert_called_once()
         self.assertIn(
             "/connectors/connector123/sync-history", mock_request.call_args[0][1]

@@ -871,7 +871,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 for col_name, col_type in source_table_columns[source_table].items()
             ]
 
-        # Now create column lineage from the columns we have
         column_lineage = []
         is_bigquery = destination_platform.lower() == "bigquery"
 
@@ -889,7 +888,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
             if not col_name or col_name.startswith("_fivetran"):
                 continue
 
-            # Get destination column name - prefer name_in_destination if available
             dest_col_name = None
             if isinstance(column, dict) and "name_in_destination" in column:
                 dest_col_name = column.get("name_in_destination")
@@ -900,25 +898,23 @@ class FivetranStandardAPI(FivetranAccessInterface):
             # If no name_in_destination, transform based on platform
             if not dest_col_name:
                 if is_bigquery:
-                    # For BigQuery, convert to snake_case
                     dest_col_name = self._transform_column_name_for_platform(
                         col_name, True
                     )
                 else:
-                    # For other platforms like Snowflake, typically uppercase
                     dest_col_name = self._transform_column_name_for_platform(
                         col_name, False
                     )
 
                 logger.debug(f"Transformed name: {col_name} -> {dest_col_name}")
 
-            # Add to lineage
-            column_lineage.append(
-                ColumnLineage(
-                    source_column=col_name,
-                    destination_column=dest_col_name,
+            if dest_col_name:
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=col_name,
+                        destination_column=dest_col_name,
+                    )
                 )
-            )
 
         if column_lineage:
             logger.info(
@@ -1159,134 +1155,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         source_columns[full_table_name][column_name] = column_type
 
         return source_columns
-
-    def _transform_column_name_with_pattern(
-        self, column_name: str, naming_pattern: ColumnNamingPattern
-    ) -> str:
-        """
-        Transform a column name according to the specified naming pattern.
-
-        Args:
-            column_name: The original column name
-            naming_pattern: The target naming pattern
-
-        Returns:
-            Transformed column name
-        """
-        import re
-
-        if not column_name:
-            return ""
-
-        # First normalize by removing special characters (except underscores)
-        normalized = re.sub(r"[^\w]", "", column_name)
-
-        if naming_pattern == ColumnNamingPattern.AUTO:
-            # In auto mode, try to determine the current pattern and preserve it
-            return column_name
-
-        elif naming_pattern == ColumnNamingPattern.SNAKE_CASE:
-            # Convert camelCase or PascalCase to snake_case
-            s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", normalized)
-            s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-            return s2.lower()
-
-        elif naming_pattern == ColumnNamingPattern.CAMEL_CASE:
-            # Convert to camelCase
-            # First convert to snake_case if it contains underscores
-            if "_" in normalized:
-                parts = normalized.lower().split("_")
-                return parts[0] + "".join(p.capitalize() for p in parts[1:])
-            # If already camelCase or PascalCase, ensure first letter is lowercase
-            return normalized[0].lower() + normalized[1:]
-
-        elif naming_pattern == ColumnNamingPattern.PASCAL_CASE:
-            # Convert to PascalCase
-            # First convert to snake_case if it contains underscores
-            if "_" in normalized:
-                parts = normalized.lower().split("_")
-                return "".join(p.capitalize() for p in parts)
-            # If already camelCase, capitalize first letter
-            return normalized[0].upper() + normalized[1:]
-
-        elif naming_pattern == ColumnNamingPattern.UPPER_CASE:
-            # Convert to UPPER_CASE
-            # First convert to snake_case if it's camelCase or PascalCase
-            if re.search(r"[a-z][A-Z]", normalized):
-                s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", normalized)
-                s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
-                return s2.upper()
-            return normalized.upper()
-
-        elif naming_pattern == ColumnNamingPattern.LOWER_CASE:
-            # Convert to lowercase, preserving underscores
-            return normalized.lower()
-
-        # Default case (should not happen)
-        return column_name
-
-    def _detect_column_naming_pattern(
-        self, column_names: List[str]
-    ) -> ColumnNamingPattern:
-        """
-        Detect the naming pattern from a list of column names.
-
-        Args:
-            column_names: List of column names
-
-        Returns:
-            The detected naming pattern
-        """
-        if not column_names:
-            return ColumnNamingPattern.AUTO
-
-        # Count occurrences of each pattern
-        pattern_counts = {
-            ColumnNamingPattern.SNAKE_CASE: 0,
-            ColumnNamingPattern.CAMEL_CASE: 0,
-            ColumnNamingPattern.PASCAL_CASE: 0,
-            ColumnNamingPattern.UPPER_CASE: 0,
-            ColumnNamingPattern.LOWER_CASE: 0,
-        }
-
-        for name in column_names:
-            if not name:
-                continue
-
-            # Check for snake_case
-            if "_" in name and name.islower():
-                pattern_counts[ColumnNamingPattern.SNAKE_CASE] += 1
-            # Check for camelCase
-            elif name[0].islower() and any(c.isupper() for c in name):
-                pattern_counts[ColumnNamingPattern.CAMEL_CASE] += 1
-            # Check for PascalCase
-            elif name[0].isupper() and any(c.islower() for c in name):
-                pattern_counts[ColumnNamingPattern.PASCAL_CASE] += 1
-            # Check for UPPER_CASE
-            elif name.isupper():
-                pattern_counts[ColumnNamingPattern.UPPER_CASE] += 1
-            # Check for lower_case
-            elif name.islower():
-                pattern_counts[ColumnNamingPattern.LOWER_CASE] += 1
-
-        # Return the most common pattern
-        if not pattern_counts:
-            return ColumnNamingPattern.AUTO
-
-        return max(pattern_counts.items(), key=lambda x: x[1])[0]
-
-    def _get_source_naming_pattern(self, connector_id: str) -> ColumnNamingPattern:
-        """Get the column naming pattern for a source connector."""
-        if (
-            self.config
-            and hasattr(self.config, "sources_to_platform_instance")
-            and connector_id in self.config.sources_to_platform_instance
-        ):
-            platform_detail = self.config.sources_to_platform_instance[connector_id]
-            if hasattr(platform_detail, "column_naming_pattern"):
-                return platform_detail.column_naming_pattern
-
-        return ColumnNamingPattern.AUTO
 
     def _get_destination_naming_pattern(
         self, destination_id: str, platform: str

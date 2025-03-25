@@ -157,7 +157,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                 destination_details.database = connector.additional_properties.get(
                     "destination_database"
                 )
-            # For BigQuery, use the dataset from the config
             elif (
                 destination_details.platform == "bigquery"
                 and hasattr(self.config, "fivetran_log_config")
@@ -354,22 +353,23 @@ class FivetranSource(StatefulIngestionSourceBase):
     ) -> None:
         """Create column-level lineage between source and destination tables with better diagnostics."""
         if not source_urn or not dest_urn:
+            logger.warning(
+                "Cannot create column lineage: Missing source or destination URN"
+            )
             return
 
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
-
-        dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
-        is_bigquery = dest_platform.lower() == "bigquery"
 
         if not lineage.column_lineage:
             logger.warning(
                 f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}"
             )
+            # Add table-level lineage when no column data is available
             fine_grained_lineage.append(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[str(source_urn)],
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD_SET,
                     downstreams=[str(dest_urn)],
                 )
             )
@@ -383,9 +383,15 @@ class FivetranSource(StatefulIngestionSourceBase):
                 not column_lineage.source_column
                 or not column_lineage.destination_column
             ):
+                logger.debug(
+                    "Skipping invalid column mapping with missing source or destination column"
+                )
                 continue
 
             if column_lineage.destination_column.startswith("_fivetran"):
+                logger.debug(
+                    f"Skipping Fivetran system column: {column_lineage.destination_column}"
+                )
                 continue
 
             valid_lineage.append(column_lineage)
@@ -408,10 +414,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     column_lineage.source_column,
                 )
 
-                # For BigQuery, ensure proper case and format
                 dest_column = column_lineage.destination_column
-                if is_bigquery:
-                    dest_column = dest_column.lower()
 
                 dest_field_urn = builder.make_schema_field_urn(
                     str(dest_urn),
