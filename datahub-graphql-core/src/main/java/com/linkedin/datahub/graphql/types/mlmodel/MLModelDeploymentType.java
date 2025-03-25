@@ -97,7 +97,7 @@ public class MLModelDeploymentType
                   gmsMLModelDeployment == null
                       ? null
                       : DataFetcherResult.<MLModelDeployment>newResult()
-                          .data(MLModelDeploymentMapper.map(gmsMLModelDeployment))
+                          .data(MLModelDeploymentMapper.map(context, gmsMLModelDeployment))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

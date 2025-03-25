@@ -3340,25 +3340,22 @@ public class GmsGraphQLEngine {
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
   }
 
-  /**
-   * Configures resolvers responsible for resolving the {@link
-   * com.linkedin.datahub.graphql.generated.MLModelDeployment} type.
-   */
-  private void configureMLModelDeploymentResolvers(final RuntimeWiring.Builder builder) {
+  private DataPlatform configureMLModelDeploymentResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "MLModelDeployment",
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
-                    "platform",
-                    new LoadableTypeResolver<>(
+                    "platform", 
+                    new LoadableTypeResolver<DataPlatform, String>(
                         dataPlatformType,
                         (env) -> {
                           final MLModelDeployment mlModelDeployment = env.getSource();
                           return mlModelDeployment.getPlatform() != null
-                              ? mlModelDeployment.getPlatform()
+                              ? mlModelDeployment.getPlatform().getUrn()
                               : null;
                         })));
+                            return null;
   }
 }

@@ -48,7 +48,6 @@ query getMLModel($urn: String!) {
                     ... on MLModelDeployment {
                         urn
                         name
-                        platform
                         properties {
                             description
                         }
