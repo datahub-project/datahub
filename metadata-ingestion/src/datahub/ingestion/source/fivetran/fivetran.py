@@ -782,7 +782,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         destination_platform = self._get_destination_platform(connector)
 
         # Create job description
-        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform} (Lineage Only)"
+        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
 
         # Get owner information
         owner_email = self.fivetran_access.get_user_email(connector.user_id)
@@ -1303,8 +1303,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
         # Create job name and description
-        job_name = f"Fivetran: {source_table} → {destination_table} (Lineage Only)"
-        job_description = f"Fivetran data pipeline from {source_table} to {destination_table} (No job history)"
+        job_name = f"Fivetran: {source_table} → {destination_table}"
+        job_description = (
+            f"Fivetran data pipeline from {source_table} to {destination_table}"
+        )
 
         # Get owner information
         owner_email = self.fivetran_access.get_user_email(connector.user_id)
