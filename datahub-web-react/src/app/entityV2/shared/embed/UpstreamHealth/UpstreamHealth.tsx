@@ -149,7 +149,7 @@ export default function UpstreamHealth() {
             setDirectUpstreamEntities(
                 directUpstreamData.searchAcrossLineage.searchResults
                     .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
-                    .filter((e) => e !== null),
+                    .filter((e) => e !== null) as GenericEntityProperties[],
             );
             setDirectUpstreamsDataTotal(directUpstreamData.searchAcrossLineage.total);
         }
@@ -165,7 +165,7 @@ export default function UpstreamHealth() {
             setIndirectUpstreamEntities(
                 indirectUpstreamData.searchAcrossLineage.searchResults
                     .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
-                    .filter((e) => e !== null),
+                    .filter((e) => e !== null) as GenericEntityProperties[],
             );
             setIndirectUpstreamsDataTotal(indirectUpstreamData.searchAcrossLineage.total);
         }
@@ -187,9 +187,9 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setDirectUpstreamEntities([
                     ...directUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults
+                    ...(result.data.searchAcrossLineage.searchResults
                         .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
-                        .filter((e) => e !== null),
+                        .filter((e) => e !== null) as GenericEntityProperties[]),
                 ]);
             }
         });
@@ -207,9 +207,9 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setIndirectUpstreamEntities([
                     ...indirectUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults
+                    ...(result.data.searchAcrossLineage.searchResults
                         .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
-                        .filter((e) => e !== null),
+                        .filter((e) => e !== null) as GenericEntityProperties[]),
                 ]);
             }
         });
