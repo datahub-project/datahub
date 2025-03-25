@@ -1,3 +1,4 @@
+import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
 import { CloseOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -123,6 +124,11 @@ const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
     EntityType.Tag,
 ]);
 
+const RightColumn = styled.div`
+    max-width: 40%;
+    display: flex;
+`;
+
 interface Props {
     name: string;
     urn: string;
@@ -173,6 +179,11 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
+    dataProcessInstanceProps?: {
+        startTime?: number;
+        duration?: number;
+        status?: string;
+    };
 }
 
 export default function DefaultPreviewCard({
@@ -219,6 +230,7 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
+    dataProcessInstanceProps,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -247,6 +259,10 @@ export default function DefaultPreviewCard({
     const { isFullViewCard } = useSearchContext();
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
+
+    console.log('dataProcessInstanceProps', dataProcessInstanceProps);
+    const shouldShowRightColumn =
+        dataProcessInstanceProps?.startTime || dataProcessInstanceProps?.duration || dataProcessInstanceProps?.status;
 
     const entityHeader = (
         <EntityHeader
@@ -323,6 +339,11 @@ export default function DefaultPreviewCard({
                             <Documentation>{removeMarkdown(description)}</Documentation>
                         </RowContainer>
                     ) : null}
+                    {shouldShowRightColumn && (
+                        <RightColumn key="right-column">
+                            <DataProcessInstanceRightColumn {...dataProcessInstanceProps} />
+                        </RightColumn>
+                    )}
                 </>
             ) : (
                 <CompactView
