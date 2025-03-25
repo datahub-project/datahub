@@ -51,11 +51,19 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
     """
     from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
     from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+
+    # Import the parallel implementation
+    from datahub.ingestion.source.fivetran.fivetran_parallel_standard_api import (
+        enhance_with_parallel_processing,
+    )
     from datahub.ingestion.source.fivetran.fivetran_standard_api import (
         FivetranStandardAPI,
     )
 
     mode = getattr(config, "fivetran_mode", FivetranMode.AUTO)
+
+    # Check if parallel processing is enabled
+    use_parallel = getattr(config, "use_parallel_processing", False)
 
     # Explicit enterprise mode selection
     if mode == FivetranMode.ENTERPRISE:
@@ -74,7 +82,14 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
         if not hasattr(config, "api_config") or config.api_config is None:
             raise ValueError("Standard mode requires api_config")
         logger.info("Using standard mode with REST API")
-        return FivetranStandardAPI(FivetranAPIClient(config.api_config), config=config)
+        api_client = FivetranAPIClient(config.api_config)
+
+        # Use parallel implementation if enabled
+        if use_parallel:
+            logger.info("Parallel processing enabled for API calls")
+            return enhance_with_parallel_processing(config, api_client)
+        else:
+            return FivetranStandardAPI(api_client, config=config)
 
     # Auto-detect mode - TRY ENTERPRISE FIRST, then fall back to standard
     # Special handling for test environments
@@ -125,9 +140,14 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             # Fall back to standard mode if we have API config
             if hasattr(config, "api_config") and config.api_config is not None:
                 logger.info("Falling back to standard mode with REST API")
-                return FivetranStandardAPI(
-                    FivetranAPIClient(config.api_config), config=config
-                )
+                api_client = FivetranAPIClient(config.api_config)
+
+                # Use parallel implementation if enabled
+                if use_parallel:
+                    logger.info("Parallel processing enabled for API calls")
+                    return enhance_with_parallel_processing(config, api_client)
+                else:
+                    return FivetranStandardAPI(api_client, config=config)
             else:
                 # Re-raise the error if we can't fall back, properly chaining the exception
                 raise ValueError(
@@ -137,7 +157,14 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
     # If no enterprise config, try standard
     if hasattr(config, "api_config") and config.api_config is not None:
         logger.info("Auto-detected standard mode based on provided API config")
-        return FivetranStandardAPI(FivetranAPIClient(config.api_config), config=config)
+        api_client = FivetranAPIClient(config.api_config)
+
+        # Use parallel implementation if enabled
+        if use_parallel:
+            logger.info("Parallel processing enabled for API calls")
+            return enhance_with_parallel_processing(config, api_client)
+        else:
+            return FivetranStandardAPI(api_client, config=config)
 
     raise ValueError(
         "Cannot determine Fivetran mode from configuration. "

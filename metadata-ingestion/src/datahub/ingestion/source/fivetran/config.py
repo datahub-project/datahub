@@ -263,6 +263,16 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="The number of days to look back when extracting connectors' sync history.",
     )
 
+    use_parallel_processing: bool = Field(
+        default=True,
+        description="Enable parallel processing for API calls to improve performance (standard mode only).",
+    )
+
+    max_workers: int = Field(
+        default=10,
+        description="Maximum number of worker threads for parallel processing. Only used when use_parallel_processing is True.",
+    )
+
     @root_validator
     def validate_config_based_on_mode(cls, values: Dict) -> Dict:
         """Validate configuration based on the selected mode."""
