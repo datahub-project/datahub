@@ -1103,6 +1103,78 @@ class FivetranAPIClient:
         response = self._make_request("GET", "/users")
         return response.get("data", {}).get("items", [])
 
+    def _get_group_id_by_name_or_id(self, group_name_or_id: str) -> Optional[str]:
+        """
+        Find the group ID by its name or verify that an ID is valid.
+
+        Args:
+            group_name_or_id: Either a group name or ID
+
+        Returns:
+            The group ID if found, or None if not found
+        """
+        # Check if this is already an ID that exists
+        try:
+            # Try to get the group directly by ID first
+            self._make_request("GET", f"/groups/{group_name_or_id}")
+            # If successful, it's a valid ID
+            logger.debug(f"Confirmed {group_name_or_id} is a valid group ID")
+            return group_name_or_id
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code != 404:
+                # For errors other than 404, re-raise
+                raise
+            # For 404, continue with name lookup
+            logger.debug(
+                f"{group_name_or_id} is not a valid group ID, trying as name lookup"
+            )
+            pass
+
+        # If we get here, the ID wasn't valid, so try to find by name
+        try:
+            # List all groups to find the ID by name
+            groups = self.list_groups()
+
+            # First check for exact name match
+            for group in groups:
+                if group.get("name") == group_name_or_id:
+                    group_id = group.get("id")
+                    if group_id:
+                        logger.info(
+                            f"Found group ID {group_id} for name: {group_name_or_id}"
+                        )
+                        return group_id
+
+            # If no exact match, try case-insensitive match
+            for group in groups:
+                if group.get("name", "").lower() == group_name_or_id.lower():
+                    group_id = group.get("id")
+                    if group_id:
+                        logger.info(
+                            f"Found group ID {group_id} for name (case-insensitive): {group_name_or_id}"
+                        )
+                        return group_id
+
+            # If still no match, check if the value is a destination ID used in any connector
+            connectors = self.list_connectors()
+            for connector in connectors:
+                group_field = connector.get("group", {})
+                if (
+                    isinstance(group_field, dict)
+                    and group_field.get("id") == group_name_or_id
+                ):
+                    logger.info(
+                        f"Confirmed {group_name_or_id} is a valid group ID referenced in connector"
+                    )
+                    return group_name_or_id
+
+            logger.warning(f"Could not find group with name: {group_name_or_id}")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error trying to find group ID by name: {e}")
+            return None
+
     def get_destination_details(self, group_id: str) -> Dict[str, Any]:
         """Get details about a destination group with enhanced error handling and logging"""
         if not group_id:
@@ -1115,6 +1187,17 @@ class FivetranAPIClient:
             return self._destination_cache[group_id]
 
         try:
+            # First, try to find the right group ID if this might be a name
+            real_group_id = self._get_group_id_by_name_or_id(group_id)
+            if not real_group_id:
+                logger.warning(f"Could not find a valid group ID for: {group_id}")
+                real_group_id = group_id  # Fall back to the original value
+            elif real_group_id != group_id:
+                logger.info(
+                    f"Resolved group name/ID '{group_id}' to ID '{real_group_id}'"
+                )
+                group_id = real_group_id  # Use the resolved ID
+
             logger.debug(f"Fetching destination details for group ID: {group_id}")
             response = self._make_request("GET", f"/groups/{group_id}")
             destination_data = response.get("data", {})
@@ -1172,6 +1255,14 @@ class FivetranAPIClient:
             return "snowflake"  # Default if no group_id is provided
 
         try:
+            # First, verify that we have the correct ID
+            real_group_id = self._get_group_id_by_name_or_id(group_id)
+            if real_group_id and real_group_id != group_id:
+                logger.info(
+                    f"Using resolved group ID {real_group_id} instead of {group_id}"
+                )
+                group_id = real_group_id
+
             destination = self.get_destination_details(group_id)
             logger.debug(f"Destination details for {group_id}: {destination}")
 
@@ -1250,10 +1341,18 @@ class FivetranAPIClient:
             return "snowflake"  # Default to snowflake if detection failed
         except Exception as e:
             logger.warning(f"Error in detect_destination_platform for {group_id}: {e}")
-            return "snowflake"  # Default on error
+            return "snowflake"
 
     def get_destination_database(self, group_id: str) -> str:
         """Get the database name for a destination."""
+        # First, verify that we have the correct ID
+        real_group_id = self._get_group_id_by_name_or_id(group_id)
+        if real_group_id and real_group_id != group_id:
+            logger.info(
+                f"Using resolved group ID {real_group_id} instead of {group_id}"
+            )
+            group_id = real_group_id
+
         destination = self.get_destination_details(group_id)
 
         # Check config for database information
