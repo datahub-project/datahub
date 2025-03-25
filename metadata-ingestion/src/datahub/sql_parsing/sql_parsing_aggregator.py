@@ -1474,7 +1474,7 @@ class SqlParsingAggregator(Closeable):
                     created=query.make_created_audit_stamp(),
                     lastModified=query.make_last_modified_audit_stamp(),
                     origin=query.origin.urn() if query.origin else None,
-                    # customProperties=query.extra_info, # TODO: pending on PR for  model update
+                    customProperties=query.extra_info,
                 ),
                 models.QuerySubjectsClass(
                     subjects=[
