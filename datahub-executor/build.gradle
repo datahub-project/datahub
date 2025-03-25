@@ -30,7 +30,7 @@ ext {
 }
 
 task checkPythonVersion(type: Exec) {
-    commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 9)'
+    commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 10)'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {

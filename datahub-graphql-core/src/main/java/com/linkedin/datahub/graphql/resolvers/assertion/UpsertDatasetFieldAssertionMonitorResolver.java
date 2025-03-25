@@ -4,7 +4,9 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.UpsertDatasetFieldAssertionMonitorInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
+import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
@@ -24,6 +27,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,20 +37,31 @@ public class UpsertDatasetFieldAssertionMonitorResolver
   private final AssertionService _assertionService;
   private final MonitorService _monitorService;
   private final GraphClient _graphClient;
+  final LongSupplier _timeProvider;
 
   public UpsertDatasetFieldAssertionMonitorResolver(
       @Nonnull final AssertionService assertionService,
       @Nonnull final MonitorService monitorService,
       @Nonnull final GraphClient graphClient) {
+    this(assertionService, monitorService, graphClient, System::currentTimeMillis);
+  }
+
+  public UpsertDatasetFieldAssertionMonitorResolver(
+      @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull final LongSupplier timeProvider) {
     _monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
     _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
     _graphClient = Objects.requireNonNull(graphClient, "graphClient is required");
+    _timeProvider = timeProvider;
   }
 
   @Override
   public CompletableFuture<Assertion> get(final DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
+    final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
     final String maybeAssertionUrn = environment.getArgument("assertionUrn");
     final UpsertDatasetFieldAssertionMonitorInput input =
         ResolverUtils.bindArgument(
@@ -61,8 +76,15 @@ public class UpsertDatasetFieldAssertionMonitorResolver
       if (input.getEntityUrn() == null) {
         throw new IllegalArgumentException("Failed to create Assertion. entityUrn is required.");
       }
+
       assertionUrn = _assertionService.generateAssertionUrn();
-      assertionSource = null;
+      assertionSource = new AssertionSource();
+      assertionSource.setType(
+          input.getInferWithAI() != null && input.getInferWithAI()
+              ? AssertionSourceType.INFERRED
+              : AssertionSourceType.NATIVE);
+      assertionSource.setCreated(
+          new AuditStamp().setActor(actorUrn).setTime(_timeProvider.getAsLong()));
       entityUrn = UrnUtils.getUrn(input.getEntityUrn());
 
       monitorUrn = _monitorService.generateMonitorUrn(entityUrn);
@@ -106,7 +128,9 @@ public class UpsertDatasetFieldAssertionMonitorResolver
                   createCronSchedule(input.getEvaluationSchedule()),
                   createFieldAssertionEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
-                  input.getExecutorId());
+                  input.getExecutorId(),
+                  MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
+                      input.getInferenceSettings()));
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {

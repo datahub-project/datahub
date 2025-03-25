@@ -1,6 +1,7 @@
 import React from 'react';
 import QueryString from 'query-string';
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { colors } from '@src/alchemy-components';
 import {
     AssertionResult,
     AssertionResultErrorType,
@@ -34,7 +35,7 @@ export const sortAssertions = (a, b) => {
 /**
  * Returns the display text assoociated with an AssertionResultType
  */
-export const getResultText = (result: AssertionResultType) => {
+export const getResultText = (result: AssertionResultType, isSmartAssertion?: boolean) => {
     switch (result) {
         case AssertionResultType.Success:
             return 'Passed';
@@ -43,7 +44,7 @@ export const getResultText = (result: AssertionResultType) => {
         case AssertionResultType.Error:
             return 'Error';
         case AssertionResultType.Init:
-            return 'Initializing';
+            return isSmartAssertion ? 'Training' : 'Initializing';
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
@@ -55,7 +56,7 @@ export const getResultText = (result: AssertionResultType) => {
 const SUCCESS_COLOR_HEX = '#4db31b';
 const FAILURE_COLOR_HEX = '#F5222D';
 const ERROR_COLOR_HEX = '#FAAD14';
-const INIT_COLOR_HEX = '#2F54EB';
+const INIT_COLOR_HEX = colors.blue[500];
 const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
 
 export const getResultColor = (result?: AssertionResultType) => {

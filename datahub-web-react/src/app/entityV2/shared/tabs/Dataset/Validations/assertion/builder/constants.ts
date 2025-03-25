@@ -19,6 +19,10 @@ export const DEFAULT_ASSERTION_EVALUATION_SCHEDULE = '0 */6 * * *';
 export const DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT = DateInterval.Hour;
 export const DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE = 6;
 
+// Default schedule for AI inferred assertions
+export const AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON = '0 * * * *'; // hourly cron expression
+export const AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 // Information used for rendering different types of assertions.
 export const ASSERTION_TYPES = [
     {
@@ -39,18 +43,18 @@ export const HIGH_WATERMARK_FIELD_TYPES = new Set([
 
 // Default state used to initialize the Assertion Monitor Builder.
 export const DEFAULT_BUILDER_STATE = {
-    entityUrn: null,
+    entityUrn: undefined,
     assertion: {
-        type: null,
-        freshnessAssertion: null,
-        volumeAssertion: null,
-        actions: null,
+        type: undefined,
+        freshnessAssertion: undefined,
+        volumeAssertion: undefined,
+        actions: undefined,
     },
     schedule: {
         cron: DEFAULT_ASSERTION_EVALUATION_SCHEDULE, // Every 6 hours.
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
-    parameters: null,
+    parameters: undefined,
 };
 
 // Default assertion definition used when the selected type is Freshness.

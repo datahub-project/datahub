@@ -1207,11 +1207,6 @@ enum EntityType {
     """
     INCIDENT
 
-    """
-    An anomaly detected or an asset
-    """
-    ANOMALY
-
     """"
     A Role from an organisation
     """
@@ -7969,6 +7964,28 @@ type TimeWindow {
   The end time of the time window
   """
   durationMillis: Long!
+}
+
+"""
+A time window with a finite start and end time
+"""
+type AbsoluteTimeWindow {
+  """ The start time of the time window. """
+  startTimeMillis: Long!
+
+  """ The end time of the time window. """
+  endTimeMillis: Long!
+}
+
+"""
+A time window with a finite start and end time
+"""
+input AbsoluteTimeWindowInput {
+  """ The start time of the time window. """
+  startTimeMillis: Long!
+
+  """ The end time of the time window. """
+  endTimeMillis: Long!
 }
 
 """

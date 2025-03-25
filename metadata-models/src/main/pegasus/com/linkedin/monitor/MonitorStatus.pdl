@@ -28,4 +28,34 @@ record MonitorStatus {
         */
        PASSIVE
     }
+
+    /**
+     * The start time of the monitor
+     */
+     @Searchable = { }
+     state: optional enum MonitorState {
+        /**
+         * The monitor is in the training stage.
+         */
+        TRAINING
+        /**
+         * The monitor is in the evaluation stage.
+         */
+        EVALUATION
+        /**
+         * The monitor is in the evaluation stage.
+         */
+        ERROR
+     }
+
+    /**
+     * The last time the monitor was started
+     */
+    error: optional MonitorError
+
+    /**
+     * The last time the monitor was started
+     */
+     @Searchable = { }
+     reviewedAt: optional long
 }

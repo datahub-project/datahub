@@ -2,8 +2,8 @@ import React from 'react';
 
 import { Collapse } from 'antd';
 import styled from 'styled-components';
-
-import { AssertionMonitorBuilderState } from '../../types';
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
+import { AssertionMonitorBuilderState, FieldMetricAssertionBuilderOperatorOptions } from '../../types';
 import {
     AssertionType,
     CronSchedule,
@@ -21,6 +21,7 @@ import { FieldRowCheckBuilder } from './FieldRowCheckBuilder';
 import { FieldMetricSourceBuilder } from './FieldMetricSourceBuilder';
 import { FieldFilterBuilder } from './FieldFilterBuilder';
 import { FieldErrorThresholdBuilder } from './FieldErrorThresholdBuilder';
+import { FieldMetricInferenceAdjuster } from '../inferred/FieldMetricInferenceAdjuster';
 
 const Section = styled.div`
     padding-bottom: 20px;
@@ -36,16 +37,20 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
 /**
  * Step for defining the Dataset Field assertion
  */
-export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) => {
+export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode }: Props) => {
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
     const isFieldValuesAssertion = fieldAssertion?.type === FieldAssertionType.FieldValues;
     const isFieldMetricAssertion = fieldAssertion?.type === FieldAssertionType.FieldMetric;
+
+    const isAIInferred =
+        fieldAssertion?.fieldMetricAssertion?.operator === FieldMetricAssertionBuilderOperatorOptions.AiInferred;
 
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
@@ -61,7 +66,7 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
                 ...state.assertion,
                 fieldAssertion: {
                     ...state.assertion?.fieldAssertion,
-                    filter: newFilter,
+                    filter: nullsToUndefined(newFilter),
                 },
             },
         });
@@ -69,8 +74,11 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
 
     return (
         <div>
-            <FieldTypeBuilder value={state} onChange={updateState} disabled={disabled} />
-            <FieldColumnBuilder value={state} onChange={updateState} disabled={disabled} />
+            {/* Do not allow editing after assertion is created */}
+            <FieldTypeBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
+            {/* Do not allow editing after assertion is created */}
+            <FieldColumnBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
+
             {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
                 <>
                     <FieldValuesParameterBuilder value={state} onChange={updateState} disabled={disabled} />
@@ -78,12 +86,16 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
                 </>
             )}
             {isFieldMetricAssertion && fieldAssertion?.fieldMetricAssertion?.field?.path && (
-                <FieldMetricBuilder value={state} onChange={updateState} disabled={disabled} />
+                <FieldMetricBuilder value={state} onChange={updateState} disabled={disabled} isEditMode={isEditMode} />
             )}
-            <FieldRowCheckBuilder value={state} onChange={updateState} disabled={disabled} />
+            {/* Do not allow editing after assertion is created */}
+            <FieldRowCheckBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
             <Section>
                 <Collapse>
-                    <Collapse.Panel key="Advanced" header="Advanced">
+                    <Collapse.Panel
+                        key="Advanced"
+                        header={isFieldMetricAssertion ? 'Metrics collection mechanism' : 'Table query configuration'}
+                    >
                         <AdvancedSection>
                             {isFieldMetricAssertion && (
                                 <FieldMetricSourceBuilder value={state} onChange={updateState} disabled={disabled} />
@@ -102,13 +114,17 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
                 </Collapse>
             </Section>
 
-            <EvaluationScheduleBuilder
-                value={state.schedule}
-                onChange={updateAssertionSchedule}
-                assertionType={AssertionType.Field}
-                showAdvanced={false}
-                disabled={disabled}
-            />
+            {isAIInferred ? (
+                <FieldMetricInferenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+            ) : (
+                <EvaluationScheduleBuilder
+                    value={state.schedule}
+                    onChange={updateAssertionSchedule}
+                    assertionType={AssertionType.Field}
+                    showAdvanced={false}
+                    disabled={disabled}
+                />
+            )}
         </div>
     );
 };

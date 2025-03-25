@@ -1,7 +1,7 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { AssertionType } from '@src/types.generated';
+import { AssertionSourceType, AssertionType } from '@src/types.generated';
 
 import { Assertion, AssertionResult, DataContract, Monitor } from '../../../../../../../../types.generated';
 import { AssertionDescription } from './summary/AssertionDescription';
@@ -67,6 +67,7 @@ export const AssertionProfileHeader = ({
     refetch,
 }: Props) => {
     const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
     return (
         <>
             <NavBar>
@@ -98,7 +99,7 @@ export const AssertionProfileHeader = ({
                         'Assertion details'}
                 </Title>
                 <Status>
-                    <AssertionResultPill result={result} />
+                    <AssertionResultPill result={result} isSmartAssertion={isSmartAssertion} />
                 </Status>
             </Container>
         </>

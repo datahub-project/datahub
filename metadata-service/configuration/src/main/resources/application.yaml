@@ -665,7 +665,7 @@ featureFlags:
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
-  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
+  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   showFormAnalytics: ${SHOW_FORM_ANALYTICS:true} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
@@ -673,6 +673,7 @@ featureFlags:
   showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
   usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false} # If turned on, use the general Propagations Framework over specialized propagations actions
   displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false} # If turned on, display executor pools across the UI
+  onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:false} # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

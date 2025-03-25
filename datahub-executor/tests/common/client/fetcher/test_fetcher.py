@@ -6,6 +6,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.client.fetcher.monitors.fetcher import MonitorFetcher
 from datahub_executor.common.client.fetcher.monitors.graphql.query import (
+    GRAPHQL_LIST_MONITORS_OPERATION,
     GRAPHQL_LIST_MONITORS_QUERY,
 )
 from datahub_executor.common.constants import (
@@ -71,24 +72,6 @@ def test_fetch_freshness_assertion() -> None:
                                                 },
                                                 "source": {"type": "NATIVE"},
                                             },
-                                            "relationships": {
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:test",
-                                                            "type": "DATASET",
-                                                            "properties": {
-                                                                "name": "test_table",
-                                                                "qualifiedName": "test_db.public.test_table",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake"
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ]
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "0 * * * *",
@@ -104,6 +87,16 @@ def test_fetch_freshness_assertion() -> None:
                                 ]
                             },
                             "status": {"mode": "ACTIVE"},
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:test",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "test_table",
+                                "qualifiedName": "test_db.public.test_table",
+                            },
+                            "platform": {"urn": "urn:li:dataPlatform:snowflake"},
+                            "exists": True,
                         },
                     }
                 }
@@ -183,6 +176,7 @@ def test_fetch_freshness_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],
@@ -244,24 +238,6 @@ def test_fetch_volume_assertion() -> None:
                                                 },
                                                 "source": {"type": "NATIVE"},
                                             },
-                                            "relationships": {
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:test",
-                                                            "type": "DATASET",
-                                                            "properties": {
-                                                                "name": "test_table",
-                                                                "qualifiedName": "test_db.public.test_table",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake"
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ]
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "0 * * * *",
@@ -277,6 +253,16 @@ def test_fetch_volume_assertion() -> None:
                                 ]
                             },
                             "status": {"mode": "ACTIVE"},
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:test",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "test_table",
+                                "qualifiedName": "test_db.public.test_table",
+                            },
+                            "platform": {"urn": "urn:li:dataPlatform:snowflake"},
+                            "exists": True,
                         },
                     }
                 }
@@ -348,6 +334,7 @@ def test_fetch_volume_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],
@@ -440,32 +427,6 @@ def test_fetch_inferred_volume_assertion() -> None:
                                                     "payload": '{"volumeAssertion":{"type":"ROW_COUNT_TOTAL","entity":"urn:li:dataset:(urn:li:dataPlatform:snowflake,database_1.schema_1.message,PROD)","rowCountTotal":{"parameters":{"maxValue":{"type":"NUMBER","value":"2000.0"},"minValue":{"type":"NUMBER","value":"1000.0"}},"operator":"BETWEEN"}},"customProperties":{},"source":{"type":"INFERRED"},"type":"VOLUME"}',
                                                 }
                                             ],
-                                            "relationships": {
-                                                "start": 0,
-                                                "count": 1,
-                                                "total": 1,
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_1.schema_1.message,PROD)",
-                                                            "properties": {
-                                                                "name": "MESSAGE",
-                                                                "qualifiedName": "DATAHUB_COMMUNITY.DATAHUB_SLACK.MESSAGE",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake",
-                                                                "properties": {
-                                                                    "displayName": "Snowflake"
-                                                                },
-                                                            },
-                                                            "subTypes": {
-                                                                "typeNames": ["Table"]
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ],
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "* * * * *",
@@ -525,6 +486,19 @@ def test_fetch_inferred_volume_assertion() -> None:
                                     }
                                 ]
                             },
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_1.schema_1.message,PROD)",
+                            "properties": {
+                                "name": "MESSAGE",
+                                "qualifiedName": "DATAHUB_COMMUNITY.DATAHUB_SLACK.MESSAGE",
+                            },
+                            "platform": {
+                                "urn": "urn:li:dataPlatform:snowflake",
+                                "properties": {"displayName": "Snowflake"},
+                            },
+                            "subTypes": {"typeNames": ["Table"]},
+                            "exists": True,
                         },
                     }
                 }
@@ -677,6 +651,7 @@ def test_fetch_inferred_volume_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],
@@ -738,24 +713,6 @@ def test_fetch_sql_assertion() -> None:
                                                 },
                                                 "source": {"type": "NATIVE"},
                                             },
-                                            "relationships": {
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:test",
-                                                            "type": "DATASET",
-                                                            "properties": {
-                                                                "name": "test_table",
-                                                                "qualifiedName": "test_db.public.test_table",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake"
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ]
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "0 * * * *",
@@ -766,6 +723,16 @@ def test_fetch_sql_assertion() -> None:
                                 ]
                             },
                             "status": {"mode": "ACTIVE"},
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:test",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "test_table",
+                                "qualifiedName": "test_db.public.test_table",
+                            },
+                            "platform": {"urn": "urn:li:dataPlatform:snowflake"},
+                            "exists": True,
                         },
                     }
                 }
@@ -831,6 +798,7 @@ def test_fetch_sql_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],
@@ -884,7 +852,7 @@ def test_fetch_field_assertion() -> None:
                                                         "field": {
                                                             "path": "id",
                                                             "type": "STRING",
-                                                            "native_type": "STRING",
+                                                            "nativeType": "STRING",
                                                         },
                                                         "transform": {"type": "LENGTH"},
                                                         "operator": "EQUAL_TO",
@@ -906,24 +874,6 @@ def test_fetch_field_assertion() -> None:
                                                     "sql": "where foo='bar'",
                                                 },
                                             },
-                                            "relationships": {
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:test",
-                                                            "type": "DATASET",
-                                                            "properties": {
-                                                                "name": "test_table",
-                                                                "qualifiedName": "test_db.public.test_table",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake"
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ]
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "0 * * * *",
@@ -937,6 +887,7 @@ def test_fetch_field_assertion() -> None:
                                                     "kind": "LAST_MODIFIED",
                                                     "path": "timestamp_field",
                                                     "type": "TIMESTAMP",
+                                                    "nativeType": "timestamp",
                                                 },
                                             },
                                         },
@@ -944,6 +895,16 @@ def test_fetch_field_assertion() -> None:
                                 ]
                             },
                             "status": {"mode": "ACTIVE"},
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:test",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "test_table",
+                                "qualifiedName": "test_db.public.test_table",
+                            },
+                            "platform": {"urn": "urn:li:dataPlatform:snowflake"},
+                            "exists": True,
                         },
                     }
                 }
@@ -1004,6 +965,7 @@ def test_fetch_field_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],
@@ -1068,24 +1030,6 @@ def test_fetch_schema_assertion() -> None:
                                                 },
                                                 "source": {"type": "NATIVE"},
                                             },
-                                            "relationships": {
-                                                "relationships": [
-                                                    {
-                                                        "entity": {
-                                                            "urn": "urn:li:dataset:test",
-                                                            "type": "DATASET",
-                                                            "properties": {
-                                                                "name": "test_table",
-                                                                "qualifiedName": "test_db.public.test_table",
-                                                            },
-                                                            "platform": {
-                                                                "urn": "urn:li:dataPlatform:snowflake"
-                                                            },
-                                                            "exists": True,
-                                                        }
-                                                    }
-                                                ]
-                                            },
                                         },
                                         "schedule": {
                                             "cron": "0 * * * *",
@@ -1101,6 +1045,16 @@ def test_fetch_schema_assertion() -> None:
                                 ]
                             },
                             "status": {"mode": "ACTIVE"},
+                        },
+                        "entity": {
+                            "urn": "urn:li:dataset:test",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "test_table",
+                                "qualifiedName": "test_db.public.test_table",
+                            },
+                            "platform": {"urn": "urn:li:dataPlatform:snowflake"},
+                            "exists": True,
                         },
                     }
                 }
@@ -1207,6 +1161,7 @@ def test_fetch_schema_assertion() -> None:
     # Verify that the execute_graphql method was called
     graph.execute_graphql.assert_called_with(
         GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_LIST_MONITORS_OPERATION,
         variables={
             "input": {
                 "types": ["MONITOR"],

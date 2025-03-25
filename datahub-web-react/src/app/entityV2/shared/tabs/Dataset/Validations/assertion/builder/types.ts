@@ -1,6 +1,7 @@
 import {
     AssertionAction,
     AssertionEvaluationParametersType,
+    AssertionExclusionWindowType,
     AssertionStdOperator,
     AssertionStdParameterType,
     AssertionType,
@@ -26,24 +27,80 @@ import {
 } from '../../../../../../../../types.generated';
 
 /**
+ * Extending the graphql schedule type to include local options such as 'inferred'
+ */
+enum FreshnessAssertionBuilderExtraScheduleTypes {
+    AiInferred = 'AI_INFERRED',
+}
+export const FreshnessAssertionScheduleBuilderTypeOptions = {
+    ...FreshnessAssertionScheduleType,
+    ...FreshnessAssertionBuilderExtraScheduleTypes,
+};
+export type FreshnessAssertionBuilderScheduleType =
+    (typeof FreshnessAssertionScheduleBuilderTypeOptions)[keyof typeof FreshnessAssertionScheduleBuilderTypeOptions];
+
+export type FreshnessAssertionBuilderSchedule = Required<
+    Required<Required<AssertionMonitorBuilderState>['assertion']>['freshnessAssertion']
+>['schedule'];
+export type FreshnessAssertionBuilderFilter = Required<
+    Required<Required<AssertionMonitorBuilderState>['assertion']>['freshnessAssertion']
+>['filter'];
+
+/**
+ * Extending the graphql volume assertion type to include local options such as 'inferred'
+ */
+enum VolumeAssertionBuilderExtraTypes {
+    AiInferredRowCountTotal = 'AI_INFERRED_ROW_COUNT_TOTAL',
+}
+export const VolumeAssertionBuilderTypeOptions = {
+    ...VolumeAssertionBuilderExtraTypes,
+    ...VolumeAssertionType,
+};
+export type VolumeAssertionBuilderType =
+    (typeof VolumeAssertionBuilderTypeOptions)[keyof typeof VolumeAssertionBuilderTypeOptions];
+export type VolumeAssertionBuilderState = Required<
+    Required<AssertionMonitorBuilderState>['assertion']
+>['volumeAssertion'];
+
+/**
+ * Extending the graphql field metric operator type to include local options such as 'inferred'
+ */
+enum FieldMetricAssertionBuilderExtraOperators {
+    AiInferred = 'AI_INFERRED',
+}
+export const FieldMetricAssertionBuilderOperatorOptions = {
+    ...FieldMetricAssertionBuilderExtraOperators,
+    ...AssertionStdOperator,
+};
+export type FieldMetricAssertionBuilderOperator =
+    (typeof FieldMetricAssertionBuilderOperatorOptions)[keyof typeof FieldMetricAssertionBuilderOperatorOptions];
+
+/**
+ * Exclusion window type for the builder
+ */
+export type AssertionMonitorBuilderExclusionWindow = Required<
+    Required<AssertionMonitorBuilderState>['inferenceSettings']
+>['exclusionWindows'];
+
+/**
  * The object represents the state of the Assertion Builder form.
  */
 export interface AssertionMonitorBuilderState {
     /**
      * The urn of the entity associated with the monitor
      */
-    entityUrn?: string | null;
+    entityUrn?: string;
 
     /**
      * The type of the entity associated with the monitor
      */
-    entityType?: EntityType | null;
+    entityType?: EntityType;
 
     /**
      * The platform associated with the entity. Used to enable and disable specific
      * features within the flow based on platform support.
      */
-    platformUrn?: string | null;
+    platformUrn?: string;
 
     /**
      * The assertion definition itself.
@@ -52,17 +109,17 @@ export interface AssertionMonitorBuilderState {
         /**
          * The urn of the assertion. Only available if the assertion has been created and is being updated.
          */
-        urn?: string | null;
+        urn?: string;
 
         /**
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
          */
-        type?: AssertionType | null;
+        type?: AssertionType;
 
         /**
          * An optional human-readable description of the assertion
          */
-        description?: string | null;
+        description?: string;
 
         /**
          * The schedule on which to execute the source (optional)
@@ -71,7 +128,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The type of the Freshness assertion
              */
-            type?: FreshnessAssertionType | null;
+            type?: FreshnessAssertionType;
 
             /**
              * The schedule defining the assertion itself.
@@ -80,7 +137,7 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The type of the schedule.
                  */
-                type?: FreshnessAssertionScheduleType | null;
+                type?: FreshnessAssertionBuilderScheduleType;
 
                 /**
                  * A cron schedule definition
@@ -89,18 +146,18 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The cron definition string
                      */
-                    cron?: string | null;
+                    cron?: string;
 
                     /**
                      * The timezone in which the cron is defined
                      */
-                    timezone?: string | null;
+                    timezone?: string;
 
                     /**
                      * Optional start offset. If not provided, the window will be between
                      */
-                    windowStartOffsetMs?: number | null;
-                } | null;
+                    windowStartOffsetMs?: number;
+                };
 
                 /**
                  * A fixed interval schedule definition
@@ -115,8 +172,8 @@ export interface AssertionMonitorBuilderState {
                      * The number of units
                      */
                     multiple?: number;
-                } | null;
-            } | null;
+                };
+            };
 
             /**
              * An optional filter used to further partition the dataset
@@ -125,14 +182,14 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The filter type
                  */
-                type?: DatasetFilterType | null;
+                type?: DatasetFilterType;
 
                 /**
                  * The raw query if using a SQL FilterType
                  */
-                sql?: string | null;
-            } | null;
-        } | null;
+                sql?: string;
+            };
+        };
 
         /**
          * SQL assertion configuration
@@ -141,22 +198,22 @@ export interface AssertionMonitorBuilderState {
             /**
              * The type of the SQL assertion
              */
-            type?: SqlAssertionType | null;
+            type?: SqlAssertionType;
 
             /**
              * The SQL statement to execute
              */
-            statement?: string | null;
+            statement?: string;
 
             /**
              * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
              */
-            changeType?: AssertionValueChangeType | null;
+            changeType?: AssertionValueChangeType;
 
             /**
              * The operator you'd like to apply to the result of the SQL query
              */
-            operator?: AssertionStdOperator | null;
+            operator?: AssertionStdOperator;
 
             /**
              * The parameters for the SQL assertion
@@ -169,13 +226,13 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
+                    type?: AssertionStdParameterType;
+                };
 
                 /**
                  * The maxValue parameter of an assertion
@@ -184,13 +241,13 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
+                    type?: AssertionStdParameterType;
+                };
 
                 /**
                  * The minValue parameter of an assertion
@@ -199,14 +256,14 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
-            } | null;
+                    type?: AssertionStdParameterType;
+                };
+            };
         };
 
         /**
@@ -216,38 +273,38 @@ export interface AssertionMonitorBuilderState {
             /**
              * The type of the Volume assertion
              */
-            type?: VolumeAssertionType | null;
+            type?: VolumeAssertionBuilderType;
 
             segment?: {
                 field?: {
                     /**
                      * The path of the field
                      */
-                    path?: string | null;
+                    path?: string;
 
                     /**
                      * The DataHub type of the field
                      */
-                    type?: string | null;
+                    type?: string;
 
                     /**
                      * The native type of the field
                      */
-                    nativeType?: string | null;
-                } | null;
+                    nativeType?: string;
+                };
 
                 transformer?: {
                     /**
                      * The type of the transformer
                      */
-                    type?: IncrementingSegmentFieldTransformerType | null;
+                    type?: IncrementingSegmentFieldTransformerType;
 
                     /**
                      * The native type of the transformer
                      */
-                    nativeType?: string | null;
-                } | null;
-            } | null;
+                    nativeType?: string;
+                };
+            };
 
             /**
              * The parameters for the volume assertion
@@ -260,13 +317,13 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
+                    type?: AssertionStdParameterType;
+                };
 
                 /**
                  * The maxValue parameter of an assertion
@@ -275,13 +332,13 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
+                    type?: AssertionStdParameterType;
+                };
 
                 /**
                  * The minValue parameter of an assertion
@@ -290,14 +347,14 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The parameter value
                      */
-                    value?: string | null;
+                    value?: string;
 
                     /**
                      * The type of the parameter
                      */
-                    type?: AssertionStdParameterType | null;
-                } | null;
-            } | null;
+                    type?: AssertionStdParameterType;
+                };
+            };
 
             /**
              * Required if type is 'ROW_COUNT_TOTAL'
@@ -306,8 +363,8 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * A boolean operator that is applied on the input to an assertion
                  */
-                operator?: AssertionStdOperator | null;
-            } | null;
+                operator?: AssertionStdOperator;
+            };
 
             /**
              * Required if type is 'ROW_COUNT_CHANGE'
@@ -316,13 +373,13 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
                  */
-                type?: AssertionValueChangeType | null;
+                type?: AssertionValueChangeType;
 
                 /**
                  * A boolean operator that is applied on the input to an assertion
                  */
-                operator?: AssertionStdOperator | null;
-            } | null;
+                operator?: AssertionStdOperator;
+            };
 
             /**
              * Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
@@ -331,8 +388,8 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * A boolean operator that is applied on the input to an assertion
                  */
-                operator?: AssertionStdOperator | null;
-            } | null;
+                operator?: AssertionStdOperator;
+            };
 
             /**
              * Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
@@ -341,13 +398,13 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
                  */
-                type?: AssertionValueChangeType | null;
+                type?: AssertionValueChangeType;
 
                 /**
                  * A boolean operator that is applied on the input to an assertion
                  */
-                operator?: AssertionStdOperator | null;
-            } | null;
+                operator?: AssertionStdOperator;
+            };
 
             /**
              * An optional filter used to further partition the dataset
@@ -356,14 +413,14 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The filter type
                  */
-                type?: DatasetFilterType | null;
+                type?: DatasetFilterType;
 
                 /**
                  * The raw query if using a SQL FilterType
                  */
-                sql?: string | null;
-            } | null;
-        } | null;
+                sql?: string;
+            };
+        };
 
         /**
          * Field assertion configuration
@@ -372,7 +429,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The type of the Field assertion
              */
-            type?: FieldAssertionType | null;
+            type?: FieldAssertionType;
 
             /**
              * Required if type is 'FIELD_VALUES'
@@ -385,18 +442,18 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The path of the field
                      */
-                    path?: string | null;
+                    path?: string;
 
                     /**
                      * The DataHub type of the field
                      */
-                    type?: SchemaFieldDataType | null;
+                    type?: SchemaFieldDataType;
 
                     /**
                      * The native type of the field
                      */
-                    nativeType?: string | null;
-                } | null;
+                    nativeType?: string;
+                };
 
                 /**
                  * An optional transform to apply to field values
@@ -405,8 +462,8 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The type of the field transform
                      */
-                    type?: FieldTransformType | null;
-                } | null;
+                    type?: FieldTransformType;
+                };
 
                 /**
                  * The parameters for the field assertion
@@ -419,13 +476,13 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
+                        type?: AssertionStdParameterType;
+                    };
 
                     /**
                      * The maxValue parameter of an assertion
@@ -434,13 +491,13 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
+                        type?: AssertionStdParameterType;
+                    };
 
                     /**
                      * The minValue parameter of an assertion
@@ -449,14 +506,14 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
-                } | null;
+                        type?: AssertionStdParameterType;
+                    };
+                };
 
                 /**
                  * Additional customization about when the assertion should be considered to fail
@@ -465,24 +522,24 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The type of failure threshold
                      */
-                    type?: FieldValuesFailThresholdType | null;
+                    type?: FieldValuesFailThresholdType;
 
                     /**
                      * The value of the threshold
                      */
-                    value?: number | null;
-                } | null;
+                    value?: number;
+                };
 
                 /**
                  * Whether to ignore or allow nulls when running the values assertion
                  */
-                excludeNulls?: boolean | null;
+                excludeNulls?: boolean;
 
                 /**
                  * A boolean operator that is applied on the input to an assertion
                  */
-                operator?: AssertionStdOperator | null;
-            } | null;
+                operator?: AssertionStdOperator;
+            };
 
             /**
              * Required if type is 'FIELD_METRIC'
@@ -495,31 +552,32 @@ export interface AssertionMonitorBuilderState {
                     /**
                      * The path of the field
                      */
-                    path?: string | null;
+                    path?: string;
 
                     /**
                      * The DataHub type of the field
                      */
-                    type?: SchemaFieldDataType | null;
+                    type?: SchemaFieldDataType;
 
                     /**
                      * The native type of the field
                      */
-                    nativeType?: string | null;
-                } | null;
+                    nativeType?: string;
+                };
 
                 /**
                  * The specific metric to assert against
                  */
-                metric?: FieldMetricType | null;
+                metric?: FieldMetricType;
 
                 /**
                  * The predicate to evaluate against the metric for the field
                  */
-                operator?: AssertionStdOperator | null;
+                operator?: FieldMetricAssertionBuilderOperator;
 
                 /**
                  * The parameters for the field assertion
+                 * Ignored for AI inferred assertions
                  */
                 parameters?: {
                     /**
@@ -529,13 +587,13 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
+                        type?: AssertionStdParameterType;
+                    };
 
                     /**
                      * The maxValue parameter of an assertion
@@ -544,13 +602,13 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
+                        type?: AssertionStdParameterType;
+                    };
 
                     /**
                      * The minValue parameter of an assertion
@@ -559,15 +617,15 @@ export interface AssertionMonitorBuilderState {
                         /**
                          * The parameter value
                          */
-                        value?: string | null;
+                        value?: string;
 
                         /**
                          * The type of the parameter
                          */
-                        type?: AssertionStdParameterType | null;
-                    } | null;
-                } | null;
-            } | null;
+                        type?: AssertionStdParameterType;
+                    };
+                };
+            };
 
             /**
              * An optional filter used to further partition the dataset
@@ -576,14 +634,14 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The filter type
                  */
-                type?: DatasetFilterType | null;
+                type?: DatasetFilterType;
 
                 /**
                  * The raw query if using a SQL FilterType
                  */
-                sql?: string | null;
-            } | null;
-        } | null;
+                sql?: string;
+            };
+        };
 
         /**
          * Schema Field Assertion
@@ -592,7 +650,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The type of the Field assertion
              */
-            compatibility?: SchemaAssertionCompatibility | null;
+            compatibility?: SchemaAssertionCompatibility;
 
             /**
              * Required if type is 'FIELD_VALUES'
@@ -612,10 +670,9 @@ export interface AssertionMonitorBuilderState {
                       /**
                        * The native data type (optional)
                        */
-                      nativeType?: string | null;
-                  }[]
-                | null;
-        } | null;
+                      nativeType?: string;
+                  }[];
+        };
 
         /**
          * Configurations for actions to be performed on assertion success or failure.
@@ -624,13 +681,75 @@ export interface AssertionMonitorBuilderState {
             /**
              * Actions to run on assertion success.
              */
-            onSuccess?: AssertionAction[] | null;
+            onSuccess?: AssertionAction[];
 
             /**
              * Actions to run on assertion failure.
              */
-            onFailure?: AssertionAction[] | null;
-        } | null;
+            onFailure?: AssertionAction[];
+        };
+    };
+
+    /**
+     * Settings for the AI assertion monitor.
+     */
+    inferenceSettings?: {
+        /**
+         * The exclusion windows for the assertion. If not provided, no exclusion windows are applied.
+         */
+        exclusionWindows?: {
+            /**
+             * The type of the exclusion window.
+             */
+            type: AssertionExclusionWindowType;
+
+            /**
+             * The display name for the exclusion window.
+             */
+            displayName?: string;
+
+            /**
+             * The fixed range for the exclusion window.
+             */
+            fixedRange?: {
+                startTimeMillis: number;
+                endTimeMillis: number;
+            };
+
+            /**
+             * The holiday for the exclusion window.
+             */
+            holiday?: {
+                name: string;
+                region?: string;
+                timezone?: string;
+            };
+
+            /**
+             * The weekly window for the exclusion window.
+             */
+            weekly?: {
+                daysOfWeek?: string[];
+                startTime?: string;
+                endTime?: string;
+                timezone?: string;
+            };
+        }[];
+
+        /**
+         * The training lookback window in events. If not provided, the default is used.
+         */
+        trainingDataLookbackWindowDays?: number;
+
+        /**
+         * The sensitivity level for the assertion. If not provided, the default is applied.
+         */
+        sensitivity?: {
+            /**
+             * The level of sensitivity for the assertion.
+             */
+            level?: number;
+        };
     };
 
     /**
@@ -646,7 +765,7 @@ export interface AssertionMonitorBuilderState {
          * The cron timezone.
          */
         timezone: string;
-    } | null;
+    };
 
     /**
      * Parameters for the assertion
@@ -655,7 +774,7 @@ export interface AssertionMonitorBuilderState {
         /**
          * The type of the parameters
          */
-        type?: AssertionEvaluationParametersType | null;
+        type?: AssertionEvaluationParametersType;
 
         /**
          * Information required to execute a dataset change operation Freshness assertion.
@@ -664,7 +783,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The source type of the operation
              */
-            sourceType?: DatasetFreshnessSourceType | null;
+            sourceType?: DatasetFreshnessSourceType;
 
             /**
              * The field that should be used when determining whether an operation has occurred. Only applicable if source type = "FIELD_VALUE"
@@ -673,28 +792,28 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The urn of the field
                  */
-                urn?: string | null;
+                urn?: string;
 
                 /**
                  * The path of the field
                  */
-                path?: string | null;
+                path?: string;
 
                 /**
                  * The DataHub type of the field
                  */
-                type?: SchemaFieldDataType | null;
+                type?: SchemaFieldDataType;
 
                 /**
                  * The native type of the field
                  */
-                nativeType?: string | null;
+                nativeType?: string;
 
                 /**
                  * The type of the field being used to verify the Freshness Assertion
                  */
-                kind?: FreshnessFieldKind | null;
-            } | null;
+                kind?: FreshnessFieldKind;
+            };
 
             /**
              * The Audit log operation that should be used when determining whether an operation has occurred. Only applicable if source type = "AUDIT_LOG"
@@ -703,14 +822,14 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The operation types that should be monitored.
                  */
-                operationTypes?: string[] | null;
+                operationTypes?: string[];
 
                 /**
                  * Optional: The native name of the user with which the operation should be associated.
                  */
-                userName?: string | null;
-            } | null;
-        } | null;
+                userName?: string;
+            };
+        };
 
         /**
          * Information required to execute a Volume assertion
@@ -719,8 +838,8 @@ export interface AssertionMonitorBuilderState {
             /**
              * The source type of the operation
              */
-            sourceType?: DatasetVolumeSourceType | null;
-        } | null;
+            sourceType?: DatasetVolumeSourceType;
+        };
 
         /**
          * Information required to execute a Field assertion
@@ -729,7 +848,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The source type of the operation
              */
-            sourceType?: DatasetFieldAssertionSourceType | null;
+            sourceType?: DatasetFieldAssertionSourceType;
 
             /**
              * Required if sourceType is 'CHANGED_ROWS_QUERY'
@@ -738,30 +857,30 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The path of the field
                  */
-                path?: string | null;
+                path?: string;
 
                 /**
                  * The DataHub type of the field
                  */
-                type?: string | null;
+                type?: string;
 
                 /**
                  * The native type of the field
                  */
-                nativeType?: string | null;
+                nativeType?: string;
 
                 /**
                  * The type of the field being used to verify the Freshness Assertion
                  */
-                kind?: FreshnessFieldKind | null;
-            } | null;
-        } | null;
-    } | null;
+                kind?: FreshnessFieldKind;
+            };
+        };
+    };
 
     /**
      * Advanced: The executor ID of the remote monitor service, if any.
      */
-    executorId?: string | null;
+    executorId?: string;
 }
 
 /**
@@ -790,6 +909,6 @@ export type StepProps = {
  * State required to use the assertion actions form.
  */
 export type AssertionActionsFormState = {
-    onFailure?: AssertionAction[] | null;
-    onSuccess?: AssertionAction[] | null;
+    onFailure?: AssertionAction[];
+    onSuccess?: AssertionAction[];
 };

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 import { AssertionMonitorBuilderState } from '../../types';
 import {
     AssertionType,
@@ -47,7 +48,7 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
                     ...state.assertion,
                     schemaAssertion: {
                         ...state.assertion?.schemaAssertion,
-                        fields: schemaFields,
+                        fields: schemaFields.map((field) => nullsToUndefined(field)),
                     },
                 },
             });
@@ -74,7 +75,7 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
                 ...state.assertion,
                 schemaAssertion: {
                     ...state.assertion?.schemaAssertion,
-                    fields: newFields,
+                    fields: newFields.map((field) => nullsToUndefined(field)),
                 },
             },
         });

@@ -9,7 +9,6 @@ export enum AssertionEditabilityScopeType {
 
 // ------- NOTE: we take the lowest permission of the union of (AssertType, AssertionSourceType) from the maps below ------- //
 const ASSERTION_TYPE_TO_EDITING_SCOPE: { [type in AssertionType]: AssertionEditabilityScopeType } = {
-    [AssertionType.Custom]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Field]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Freshness]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Sql]: AssertionEditabilityScopeType.FULL,
@@ -21,7 +20,7 @@ const ASSERTION_TYPE_TO_EDITING_SCOPE: { [type in AssertionType]: AssertionEdita
 const SOURCE_TYPE_TO_EDITING_SCOPE: { [type in AssertionSourceType]: AssertionEditabilityScopeType } = {
     [AssertionSourceType.Native]: AssertionEditabilityScopeType.FULL,
     [AssertionSourceType.External]: AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION,
-    [AssertionSourceType.Inferred]: AssertionEditabilityScopeType.ACTIONS_ONLY,
+    [AssertionSourceType.Inferred]: AssertionEditabilityScopeType.FULL,
 };
 
 // Scope types that unlock the certain editing abilities (broadest to narrowest)

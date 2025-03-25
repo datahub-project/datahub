@@ -108,17 +108,17 @@ class ExecutionRequestManager:
             logger.error(f"Scheduler: failed to add/update execution request: {e}")
 
     def unschedule_deleted_execution_requests(self, fetcher_id: str) -> None:
-        scheduled_urns = [
-            execution_request.exec_id
-            for urn, execution_request in self.scheduled_execution_requests[
-                fetcher_id
-            ].items()
+        scheduled_execution_request_ids = [
+            id for id in self.scheduled_execution_requests[fetcher_id].keys()
         ]
-        for urn, execution_request in self.prev_scheduled_execution_requests[
+        for id, execution_request in self.prev_scheduled_execution_requests[
             fetcher_id
         ].items():
-            if urn in scheduled_urns:
+            if id in scheduled_execution_request_ids:
                 continue
+            logger.info(
+                f"Unscheduling execution request with id {id}..."
+            )  # TODO: Change to debug before merge.
             self.scheduler.remove_execution_request(execution_request)
 
     def refresh_execution_requests(self, fetcher_id: str) -> None:

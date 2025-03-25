@@ -331,8 +331,6 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
-  public static final String ASSERTION_INFERENCE_DETAILS_ASPECT_NAME = "assertionInferenceDetails";
-
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
   public static final String TEST_KEY_ASPECT_NAME = "testKey";
@@ -475,12 +473,6 @@ public class Constants {
   // Actions Pipeline
   public static final String ACTIONS_PIPELINE_ENTITY_NAME = "dataHubAction";
   public static final String ACTIONS_PIPELINE_INFO_ASPECT_NAME = "dataHubActionInfo";
-
-  // Anomaly
-  public static final String ANOMALY_ENTITY_NAME = "anomaly";
-  public static final String ANOMALY_KEY_ASPECT_NAME = "anomalyKey";
-  public static final String ANOMALY_INFO_ASPECT_NAME = "anomalyInfo";
-  public static final String ANOMALIES_SUMMARY_ASPECT_NAME = "anomaliesSummary";
 
   // Monitor
   public static final String MONITOR_ENTITY_NAME = "monitor";

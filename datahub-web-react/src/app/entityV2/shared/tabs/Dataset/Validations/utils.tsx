@@ -8,6 +8,7 @@ import {
 } from '../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
+import { VolumeAssertionBuilderType, VolumeAssertionBuilderTypeOptions } from './assertion/builder/types';
 
 export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
@@ -72,8 +73,10 @@ type VolumeTypeField =
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+export const getPropertyFromVolumeType = (type: VolumeAssertionType | VolumeAssertionBuilderType) => {
     switch (type) {
+        case VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal:
+            return 'rowCountTotal' as VolumeTypeField; // all inferred volume row count assertions are row count total
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;
         case VolumeAssertionType.RowCountChange:

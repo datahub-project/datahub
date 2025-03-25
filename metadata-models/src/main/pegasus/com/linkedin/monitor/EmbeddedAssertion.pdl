@@ -11,4 +11,9 @@ record EmbeddedAssertion includes AssertionWithoutAnnotations {
     * Validity period of the assertion, ie the window of time where it should be used in evaluation
     */
     evaluationTimeWindow: optional TimeWindow
+
+    /**
+    * Context about the embedded assertion prediction
+    */
+    context: optional map[string, string]
 }

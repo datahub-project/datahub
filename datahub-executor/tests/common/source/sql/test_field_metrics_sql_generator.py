@@ -25,7 +25,7 @@ class TestFieldMetricsSQLGenerator:
         self.field = SchemaFieldSpec(
             path="test_column",
             type="STRING",
-            nativeType="STRING",
+            native_type="STRING",
         )
 
     def test_unique_count(self) -> None:

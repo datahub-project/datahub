@@ -1,12 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
 import { InputNumber, Select, Typography } from 'antd';
-import { DateInterval, FixedIntervalSchedule } from '../../../../../../../../../../types.generated';
+import { DateInterval } from '../../../../../../../../../../types.generated';
 import {
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE,
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT,
 } from '../../constants';
 import { StopPropagation } from '../../../../../../../../../shared/StopPropagation';
+import { FreshnessAssertionBuilderSchedule } from '../../types';
 
 const Form = styled.div``;
 
@@ -25,8 +26,8 @@ const MultipleInput = styled(InputNumber)`
 `;
 
 type Props = {
-    value?: FixedIntervalSchedule | null;
-    onChange: (newSchedule: FixedIntervalSchedule) => void;
+    value?: FreshnessAssertionBuilderSchedule['fixedInterval'];
+    onChange: (newSchedule: FreshnessAssertionBuilderSchedule['fixedInterval']) => void;
     disabled?: boolean;
     stopPropagation?: boolean;
 };

@@ -24,13 +24,14 @@ const Pill = styled.div<{ color: string; highlightColor: string }>`
 type Props = {
     result?: AssertionResult;
     type?: ResultStatusType;
+    isSmartAssertion?: boolean;
 };
 
-export const AssertionResultPill = ({ result, type = ResultStatusType.LATEST }: Props) => {
+export const AssertionResultPill = ({ result, type = ResultStatusType.LATEST, isSmartAssertion }: Props) => {
     const resultType = result?.type;
     const resultColor = getResultColor(resultType);
     const highlightColor = applyOpacityToHexColor(resultColor, 0.15);
-    const text = (resultType && getResultStatusText(resultType, type)) || 'No results yet';
+    const text = (resultType && getResultStatusText(resultType, type, isSmartAssertion)) || 'No results yet';
     return (
         <Pill color={resultColor} highlightColor={highlightColor}>
             {text}

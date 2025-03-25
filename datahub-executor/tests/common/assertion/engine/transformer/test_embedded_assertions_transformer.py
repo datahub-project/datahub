@@ -33,19 +33,19 @@ from datahub_executor.common.types import (
 # Initialize sample objects
 entity = AssertionEntity(
     urn="urn:li:dataset:test",
-    platformUrn="urn:li:dataPlatform:snowflake",
-    platformInstance=None,
-    subTypes=None,
+    platform_urn="urn:li:dataPlatform:snowflake",
+    platform_instance=None,
+    sub_types=None,
 )
 assertion = Assertion(
     urn="urn:li:assertion:test",
     type=AssertionType.VOLUME,
     entity=entity,
-    sourceType=AssertionSourceType.INFERRED,
-    connectionUrn="urn:li:dataPlatform:snowflake",
-    volumeAssertion=VolumeAssertion(
+    source_type=AssertionSourceType.INFERRED,
+    connection_urn="urn:li:dataPlatform:snowflake",
+    volume_assertion=VolumeAssertion(
         type=VolumeAssertionType.ROW_COUNT_TOTAL,
-        rowCountTotal=RowCountTotal(
+        row_count_total=RowCountTotal(
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
                 value=AssertionStdParameter(
@@ -61,10 +61,10 @@ assertion = Assertion(
 )
 eval_parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
+    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+        source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
         field=None,
-        auditLog=None,
+        audit_log=None,
     ),
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")
@@ -74,7 +74,7 @@ assertion_spec = AssertionEvaluationSpec(
 assertion_context = AssertionEvaluationContext(assertion_evaluation_spec=assertion_spec)
 new_volume_assertion = VolumeAssertion(
     type=VolumeAssertionType.ROW_COUNT_TOTAL,
-    rowCountTotal=RowCountTotal(
+    row_count_total=RowCountTotal(
         operator=AssertionStdOperator.EQUAL_TO,
         parameters=AssertionStdParameters(
             value=AssertionStdParameter(
@@ -87,11 +87,11 @@ new_volume_assertion = VolumeAssertion(
 embedded_assertion = EmbeddedAssertion(
     assertion=AssertionInfo(
         type=AssertionType.VOLUME,
-        volumeAssertion=new_volume_assertion,
-        sourceType=AssertionSourceType.INFERRED,
+        volume_assertion=new_volume_assertion,
+        source_type=AssertionSourceType.INFERRED,
     ),
-    rawAssertion='{"type":"VOLUME","volumeAssertion":{"type":"ROW_COUNT_TOTAL","entity":"urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)","rowCountTotal":{"operator":"EQUAL_TO","parameters":{"value":{"value":"200.0","type":"NUMBER"}}}},"source":{"type":"INFERRED"}}',
-    evaluationTimeWindow=None,
+    raw_assertion='{"type":"VOLUME","volumeAssertion":{"type":"ROW_COUNT_TOTAL","entity":"urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)","rowCountTotal":{"operator":"EQUAL_TO","parameters":{"value":{"value":"200.0","type":"NUMBER"}}}},"source":{"type":"INFERRED"}}',
+    evaluation_time_window=None,
 )
 
 smart_assertion_spec = AssertionEvaluationSpec(
@@ -99,7 +99,7 @@ smart_assertion_spec = AssertionEvaluationSpec(
     schedule=schedule,
     parameters=eval_parameters,
     context=AssertionEvaluationSpecContext(
-        embeddedAssertions=[embedded_assertion], stdDev=None
+        embedded_assertions=[embedded_assertion], stdDev=None
     ),
 )
 smart_assertion_context = AssertionEvaluationContext(

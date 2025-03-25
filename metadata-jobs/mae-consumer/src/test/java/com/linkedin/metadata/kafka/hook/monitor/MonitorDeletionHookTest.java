@@ -7,7 +7,6 @@ import static org.mockito.Mockito.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
@@ -266,10 +265,7 @@ public class MonitorDeletionHookTest {
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
-            TEST_DATASET_URN,
-            DATASET_KEY_ASPECT_NAME,
-            ChangeType.DELETE,
-            buildDatasetKey(TEST_ASSERTION_URN));
+            TEST_DATASET_URN, DATASET_KEY_ASPECT_NAME, ChangeType.DELETE, buildDatasetKey());
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(1))
         .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN));
@@ -399,29 +395,9 @@ public class MonitorDeletionHookTest {
     return mockClient;
   }
 
-  private SystemEntityClient mockSystemEntityClient(
-      Urn anomalyUrn, AnomalyInfo anomalyInfo, Urn assertionUrn, AssertionInfo assertionInfo)
+  private SystemEntityClient mockSystemEntityClient(Urn assertionUrn, AssertionInfo assertionInfo)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-
-    if (anomalyUrn != null) {
-      when(mockClient.getV2(
-              any(OperationContext.class),
-              Mockito.eq(ANOMALY_ENTITY_NAME),
-              Mockito.eq(anomalyUrn),
-              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME))))
-          .thenReturn(
-              new EntityResponse()
-                  .setUrn(anomalyUrn)
-                  .setEntityName(ANOMALY_ENTITY_NAME)
-                  .setAspects(
-                      new EnvelopedAspectMap(
-                          ImmutableMap.of(
-                              ANOMALY_INFO_ASPECT_NAME,
-                              new EnvelopedAspect()
-                                  .setName(ANOMALY_INFO_ASPECT_NAME)
-                                  .setValue(new Aspect(anomalyInfo.data()))))));
-    }
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
@@ -445,26 +421,6 @@ public class MonitorDeletionHookTest {
                                   .setName(ASSERTION_INFO_ASPECT_NAME)
                                   .setValue(new Aspect(assertionInfo.data()))))));
     }
-
-    SearchEntityArray searchEntities =
-        anomalyUrn == null
-            ? new SearchEntityArray(Collections.emptyList())
-            : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
-
-    when(mockClient.search(
-            Mockito.any(),
-            Mockito.eq(ANOMALY_ENTITY_NAME),
-            Mockito.eq("*"),
-            Mockito.any(Filter.class),
-            Mockito.eq(null),
-            Mockito.anyInt(),
-            Mockito.anyInt()))
-        .thenReturn(
-            new SearchResult()
-                .setNumEntities(1)
-                .setPageSize(1)
-                .setFrom(0)
-                .setEntities(searchEntities));
 
     return mockClient;
   }
@@ -499,7 +455,7 @@ public class MonitorDeletionHookTest {
     return event;
   }
 
-  private DatasetKey buildDatasetKey(final Urn urn) {
+  private DatasetKey buildDatasetKey() {
     DatasetKey event = new DatasetKey();
     event.setName("test");
     event.setOrigin(FabricType.DEV);

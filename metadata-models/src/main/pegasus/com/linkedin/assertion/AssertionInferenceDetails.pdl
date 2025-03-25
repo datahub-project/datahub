@@ -2,6 +2,8 @@ namespace com.linkedin.assertion
 
 /**
  * The details of an assertion that was inferred.
+ *
+ * Deprecated as an aspect for assertions!
  */
  @Aspect = {
    "name": "assertionInferenceDetails"
@@ -31,6 +33,7 @@ record AssertionInferenceDetails {
   /**
    * The time the inferred assertion was generated at in milliseconds.
    */
+  @Searchable = {}
   generatedAt: optional long
 
   /**

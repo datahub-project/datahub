@@ -4,13 +4,16 @@ import static com.linkedin.datahub.graphql.types.assertion.AssertionMapper.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettingsInput;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationContext;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParameters;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
 import com.linkedin.datahub.graphql.generated.AssertionMonitor;
+import com.linkedin.datahub.graphql.generated.AssertionMonitorSettings;
 import com.linkedin.datahub.graphql.generated.AuditLogSpec;
 import com.linkedin.datahub.graphql.generated.CronSchedule;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpec;
@@ -28,8 +31,11 @@ import com.linkedin.datahub.graphql.generated.EvaluationTimeWindow;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
 import com.linkedin.datahub.graphql.generated.Monitor;
+import com.linkedin.datahub.graphql.generated.MonitorError;
+import com.linkedin.datahub.graphql.generated.MonitorErrorType;
 import com.linkedin.datahub.graphql.generated.MonitorInfo;
 import com.linkedin.datahub.graphql.generated.MonitorMode;
+import com.linkedin.datahub.graphql.generated.MonitorState;
 import com.linkedin.datahub.graphql.generated.MonitorStatus;
 import com.linkedin.datahub.graphql.generated.MonitorType;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -106,7 +112,35 @@ public class MonitorMapper {
             .map(m -> MonitorMapper.mapAssertionEvaluationSpec(context, m))
             .collect(Collectors.toList());
     assertionMonitor.setAssertions(assertionEvaluationSpecs);
+    if (backendAssertionMonitor.hasSettings()) {
+      assertionMonitor.setSettings(
+          mapAssertionMonitorSettings(backendAssertionMonitor.getSettings()));
+    }
     return assertionMonitor;
+  }
+
+  private static AssertionMonitorSettings mapAssertionMonitorSettings(
+      com.linkedin.monitor.AssertionMonitorSettings backendAssertionMonitorSettings) {
+    AssertionMonitorSettings assertionMonitorSettings = new AssertionMonitorSettings();
+    if (backendAssertionMonitorSettings.hasAdjustmentSettings()) {
+      assertionMonitorSettings.setInferenceSettings(
+          mapAssertionAdjustmentSettings(backendAssertionMonitorSettings.getAdjustmentSettings()));
+    }
+    return assertionMonitorSettings;
+  }
+
+  @Nullable
+  public static com.linkedin.monitor.AssertionMonitorSettings
+      mapGraphqlAdjustmentSettingsToMonitorSettings(
+          @Nullable AssertionAdjustmentSettingsInput adjustmentSettings) {
+    if (adjustmentSettings == null) {
+      return null;
+    }
+    com.linkedin.monitor.AssertionMonitorSettings assertionMonitorSettings =
+        new com.linkedin.monitor.AssertionMonitorSettings();
+    assertionMonitorSettings.setAdjustmentSettings(
+        mapGraphQLAssertionAdjustmentSettings(adjustmentSettings));
+    return assertionMonitorSettings;
   }
 
   private static AssertionEvaluationSpec mapAssertionEvaluationSpec(
@@ -153,6 +187,10 @@ public class MonitorMapper {
     if (context.hasStdDev()) {
       assertionEvaluationContext.setStdDev(context.getStdDev());
     }
+    if (context.hasInferenceDetails()) {
+      assertionEvaluationContext.setInferenceDetails(
+          mapInferenceDetails(queryContext, context.getInferenceDetails()));
+    }
     return assertionEvaluationContext;
   }
 
@@ -185,10 +223,9 @@ public class MonitorMapper {
     return embeddedAssertion;
   }
 
-  private static EvaluationTimeWindow mapTimeWindow(TimeWindow evaluationTimeWindow) {
+  public static EvaluationTimeWindow mapTimeWindow(TimeWindow evaluationTimeWindow) {
     EvaluationTimeWindow timeWindow = new EvaluationTimeWindow();
     timeWindow.setStartTimeMillis(evaluationTimeWindow.getStartTimeMillis());
-
     Calendar endTime = Calendar.getInstance();
     endTime.setTimeInMillis(evaluationTimeWindow.getStartTimeMillis());
     int multiplier = evaluationTimeWindow.getLength().getMultiple();
@@ -382,7 +419,23 @@ public class MonitorMapper {
   private static MonitorStatus mapMonitorStatus(com.linkedin.monitor.MonitorStatus backendStatus) {
     MonitorStatus monitorStatus = new MonitorStatus();
     monitorStatus.setMode(MonitorMode.valueOf(backendStatus.getMode().toString()));
+
+    if (backendStatus.hasState()) {
+      monitorStatus.setState(MonitorState.valueOf(backendStatus.getState().toString()));
+    }
+
+    if (backendStatus.hasError()) {
+      monitorStatus.setError(mapMonitorError(backendStatus.getError()));
+    }
+
     return monitorStatus;
+  }
+
+  private static MonitorError mapMonitorError(com.linkedin.monitor.MonitorError backendError) {
+    MonitorError monitorError = new MonitorError();
+    monitorError.setType(MonitorErrorType.valueOf(backendError.getType().toString()));
+    monitorError.setMessage(backendError.getMessage(GetMode.NULL));
+    return monitorError;
   }
 
   private MonitorMapper() {}

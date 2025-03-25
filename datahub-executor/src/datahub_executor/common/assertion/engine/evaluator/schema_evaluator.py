@@ -50,7 +50,7 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
         return AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_SCHEMA,
             dataset_schema_parameters=DatasetSchemaAssertionParameters(
-                sourceType=DatasetSchemaSourceType.DATAHUB_SCHEMA
+                source_type=DatasetSchemaSourceType.DATAHUB_SCHEMA
             ),
         )
 
@@ -263,7 +263,6 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        print(assertion)
         assert assertion.schema_assertion is not None
         assert parameters.dataset_schema_parameters is not None
 

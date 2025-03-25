@@ -1,11 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Select, Form } from 'antd';
+import { useAppConfig } from '@src/app/useAppConfig';
 import {
     AssertionValueChangeType,
     IncrementingSegmentSpec,
     Maybe,
-    VolumeAssertionInfo,
     VolumeAssertionType,
 } from '../../../../../../../../../../types.generated';
 import {
@@ -17,6 +17,7 @@ import {
     getVolumeTypeOptions,
 } from './utils';
 import { getPropertyFromVolumeType } from '../../../../utils';
+import { VolumeAssertionBuilderState, VolumeAssertionBuilderType } from '../../types';
 
 const Container = styled.div`
     margin: 16px 0 24px;
@@ -29,14 +30,17 @@ const StyledSelect = styled(Select)`
 `;
 
 type Props = {
-    volumeInfo?: VolumeAssertionInfo;
+    volumeInfo?: VolumeAssertionBuilderState;
     segment?: Maybe<IncrementingSegmentSpec>;
-    onChange: (newParams: Partial<VolumeAssertionInfo>) => void;
+    onChange: (newParams: VolumeAssertionBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled }: Props) => {
-    const options = getVolumeTypeOptions();
+export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled, isEditMode }: Props) => {
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
+
+    const options = getVolumeTypeOptions({ disableAiInferred: isEditMode || !onlineSmartAssertionsEnabled });
     const selectedType = getSelectedVolumeTypeOption(volumeInfo);
 
     const updateVolumeType = (newValue: VolumeTypeOptionEnum) => {
@@ -44,12 +48,14 @@ export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled }: P
         const category = getVolumeTypeCategory(option.category);
         const hasSegment = !!segment?.field;
         const volumeType = category.getType(hasSegment);
+
         const propertyName = getPropertyFromVolumeType(volumeType);
         const defaultParameters = getDefaultVolumeParameters(option.operator);
-        const defaultChangeType = [
+        const absoluteChangeTypes: VolumeAssertionBuilderType[] = [
             VolumeAssertionType.RowCountChange,
             VolumeAssertionType.IncrementingSegmentRowCountChange,
-        ].includes(volumeType)
+        ];
+        const defaultChangeType = absoluteChangeTypes.includes(volumeType)
             ? { type: AssertionValueChangeType.Absolute }
             : {};
 

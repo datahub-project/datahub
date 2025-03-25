@@ -25,10 +25,10 @@ extend type Query {
   """
   globalViewsSettings: GlobalViewsSettings
 
-    """
-    Fetch the global settings related to the docs propagation feature.
-    """
-    docPropagationSettings: DocPropagationSettings
+  """
+  Fetch the global settings related to the docs propagation feature.
+  """
+  docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -1338,6 +1338,11 @@ type FeatureFlagsConfig {
   If enabled, show remote executor pools across the UI
   """
   displayExecutorPools: Boolean!
+
+  """
+  If enabled, allow on-demand creation of smart assertions.
+  """
+  onlineSmartAssertionsEnabled: Boolean!
 }
 
 """

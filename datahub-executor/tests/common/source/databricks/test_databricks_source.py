@@ -602,7 +602,7 @@ class TestDatabricksSource:
             AssertionDatabaseParams(
                 qualified_name=TEST_QUALIFIED_NAME, table_name=TEST_TABLE_NAME
             ),
-            DatasetVolumeAssertionParameters(sourceType=DatasetVolumeSourceType.QUERY),
+            DatasetVolumeAssertionParameters(source_type=DatasetVolumeSourceType.QUERY),
             None,
         )
 
@@ -620,7 +620,7 @@ class TestDatabricksSource:
                     qualified_name=TEST_QUALIFIED_NAME, table_name=TEST_TABLE_NAME
                 ),
                 DatasetVolumeAssertionParameters(
-                    sourceType=DatasetVolumeSourceType.QUERY
+                    source_type=DatasetVolumeSourceType.QUERY
                 ),
                 None,
             )

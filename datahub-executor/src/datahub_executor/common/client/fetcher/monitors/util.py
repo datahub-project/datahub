@@ -1,3 +1,4 @@
+import hashlib
 from typing import Any, List
 
 from datahub_executor.common.types import FetcherConfig, Monitor, MonitorMode
@@ -16,6 +17,7 @@ def is_dry_run_mode(monitor: Monitor) -> bool:
 
 def build_filters(config: FetcherConfig) -> List[Any]:
     or_filters: List[Any] = []
+
     active_filter = {
         "field": "mode",
         "values": [MonitorMode.ACTIVE.value, MonitorMode.PASSIVE.value],
@@ -40,3 +42,18 @@ def build_filters(config: FetcherConfig) -> List[Any]:
         or_filters.append({"and": [active_filter]})
 
     return or_filters
+
+
+def get_monitor_training_schedule_with_jitter(monitor_urn: str) -> str:
+    """
+    Creates a cron schedule that runs every hour at a minute determined by the monitor urn.
+    The goal is to spread training out so not all training runs at once.
+    """
+    # Hash the monitor_urn to get a consistent but unique value
+    hash_value = int(hashlib.md5(monitor_urn.encode()).hexdigest(), 16)
+
+    # Get a minute offset between 0 and 59
+    minute_offset = hash_value % 60
+
+    # Return a cron expression for hourly execution at the given minute
+    return f"{minute_offset} * * * *"

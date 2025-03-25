@@ -264,6 +264,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
             .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
             .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
+            .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

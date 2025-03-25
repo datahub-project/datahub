@@ -82,4 +82,8 @@ record FreshnessAssertionSchedule {
    */
   fixedInterval: optional FixedIntervalSchedule
 
+  /**
+   * Blackout windows. Periods of time to exclude from the schedule.
+   */
+   exclusions: optional array[AssertionExclusionWindow]
 }

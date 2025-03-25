@@ -4,12 +4,11 @@ import styled from 'styled-components';
 import {
     AssertionStdOperator,
     AssertionStdParameterType,
-    AssertionStdParameters,
     AssertionValueChangeType,
-    VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
 import { VolumeNumberInput } from './VolumeNumberInput';
 import { getPropertyFromVolumeType } from '../../../../utils';
+import { VolumeAssertionBuilderState } from '../../types';
 
 const Container = styled.div`
     display: flex;
@@ -18,10 +17,10 @@ const Container = styled.div`
 `;
 
 type Props = {
-    volumeInfo: VolumeAssertionInfo;
-    value: AssertionStdParameters;
-    onChange: (newParams: AssertionStdParameters) => void;
-    updateVolumeAssertion: (newParams: Partial<VolumeAssertionInfo>) => void;
+    volumeInfo: VolumeAssertionBuilderState;
+    value: VolumeAssertionBuilderState['parameters'];
+    onChange: (newParams: VolumeAssertionBuilderState['parameters']) => void;
+    updateVolumeAssertion: (newParams: VolumeAssertionBuilderState) => void;
     disabled?: boolean;
 };
 
@@ -33,8 +32,8 @@ export const VolumeRowCountChangeBuilder = ({
     disabled,
 }: Props) => {
     const selectedType = volumeInfo.type;
-    const propertyName = getPropertyFromVolumeType(selectedType);
-    const operator = volumeInfo[propertyName]?.operator as AssertionStdOperator;
+    const propertyName = selectedType ? getPropertyFromVolumeType(selectedType) : '';
+    const operator = volumeInfo[propertyName]?.operator;
 
     const handleValueChange = (newValue: number) => {
         onChange({

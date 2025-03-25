@@ -1,0 +1,69 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an asset monitor.
+ */
+@Aspect = {
+  "name": "monitorSuiteInfo"
+}
+record MonitorSuiteInfo {
+    /**
+    * Type of monitor suite.
+    */
+    @Searchable = { }
+    type: enum MonitorSuiteType {
+      /**
+       * A monitor responsible for evaluating freshness anomalies.
+       */
+      FRESHNESS
+
+      /**
+       * A monitor responsible for evaluating volume anomalies.
+       */
+      VOLUME
+
+      /**
+       * A monitor responsible for evaluating schema changes.
+       */
+      DATA_SCHEMA
+    }
+
+    /**
+     * The assignment rule to define the entities that are monitored by this group.
+     */
+    assignment: MonitorSuiteAssignmentSpec
+
+    /**
+     * Settings for assertion monitors within this group.
+     */
+    assertionSettings: optional MonitorSuiteAssertionSettings
+
+    /**
+     * Settings for notifications from monitors within this group.
+     */
+    notificationSettings: optional MonitorSuiteNotificationSettings
+
+    /**
+     * Created Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "createdTime",
+       "fieldType": "DATETIME"
+      }
+    }
+    created: optional AuditStamp
+
+    /**
+     * Updated Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "updatedTime",
+       "fieldType": "DATETIME"
+      }
+    }
+    updated: optional AuditStamp
+}

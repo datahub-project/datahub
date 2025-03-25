@@ -18,7 +18,6 @@ public class EntityTypeMapper {
       ImmutableMap.<EntityType, String>builder()
           .put(EntityType.DATAHUB_CONNECTION, Constants.DATAHUB_CONNECTION_ENTITY_NAME)
           .put(EntityType.MONITOR, Constants.MONITOR_ENTITY_NAME)
-          .put(EntityType.ANOMALY, Constants.ANOMALY_ENTITY_NAME)
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
           .put(EntityType.REMOTE_EXECUTOR, AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)

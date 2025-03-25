@@ -36,6 +36,15 @@ from datahub_executor.common.assertion.result.assertion_run_event_handler import
 from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
+from datahub_executor.common.metric.client.client import (
+    MetricClient,
+)
+from datahub_executor.common.metric.resolver.resolver import (
+    MetricResolver,
+)
+from datahub_executor.common.monitor.client.client import (
+    MonitorClient,
+)
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
@@ -67,6 +76,7 @@ def paginate_datahub_query_results(
     result_key: str,
     page_size: int,
     user_params: Optional[Dict],
+    operation_name: Optional[str] = None,
 ) -> List[Any]:
     if user_params is None:
         user_params = {}
@@ -79,7 +89,9 @@ def paginate_datahub_query_results(
         params["input"]["start"] = position
         params["input"]["count"] = page_size
 
-        response = graph.execute_graphql(query, variables=params)
+        response = graph.execute_graphql(
+            query, variables=params, operation_name=operation_name
+        )
         error = response.get("error", None)
         if error is not None:
             raise RuntimeError(f"Received GraphQL error: {error}")
@@ -122,6 +134,7 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             ),
             state_provider,
             SourceProvider(),
+            MonitorClient(graph),
         ),
         VolumeAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
@@ -129,6 +142,14 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             ),
             state_provider,
             SourceProvider(),
+            MetricResolver(
+                DataHubIngestionSourceConnectionProvider(
+                    graph, [env_secret_store, file_secret_store, datahub_secret_store]
+                ),
+                SourceProvider(),
+            ),
+            MetricClient(graph=graph),
+            MonitorClient(graph=graph),
         ),
         SQLAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
@@ -136,6 +157,7 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             ),
             state_provider,
             SourceProvider(),
+            MonitorClient(graph),
         ),
         FieldAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
@@ -143,6 +165,14 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             ),
             state_provider,
             SourceProvider(),
+            MetricResolver(
+                DataHubIngestionSourceConnectionProvider(
+                    graph, [env_secret_store, file_secret_store, datahub_secret_store]
+                ),
+                SourceProvider(),
+            ),
+            MetricClient(graph=graph),
+            MonitorClient(graph=graph),
         ),
         SchemaAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
@@ -150,6 +180,7 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             ),
             state_provider,
             SourceProvider(),
+            MonitorClient(graph),
         ),
     ]
 

@@ -17,7 +17,7 @@ import { InferredAssertionPopover } from './InferredAssertionPopover';
 import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { isMonitorActive } from './acrylUtils';
+import { isMonitorActive, extractLatestGeneratedAt } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
@@ -81,9 +81,8 @@ export function DetailsColumn({
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
-    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
-        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
-        : undefined;
+    const generatedAt = extractLatestGeneratedAt(monitor);
+    const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
     return (

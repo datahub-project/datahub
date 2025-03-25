@@ -26,6 +26,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12671: The `priority` field of the Incident entity is changed from an integer to an enum. This field was previously completely unused in UI and API, so this change should not affect existing deployments.
 
+- #todo: The unused observability Anomaly entity has been removed from the system, replaced by MonitorAnomalyEvent. This should not affect existing deployments, as the entity was not consumed anywhere.
 
 ### Known Issues
 

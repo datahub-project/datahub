@@ -3,7 +3,13 @@ import React, { useState } from 'react';
 import { Button, Form } from 'antd';
 import { Tooltip } from '@components';
 import styled from 'styled-components';
-import { Assertion, AssertionType, Monitor, Entity } from '../../../../../../../../../types.generated';
+import {
+    Assertion,
+    AssertionType,
+    Monitor,
+    Entity,
+    AssertionSourceType,
+} from '../../../../../../../../../types.generated';
 import { EditButton } from './EditButton';
 import { AssertionSettingsHeader } from './AssertionSettingsHeader';
 import { AssertionMonitorBuilderState } from '../types';
@@ -50,6 +56,7 @@ export const AssertionSettings = (props: Props) => {
     const [form] = Form.useForm();
 
     const editabilityType = getAssertionEditabilityType(props.assertion);
+    const isAiInferred = props.assertion.info?.source?.type === AssertionSourceType.Inferred;
 
     const isFullEditingDisabled = !(editing && editabilityType === AssertionEditabilityScopeType.FULL);
     const isDescriptionEditingDisabled = !(
@@ -129,7 +136,7 @@ export const AssertionSettings = (props: Props) => {
                     description={builderState.assertion?.description || undefined}
                     showDivider={false}
                     action={
-                        (!editing && (
+                        !editing ? (
                             <EditButton
                                 disabled={!props.editAllowed}
                                 tooltip={finalTooltip}
@@ -137,23 +144,25 @@ export const AssertionSettings = (props: Props) => {
                                     if (props.editAllowed) setEditing(true);
                                 }}
                             />
-                        )) || (
+                        ) : (
                             <>
                                 <AssertionContainer>
-                                    <Tooltip
-                                        title={
-                                            isTestAssertionActionDisabled
-                                                ? 'Trying assertions is not supported for sources with remote executors.'
-                                                : 'Try this assertion out!'
-                                        }
-                                    >
-                                        <StyledButton
-                                            onClick={tryTestAssertion}
-                                            disabled={isTestAssertionActionDisabled}
+                                    {!isAiInferred && (
+                                        <Tooltip
+                                            title={
+                                                isTestAssertionActionDisabled
+                                                    ? 'Trying assertions is not supported for sources with remote executors.'
+                                                    : 'Try this assertion out!'
+                                            }
                                         >
-                                            Try it out
-                                        </StyledButton>
-                                    </Tooltip>
+                                            <StyledButton
+                                                onClick={tryTestAssertion}
+                                                disabled={isTestAssertionActionDisabled}
+                                            >
+                                                Try it out
+                                            </StyledButton>
+                                        </Tooltip>
+                                    )}
                                     <SaveButton tooltip="Save changes to this assertion" onClick={save} />
                                 </AssertionContainer>
 

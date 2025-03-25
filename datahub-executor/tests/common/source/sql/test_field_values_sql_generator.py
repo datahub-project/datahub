@@ -33,7 +33,7 @@ class TestFieldValuesSQLGenerator:
         self.field = SchemaFieldSpec(
             path="test_column",
             type="STRING",
-            nativeType="STRING",
+            native_type="STRING",
         )
         self.value_parameters = AssertionStdParameters(
             value=AssertionStdParameter(

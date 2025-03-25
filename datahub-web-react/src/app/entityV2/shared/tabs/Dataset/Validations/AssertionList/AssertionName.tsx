@@ -12,7 +12,7 @@ import { InferredAssertionPopover } from '../InferredAssertionPopover';
 import { InferredAssertionBadge } from '../InferredAssertionBadge';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
-import { isMonitorActive } from '../acrylUtils';
+import { isMonitorActive, extractLatestGeneratedAt } from '../acrylUtils';
 import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
 import { isAssertionPartOfContract } from '../contract/utils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
@@ -83,9 +83,9 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
-    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
-        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
-        : undefined;
+
+    const generatedAt = extractLatestGeneratedAt(monitor);
+    const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
 

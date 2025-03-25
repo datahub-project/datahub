@@ -4,13 +4,18 @@ import time
 from typing import List, Optional, cast
 
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import OperationClass
+from datahub.metadata.schema_classes import (
+    OperationClass,
+)
 
 from datahub_executor.common.assertion.engine.evaluator.evaluator import (
     AssertionEvaluator,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.freshness import (
     get_event_type_parameters_from_parameters,
+)
+from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    is_training_required,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.time import (
     get_fixed_interval_start,
@@ -44,6 +49,9 @@ from datahub_executor.common.types import (
     FreshnessAssertionScheduleType,
     FreshnessCronSchedule,
     FreshnessFieldKind,
+)
+from datahub_executor.config import (
+    ONLINE_SMART_ASSERTIONS_ENABLED,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,7 +91,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         return AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
             dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
-                sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA
+                source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA
             ),
         )
 
@@ -203,7 +211,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             )
         else:
             # No events are found. The assertion is failing!
-            logger.info(
+            logger.debug(
                 "No matching events found within the provided window! Assertion is failing."
             )
             return InternalAssertionEvaluationResult(
@@ -455,6 +463,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         context: AssertionEvaluationContext,
     ) -> InternalAssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
+        assert assertion.freshness_assertion.schedule is not None
         assert assertion.freshness_assertion.schedule.cron is not None
 
         # These fields are required for
@@ -497,9 +506,12 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         context: AssertionEvaluationContext,
     ) -> InternalAssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
-        assert assertion.freshness_assertion.schedule.fixed_interval is not None
 
-        freshness_assertion = cast(FreshnessAssertion, assertion.freshness_assertion)
+        freshness_assertion = assertion.freshness_assertion
+
+        assert freshness_assertion.schedule is not None
+        assert freshness_assertion.schedule.fixed_interval is not None
+
         fixed_interval_schedule = cast(
             FixedIntervalSchedule, freshness_assertion.schedule.fixed_interval
         )
@@ -512,7 +524,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         validation_window = [start_time, end_time]
 
-        logger.info(f"Evaluating assertion against window {start_time} {end_time}")
+        logger.debug(f"Evaluating assertion against window {start_time} {end_time}")
 
         # Now we have the window to validate on, so let's try to see if any events fall into the window!
         return self._evaluate_internal_window_event(
@@ -568,18 +580,17 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         # 5. Return the result
         return assertion_evaluation_result
 
-    def _evaluate_internal(
+    def _evaluate_assertion_step(
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        # Here's how we evaluate an Assertion.
-        # 1. Fetch the "dataset FRESHNESS assertion config"
-        # 2. Based on the type, we take different paths.
-        assert assertion.freshness_assertion is not None
+        freshness_assertion = assertion.freshness_assertion
 
-        freshness_assertion = cast(FreshnessAssertion, assertion.freshness_assertion)
+        assert freshness_assertion is not None
+        assert freshness_assertion.schedule is not None
+
         if freshness_assertion.schedule.type == FreshnessAssertionScheduleType.CRON:
             internal_result = self._evaluate_internal_cron(
                 assertion, parameters, context
@@ -600,7 +611,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             )
         else:
             raise InvalidParametersException(
-                message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {assertion.freshness_assertion.schedule.type} provided.",
+                message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {freshness_assertion.schedule.type} provided.",
                 parameters=parameters.__dict__,
             )
         if internal_result.next_assertion_state and context.monitor_urn:
@@ -608,3 +619,38 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 context.monitor_urn, internal_result.next_assertion_state
             )
         return internal_result.result
+
+    def _evaluate_internal(
+        self,
+        assertion: Assertion,
+        parameters: AssertionEvaluationParameters,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        # Here's how we evaluate an Assertion.
+        # 1. Fetch the "dataset FRESHNESS assertion config"
+        # 2. Based on the type, we take different paths.
+        # assert assertion.freshness_assertion is not None
+
+        logger.debug("About to evaluate assertion...")
+
+        # If there is no freshness condition yet, we are still in training.
+        # Note that training depends on Operations being present, obtained from the a
+        # audit log. Currently, this only happens based on ingestion.
+        if ONLINE_SMART_ASSERTIONS_ENABLED and is_training_required(assertion):
+            # Check whether there is an assertion that has been generated!
+            # if not, reporting an initializing state.
+            if context.evaluation_spec:
+                last_inferred_at = (
+                    context.evaluation_spec.context.inference_details.generated_at
+                    if context.evaluation_spec.context
+                    and context.evaluation_spec.context.inference_details
+                    else None
+                )
+
+                if not last_inferred_at or last_inferred_at <= 0:
+                    return AssertionEvaluationResult(AssertionResultType.INIT)
+
+        # Perform the evaluation.
+        return self._evaluate_assertion_step(
+            assertion=assertion, parameters=parameters, context=context
+        )

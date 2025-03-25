@@ -1,185 +1,5 @@
 #import "./assertion_monitor_shared.graphql"
 
-fragment assertionInfo on AssertionInfo {
-    type
-    description
-    lastUpdated {
-        time
-        actor
-    }
-    datasetAssertion {
-        datasetUrn
-        scope
-        aggregation
-        operator
-        parameters {
-            value {
-                value
-                type
-            }
-            minValue {
-                value
-                type
-            }
-            maxValue {
-                value
-                type
-            }
-        }
-        fields {
-            urn
-            path
-        }
-        nativeType
-        nativeParameters {
-            key
-            value
-        }
-        logic
-    }
-    freshnessAssertion {
-        type
-        entityUrn
-        schedule {
-            type
-            cron {
-                cron
-                timezone
-            }
-            fixedInterval {
-                unit
-                multiple
-            }
-        }
-        filter {
-            type
-            sql
-        }
-    }
-    sqlAssertion {
-        type
-        entityUrn
-        statement
-        changeType
-        operator
-        parameters {
-            ...assertionStdParametersDetails
-        }
-    }
-    fieldAssertion {
-        type
-        entityUrn
-        filter {
-            type
-            sql
-        }
-        fieldValuesAssertion {
-            field {
-                path
-                type
-                nativeType
-            }
-            transform {
-                type
-            }
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-            failThreshold {
-                type
-                value
-            }
-            excludeNulls
-        }
-        fieldMetricAssertion {
-            field {
-                path
-                type
-                nativeType
-            }
-            metric
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-        }
-    }
-    volumeAssertion {
-        type
-        entityUrn
-        filter {
-            type
-            sql
-        }
-        rowCountTotal {
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-        }
-        rowCountChange {
-            type
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-        }
-        incrementingSegmentRowCountTotal {
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-            segment {
-                ...incrementingSegmentSpecDetails
-            }
-        }
-        incrementingSegmentRowCountChange {
-            type
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-            segment {
-                ...incrementingSegmentSpecDetails
-            }
-        }
-    }
-    schemaAssertion {
-        entityUrn
-        compatibility
-        fields {
-            path
-            type
-            nativeType
-        }
-        schema {
-            fields {
-                fieldPath
-                type
-                nativeDataType
-            }
-        }
-    }
-    customAssertion {
-        type
-        entityUrn
-        field {
-            urn
-            path
-        }
-        logic
-    }
-    source {
-        type
-        created {
-            time
-            actor
-        }
-    }
-    externalUrl
-}
-
 fragment assertionDetails on Assertion {
     urn
     type
@@ -201,9 +21,6 @@ fragment assertionDetails on Assertion {
     info {
         ...assertionInfo
     }
-    inferenceDetails {
-        generatedAt
-    }
     actions {
         onSuccess {
             type
@@ -217,33 +34,6 @@ fragment assertionDetails on Assertion {
     }
 }
 
-fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
-    field {
-        path
-        type
-        nativeType
-    }
-    transformer {
-        type
-        nativeType
-    }
-}
-
-fragment assertionStdParametersDetails on AssertionStdParameters {
-    value {
-        value
-        type
-    }
-    minValue {
-        value
-        type
-    }
-    maxValue {
-        value
-        type
-    }
-}
-
 fragment assertionDetailsWithRunEvents on Assertion {
     ...assertionDetails
     runEvents(status: COMPLETE, limit: 1) {
@@ -253,33 +43,6 @@ fragment assertionDetailsWithRunEvents on Assertion {
         runEvents {
             ...assertionRunEventDetails
         }
-    }
-}
-
-fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
-    field {
-        path
-        type
-        nativeType
-    }
-    transformer {
-        type
-        nativeType
-    }
-}
-
-fragment assertionStdParametersDetails on AssertionStdParameters {
-    value {
-        value
-        type
-    }
-    minValue {
-        value
-        type
-    }
-    maxValue {
-        value
-        type
     }
 }
 

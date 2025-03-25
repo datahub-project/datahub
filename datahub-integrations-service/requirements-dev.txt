@@ -452,6 +452,7 @@ ijson==3.2.3
 importlib-metadata==7.1.0
     # via
     #   -r requirements.txt
+    #   build
     #   great-expectations
 importlib-resources==6.4.0 ; python_full_version < '3.12'
     # via

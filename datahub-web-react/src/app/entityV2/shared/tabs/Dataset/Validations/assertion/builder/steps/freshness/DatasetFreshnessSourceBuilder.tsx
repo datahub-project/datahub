@@ -2,13 +2,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Form, Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import {
-    DatasetFreshnessAssertionParameters,
-    DatasetFreshnessSourceType,
-    FreshnessAssertionScheduleType,
-    FreshnessFieldSpec,
-    SchemaField,
-} from '../../../../../../../../../../types.generated';
+import { DatasetFreshnessSourceType, SchemaField } from '../../../../../../../../../../types.generated';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import {
@@ -21,6 +15,7 @@ import {
 import { useChangeSourceOptionIf } from '../../hooks';
 import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 import { useConnectionForEntityExists } from '../../../../acrylUtils';
+import { AssertionMonitorBuilderState, FreshnessAssertionBuilderScheduleType } from '../../types';
 
 const FormDiv = styled.div``;
 
@@ -67,9 +62,9 @@ const SourceOptionSelectDescription = styled(Typography.Paragraph)`
 type Props = {
     entityUrn: string;
     platformUrn: string;
-    scheduleType: FreshnessAssertionScheduleType;
-    value?: DatasetFreshnessAssertionParameters | null;
-    onChange: (newParams: DatasetFreshnessAssertionParameters) => void;
+    scheduleType: FreshnessAssertionBuilderScheduleType;
+    value?: Required<AssertionMonitorBuilderState>['parameters']['datasetFreshnessParameters'];
+    onChange: (newParams: Required<AssertionMonitorBuilderState>['parameters']['datasetFreshnessParameters']) => void;
     disabled?: boolean;
 };
 
@@ -140,7 +135,7 @@ export const DatasetFreshnessSourceBuilder = ({
             onChange({
                 ...value,
                 sourceType: newSourceOption.type,
-                field: newField as FreshnessFieldSpec,
+                field: newField,
                 auditLog: {},
             });
         }
@@ -154,7 +149,7 @@ export const DatasetFreshnessSourceBuilder = ({
                 ...field,
                 ...newSpec,
             },
-        } as any);
+        });
     };
 
     // If the selected source option is not allowed for the current schedule type, then change the source type to the default

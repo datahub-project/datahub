@@ -32,7 +32,7 @@ fragment AssertionStdParameterDetails on AssertionStdParameters {
 }
 
 fragment assertionInfoDetails on AssertionInfo {
-      type
+    type
     datasetAssertion {
       scope
       aggregation
@@ -63,6 +63,9 @@ fragment assertionInfoDetails on AssertionInfo {
         fixedInterval {
           unit
           multiple
+        }
+        exclusions {
+          ...assertionExclusionWindow
         }
       }
       filter {
@@ -185,6 +188,49 @@ fragment assertionInfoDetails on AssertionInfo {
     }
 }
 
+fragment assertionExclusionWindow on AssertionExclusionWindow {
+  type
+  displayName
+  fixedRange {
+    startTimeMillis
+    endTimeMillis
+  }
+  weekly {
+    daysOfWeek
+    startTime
+    endTime
+    timezone
+  }
+  holiday {
+    name
+    region
+    timezone
+  }
+}
+
+fragment assertionAdjustmentSettings on AssertionAdjustmentSettings {
+  algorithm
+  algorithmName
+  context {
+    key
+    value
+  }
+  trainingDataLookbackWindowDays
+  sensitivity {
+    level
+  }
+  exclusionWindows {
+    ...assertionExclusionWindow
+  }
+}
+
+fragment assertionInferenceDetails on AssertionInferenceDetails {
+  generatedAt
+  adjustmentSettings {
+    ...assertionAdjustmentSettings
+  }
+}
+
 fragment AssertionDetails on Assertion {
   urn
   type
@@ -202,34 +248,90 @@ fragment AssertionDetails on Assertion {
   info {
     ...assertionInfoDetails
   }
-  inferenceDetails {
-    adjustmentSettings {
-      algorithm
-      algorithmName
-      context {
-        key
-        value
-      }
-    }
-  }
   rawInfoAspect: aspects(
       input: { aspectNames : [ "assertionInfo" ] }
   ){
     aspectName
     payload
   }
-  relationships(
-    input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1, includeSoftDelete: true }
-  ) {
-    start
-    count
-    total
-    relationships {
-      entity {
-        ... on Dataset {
-          ...AssertionDataset
+}
+
+fragment MonitorDetails on Monitor {
+  urn
+  info {
+    type
+    status {
+      mode
+    }
+    executorId
+    assertionMonitor {
+      assertions {
+        assertion {
+          ...AssertionDetails
+        }
+        schedule {
+          cron
+          timezone
+        }
+        parameters {
+          type
+          datasetFreshnessParameters {
+            sourceType
+            field {
+              type
+              nativeType
+              path
+              kind
+            }
+            auditLog {
+              operationTypes
+              userName
+            }
+          }
+          datasetVolumeParameters {
+            sourceType
+          }
+          datasetFieldParameters {
+            sourceType
+            changedRowsField {
+              kind
+              path
+              type
+              nativeType
+            }
+          }
+          datasetSchemaParameters {
+            sourceType
+          }
+        }
+        rawParameters
+        context {
+          stdDev
+          embeddedAssertions {
+            assertion {
+              ...assertionInfoDetails
+            }
+            rawAssertion
+            evaluationTimeWindow {
+              startTimeMillis
+              endTimeMillis
+            }
+          }
+          inferenceDetails {
+            ...assertionInferenceDetails
+          }
         }
       }
+      settings {
+        inferenceSettings {
+          ...assertionAdjustmentSettings
+        }
+      }
+    }
+  }
+  entity {
+    ... on Dataset {
+      ...AssertionDataset
     }
   }
 }
@@ -241,77 +343,22 @@ fragment MonitorSearchResults on SearchResults {
   searchResults {
     entity {
       ... on Monitor {
-        urn
-        info {
-          type
-          status {
-            mode
-          }
-          executorId
-          assertionMonitor {
-            assertions {
-              assertion {
-                ...AssertionDetails
-              }
-              schedule {
-                cron
-                timezone
-              }
-              parameters {
-                type
-                datasetFreshnessParameters {
-                  sourceType
-                  field {
-                    type
-                    nativeType
-                    path
-                    kind
-                  }
-                  auditLog {
-                    operationTypes
-                    userName
-                  }
-                }
-                datasetVolumeParameters {
-                  sourceType
-                }
-                datasetFieldParameters {
-                  sourceType
-                  changedRowsField {
-                    kind
-                    path
-                    type
-                    nativeType
-                  }
-                }
-                datasetSchemaParameters {
-                  sourceType
-                }
-              }
-              rawParameters
-              context {
-                stdDev
-                embeddedAssertions {
-                  assertion {
-                    ...assertionInfoDetails
-                  }
-                  rawAssertion
-                  evaluationTimeWindow {
-                    startTimeMillis
-                    endTimeMillis
-                  }
-                }
-              }
-            }
-          }
-        }
+        ...MonitorDetails
       }
     }
   }
 }
 
-query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
+query listMonitors($input: SearchAcrossEntitiesInput!) {
   searchAcrossEntities(input: $input) {
     ...MonitorSearchResults
+  }
+}
+
+query getMonitor($urn: String!) {
+  entity (urn: $urn) {
+    ... on Monitor {
+      ...MonitorDetails
+    }
   }
 }

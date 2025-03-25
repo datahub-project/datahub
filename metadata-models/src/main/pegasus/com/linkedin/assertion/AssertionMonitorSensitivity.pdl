@@ -1,0 +1,11 @@
+namespace com.linkedin.assertion
+
+/**
+* Assertion monitor sensitivity is a measure of how sensitive the assertion monitor is to the assertion condition.
+**/
+record AssertionMonitorSensitivity  {
+    /**
+    * The assertion monitor level from 0-10
+    */
+    level: int
+}

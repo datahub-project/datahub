@@ -14,7 +14,11 @@ import {
     DATABRICKS_URN,
 } from '../../../../../../../../../ingest/source/builder/constants';
 import { getIsRowCountChange, getVolumeTypeInfo } from '../../../../utils';
-
+import {
+    VolumeAssertionBuilderState,
+    VolumeAssertionBuilderType,
+    VolumeAssertionBuilderTypeOptions,
+} from '../../types';
 // Source type config
 export type VolumeSourceType = {
     label: string;
@@ -156,22 +160,30 @@ export const PLATFORM_ASSERTION_CONFIGS = {
 export type VolumeTypeCategory = {
     label: string;
     disabled: boolean;
-    getType: (hasSegment: boolean) => VolumeAssertionType;
+    getType: (hasSegment: boolean) => VolumeAssertionBuilderType;
 };
 
 export enum VolumeTypeCategoryEnum {
+    AI_INFERRED = 'AI_INFERRED',
     ROW_COUNT = 'ROW_COUNT',
     GROWTH_RATE = 'GROWTH_RATE',
 }
 
 export const VOLUME_TYPE_CATEGORIES: Record<VolumeTypeCategoryEnum, VolumeTypeCategory> = {
+    [VolumeTypeCategoryEnum.AI_INFERRED]: {
+        label: 'Anomaly Detection',
+        disabled: false,
+        getType: () => {
+            return VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal;
+        },
+    },
     [VolumeTypeCategoryEnum.ROW_COUNT]: {
         label: 'Row Count',
         disabled: false,
         getType: (hasSegment: boolean) => {
             return hasSegment
-                ? VolumeAssertionType.IncrementingSegmentRowCountTotal
-                : VolumeAssertionType.RowCountTotal;
+                ? VolumeAssertionBuilderTypeOptions.IncrementingSegmentRowCountTotal
+                : VolumeAssertionBuilderTypeOptions.RowCountTotal;
         },
     },
     [VolumeTypeCategoryEnum.GROWTH_RATE]: {
@@ -179,8 +191,8 @@ export const VOLUME_TYPE_CATEGORIES: Record<VolumeTypeCategoryEnum, VolumeTypeCa
         disabled: false,
         getType: (hasSegment: boolean) => {
             return hasSegment
-                ? VolumeAssertionType.IncrementingSegmentRowCountChange
-                : VolumeAssertionType.RowCountChange;
+                ? VolumeAssertionBuilderTypeOptions.IncrementingSegmentRowCountChange
+                : VolumeAssertionBuilderTypeOptions.RowCountChange;
         },
     },
 };
@@ -189,13 +201,14 @@ export const getVolumeTypeCategory = (categoryKey: VolumeTypeCategoryEnum) => {
     return VOLUME_TYPE_CATEGORIES[categoryKey];
 };
 
-export const getSelectedVolumeTypeCategory = (volumeAssertionType: VolumeAssertionType) => {
+export const getSelectedVolumeTypeCategory = (volumeAssertionType: VolumeAssertionBuilderType) => {
     switch (volumeAssertionType) {
-        case VolumeAssertionType.RowCountTotal:
-        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
+        case VolumeAssertionBuilderTypeOptions.RowCountTotal:
+        case VolumeAssertionBuilderTypeOptions.IncrementingSegmentRowCountTotal:
+        case VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal:
             return VolumeTypeCategoryEnum.ROW_COUNT;
-        case VolumeAssertionType.RowCountChange:
-        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+        case VolumeAssertionBuilderTypeOptions.RowCountChange:
+        case VolumeAssertionBuilderTypeOptions.IncrementingSegmentRowCountChange:
             return VolumeTypeCategoryEnum.GROWTH_RATE;
         default:
             throw new Error(`Unknown volume assertion type: ${volumeAssertionType}`);
@@ -210,6 +223,7 @@ export type VolumeTypeOption = {
 };
 
 export enum VolumeTypeOptionEnum {
+    AI_INFERRED_ROWS = 'AI_INFERRED_ROWS',
     LESS_THAN_ROWS = 'LESS_THAN_ROWS',
     GREATER_THAN_ROWS = 'GREATER_THAN_ROWS',
     ROWS_IN_RANGE = 'ROWS_IN_RANGE',
@@ -219,6 +233,11 @@ export enum VolumeTypeOptionEnum {
 }
 
 export const VOLUME_TYPE_OPTIONS: Record<VolumeTypeOptionEnum, VolumeTypeOption> = {
+    [VolumeTypeOptionEnum.AI_INFERRED_ROWS]: {
+        label: 'Detect with AI',
+        operator: AssertionStdOperator.Between,
+        category: VolumeTypeCategoryEnum.AI_INFERRED,
+    },
     [VolumeTypeOptionEnum.LESS_THAN_ROWS]: {
         label: 'Is less than or equal to',
         operator: AssertionStdOperator.LessThanOrEqualTo,
@@ -252,6 +271,9 @@ export const VOLUME_TYPE_OPTIONS: Record<VolumeTypeOptionEnum, VolumeTypeOption>
 };
 
 export const VOLUME_TYPE_OPTIONS_BY_CATEGORY: Record<VolumeTypeCategoryEnum, VolumeTypeOptionEnum[]> = {
+    [VolumeTypeCategoryEnum.AI_INFERRED]: Object.entries(VOLUME_TYPE_OPTIONS)
+        .filter(([_, option]) => option.category === VolumeTypeCategoryEnum.AI_INFERRED)
+        .map(([key, _]) => key as VolumeTypeOptionEnum),
     [VolumeTypeCategoryEnum.ROW_COUNT]: Object.entries(VOLUME_TYPE_OPTIONS)
         .filter(([_, option]) => option.category === VolumeTypeCategoryEnum.ROW_COUNT)
         .map(([key, _]) => key as VolumeTypeOptionEnum),
@@ -260,33 +282,38 @@ export const VOLUME_TYPE_OPTIONS_BY_CATEGORY: Record<VolumeTypeCategoryEnum, Vol
         .map(([key, _]) => key as VolumeTypeOptionEnum),
 };
 
-export const getVolumeTypeOptions = () => {
-    return Object.entries(VOLUME_TYPE_OPTIONS_BY_CATEGORY).map(([categoryKey, categoryOptions]) => {
-        const category = VOLUME_TYPE_CATEGORIES[categoryKey as VolumeTypeCategoryEnum];
-        return {
-            label: category.label,
-            options: categoryOptions.map((optionKey) => {
-                const option = VOLUME_TYPE_OPTIONS[optionKey as VolumeTypeOptionEnum];
-                return {
-                    label: option.label,
-                    value: optionKey,
-                    disabled: category.disabled,
-                };
-            }),
-        };
-    });
+export const getVolumeTypeOptions = ({ disableAiInferred }: { disableAiInferred?: boolean } = {}) => {
+    return Object.entries(VOLUME_TYPE_OPTIONS_BY_CATEGORY)
+        .filter(([categoryKey]) => !disableAiInferred || categoryKey !== VolumeTypeCategoryEnum.AI_INFERRED)
+        .map(([categoryKey, categoryOptions]) => {
+            const category = VOLUME_TYPE_CATEGORIES[categoryKey as VolumeTypeCategoryEnum];
+            return {
+                label: category.label,
+                options: categoryOptions.map((optionKey) => {
+                    const option = VOLUME_TYPE_OPTIONS[optionKey as VolumeTypeOptionEnum];
+                    return {
+                        label: option.label,
+                        value: optionKey,
+                        disabled: category.disabled,
+                    };
+                }),
+            };
+        });
 };
 
 export const getVolumeTypeOption = (optionKey: VolumeTypeOptionEnum) => {
     return VOLUME_TYPE_OPTIONS[optionKey];
 };
 
-export const getSelectedVolumeTypeOption = (volumeAssertionInfo?: VolumeAssertionInfo) => {
+export const getSelectedVolumeTypeOption = (volumeAssertionInfo?: VolumeAssertionBuilderState) => {
     if (!volumeAssertionInfo) return undefined;
 
-    const category = getSelectedVolumeTypeCategory(volumeAssertionInfo.type);
-    const options = VOLUME_TYPE_OPTIONS_BY_CATEGORY[category];
-    const typeInfo = getVolumeTypeInfo(volumeAssertionInfo);
+    const category = volumeAssertionInfo.type ? getSelectedVolumeTypeCategory(volumeAssertionInfo.type) : undefined;
+    const options = category ? VOLUME_TYPE_OPTIONS_BY_CATEGORY[category] : [];
+    // NOTE: casting to VolumeAssertionInfo to satisfy the type of getVolumeTypeInfo and get the operator
+    const typeInfo = volumeAssertionInfo.type
+        ? getVolumeTypeInfo(volumeAssertionInfo as VolumeAssertionInfo)
+        : undefined;
     if (!typeInfo?.operator) return undefined;
     return options.find(
         (optionKey) =>

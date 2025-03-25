@@ -67,9 +67,15 @@ class DatahubProcessCollector(Collector):
         total_vms = parent_meminfo.vms
 
         for child in parent.children(recursive=True):
-            child_meminfo = child.memory_info()
-            total_rss += child_meminfo.rss
-            total_vms += child_meminfo.vms
+            try:
+                child_meminfo = child.memory_info()
+            except psutil.NoSuchProcess:
+                # This will happen if the child process died between the time we
+                # listed the child processes and when we tried to read info.
+                pass
+            else:
+                total_rss += child_meminfo.rss
+                total_vms += child_meminfo.vms
 
         metric = self._gauge(
             "memory_usage_processgroup",
@@ -204,9 +210,15 @@ class DatahubProcessCollector(Collector):
         group_system = 0
 
         for child in parent.children(recursive=True):
-            t = child.cpu_times()
-            group_user += t.user
-            group_system += t.system
+            try:
+                t = child.cpu_times()
+            except psutil.NoSuchProcess:
+                # This will happen if the child process died between the time we
+                # listed the child processes and when we tried to read info.
+                pass
+            else:
+                group_user += t.user
+                group_system += t.system
 
         processgroup = self._gauge(
             "cpu_usage_processgroup",

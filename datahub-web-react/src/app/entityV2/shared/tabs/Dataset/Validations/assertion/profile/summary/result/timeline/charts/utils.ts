@@ -1,5 +1,5 @@
 import _ from 'lodash';
-
+import { colors } from '@src/alchemy-components';
 import {
     AssertionInfo,
     AssertionResultType,
@@ -19,7 +19,7 @@ export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const ERROR_COLOR_HEX = '#FAAD14';
-export const INIT_COLOR_HEX = '#8C8C8C';
+export const INIT_COLOR_HEX = colors.blue[500];
 export const EXPECTED_RANGE_SHADE_COLOR = '#11d469';
 
 export const getFillColor = (type: AssertionResultType) => {
@@ -185,7 +185,8 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (
 
     // 4. Get the start of the window
     let windowStartDate: Date | undefined;
-    switch (assertionInfo.freshnessAssertion.schedule.type) {
+    // NOTE: this should always be defined for an assertion run
+    switch (assertionInfo.freshnessAssertion.schedule?.type) {
         case FreshnessAssertionScheduleType.SinceTheLastCheck: {
             // Get the ts of the data point before this one
             const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY);

@@ -1,4 +1,5 @@
-from unittest.mock import Mock
+import time
+from unittest.mock import Mock, patch
 
 import pytest
 from datahub.ingestion.graph.client import DataHubGraph
@@ -13,6 +14,18 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
     DataHubIngestionSourceConnectionProvider,
 )
 from datahub_executor.common.exceptions import InvalidParametersException
+from datahub_executor.common.metric.client.client import (
+    MetricClient,
+)
+from datahub_executor.common.metric.resolver.resolver import (
+    MetricResolver,
+)
+from datahub_executor.common.monitor.client.client import (
+    MonitorClient,
+)
+from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
+    MetricPredictor,
+)
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.source.source import Source
 from datahub_executor.common.state.datahub_monitor_state_provider import (
@@ -24,10 +37,14 @@ from datahub_executor.common.types import (
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
+    AssertionEvaluationSpec,
+    AssertionEvaluationSpecContext,
+    AssertionInferenceDetails,
     AssertionResultType,
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
     DatasetVolumeAssertionParameters,
@@ -50,25 +67,38 @@ class TestVolumeEvaluator:
         self.connection_provider = Mock(spec=DataHubIngestionSourceConnectionProvider)
         self.state_provider = Mock(spec=DataHubMonitorStateProvider)
         self.source_provider = Mock(spec=SourceProvider)
+        self.metrics_client = Mock(spec=MetricClient)
+        self.graph = Mock(spec=DataHubGraph)
+
+        self.metrics_resolver = MetricResolver(
+            self.connection_provider, self.source_provider
+        )
+        self.metrics_predictor = MetricPredictor()
+        self.monitor_client = MonitorClient(graph=self.graph)
+
         self.evaluator = VolumeAssertionEvaluator(
             self.connection_provider,
             self.state_provider,
             self.source_provider,
+            self.metrics_resolver,
+            self.metrics_client,
+            self.monitor_client,
         )
+
+        print(dir(SourceProvider))  # Check if 'create_source_from_connection' exists
+
         self.assertion = Assertion(
             urn="urn:li:assertion:test",
             type=AssertionType.VOLUME,
             entity=AssertionEntity(
                 urn="urn:li:dataset:test",
-                platformUrn="urn:li:dataPlatform:snowflake",
-                platformInstance=None,
-                subTypes=None,
+                platform_urn="urn:li:dataPlatform:snowflake",
+                platform_instance=None,
+                sub_types=None,
                 table_name="test_table",
-                qualifiedName="test_db.public.test_table",
+                qualified_name="test_db.public.test_table",
             ),
-            connectionUrn="urn:li:dataPlatform:snowflake",
-            freshnessAssertion=None,
-            volumeAssertion=None,
+            connection_urn="urn:li:dataPlatform:snowflake",
         )
         self.connection = Connection(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
@@ -78,7 +108,7 @@ class TestVolumeEvaluator:
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
             dataset_volume_parameters=DatasetVolumeAssertionParameters(
-                sourceType=DatasetVolumeSourceType.INFORMATION_SCHEMA
+                source_type=DatasetVolumeSourceType.INFORMATION_SCHEMA
             ),
         )
 
@@ -474,7 +504,7 @@ class TestVolumeEvaluator:
         evaluation_params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
             dataset_volume_parameters=DatasetVolumeAssertionParameters(
-                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+                source_type=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
             ),
         )
         volume_assertion = VolumeAssertion(
@@ -504,7 +534,7 @@ class TestVolumeEvaluator:
         evaluation_params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
             dataset_volume_parameters=DatasetVolumeAssertionParameters(
-                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+                source_type=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
             ),
         )
         volume_assertion = VolumeAssertion(
@@ -534,7 +564,7 @@ class TestVolumeEvaluator:
         evaluation_params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
             dataset_volume_parameters=DatasetVolumeAssertionParameters(
-                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+                source_type=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
             ),
         )
         volume_assertion = VolumeAssertion(
@@ -581,7 +611,6 @@ class TestVolumeEvaluator:
         self.assertion.volume_assertion = volume_assertion
         self.context.monitor_urn = ""
 
-        self.evaluator._evaluate_internal(self.assertion, self.params, self.context)
         source_mock = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = source_mock
         source_mock.get_row_count.return_value = 999
@@ -592,3 +621,289 @@ class TestVolumeEvaluator:
         assert result.type == AssertionResultType.INIT
         assert self.state_provider.get_state.call_count == 0
         assert self.state_provider.save_state.call_count == 0
+
+    def test_default_parameters(self) -> None:
+        """Test the default_parameters property."""
+        default_params = self.evaluator.default_parameters
+        assert default_params.type == AssertionEvaluationParametersType.DATASET_VOLUME
+        assert default_params.dataset_volume_parameters is not None
+        # Use the source_type attribute instead of sourceType
+        assert (
+            default_params.dataset_volume_parameters.source_type
+            == DatasetVolumeSourceType.INFORMATION_SCHEMA
+        )
+
+    def test_evaluate_value_change_absolute(self) -> None:
+        """Test _evaluate_value_change with ABSOLUTE change type."""
+        # Test equal to
+        result = self.evaluator._evaluate_value_change(
+            AssertionValueChangeType.ABSOLUTE,
+            900,
+            1000,
+            AssertionStdOperator.EQUAL_TO,
+            AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="100", type=AssertionStdParameterType.NUMBER
+                ),
+                minValue=None,
+                maxValue=None,
+            ),
+        )
+        assert result is True
+
+        # Test not equal to
+        result = self.evaluator._evaluate_value_change(
+            AssertionValueChangeType.ABSOLUTE,
+            900,
+            950,
+            AssertionStdOperator.EQUAL_TO,
+            AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="100", type=AssertionStdParameterType.NUMBER
+                ),
+                minValue=None,
+                maxValue=None,
+            ),
+        )
+        assert result is False
+
+    def test_evaluate_value_change_percentage(self) -> None:
+        """Test _evaluate_value_change with PERCENTAGE change type."""
+        # Test equal to (10% increase from 1000 to 1100)
+        result = self.evaluator._evaluate_value_change(
+            AssertionValueChangeType.PERCENTAGE,
+            1000,
+            1100,
+            AssertionStdOperator.EQUAL_TO,
+            AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
+                minValue=None,
+                maxValue=None,
+            ),
+        )
+        assert result is True
+
+        # Test not equal to (5% increase from 1000 to 1050)
+        result = self.evaluator._evaluate_value_change(
+            AssertionValueChangeType.PERCENTAGE,
+            1000,
+            1050,
+            AssertionStdOperator.EQUAL_TO,
+            AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
+                minValue=None,
+                maxValue=None,
+            ),
+        )
+        assert result is False
+
+    def test_unsupported_volume_assertion_type(self) -> None:
+        """Test handling of unsupported volume assertion type."""
+        # Create a test volume assertion with a valid enum value
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_TOTAL,
+            rowCountTotal=RowCountTotal(
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value="999", type=AssertionStdParameterType.NUMBER
+                    ),
+                    minValue=None,
+                    maxValue=None,
+                ),
+            ),
+            rowCountChange=None,
+            incrementingSegmentRowCountChange=None,
+            incrementingSegmentRowCountTotal=None,
+        )
+        self.assertion.volume_assertion = volume_assertion
+
+        # Mock the internal method to validate our case
+        with patch.object(
+            self.evaluator, "_evaluate_row_count_total_assertion"
+        ) as mock_method:
+            # Make the patched method raise an exception to simulate an unsupported type
+            mock_method.side_effect = InvalidParametersException(
+                message="Unsupported volume assertion type",
+                parameters={"type": "UNSUPPORTED_TYPE"},
+            )
+
+            source_mock = Mock(spec=Source)
+            self.source_provider.create_source_from_connection.return_value = (
+                source_mock
+            )
+            source_mock.get_row_count.return_value = 999
+
+            # Now we expect the exception to propagate
+            with pytest.raises(InvalidParametersException):
+                self.evaluator._evaluate_internal(
+                    self.assertion, self.params, self.context
+                )
+
+    @patch(
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
+        True,
+    )
+    @patch(
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
+    )
+    def test_evaluate_smart_assertion_v2_inference_required_no_inferred_at(
+        self, mock_is_training_required: Mock
+    ) -> None:
+        """Test smart assertion v2 logic when inference is required but no last_inferred_at is present."""
+        # Setup volume assertion
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_TOTAL,
+            rowCountTotal=None,
+            rowCountChange=None,
+            incrementingSegmentRowCountChange=None,
+            incrementingSegmentRowCountTotal=None,
+        )
+        self.assertion.volume_assertion = volume_assertion
+
+        # Mock is_training_required to return True
+        mock_is_training_required.return_value = True
+
+        # Setup evaluation spec with no inference details
+        evaluation_context = Mock(AssertionEvaluationContext)
+        evaluation_context.evaluation_spec = Mock(AssertionEvaluationSpec)
+        evaluation_context.evaluation_spec.context = Mock(
+            AssertionEvaluationSpecContext
+        )
+        evaluation_context.evaluation_spec.context.inference_details = (
+            None  # No inference details
+        )
+        evaluation_context.monitor_urn = "urn:li:monitor:test"
+
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.get_row_count.return_value = 999
+
+        # Execute
+        result = self.evaluator._evaluate_internal(
+            self.assertion, self.params, evaluation_context
+        )
+
+        # Verify that init state is returned
+        assert result.type == AssertionResultType.INIT
+
+    @patch(
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
+        True,
+    )
+    @patch(
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
+    )
+    def test_evaluate_smart_assertion_v2_inference_required_with_inference(
+        self, mock_is_training_required: Mock
+    ) -> None:
+        """Test smart assertion v2 logic when inference is required and last_inferred_at is present."""
+        # Setup a volume assertion with valid row_count_total
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_TOTAL,
+            rowCountTotal=RowCountTotal(
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value="1000", type=AssertionStdParameterType.NUMBER
+                    ),
+                    minValue=None,
+                    maxValue=None,
+                ),
+            ),
+            rowCountChange=None,
+            incrementingSegmentRowCountChange=None,
+            incrementingSegmentRowCountTotal=None,
+        )
+        self.assertion.volume_assertion = volume_assertion
+
+        # Mock is_training_required to return True
+        mock_is_training_required.return_value = True
+
+        # Setup evaluation spec with inference details
+        inference_details = Mock(spec=AssertionInferenceDetails)
+        inference_details.generated_at = int(time.time() * 1000)  # Current time
+
+        # Setup evaluation spec with inference details
+        evaluation_context = Mock(AssertionEvaluationContext)
+        evaluation_context.evaluation_spec = Mock(AssertionEvaluationSpec)
+        evaluation_context.evaluation_spec.context = Mock(
+            AssertionEvaluationSpecContext
+        )
+        evaluation_context.evaluation_spec.context.inference_details = (
+            inference_details  # Some infernce details
+        )
+        evaluation_context.monitor_urn = "urn:li:monitor:test"
+
+        # Create a source mock to return row_count
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.get_row_count.return_value = 999
+
+        # This should now use the provided volume_assertion for evaluation
+        result = self.evaluator._evaluate_internal(
+            self.assertion, self.params, evaluation_context
+        )
+
+        # Verify result (should be FAILURE since 999 != 1000)
+        assert result.type == AssertionResultType.FAILURE
+
+    def test_evaluate_metric_collection_step(self) -> None:
+        """Test the _evaluate_metric_collection_step method."""
+        # Setup assertion
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_TOTAL,
+            rowCountChange=None,
+            rowCountTotal=None,
+            incrementingSegmentRowCountChange=None,
+            incrementingSegmentRowCountTotal=None,
+        )
+        self.assertion.volume_assertion = volume_assertion
+
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.get_row_count.return_value = 999
+
+        # Test with save=False
+        result = self.evaluator._evaluate_metric_collection_step(
+            self.assertion, self.params, self.context, save=False
+        )
+        assert result.value == 999
+        self.metrics_client.save_metric_value.assert_not_called()
+
+        # Test with save=True
+        self.metrics_client.save_metric_value.reset_mock()
+        result = self.evaluator._evaluate_metric_collection_step(
+            self.assertion, self.params, self.context, save=True
+        )
+        assert result.value == 999
+        self.metrics_client.save_metric_value.assert_called_once()
+
+
+# Fixtures for the tests
+@pytest.fixture
+def evaluator(test_volume_evaluator: TestVolumeEvaluator) -> VolumeAssertionEvaluator:
+    """Return the VolumeAssertionEvaluator instance from the existing test class."""
+    return test_volume_evaluator.evaluator
+
+
+@pytest.fixture
+def assertion(test_volume_evaluator: TestVolumeEvaluator) -> Assertion:
+    """Return the Assertion instance from the existing test class."""
+    return test_volume_evaluator.assertion
+
+
+@pytest.fixture
+def context(test_volume_evaluator: TestVolumeEvaluator) -> AssertionEvaluationContext:
+    """Return the AssertionEvaluationContext instance from the existing test class."""
+    return test_volume_evaluator.context
+
+
+@pytest.fixture
+def params(test_volume_evaluator: TestVolumeEvaluator) -> AssertionEvaluationParameters:
+    """Return the AssertionEvaluationParameters instance from the existing test class."""
+    return test_volume_evaluator.params

@@ -28,12 +28,13 @@ export const AssertionSummaryContent = ({ assertion, monitor }: Props) => {
             </AssertionSummarySection>
             <Divider />
             <AssertionSummarySection title="Activity">
-                <AssertionResultsTable assertion={assertion} />
+                <AssertionResultsTable assertion={assertion} monitor={monitor} />
             </AssertionSummarySection>
             <Divider />
             <AssertionSummarySection title="Schedule details">
                 <AssertionScheduleSummary
                     assertion={assertion}
+                    monitor={monitor}
                     schedule={schedule}
                     lastEvaluatedAtMillis={lastEvaluatedAtMillis}
                     nextEvaluatedAtMillis={nextEvaluatedAtMillis}

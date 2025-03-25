@@ -3,20 +3,22 @@ import React from 'react';
 import { Collapse } from 'antd';
 import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
 import {
-    AssertionStdParameters,
-    AssertionType,
-    CronSchedule,
-    DatasetFilter,
-    DatasetVolumeSourceType,
-    VolumeAssertionInfo,
-} from '../../../../../../../../../../types.generated';
+    AssertionMonitorBuilderState,
+    VolumeAssertionBuilderState,
+    VolumeAssertionBuilderTypeOptions,
+} from '../../types';
+import { AssertionType, CronSchedule, DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
 import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { VolumeTypeBuilder } from './VolumeTypeBuilder';
 import { VolumeParametersBuilder } from './VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from './VolumeFilterBuilder';
+import {
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+} from '../../constants';
+import { VolumeInferenceAdjuster } from '../inferred/VolumeInferenceAdjuster';
 
 const Section = styled.div`
     display: flex;
@@ -28,9 +30,10 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) => {
+export const VolumeAssertionBuilder = ({ state, updateState, disabled, isEditMode }: Props) => {
     const assertion = state?.assertion;
     const schedule: CronSchedule | undefined | null = state?.schedule;
     const volumeAssertion = assertion?.volumeAssertion;
@@ -40,6 +43,8 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
     const entityUrn = state?.entityUrn as string;
     const platformUrn = state?.platformUrn as string;
 
+    const isAiInferenceSelected = volumeAssertion?.type === VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal;
+
     const updateAssertionSchedule = (newSchedule: CronSchedule) => {
         updateState({
             ...state,
@@ -47,9 +52,16 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
         });
     };
 
-    const updateVolumeType = (newVolumeAssertion: Partial<VolumeAssertionInfo>) => {
+    const updateVolumeType = (newVolumeAssertion: VolumeAssertionBuilderState) => {
+        const isAiInferred = newVolumeAssertion.type === VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal;
         updateState({
             ...state,
+            schedule: isAiInferred
+                ? {
+                      timezone: state.schedule?.timezone || AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+                      cron: AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+                  }
+                : state.schedule,
             assertion: {
                 ...state.assertion,
                 volumeAssertion: {
@@ -59,7 +71,7 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
         });
     };
 
-    const updateVolumeParameters = (newVolumeParameters: AssertionStdParameters) => {
+    const updateVolumeParameters = (newVolumeParameters: VolumeAssertionBuilderState['parameters']) => {
         updateState({
             ...state,
             assertion: {
@@ -92,7 +104,7 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
         });
     };
 
-    const updateFilter = (newFilter?: DatasetFilter) => {
+    const updateFilter = (newFilter?: VolumeAssertionBuilderState['filter']) => {
         updateState({
             ...state,
             assertion: {
@@ -105,7 +117,7 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
         });
     };
 
-    const updateVolumeAssertion = (newVolumeAssertion: Partial<VolumeAssertionInfo>) => {
+    const updateVolumeAssertion = (newVolumeAssertion: VolumeAssertionBuilderState) => {
         updateState({
             ...state,
             assertion: {
@@ -120,21 +132,28 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
 
     return (
         <div>
-            <VolumeTypeBuilder
-                volumeInfo={volumeAssertion as VolumeAssertionInfo}
-                onChange={updateVolumeType}
-                disabled={disabled}
-            />
-            <VolumeParametersBuilder
-                volumeInfo={volumeAssertion as VolumeAssertionInfo}
-                value={volumeParameters as AssertionStdParameters}
-                onChange={updateVolumeParameters}
-                updateVolumeAssertion={updateVolumeAssertion}
-                disabled={disabled}
-            />
+            {/* Cannot change type for AI inferred volume assertions */}
+            {!(isEditMode && isAiInferenceSelected) && (
+                <VolumeTypeBuilder
+                    volumeInfo={volumeAssertion}
+                    onChange={updateVolumeType}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                />
+            )}
+            {/* hidden for ai inferred assertions */}
+            {!isAiInferenceSelected && (
+                <VolumeParametersBuilder
+                    volumeInfo={volumeAssertion}
+                    value={volumeParameters}
+                    onChange={updateVolumeParameters}
+                    updateVolumeAssertion={updateVolumeAssertion}
+                    disabled={disabled}
+                />
+            )}
             <Section>
                 <Collapse>
-                    <Collapse.Panel key="Advanced" header="Advanced">
+                    <Collapse.Panel key="Advanced" header="Volume collection mechanism">
                         <VolumeSourceTypeBuilder
                             entityUrn={entityUrn}
                             platformUrn={platformUrn}
@@ -143,7 +162,7 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
                             disabled={disabled}
                         />
                         <VolumeFilterBuilder
-                            value={filter as DatasetFilter}
+                            value={filter}
                             onChange={updateFilter}
                             sourceType={sourceType as DatasetVolumeSourceType}
                             disabled={disabled}
@@ -151,12 +170,16 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
                     </Collapse.Panel>
                 </Collapse>
             </Section>
-            <EvaluationScheduleBuilder
-                value={schedule}
-                assertionType={AssertionType.Volume}
-                onChange={updateAssertionSchedule}
-                disabled={disabled}
-            />
+            {isAiInferenceSelected ? (
+                <VolumeInferenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+            ) : (
+                <EvaluationScheduleBuilder
+                    value={schedule}
+                    assertionType={AssertionType.Volume}
+                    onChange={updateAssertionSchedule}
+                    disabled={disabled}
+                />
+            )}
         </div>
     );
 };

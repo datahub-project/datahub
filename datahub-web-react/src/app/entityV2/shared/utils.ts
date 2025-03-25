@@ -330,6 +330,33 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
     return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
 };
 
+/**
+ * Recursively replaces null values with undefined values in an object.
+ * This is useful for converting null values to undefined values in an object while preserving the types.
+ */
+type RecursivelyReplaceNullWithUndefined<T> = T extends null
+    ? undefined
+    : T extends (infer U)[]
+    ? RecursivelyReplaceNullWithUndefined<U>[]
+    : T extends Record<string, unknown>
+    ? { [K in keyof T]: RecursivelyReplaceNullWithUndefined<T[K]> }
+    : T;
+
+export function nullsToUndefined<T>(obj: T): RecursivelyReplaceNullWithUndefined<T> {
+    if (obj === null || obj === undefined) {
+        return undefined as any;
+    }
+
+    if ((obj as any).constructor.name === 'Object' || Array.isArray(obj)) {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const key of Object.keys(obj)) {
+            // eslint-disable-next-line no-param-reassign
+            obj[key] = nullsToUndefined(obj[key]) as any;
+        }
+    }
+    return obj as any;
+}
+
 export const getProposedItemsByType = (proposedItems: ActionRequest[], type: ActionRequestType) => {
     return proposedItems.filter((item) => item.type === type);
 };

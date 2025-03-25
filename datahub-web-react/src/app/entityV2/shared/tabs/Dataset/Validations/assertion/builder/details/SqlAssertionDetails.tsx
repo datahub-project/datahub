@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form } from 'antd';
 import styled from 'styled-components';
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 import { Assertion, AssertionType, Monitor } from '../../../../../../../../../types.generated';
 import { EvaluationScheduleBuilder } from '../steps/common/EvaluationScheduleBuilder';
 import { DescriptionBuilder } from './DescriptionBuilder';
@@ -50,8 +51,8 @@ export const SqlAssertionDetails = ({ assertion }: Props) => {
                             sqlAssertion: {
                                 type: sqlAssertion?.type,
                                 operator: sqlAssertion?.operator,
-                                changeType: sqlAssertion?.changeType,
-                                parameters: sqlAssertion?.parameters,
+                                changeType: sqlAssertion?.changeType ?? undefined,
+                                parameters: nullsToUndefined(sqlAssertion?.parameters),
                             },
                         },
                     }}

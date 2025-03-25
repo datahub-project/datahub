@@ -58,9 +58,9 @@ class FreshnessAssertionParametersSchema(BaseModel):
 
     def to_internal_params(self) -> DatasetFreshnessAssertionParameters:
         return DatasetFreshnessAssertionParameters(
-            sourceType=self.source_type,
+            source_type=self.source_type,
             field=self.field,
-            auditLog=self.audit_log,
+            audit_log=self.audit_log,
         )
 
 
@@ -68,7 +68,7 @@ class VolumeAssertionParametersSchema(BaseModel):
     source_type: DatasetVolumeSourceType = Field(alias="sourceType")
 
     def to_internal_params(self) -> DatasetVolumeAssertionParameters:
-        return DatasetVolumeAssertionParameters(sourceType=self.source_type)
+        return DatasetVolumeAssertionParameters(source_type=self.source_type)
 
 
 class FieldAssertionParametersSchema(BaseModel):
@@ -80,7 +80,7 @@ class FieldAssertionParametersSchema(BaseModel):
 
     def to_internal_params(self) -> DatasetFieldAssertionParameters:
         return DatasetFieldAssertionParameters(
-            sourceType=self.source_type, changedRowsField=self.changed_rows_field
+            source_type=self.source_type, changed_rows_field=self.changed_rows_field
         )
 
 
@@ -88,7 +88,7 @@ class SchemaAssertionParametersSchema(BaseModel):
     source_type: DatasetSchemaSourceType = Field(alias="sourceType")
 
     def to_internal_params(self) -> DatasetSchemaAssertionParameters:
-        return DatasetSchemaAssertionParameters(sourceType=self.source_type)
+        return DatasetSchemaAssertionParameters(source_type=self.source_type)
 
 
 class AssertionInfoSchema(BaseModel):

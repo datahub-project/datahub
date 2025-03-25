@@ -1,22 +1,18 @@
-import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    RowCountTotalClass,
-    VolumeAssertionInfoClass,
-)
 
-from datahub_executor.common.aspect_builder import get_assertion_std_parameters
+from datahub_executor.common.assertion.engine.transformer.assertion_adjustment.algorithm import (
+    IQRAdjustmentAlgorithm,
+    StdDevAdjustmentAlgorithm,
+)
 from datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer import (
     AssertionAdjustmentTransformer,
+    get_adjustment_algorithm_from_settings,
 )
 from datahub_executor.common.types import (
     Assertion,
-    AssertionAdjustmentAlgorithm,
-    AssertionAdjustmentSettings,
     AssertionEntity,
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
@@ -32,8 +28,12 @@ from datahub_executor.common.types import (
     CronSchedule,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
-    RawAspect,
+    FieldAssertion,
+    FieldAssertionType,
+    FieldMetricAssertion,
+    FieldMetricType,
     RowCountTotal,
+    SchemaFieldSpec,
     VolumeAssertion,
     VolumeAssertionType,
 )
@@ -41,17 +41,17 @@ from datahub_executor.common.types import (
 # Initialize sample objects
 entity = AssertionEntity(
     urn="urn:li:dataset:test",
-    platformUrn="urn:li:dataPlatform:snowflake",
-    platformInstance=None,
-    subTypes=None,
+    platform_urn="urn:li:dataPlatform:snowflake",
+    platform_instance=None,
+    sub_types=None,
 )
 
 eval_parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
+    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+        source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
         field=None,
-        auditLog=None,
+        audit_log=None,
     ),
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")
@@ -62,13 +62,13 @@ assertion_context = AssertionEvaluationContext()
 def volume_assertion() -> VolumeAssertion:
     return VolumeAssertion(
         type=VolumeAssertionType.ROW_COUNT_TOTAL,
-        rowCountTotal=RowCountTotal(
+        row_count_total=RowCountTotal(
             operator=AssertionStdOperator.BETWEEN,
             parameters=AssertionStdParameters(
-                maxValue=AssertionStdParameter(
+                max_value=AssertionStdParameter(
                     type=AssertionStdParameterType.NUMBER, value="100"
                 ),
-                minValue=AssertionStdParameter(
+                min_value=AssertionStdParameter(
                     type=AssertionStdParameterType.NUMBER, value="90"
                 ),
             ),
@@ -77,42 +77,26 @@ def volume_assertion() -> VolumeAssertion:
 
 
 @pytest.fixture
-def assertion_custom_adjustment(volume_assertion: VolumeAssertion) -> Assertion:
-    return Assertion(
-        urn="urn:li:assertion:test",
-        type=AssertionType.VOLUME,
-        entity=entity,
-        sourceType=AssertionSourceType.INFERRED,
-        connectionUrn="urn:li:dataPlatform:snowflake",
-        volumeAssertion=volume_assertion,
-        adjustmentSettings=AssertionAdjustmentSettings(
-            algorithm=AssertionAdjustmentAlgorithm.CUSTOM,
-            algorithmName="IQR",
-            context={
-                "K": 0.5,
-            },
+def field_metric_assertion() -> FieldAssertion:
+    return FieldAssertion(
+        type=FieldAssertionType.FIELD_METRIC,
+        field_metric_assertion=FieldMetricAssertion(
+            field=SchemaFieldSpec(
+                path="column", type="string", native_type="varchar", kind=None
+            ),
+            metric=FieldMetricType.EMPTY_COUNT,
+            operator=AssertionStdOperator.BETWEEN,
+            parameters=AssertionStdParameters(
+                max_value=AssertionStdParameter(
+                    type=AssertionStdParameterType.NUMBER, value="1000"
+                ),
+                min_value=AssertionStdParameter(
+                    type=AssertionStdParameterType.NUMBER, value="800"
+                ),
+                value=None,
+            ),
         ),
-        raw_info_aspect=get_raw_info_aspect_for_volume_assertion(volume_assertion),
-    )
-
-
-@pytest.fixture
-def assertion_malformed_custom_adjustment(
-    volume_assertion: VolumeAssertion,
-) -> Assertion:
-    return Assertion(
-        urn="urn:li:assertion:test",
-        type=AssertionType.VOLUME,
-        entity=entity,
-        sourceType=AssertionSourceType.INFERRED,
-        connectionUrn="urn:li:dataPlatform:snowflake",
-        volumeAssertion=volume_assertion,
-        adjustmentSettings=AssertionAdjustmentSettings(
-            algorithm=AssertionAdjustmentAlgorithm.CUSTOM,
-            algorithmName="IQR",
-            context={"K": "K", "somerandomstuff": "xyz"},
-        ),
-        raw_info_aspect=get_raw_info_aspect_for_volume_assertion(volume_assertion),
+        field_values_assertion=None,
     )
 
 
@@ -122,57 +106,49 @@ def assertion_no_adjustment(volume_assertion: VolumeAssertion) -> Assertion:
         urn="urn:li:assertion:test",
         type=AssertionType.VOLUME,
         entity=entity,
-        sourceType=AssertionSourceType.NATIVE,
-        connectionUrn="urn:li:dataPlatform:snowflake",
-        volumeAssertion=volume_assertion,
-        adjustmentSettings=AssertionAdjustmentSettings(
-            algorithm=AssertionAdjustmentAlgorithm.CUSTOM,
-            algorithmName="IQR",
-            context={
-                "K": 0.5,
-            },
-        ),
-        raw_info_aspect=get_raw_info_aspect_for_volume_assertion(volume_assertion),
+        source_type=AssertionSourceType.NATIVE,
+        connection_urn="urn:li:dataPlatform:snowflake",
+        volume_assertion=volume_assertion,
+        raw_info_aspect=None,
     )
 
 
 @pytest.fixture
 def assertion_default_adjustment(volume_assertion: VolumeAssertion) -> Assertion:
-    return Assertion(
+    assertion = Assertion(
         urn="urn:li:assertion:test",
         type=AssertionType.VOLUME,
         entity=entity,
-        sourceType=AssertionSourceType.INFERRED,
-        connectionUrn="urn:li:dataPlatform:snowflake",
-        volumeAssertion=volume_assertion,
-        raw_info_aspect=get_raw_info_aspect_for_volume_assertion(volume_assertion),
+        source_type=AssertionSourceType.INFERRED,
+        connection_urn="urn:li:dataPlatform:snowflake",
+        volume_assertion=volume_assertion,
+        raw_info_aspect=None,
     )
+    return assertion
 
 
-def get_raw_info_aspect_for_volume_assertion(
-    volume_assertion: VolumeAssertion,
-) -> RawAspect:
-    return RawAspect(
-        aspectName="assertionInfo",
-        payload=json.dumps(
-            AssertionInfoClass(
-                type=AssertionType.VOLUME.value,
-                volumeAssertion=VolumeAssertionInfoClass(
-                    entity=entity.urn,
-                    type=volume_assertion.type.value,
-                    rowCountTotal=RowCountTotalClass(
-                        operator=volume_assertion.row_count_total.operator.value,  # type:ignore
-                        parameters=get_assertion_std_parameters(
-                            volume_assertion.row_count_total.parameters  # type:ignore
-                        ),
-                    ),
-                ),
-            ).to_obj()
-        ),
+@pytest.fixture
+def field_assertion_default_adjustment(
+    field_metric_assertion: FieldAssertion,
+) -> Assertion:
+    assertion = Assertion(
+        urn="urn:li:assertion:test-field",
+        type=AssertionType.FIELD,
+        entity=entity,
+        source_type=AssertionSourceType.INFERRED,
+        connection_urn="urn:li:dataPlatform:snowflake",
+        field_assertion=field_metric_assertion,
+        raw_info_aspect=None,
     )
+    return assertion
 
 
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
 def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) -> None:
+    """Test that non-inferred assertions are not transformed"""
     graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
@@ -180,14 +156,18 @@ def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) 
     )
 
     assert new_assertion == assertion_no_adjustment
-    assert new_assertion.raw_info_aspect
     assert parameters == eval_parameters
     assert context == assertion_context
 
 
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
 def test_assertion_tranformer_default_adjustment(
     assertion_default_adjustment: Assertion,
 ) -> None:
+    """Test default IQR adjustment for inferred volume assertions"""
     graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
@@ -195,39 +175,70 @@ def test_assertion_tranformer_default_adjustment(
     )
 
     assert new_assertion.volume_assertion
-    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters
         == AssertionStdParameters(
-            maxValue=AssertionStdParameter(
+            max_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="125.0"
             ),
-            minValue=AssertionStdParameter(
+            min_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="65.0"
             ),
         )
     )
     assert parameters == eval_parameters
-    assert context.base_assertion_info != new_assertion.raw_info_aspect
 
 
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
+def test_assertion_tranformer_field_metric_adjustment(
+    field_assertion_default_adjustment: Assertion,
+) -> None:
+    """Test default IQR adjustment for inferred field metric assertions"""
+    graph = MagicMock(spec=DataHubGraph)
+    transformer = AssertionAdjustmentTransformer(graph)
+    new_assertion, parameters, context = transformer.transform(
+        field_assertion_default_adjustment, eval_parameters, assertion_context
+    )
+
+    assert new_assertion.field_assertion
+    assert new_assertion.field_assertion.field_metric_assertion
+    assert (
+        new_assertion.field_assertion.field_metric_assertion.parameters
+        == AssertionStdParameters(
+            max_value=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="1500.0"
+            ),
+            min_value=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="300.0"
+            ),
+        )
+    )
+    assert parameters == eval_parameters
+
+
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
 def test_assertion_tranformer_default_adjustment_std_dev(
     assertion_default_adjustment: Assertion,
 ) -> None:
+    """Test standard deviation adjustment with provided std_dev value"""
     assertion_context_with_std = AssertionEvaluationContext(
         assertion_evaluation_spec=AssertionEvaluationSpec(
             assertion=assertion_default_adjustment,
             schedule=CronSchedule(cron="* * * * *", timezone="America/Los_Angeles"),
             parameters=AssertionEvaluationParameters(
                 type=AssertionEvaluationParametersType.DATASET_VOLUME,
-                datasetFieldParameters=None,
-                datasetSchemaParameters=None,
-                datasetVolumeParameters=None,
-                datasetFreshnessParameters=None,
             ),
-            rawParameters=None,
-            context=AssertionEvaluationSpecContext(embeddedAssertions=[], stdDev=5.0),
+            raw_parameters=None,
+            context=AssertionEvaluationSpecContext(
+                embedded_assertions=[], std_dev=5.0, inference_details=None
+            ),
         )
     )
 
@@ -238,39 +249,40 @@ def test_assertion_tranformer_default_adjustment_std_dev(
     )
 
     assert new_assertion.volume_assertion
-    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters
         == AssertionStdParameters(
-            maxValue=AssertionStdParameter(
+            max_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="101.25"
             ),
-            minValue=AssertionStdParameter(
+            min_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="88.75"
             ),
         )
     )
     assert parameters == eval_parameters
-    assert context.base_assertion_info != new_assertion.raw_info_aspect
 
 
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
 def test_assertion_tranformer_default_adjustment_std_dev_with_floor(
     assertion_default_adjustment: Assertion,
 ) -> None:
+    """Test standard deviation adjustment with very large std_dev that would make min value negative"""
     assertion_context_with_std = AssertionEvaluationContext(
         assertion_evaluation_spec=AssertionEvaluationSpec(
             assertion=assertion_default_adjustment,
             schedule=CronSchedule(cron="* * * * *", timezone="America/Los_Angeles"),
             parameters=AssertionEvaluationParameters(
                 type=AssertionEvaluationParametersType.DATASET_VOLUME,
-                datasetFieldParameters=None,
-                datasetSchemaParameters=None,
-                datasetVolumeParameters=None,
-                datasetFreshnessParameters=None,
             ),
-            rawParameters=None,
-            context=AssertionEvaluationSpecContext(embeddedAssertions=[], stdDev=500),
+            raw_parameters=None,
+            context=AssertionEvaluationSpecContext(
+                embedded_assertions=[], std_dev=500, inference_details=None
+            ),
         )
     )
 
@@ -281,73 +293,94 @@ def test_assertion_tranformer_default_adjustment_std_dev_with_floor(
     )
 
     assert new_assertion.volume_assertion
-    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters
         == AssertionStdParameters(
-            maxValue=AssertionStdParameter(
+            max_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="225.0"
             ),
-            minValue=AssertionStdParameter(
+            min_value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="0"
             ),
         )
     )
     assert parameters == eval_parameters
-    assert context.base_assertion_info != new_assertion.raw_info_aspect
 
 
-def test_assertion_tranformer_custom_adjustment(
-    assertion_custom_adjustment: Assertion,
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
+def test_assertion_transformer_no_adjustment_with_v2_enabled(
+    assertion_default_adjustment: Assertion,
 ) -> None:
+    """Test that when ONLINE_SMART_ASSERTIONS_ENABLED is True, no adjustments are made"""
     graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
-        assertion_custom_adjustment, eval_parameters, assertion_context
+        assertion_default_adjustment, eval_parameters, assertion_context
     )
 
-    assert new_assertion.volume_assertion
-    assert new_assertion.raw_info_aspect
-    assert new_assertion.volume_assertion.row_count_total
-    assert (
-        new_assertion.volume_assertion.row_count_total.parameters
-        == AssertionStdParameters(
-            maxValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="105.0"
+    # Should not be adjusted when V2 is enabled
+    assert new_assertion == assertion_default_adjustment
+    assert parameters == eval_parameters
+    assert context == assertion_context
+
+
+def test_get_adjustment_algorithm_from_settings_std_dev(
+    assertion_default_adjustment: Assertion,
+) -> None:
+    """Test that std_dev context creates StdDevAdjustmentAlgorithm"""
+    assertion_context_with_std = AssertionEvaluationContext(
+        assertion_evaluation_spec=AssertionEvaluationSpec(
+            assertion=assertion_default_adjustment,
+            schedule=CronSchedule(cron="* * * * *", timezone="America/Los_Angeles"),
+            parameters=AssertionEvaluationParameters(
+                type=AssertionEvaluationParametersType.DATASET_VOLUME,
             ),
-            minValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="85.0"
+            rawParameters=None,
+            context=AssertionEvaluationSpecContext(
+                embedded_assertions=[], std_dev=3.0, inference_details=None
             ),
         )
     )
-    assert parameters == eval_parameters
-    assert context.base_assertion_info
-    assert context.base_assertion_info != new_assertion.raw_info_aspect
+
+    algorithm = get_adjustment_algorithm_from_settings(assertion_context_with_std)
+    assert isinstance(algorithm, StdDevAdjustmentAlgorithm)
+    # Access the std_dev attribute using the property name from the implementation
+    assert algorithm.std_dev == 3.0
 
 
-def test_assertion_tranformer_malformed_adjustment(
-    assertion_malformed_custom_adjustment: Assertion,
+def test_get_adjustment_algorithm_from_settings_default() -> None:
+    """Test that context without std_dev creates IQRAdjustmentAlgorithm"""
+    context = AssertionEvaluationContext()
+
+    algorithm = get_adjustment_algorithm_from_settings(context)
+    assert isinstance(algorithm, IQRAdjustmentAlgorithm)
+
+
+@patch(
+    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    False,
+)
+def test_assertion_transformer_with_exception(
+    assertion_default_adjustment: Assertion,
 ) -> None:
+    """Test that exceptions during adjustment are handled properly"""
     graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
-    new_assertion, parameters, context = transformer.transform(
-        assertion_malformed_custom_adjustment, eval_parameters, assertion_context
-    )
 
-    assert new_assertion.volume_assertion
-    assert new_assertion.raw_info_aspect
-    assert new_assertion.volume_assertion.row_count_total
-    assert (
-        new_assertion.volume_assertion.row_count_total.parameters
-        == AssertionStdParameters(
-            maxValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="125.0"
-            ),
-            minValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="65.0"
-            ),
+    # Force an exception during adjustment
+    with patch(
+        "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.get_adjustment_algorithm_from_settings",
+        side_effect=Exception("Test error"),
+    ):
+        new_assertion, parameters, context = transformer.transform(
+            assertion_default_adjustment, eval_parameters, assertion_context
         )
-    )
-    assert parameters == eval_parameters
-    assert context.base_assertion_info != new_assertion.raw_info_aspect
+
+        # Should return original values without adjustments
+        assert new_assertion == assertion_default_adjustment
+        assert parameters == eval_parameters
+        assert context == assertion_context

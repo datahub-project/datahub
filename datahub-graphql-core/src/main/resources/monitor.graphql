@@ -208,6 +208,21 @@ type AssertionMonitor {
     The set of assertions to be evaluated by the monitor
     """
     assertions: [AssertionEvaluationSpec!]!
+
+    """
+    The settings for the assertion monitor.
+    """
+    settings: AssertionMonitorSettings
+}
+
+"""
+Settings for the assertion monitor.
+"""
+type AssertionMonitorSettings {
+    """
+    Adjustment settings for the assertion monitor
+    """
+    inferenceSettings: AssertionAdjustmentSettings
 }
 
 """
@@ -286,7 +301,48 @@ type AssertionEvaluationContext {
   The standard deviation that was used to calculate the threshold for the assertion
   """
   stdDev: Float
+
+  """
+  The interference details for the assertions
+  """
+  inferenceDetails: AssertionInferenceDetails
 }
+
+"""
+The details of an Inferred Assertion
+"""
+type AssertionInferenceDetails {
+  """
+  The id of the assertion prediction model.
+  """
+  modelId: String
+
+  """
+  The version of the model used to make the assertion.
+  """
+  modelVersion: String
+
+  """
+  The confidence of the inference, if available.
+  """
+  confidence: Float
+
+  """
+  The parameters used to make the inference.
+  """
+  parameters: [StringMapEntry!]
+
+  """
+  The settings used to adjust the assertion.
+  """
+  adjustmentSettings: AssertionAdjustmentSettings
+
+  """
+  The time the inferred assertion was generated at in milliseconds.
+  """
+  generatedAt: Long
+}
+
 
 """
   Embedded assertion to be evaluated
@@ -484,6 +540,45 @@ enum MonitorMode {
 }
 
 """
+The lifecycle state of a monitor
+"""
+enum MonitorState {
+  """
+  The monitor is not yet evaluating anything, it's simply training or collecting necessary information.
+  """
+  TRAINING
+
+  """
+  The monitor is in a normal evaluation state.
+  """
+  EVALUATION
+
+  """
+  The monitor encountered an unrecoverable error during training or evaluation.
+  """
+  ERROR
+}
+
+enum MonitorErrorType {
+  """
+  The monitor encountered an error during training or evaluation.
+  """
+  UNKNOWN
+}
+
+type MonitorError {
+  """
+  The error type
+  """
+  type: MonitorErrorType!
+
+  """
+  An optional message
+  """
+  message: String
+}
+
+"""
 Details about the status of a monitor.
 """
 type MonitorStatus {
@@ -491,6 +586,16 @@ type MonitorStatus {
   The operational mode of the monitor
   """
   mode: MonitorMode!
+
+  """
+  The state of the monitor.
+  """
+  state: MonitorState
+
+  """
+  The error for a monitor. Present if state is ERROR.
+  """
+  error: MonitorError
 }
 
 """

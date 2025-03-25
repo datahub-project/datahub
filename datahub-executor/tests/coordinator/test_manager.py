@@ -23,23 +23,18 @@ from datahub_executor.coordinator.scheduler import ExecutionRequestScheduler
 # Initialize sample objects
 entity = AssertionEntity(
     urn="urn:li:dataset:test",
-    platformUrn="urn:li:dataPlatform:snowflake",
-    platformInstance=None,
-    subTypes=None,
+    platform_urn="urn:li:dataPlatform:snowflake",
 )
 assertion = Assertion(
     urn="urn:li:assertion:test",
     type=AssertionType.DATASET,
     entity=entity,
-    connectionUrn="urn:li:dataPlatform:snowflake",
-    freshnessAssertion=None,
+    connection_urn="urn:li:dataPlatform:snowflake",
 )
 parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
-        field=None,
-        auditLog=None,
+    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+        source_type=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
     ),
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")

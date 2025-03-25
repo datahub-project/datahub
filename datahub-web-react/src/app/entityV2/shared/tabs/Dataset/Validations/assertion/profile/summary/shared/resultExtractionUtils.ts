@@ -172,6 +172,10 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (
     runEvent: AssertionRunEvent,
     maybeFallbackAssertionType?: AssertionType,
 ): number | undefined => {
+    const isInitializing = runEvent.result?.type === AssertionResultType.Init;
+    if (isInitializing) {
+        return undefined;
+    }
     switch (runEvent.result?.assertion?.type ?? maybeFallbackAssertionType) {
         case AssertionType.Sql:
             return tryGetSqlAssertionNumericalResult(runEvent.result);
@@ -233,6 +237,9 @@ export type AssertionExpectedRange = {
  * @returns {AssertionExpectedRange}
  */
 export const tryGetExpectedRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent): AssertionExpectedRange => {
+    if (runEvent.result?.type === AssertionResultType.Init) {
+        return {};
+    }
     let result: AssertionExpectedRange = {};
 
     const info = runEvent.result?.assertion;

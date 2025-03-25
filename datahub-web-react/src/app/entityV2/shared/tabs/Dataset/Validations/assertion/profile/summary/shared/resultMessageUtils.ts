@@ -1,8 +1,10 @@
 import {
     Assertion,
+    AssertionInfo,
     AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
+    AssertionSourceType,
     AssertionType,
     AssertionValueChangeType,
     FieldAssertionInfo,
@@ -48,7 +50,7 @@ import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
 import { getFieldMetricTypeReadableLabel } from '../../../../fieldDescriptionUtils';
 import { toReadableLocalDateTimeString } from '../../shared/utils';
 
-export const getFormattedResultText = (result?: AssertionResultType) => {
+export const getFormattedResultText = (result?: AssertionResultType, isSmartAssertion?: boolean) => {
     if (result === undefined) {
         return 'Not completed';
     }
@@ -62,7 +64,7 @@ export const getFormattedResultText = (result?: AssertionResultType) => {
         return 'Error';
     }
     if (result === AssertionResultType.Init) {
-        return 'Initializing';
+        return isSmartAssertion ? 'Training' : 'Initializing';
     }
     return undefined;
 };
@@ -278,7 +280,9 @@ const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
 
 export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEvent) => {
     if (run?.result?.type === AssertionResultType.Init) {
-        return 'Initial data recorded successfully. Assertion result will be available on the next evaluation.';
+        return assertion.info?.source?.type === AssertionSourceType.Inferred
+            ? 'Collecting data to train the model. Evaluation will begin once training is complete.'
+            : 'Initial data recorded successfully. Assertion result will be available on the next evaluation.';
     }
     if (run?.result?.type === AssertionResultType.Error) {
         const formattedError = getResultErrorMessage(run?.result);
@@ -447,10 +451,14 @@ const getFormattedExpectedTextForRelativeAssertion = (
     return undefined;
 };
 
-const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): string | undefined => {
-    const volumeAssertion = run.result?.assertion?.volumeAssertion;
+const getFormattedExpectedTextForVolumeAssertion = (
+    run: AssertionRunEvent | undefined,
+    assertion: AssertionInfo,
+): string | undefined => {
+    const volumeAssertion = run?.result?.assertion?.volumeAssertion || assertion?.volumeAssertion;
     switch (volumeAssertion?.type) {
         case VolumeAssertionType.RowCountChange:
+            if (!run) return undefined; // inferred assertions don't use rowCountChange, so for future predictions we don't need to handle this case
             return getFormattedExpectedTextForRelativeAssertion(
                 'Row count',
                 volumeAssertion.rowCountChange,
@@ -506,8 +514,11 @@ const getFormattedExpectedTextForFieldMetricsAssertion = (
     }
     return getFormattedExpectedTextForAbsoluteAssertion(metricDescription, fieldAssertionInfo.fieldMetricAssertion);
 };
-const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): string | undefined => {
-    const fieldAssertionInfo = run.result?.assertion?.fieldAssertion;
+const getFormattedExpectedTextForFieldAssertion = (
+    run: AssertionRunEvent | undefined,
+    assertion: AssertionInfo,
+): string | undefined => {
+    const fieldAssertionInfo = run?.result?.assertion?.fieldAssertion || assertion?.fieldAssertion;
     if (!fieldAssertionInfo) return undefined;
     switch (fieldAssertionInfo.type) {
         case FieldAssertionType.FieldValues:
@@ -519,35 +530,44 @@ const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): stri
     }
 };
 
-const getFormattedExpectedTextForSqlAssertion = (run: AssertionRunEvent): string | undefined => {
-    const sqlAssertionInfo = run.result?.assertion?.sqlAssertion;
+const getFormattedExpectedTextForSqlAssertion = (
+    run: AssertionRunEvent | undefined,
+    assertion: AssertionInfo,
+): string | undefined => {
+    const sqlAssertionInfo = run?.result?.assertion?.sqlAssertion || assertion?.sqlAssertion;
     if (!sqlAssertionInfo) return undefined;
 
     return sqlAssertionInfo.changeType
-        ? getFormattedExpectedTextForRelativeAssertion(
-              'SQL result',
-              sqlAssertionInfo,
-              sqlAssertionInfo.changeType,
-              tryGetPreviousSqlAssertionNumericalResult(run.result),
-          )
+        ? // NOTE: inferred assertions don't use sqlAssertionInfo.changeType, so for future predictions we don't need to handle this case
+          run &&
+              getFormattedExpectedTextForRelativeAssertion(
+                  'SQL result',
+                  sqlAssertionInfo,
+                  sqlAssertionInfo.changeType,
+                  tryGetPreviousSqlAssertionNumericalResult(run.result),
+              )
         : getFormattedExpectedTextForAbsoluteAssertion('SQL result', sqlAssertionInfo);
 };
 
-const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): string | undefined => {
-    const info = run.result?.assertion?.freshnessAssertion;
+const getFormattedExpectedTextForFreshnessAssertion = (
+    run: AssertionRunEvent | undefined,
+    assertion: AssertionInfo,
+): string | undefined => {
+    const info = run?.result?.assertion?.freshnessAssertion || assertion?.freshnessAssertion;
     if (!info) return undefined;
-    switch (info.schedule.type) {
+    // NOTE: this should always be defined for an assertion run
+    switch (info.schedule?.type) {
         case FreshnessAssertionScheduleType.Cron: {
-            if (!info.schedule.cron) return undefined;
+            if (!info.schedule?.cron) return undefined;
             const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text;
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs
                 ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis`
                 : ``;
-            return `Table should have updated between the scheduled cron windows. The cron set the check to run ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+            return `Table should update between the scheduled cron windows. The cron set the check to run ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
         }
         case FreshnessAssertionScheduleType.SinceTheLastCheck: {
-            return `Table should have updated since the last time this check was run.`;
+            return `Table should update since the last time this check was run.`;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;
@@ -555,7 +575,7 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
                 info.schedule.fixedInterval.multiple
             } ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${
                 info.schedule.fixedInterval.multiple === 1 ? '' : 's'
-            } as of ${toReadableLocalDateTimeString(run.timestampMillis)}.`;
+            } as of ${run ? toReadableLocalDateTimeString(run.timestampMillis) : 'next run'}.`;
         }
         default:
             return undefined;
@@ -566,20 +586,29 @@ const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): stri
     return undefined;
 };
 
-export const getFormattedExpectedResultText = (assertion: Assertion, run: AssertionRunEvent): string | undefined => {
+export const getFormattedExpectedResultText = (
+    assertion?: Maybe<AssertionInfo>,
+    run?: AssertionRunEvent,
+): string | undefined => {
+    if (assertion?.source?.type === AssertionSourceType.Inferred && run?.result?.type === AssertionResultType.Init) {
+        return undefined;
+    }
     // Some historical assertion results may not have asseriton info...
     // but we don't coalesce 'assertion' into the run.result.assertion because the exepectation
     // at the time of this run event may have been different than what's currently on the asseriton
-    switch (run.result?.assertion?.type ?? assertion.info?.type) {
+    const fallbackAssertionInfo = assertion ?? run?.result?.assertion;
+    if (!fallbackAssertionInfo) return undefined;
+    switch (run?.result?.assertion?.type ?? assertion?.type) {
         case AssertionType.Freshness:
-            return getFormattedExpectedTextForFreshnessAssertion(run);
+            return getFormattedExpectedTextForFreshnessAssertion(run, fallbackAssertionInfo);
         case AssertionType.Volume:
-            return getFormattedExpectedTextForVolumeAssertion(run);
+            return getFormattedExpectedTextForVolumeAssertion(run, fallbackAssertionInfo);
         case AssertionType.Field:
-            return getFormattedExpectedTextForFieldAssertion(run);
+            return getFormattedExpectedTextForFieldAssertion(run, fallbackAssertionInfo);
         case AssertionType.Sql:
-            return getFormattedExpectedTextForSqlAssertion(run);
+            return getFormattedExpectedTextForSqlAssertion(run, fallbackAssertionInfo);
         case AssertionType.Dataset:
+            if (!run) return undefined;
             return getFormattedExpectedTextForDefaultAssertion(run);
         default:
             return undefined;
@@ -598,7 +627,12 @@ export enum ResultStatusType {
 /**
  * Returns the display text assoociated with an AssertionResultType
  */
-export const getResultStatusText = (result: AssertionResultType, type: ResultStatusType) => {
+export const getResultStatusText = (
+    result: AssertionResultType,
+    type: ResultStatusType,
+    isSmartAssertion?: boolean,
+) => {
+    const initText = type === ResultStatusType.LATEST ? 'Initializing' : 'Initialized';
     switch (result) {
         case AssertionResultType.Success:
             return type === ResultStatusType.LATEST ? 'Passing' : 'Passed';
@@ -607,7 +641,7 @@ export const getResultStatusText = (result: AssertionResultType, type: ResultSta
         case AssertionResultType.Error:
             return 'Error';
         case AssertionResultType.Init:
-            return type === ResultStatusType.LATEST ? 'Initializing' : 'Initialized';
+            return isSmartAssertion ? 'Training' : initText;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }

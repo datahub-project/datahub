@@ -384,7 +384,7 @@ class Source:
     def _setup_last_checked_sql_fragment(
         self,
         prev_high_watermark_value: Optional[str],
-        changed_rows_field: Optional[FreshnessFieldSpec],
+        changed_rows_field: Optional[SchemaFieldSpec],
     ) -> Optional[str]:
         last_checked = None
         if changed_rows_field and prev_high_watermark_value:
@@ -525,7 +525,7 @@ class Source:
         metric: FieldMetricType,
         filter_sql: Optional[str],
         prev_high_watermark_value: Optional[str],
-        changed_rows_field: Optional[FreshnessFieldSpec],
+        changed_rows_field: Optional[SchemaFieldSpec],
     ) -> float:
         # if applicable, setup a "last checked" sql fragment to filter the query further
         # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')
@@ -559,12 +559,12 @@ class Source:
     def get_field_metric_value(
         self,
         entity_urn: str,
-        database_parameters: AssertionDatabaseParams,
         field: SchemaFieldSpec,
         metric: FieldMetricType,
+        database_parameters: AssertionDatabaseParams,
         filter: Optional[DatasetFilter],
         prev_high_watermark_value: Optional[str],
-        changed_rows_field: Optional[FreshnessFieldSpec],
+        changed_rows_field: Optional[SchemaFieldSpec],
     ) -> float:
         database_params = self._get_database_params(entity_urn, database_parameters)
         filter_sql = FilterBuilder(filter.__dict__).get_sql() if filter else None

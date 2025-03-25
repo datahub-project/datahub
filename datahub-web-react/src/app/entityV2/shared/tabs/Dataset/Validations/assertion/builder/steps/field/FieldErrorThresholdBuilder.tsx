@@ -27,7 +27,7 @@ export const FieldErrorThresholdBuilder = ({ value, onChange, disabled }: Props)
                         ...value.assertion?.fieldAssertion?.fieldValuesAssertion,
                         failThreshold: {
                             type: FieldValuesFailThresholdType.Count,
-                            value: newValue,
+                            value: newValue ?? undefined,
                         },
                     },
                 },

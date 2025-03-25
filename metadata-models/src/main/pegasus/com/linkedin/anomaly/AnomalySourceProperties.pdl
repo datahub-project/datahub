@@ -10,5 +10,11 @@ record AnomalySourceProperties {
   /**
   * The timestampMillis field of the AssertionRunEvent which altered the anomaly status the anomaly (if applicable).
   */
+  @TimeseriesField = {}
   assertionRunEventTime: optional long
+
+  /**
+   * The timestamp associated with the metric cube value that triggered the anomaly.
+   */
+  metricCubeTimestamp: optional long
 }

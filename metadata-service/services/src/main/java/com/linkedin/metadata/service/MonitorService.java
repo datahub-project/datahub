@@ -25,6 +25,7 @@ import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorSettings;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -133,8 +134,8 @@ public class MonitorService extends BaseService {
    * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
    * be found.
    *
+   * @param opContext the authentication to use
    * @param monitorUrn the urn of the View
-   * @param authentication the authentication to use
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
@@ -154,6 +155,19 @@ public class MonitorService extends BaseService {
     }
   }
 
+  @Nonnull
+  public Urn createAssertionMonitor(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final CronSchedule schedule,
+      @Nonnull final AssertionEvaluationParameters parameters,
+      @Nullable final String executorId)
+      throws Exception {
+    return createAssertionMonitor(
+        opContext, entityUrn, assertionUrn, schedule, parameters, executorId, null);
+  }
+
   /**
    * Creates a new Dataset or DataJob Freshness Monitor for native execution by DataHub. Assumes
    * that the caller has already performed the required authorization.
@@ -167,7 +181,8 @@ public class MonitorService extends BaseService {
       @Nonnull final Urn assertionUrn,
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
-      @Nullable final String executorId)
+      @Nullable final String executorId,
+      @Nullable final AssertionMonitorSettings monitorSettings)
       throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
@@ -201,6 +216,9 @@ public class MonitorService extends BaseService {
                     .setAssertion(assertionUrn)
                     .setSchedule(schedule)
                     .setParameters(parameters))));
+    if (monitorSettings != null) {
+      assertionMonitor.setSettings(monitorSettings);
+    }
     monitorInfo.setAssertionMonitor(assertionMonitor);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
@@ -217,6 +235,28 @@ public class MonitorService extends BaseService {
     }
   }
 
+  public Urn upsertAssertionMonitor(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn monitorUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final CronSchedule schedule,
+      @Nonnull final AssertionEvaluationParameters parameters,
+      @Nonnull final MonitorMode mode,
+      @Nullable final String executorId)
+      throws Exception {
+    return upsertAssertionMonitor(
+        opContext,
+        monitorUrn,
+        assertionUrn,
+        entityUrn,
+        schedule,
+        parameters,
+        mode,
+        executorId,
+        null);
+  }
+
   /**
    * Updates an existing Dataset or DataJob Freshness Monitor for native execution by DataHub.
    * Assumes that the caller has already performed the required authorization.
@@ -231,7 +271,8 @@ public class MonitorService extends BaseService {
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
       @Nonnull final MonitorMode mode,
-      @Nullable final String executorId)
+      @Nullable final String executorId,
+      @Nullable final AssertionMonitorSettings monitorSettings)
       throws Exception {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
@@ -283,6 +324,9 @@ public class MonitorService extends BaseService {
                     .setAssertion(assertionUrn)
                     .setSchedule(schedule)
                     .setParameters(parameters))));
+    if (monitorSettings != null) {
+      assertionMonitor.setSettings(monitorSettings);
+    }
     monitorInfo.setAssertionMonitor(assertionMonitor);
     monitorInfo.setExecutorId(executorId, SetMode.IGNORE_NULL);
 

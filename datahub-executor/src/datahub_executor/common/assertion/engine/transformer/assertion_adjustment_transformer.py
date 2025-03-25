@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Tuple
+from typing import Tuple
 
 from datahub.ingestion.graph.client import DataHubGraph
 
@@ -18,14 +18,22 @@ from datahub_executor.common.assertion.engine.transformer.transformer import (
 )
 from datahub_executor.common.types import (
     Assertion,
-    AssertionAdjustmentSettings,
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
 )
+from datahub_executor.config import ONLINE_SMART_ASSERTIONS_ENABLED
 
 logger = logging.getLogger(__name__)
 
 
+# This is a legacy transformer which would apply buffer to adjust the range boundaries
+# on inferred volume and inferred freshness assertions.
+# As of Smart Assertions V2, it is no longer used.
+#
+# There is no longer support for adjusting the settings using an AssertionAdjustmentSettings in here,
+# and it was never used in the first place.
+#
+# This should be removed once Smart Assertions V2 are the "default" smart assertions used.
 class AssertionAdjustmentTransformer(AssertionTransformer):
     """
     This transformer is only applicable for INFERRED Assertions that are of type
@@ -46,16 +54,19 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> Tuple[Assertion, AssertionEvaluationParameters, AssertionEvaluationContext]:
-        if assertion.is_inferred and (
-            assertion.is_volume_row_count_total_assertion
-            or assertion.is_field_metric_assertion
+        if (
+            not ONLINE_SMART_ASSERTIONS_ENABLED
+            and assertion.is_inferred
+            and (
+                assertion.is_volume_row_count_total_assertion
+                or assertion.is_field_metric_assertion
+            )
         ):
             logger.debug("Inside Assertion Adjustment Transformer")
             try:
                 context.base_assertion_info = assertion.raw_info_aspect
-                algorithm = get_adjustment_algorithm_from_settings(
-                    assertion.adjustmentSettings, context
-                )
+
+                algorithm = get_adjustment_algorithm_from_settings(context)
                 new_assertion = algorithm.adjust_assertion_info(assertion)
                 self._update_raw_info_aspect_parameters(new_assertion)
                 return new_assertion, parameters, context
@@ -111,33 +122,20 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
 
 
 def get_adjustment_algorithm_from_settings(
-    adjustment_settings: Optional[AssertionAdjustmentSettings],
     context: AssertionEvaluationContext,
 ) -> AdjustmentAlgorithm:
     """
     Adjustment Algorithm Registry
     """
-    if adjustment_settings is None:  # default:
-        if (
-            context.evaluation_spec is not None
-            and context.evaluation_spec.context is not None
-            and context.evaluation_spec.context.std_dev is not None
-        ):
-            # In this case, use the new Std Deviation adjustment algo by default!
-            # TODO: In the future, we can allow users to configure this themselves using the adjustment_settings flow.
-            std_dev = context.evaluation_spec.context.std_dev
-            return StdDevAdjustmentAlgorithm(std_dev=std_dev)
+    if (
+        context.evaluation_spec is not None
+        and context.evaluation_spec.context is not None
+        and context.evaluation_spec.context.std_dev is not None
+    ):
+        # In this case, use the new Std Deviation adjustment algo by default!
+        # TODO: In the future, we can allow users to configure this themselves using the adjustment_settings flow.
+        std_dev = context.evaluation_spec.context.std_dev
+        return StdDevAdjustmentAlgorithm(std_dev=std_dev)
+    else:
         # Else fall back to legacy IQR.
         return IQRAdjustmentAlgorithm()
-    elif adjustment_settings.algorithmName == IQRAdjustmentAlgorithm.name():
-        try:
-            return IQRAdjustmentAlgorithm.parse_obj(adjustment_settings.dict())
-        except Exception as e:
-            logger.error(
-                f"Malformed input in adjustment settings {e},"
-                "will continue to apply default IQR adjustments."
-            )
-            return IQRAdjustmentAlgorithm()
-
-    else:
-        raise ValueError(f"Unknown algorithm {adjustment_settings.algorithmName}")

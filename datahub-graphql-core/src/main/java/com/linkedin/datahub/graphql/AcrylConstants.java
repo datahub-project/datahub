@@ -8,7 +8,6 @@ public class AcrylConstants {
   public static final String CONSTRAINTS_SCHEMA_FILE = "constraints.graphql";
   public static final String ACTIONS_SCHEMA_FILE = "actions.graphql";
   public static final String ACTIONS_PIPELINE_SCHEMA_FILE = "actions_pipeline.graphql";
-  public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
   public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
   public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
   public static final String AI_SCHEMA_FILE = "ai.graphql";

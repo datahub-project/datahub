@@ -12,8 +12,6 @@ import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
-import com.linkedin.datahub.graphql.generated.Anomaly;
-import com.linkedin.datahub.graphql.generated.AnomalySource;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
 import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -22,7 +20,6 @@ import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.DefaultRemoteExecutorPoolResult;
 import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
@@ -59,7 +56,6 @@ import com.linkedin.datahub.graphql.resolvers.action.execution.UpsertActionPipel
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ai.InferDocumentationResolver;
-import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
@@ -99,7 +95,6 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequest
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -162,7 +157,6 @@ import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.action.ActionPipelineType;
-import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.form.FormType;
@@ -216,7 +210,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   // Acryl Types
   private ActionPipelineType actionPipelineType; // Saas-ONLY
   private MonitorType monitorType; // SaaS only
-  private AnomalyType anomalyType;
   private RemoteExecutorType remoteExecutorType;
   private RemoteExecutorPoolType remoteExecutorPoolType;
   private DataContractType dataContractType; // SaaS only, will be moved to OSS
@@ -293,7 +286,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.monitorType =
         new MonitorType(
             args.getEntityClient(), args.getAssertionMonitorsConfiguration()); // SaaS only
-    this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
     this.dataContractType = new DataContractType(entityClient); // SaaS only
     this.remoteExecutorType = new RemoteExecutorType(args.getEntityClient()); // SaaS only
     this.remoteExecutorPoolType = new RemoteExecutorPoolType(args.getEntityClient()); // SaaS only
@@ -304,7 +296,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         ImmutableList.of(
             this.actionPipelineType,
             this.monitorType,
-            this.anomalyType,
             this.dataContractType,
             this.remoteExecutorType,
             this.remoteExecutorPoolType);
@@ -322,7 +313,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         ACTIONS_PIPELINE_SCHEMA_FILE,
         CONSTRAINTS_SCHEMA_FILE,
         MONITORS_SCHEMA_FILE,
-        ANOMALY_SCHEMA_FILE,
         INTEGRATIONS_SCHEMA_FILE,
         NOTIFICATIONS_SCHEMA_FILE,
         SUBSCRIPTIONS_SCHEMA_FILE,
@@ -339,7 +329,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     return ImmutableList.of(
         actionPipelineType, // Saas only
         monitorType, // SaaS only
-        anomalyType, // SaaS only
         dataContractType, // SaaS only
         remoteExecutorType, // SaaS only
         remoteExecutorPoolType // SaaS only
@@ -360,7 +349,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureDatasetResolvers(builder);
     configureActionRequestResolvers(builder);
     configureActionPipelineResolvers(builder, baseEngine);
-    configureAnomalyResolvers(builder, baseEngine);
     configureIntegrationResolvers(builder);
     configureMonitorResolvers(builder, baseEngine);
     configureResolvedAuditStampResolvers(builder, baseEngine);
@@ -686,53 +674,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     }
     // If neither is provided, a malformed action request was found!
     return Collections.emptyList();
-  }
-
-  private void configureAnomalyResolvers(
-      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
-    builder.type(
-        "Anomaly",
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "entity",
-                    new EntityTypeResolver(
-                        baseEngine.entityTypes, (env) -> ((Anomaly) env.getSource()).getEntity()))
-                .dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(this.graphClient)));
-    builder.type(
-        "AnomalySource",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "source",
-                new LoadableTypeResolver<>(
-                    baseEngine.getAssertionType(),
-                    (env) -> {
-                      final AnomalySource anomalySource = env.getSource();
-                      return anomalySource.getSource() != null
-                          ? anomalySource.getSource().getUrn()
-                          : null;
-                    })));
-    builder.type(
-        "EntityAnomaliesResult",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "anomalies",
-                new LoadableTypeBatchResolver<>(
-                    anomalyType,
-                    (env) ->
-                        ((EntityAnomaliesResult) env.getSource())
-                            .getAnomalies().stream()
-                                .map(Anomaly::getUrn)
-                                .collect(Collectors.toList()))));
-    builder.type(
-        "Dataset",
-        typeWiring ->
-            typeWiring.dataFetcher("anomalies", new EntityAnomaliesResolver(entityClient)));
-    builder.type(
-        "DataJob",
-        typeWiring ->
-            typeWiring.dataFetcher("anomalies", new EntityAnomaliesResolver(entityClient)));
   }
 
   private void configureAssertionResolvers(

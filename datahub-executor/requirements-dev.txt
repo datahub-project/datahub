@@ -46,6 +46,7 @@ altair==4.2.0
     # via
     #   -r requirements.txt
     #   great-expectations
+    #   streamlit
 amqp==5.3.1
     # via
     #   -r requirements.txt
@@ -118,6 +119,8 @@ bleach==6.2.0
     # via
     #   -r requirements.txt
     #   nbconvert
+blinker==1.9.0
+    # via streamlit
 blis==0.7.11
     # via
     #   -r requirements.txt
@@ -156,6 +159,7 @@ cachetools==5.5.0
     #   -r requirements.txt
     #   acryl-datahub
     #   google-auth
+    #   streamlit
 catalogue==2.0.10
     # via
     #   -r requirements.txt
@@ -201,6 +205,7 @@ click==8.1.7
     #   click-repl
     #   dataflows-tabulator
     #   great-expectations
+    #   streamlit
     #   tableschema
     #   typer
     #   uvicorn
@@ -229,6 +234,10 @@ cloudpathlib==0.20.0
     # via
     #   -r requirements.txt
     #   weasel
+cmdstanpy==1.2.5
+    # via
+    #   -r requirements.txt
+    #   prophet
 colorama==0.4.6
     # via
     #   -r requirements.txt
@@ -253,6 +262,10 @@ confluent-kafka==2.6.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
+contourpy==1.3.1
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 coverage==7.6.8
     # via pytest-cov
 croniter==1.3.15
@@ -270,6 +283,10 @@ cryptography==44.0.0
     #   pyjwt
     #   pyopenssl
     #   snowflake-connector-python
+cycler==0.12.1
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 cymem==2.0.10
     # via
     #   -r requirements.txt
@@ -359,6 +376,10 @@ filelock==3.16.1
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
+fonttools==4.56.0
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 frozenlist==1.5.0
     # via
     #   -r requirements.txt
@@ -368,6 +389,10 @@ geoalchemy2==0.16.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+gitdb==4.0.12
+    # via gitpython
+gitpython==3.1.44
+    # via streamlit
 google-api-core==2.23.0
     # via
     #   -r requirements.txt
@@ -469,6 +494,10 @@ h11==0.14.0
     # via
     #   -r requirements.txt
     #   uvicorn
+holidays==0.68
+    # via
+    #   -r requirements.txt
+    #   prophet
 httptools==0.6.4
     # via
     #   -r requirements.txt
@@ -493,9 +522,10 @@ importlib-metadata==8.5.0
     # via
     #   -r requirements.txt
     #   great-expectations
-importlib-resources==6.4.5 ; python_full_version < '3.12'
+importlib-resources==6.4.5
     # via
     #   -r requirements.txt
+    #   prophet
     #   schwifty
 iniconfig==2.0.0
     # via pytest
@@ -541,12 +571,19 @@ jinja2==3.1.4
     #   moto
     #   nbconvert
     #   notebook
+    #   pydeck
     #   spacy
 jmespath==1.0.1
     # via
     #   -r requirements.txt
     #   boto3
     #   botocore
+joblib==1.4.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
+    #   scikit-learn
 jsonlines==4.0.0
     # via
     #   -r requirements.txt
@@ -602,6 +639,10 @@ jupyterlab-widgets==3.0.13
     # via
     #   -r requirements.txt
     #   ipywidgets
+kiwisolver==1.4.8
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 kombu==5.4.0
     # via
     #   -r requirements.txt
@@ -660,6 +701,10 @@ marshmallow==3.23.1
     # via
     #   -r requirements.txt
     #   great-expectations
+matplotlib==3.10.1
+    # via
+    #   -r requirements.txt
+    #   prophet
 matplotlib-inline==0.1.7
     # via
     #   -r requirements.txt
@@ -713,6 +758,8 @@ mypy-extensions==1.0.0
     #   acryl-executor
     #   mypy
     #   typing-inspect
+narwhals==1.30.0
+    # via plotly
 nbclassic==1.1.0
     # via
     #   -r requirements.txt
@@ -753,16 +800,26 @@ notebook-shim==0.2.4
 numpy==1.26.4
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-executor
     #   altair
     #   blis
+    #   cmdstanpy
+    #   contourpy
     #   databricks-sql-connector
     #   db-dtypes
     #   great-expectations
+    #   matplotlib
     #   pandas
+    #   prophet
+    #   pydeck
     #   pydeequ
+    #   scikit-learn
     #   scipy
     #   spacy
+    #   stanio
+    #   streamlit
     #   thinc
 oauthlib==3.2.2
     # via
@@ -789,24 +846,33 @@ packaging==24.2
     #   ipykernel
     #   jupyter-server
     #   marshmallow
+    #   matplotlib
     #   nbconvert
+    #   plotly
     #   pytest
     #   redshift-connector
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
+    #   streamlit
+    #   streamlit-ext
     #   thinc
     #   weasel
 pandas==2.1.4
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-executor
     #   altair
+    #   cmdstanpy
     #   databricks-sql-connector
     #   db-dtypes
     #   great-expectations
+    #   prophet
     #   pydeequ
+    #   streamlit
 pandocfilters==1.5.1
     # via
     #   -r requirements.txt
@@ -831,6 +897,11 @@ phonenumbers==8.13.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-classify
+pillow==11.1.0
+    # via
+    #   -r requirements.txt
+    #   matplotlib
+    #   streamlit
 pip==24.3.1
     # via
     #   -r requirements.txt
@@ -839,6 +910,8 @@ platformdirs==4.3.6
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
+plotly==6.0.0
+    # via acryl-datahub-executor (pyproject.toml)
 pluggy==1.5.0
     # via pytest
 preshed==3.0.9
@@ -867,6 +940,11 @@ propcache==0.2.1
     #   -r requirements.txt
     #   aiohttp
     #   yarl
+prophet==1.1.5
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
 proto-plus==1.25.0
     # via
     #   -r requirements.txt
@@ -890,6 +968,7 @@ protobuf==4.25.5
     #   grpc-google-iam-v1
     #   grpcio-status
     #   proto-plus
+    #   streamlit
 psutil==7.0.0
     # via
     #   -r requirements.txt
@@ -920,6 +999,7 @@ pyarrow==18.1.0
     #   acryl-datahub
     #   databricks-sql-connector
     #   db-dtypes
+    #   streamlit
 pyasn1==0.6.1
     # via
     #   -r requirements.txt
@@ -958,6 +1038,8 @@ pydantic==1.10.19
     #   spacy
     #   thinc
     #   weasel
+pydeck==0.9.1
+    # via streamlit
 pydeequ==1.1.1
     # via
     #   -r requirements.txt
@@ -981,6 +1063,7 @@ pyparsing==3.2.0
     # via
     #   -r requirements.txt
     #   great-expectations
+    #   matplotlib
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via
     #   -r requirements.txt
@@ -1009,7 +1092,9 @@ python-dateutil==2.9.0.post0
     #   faker
     #   google-cloud-bigquery
     #   great-expectations
+    #   holidays
     #   jupyter-client
+    #   matplotlib
     #   moto
     #   pandas
     #   tableschema
@@ -1099,6 +1184,7 @@ requests==2.32.3
     #   responses
     #   snowflake-connector-python
     #   spacy
+    #   streamlit
     #   tableschema
     #   weasel
 requests-file==2.1.0
@@ -1146,11 +1232,17 @@ schwifty==2024.6.1
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-classify
+scikit-learn==1.6.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
 scipy==1.14.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
     #   great-expectations
+    #   scikit-learn
 scramp==1.4.5
     # via
     #   -r requirements.txt
@@ -1194,6 +1286,8 @@ smart-open==7.0.5
     #   -r requirements.txt
     #   acryl-datahub
     #   weasel
+smmap==5.0.2
+    # via gitdb
 sniffio==1.3.1
     # via
     #   -r requirements.txt
@@ -1279,10 +1373,20 @@ stackprinter==0.2.12
     # via
     #   -r requirements.txt
     #   acryl-datahub-actions
+stanio==0.5.1
+    # via
+    #   -r requirements.txt
+    #   cmdstanpy
 starlette==0.27.0
     # via
     #   -r requirements.txt
     #   fastapi
+streamlit==1.43.2
+    # via
+    #   acryl-datahub-executor (pyproject.toml)
+    #   streamlit-ext
+streamlit-ext==0.1.15
+    # via acryl-datahub-executor (pyproject.toml)
 tableschema==1.21.0
     # via
     #   -r requirements.txt
@@ -1296,6 +1400,7 @@ tenacity==8.5.0
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+    #   streamlit
 terminado==0.18.1
     # via
     #   -r requirements.txt
@@ -1305,6 +1410,10 @@ thinc==8.2.5
     # via
     #   -r requirements.txt
     #   spacy
+threadpoolctl==3.5.0
+    # via
+    #   -r requirements.txt
+    #   scikit-learn
 thrift==0.16.0
     # via
     #   -r requirements.txt
@@ -1318,6 +1427,7 @@ toml==0.10.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   streamlit
 tomli==2.2.1 ; python_full_version <= '3.11'
     # via
     #   -r requirements.txt
@@ -1339,11 +1449,14 @@ tornado==6.4.2
     #   jupyter-client
     #   jupyter-server
     #   notebook
+    #   streamlit
     #   terminado
 tqdm==4.67.1
     # via
     #   -r requirements.txt
+    #   cmdstanpy
     #   great-expectations
+    #   prophet
     #   spacy
 traitlets==5.2.1.post0
     # via
@@ -1401,6 +1514,7 @@ typing-extensions==4.12.2
     #   schwifty
     #   snowflake-connector-python
     #   sqlalchemy-stubs
+    #   streamlit
     #   typer
     #   typing-inspect
     #   uvicorn
@@ -1472,6 +1586,7 @@ watchdog==3.0.0
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+    #   streamlit
 watchfiles==1.0.0
     # via
     #   -r requirements.txt

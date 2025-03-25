@@ -1,14 +1,18 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { keyBy } from 'lodash';
 import React from 'react';
+import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 import {
     Assertion,
     AssertionActionType,
+    AssertionAdjustmentSettings,
     AssertionEvaluationParametersInput,
     AssertionEvaluationParametersType,
+    AssertionSourceType,
     AssertionStdOperator,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
     CreateFieldAssertionInput,
@@ -39,8 +43,21 @@ import {
     REDSHIFT_URN,
     SNOWFLAKE_URN,
 } from '../../../../../../../ingest/source/builder/constants';
-import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
-import { AssertionActionsFormState, AssertionMonitorBuilderState } from './types';
+import {
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+    ASSERTION_TYPES,
+    HIGH_WATERMARK_FIELD_TYPES,
+    LAST_MODIFIED_FIELD_TYPES,
+} from './constants';
+import {
+    AssertionActionsFormState,
+    AssertionMonitorBuilderState,
+    FieldMetricAssertionBuilderOperatorOptions,
+    FreshnessAssertionBuilderScheduleType,
+    FreshnessAssertionScheduleBuilderTypeOptions,
+    VolumeAssertionBuilderTypeOptions,
+} from './types';
 import { cleanAssertionDescription, removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
 
 /** Configuration object used to display each source option */
@@ -53,7 +70,7 @@ export type SourceOption = {
         kind?: FreshnessFieldKind;
         dataTypes?: Set<SchemaFieldDataType>;
     };
-    allowedScheduleTypes: FreshnessAssertionScheduleType[];
+    allowedScheduleTypes: FreshnessAssertionBuilderScheduleType[];
 };
 
 /** Different platforms may allow only certain source types. In the future, we may want a better place to declare these. */
@@ -314,9 +331,10 @@ const allSourceOptions: SourceOption[] = [
         name: 'Audit Log',
         description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
         allowedScheduleTypes: [
-            FreshnessAssertionScheduleType.FixedInterval,
-            FreshnessAssertionScheduleType.Cron,
-            FreshnessAssertionScheduleType.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
         ],
     },
     {
@@ -324,9 +342,10 @@ const allSourceOptions: SourceOption[] = [
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
         allowedScheduleTypes: [
-            FreshnessAssertionScheduleType.FixedInterval,
-            FreshnessAssertionScheduleType.Cron,
-            FreshnessAssertionScheduleType.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
         ],
     },
     {
@@ -334,9 +353,10 @@ const allSourceOptions: SourceOption[] = [
         name: 'File Metadata',
         description: "Use the underlying file system's metadata to determine whether the asset has changed",
         allowedScheduleTypes: [
-            FreshnessAssertionScheduleType.FixedInterval,
-            FreshnessAssertionScheduleType.Cron,
-            FreshnessAssertionScheduleType.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
         ],
     },
     {
@@ -351,9 +371,10 @@ const allSourceOptions: SourceOption[] = [
             dataTypes: LAST_MODIFIED_FIELD_TYPES,
         },
         allowedScheduleTypes: [
-            FreshnessAssertionScheduleType.FixedInterval,
-            FreshnessAssertionScheduleType.Cron,
-            FreshnessAssertionScheduleType.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
         ],
     },
     {
@@ -367,7 +388,11 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.HighWatermark,
             dataTypes: HIGH_WATERMARK_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        // We don't support fixed interval for high watermark. And since inferred uses interval underneath, it is also not supported for inferred.
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.DatahubOperation,
@@ -375,9 +400,10 @@ const allSourceOptions: SourceOption[] = [
         description:
             'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
         allowedScheduleTypes: [
-            FreshnessAssertionScheduleType.FixedInterval,
-            FreshnessAssertionScheduleType.Cron,
-            FreshnessAssertionScheduleType.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
+            FreshnessAssertionScheduleBuilderTypeOptions.Cron,
+            FreshnessAssertionScheduleBuilderTypeOptions.SinceTheLastCheck,
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
         ],
     },
 ];
@@ -392,18 +418,23 @@ const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourc
 export const builderStateToSharedFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return removeNestedTypeNames({
         description: builderState.assertion?.description,
-        schedule: {
-            type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
-            cron:
-                builderState.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.Cron
-                    ? builderState.assertion?.freshnessAssertion?.schedule?.cron
-                    : undefined,
-            fixedInterval:
-                builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                FreshnessAssertionScheduleType.FixedInterval
-                    ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
-                    : undefined,
-        },
+        schedule:
+            builderState.assertion?.freshnessAssertion?.schedule?.type ===
+            FreshnessAssertionScheduleBuilderTypeOptions.AiInferred
+                ? undefined
+                : {
+                      type: builderState.assertion?.freshnessAssertion?.schedule?.type,
+                      cron:
+                          builderState.assertion?.freshnessAssertion?.schedule?.type ===
+                          FreshnessAssertionScheduleType.Cron
+                              ? builderState.assertion?.freshnessAssertion?.schedule?.cron
+                              : undefined,
+                      fixedInterval:
+                          builderState.assertion?.freshnessAssertion?.schedule?.type ===
+                          FreshnessAssertionScheduleType.FixedInterval
+                              ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
+                              : undefined,
+                  },
         filter: builderState.assertion?.freshnessAssertion?.filter
             ? {
                   type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
@@ -420,21 +451,35 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
 };
 
 export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    const inferWithAI =
+        builderState.assertion?.freshnessAssertion?.schedule?.type ===
+        FreshnessAssertionScheduleBuilderTypeOptions.AiInferred;
     return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedFreshnessAssertionVariables(builderState),
             // Monitor parameters
-            evaluationSchedule: builderState.schedule,
+            evaluationSchedule: inferWithAI
+                ? // If AI is enabled, we use a default schedule for freshness monitoring
+                  {
+                      timezone: builderState.schedule?.timezone || AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+                      cron: AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+                  }
+                : builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFreshnessParameters,
             mode: MonitorMode.Active,
             entityUrn: builderState.entityUrn,
+            inferenceSettings: builderState.inferenceSettings,
+            inferWithAI,
         },
     });
 };
 
 export const builderStateToVolumeTypeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    const volumeAssertionType = builderState.assertion?.volumeAssertion?.type as VolumeAssertionType;
+    let volumeAssertionType = builderState.assertion?.volumeAssertion?.type;
+    if (volumeAssertionType === VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal) {
+        volumeAssertionType = VolumeAssertionType.RowCountTotal;
+    }
 
     switch (volumeAssertionType) {
         case VolumeAssertionType.RowCountTotal:
@@ -480,7 +525,10 @@ export const builderStateToVolumeTypeAssertionVariables = (builderState: Asserti
 export const builderStateToSharedVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     const volumeTypeVariables = builderStateToVolumeTypeAssertionVariables(builderState);
     return removeNestedTypeNames({
-        type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
+        type:
+            builderState.assertion?.volumeAssertion?.type === VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal
+                ? VolumeAssertionType.RowCountTotal
+                : builderState.assertion?.volumeAssertion?.type,
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
             ? {
@@ -499,6 +547,8 @@ export const builderStateToSharedVolumeAssertionVariables = (builderState: Asser
 };
 
 export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    const inferWithAI =
+        builderState.assertion?.volumeAssertion?.type === VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal;
     return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
@@ -507,6 +557,8 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetVolumeParameters,
             mode: MonitorMode.Active,
+            inferWithAI,
+            inferenceSettings: builderState.inferenceSettings,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -560,6 +612,31 @@ export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: A
 };
 
 export const builderStateToSharedFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    let fieldMetricAssertion =
+        builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric
+            ? builderState.assertion?.fieldAssertion?.fieldMetricAssertion
+            : undefined;
+    const inferWithAI =
+        builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric &&
+        builderState.assertion?.fieldAssertion?.fieldMetricAssertion?.operator ===
+            FieldMetricAssertionBuilderOperatorOptions.AiInferred;
+    if (inferWithAI) {
+        fieldMetricAssertion = {
+            ...fieldMetricAssertion,
+            operator: AssertionStdOperator.Between,
+            parameters: {
+                minValue: {
+                    value: '0',
+                    type: AssertionStdParameterType.Number,
+                },
+                maxValue: {
+                    value: '0',
+                    type: AssertionStdParameterType.Number,
+                },
+            },
+        };
+    }
+
     return removeNestedTypeNames({
         type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
         description: builderState.assertion?.description,
@@ -567,10 +644,7 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
             builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldValues
                 ? builderState.assertion?.fieldAssertion?.fieldValuesAssertion
                 : undefined,
-        fieldMetricAssertion:
-            builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric
-                ? builderState.assertion?.fieldAssertion?.fieldMetricAssertion
-                : undefined,
+        fieldMetricAssertion,
         filter: builderState.assertion?.fieldAssertion?.filter
             ? {
                   type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
@@ -587,6 +661,10 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
 };
 
 export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    const inferWithAI =
+        builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric &&
+        builderState.assertion?.fieldAssertion?.fieldMetricAssertion?.operator ===
+            FieldMetricAssertionBuilderOperatorOptions.AiInferred;
     return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
@@ -595,6 +673,8 @@ export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState:
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFieldParameters,
             mode: MonitorMode.Active,
+            inferWithAI,
+            inferenceSettings: builderState.inferenceSettings,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -785,21 +865,33 @@ export const isStructField = (field: SchemaField) => {
     return field.fieldPath.includes('type=struct') || field.fieldPath.includes('.');
 };
 
-const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorBuilderState['assertion'] => {
+const convertAssertionToBuilderState = (rawAssertion: Assertion): AssertionMonitorBuilderState['assertion'] => {
+    const assertion = nullsToUndefined(rawAssertion);
+    const isInferred = assertion?.info?.source?.type === AssertionSourceType.Inferred;
     return {
         urn: assertion?.urn,
         type: assertion?.info?.type,
-        description: assertion?.info?.description,
+        description: assertion?.info?.description || undefined,
         actions: {
             onSuccess: assertion.actions?.onSuccess?.map((action) => ({ type: action.type })) || [],
             onFailure: assertion.actions?.onFailure?.map((action) => ({ type: action.type })) || [],
         },
         freshnessAssertion: {
-            schedule: assertion.info?.freshnessAssertion?.schedule,
+            // for inferred freshness assertions, schedule may not be present
+            schedule:
+                assertion.info?.freshnessAssertion && isInferred
+                    ? {
+                          ...assertion.info.freshnessAssertion.schedule,
+                          type: FreshnessAssertionScheduleBuilderTypeOptions.AiInferred,
+                      }
+                    : assertion.info?.freshnessAssertion?.schedule,
             filter: assertion.info?.freshnessAssertion?.filter,
         },
         volumeAssertion: {
-            type: assertion.info?.volumeAssertion?.type,
+            type:
+                assertion.info?.volumeAssertion?.type && isInferred
+                    ? VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal
+                    : assertion.info?.volumeAssertion?.type,
             rowCountTotal: assertion.info?.volumeAssertion?.rowCountTotal,
             rowCountChange: assertion.info?.volumeAssertion?.rowCountChange,
             incrementingSegmentRowCountTotal: assertion.info?.volumeAssertion?.incrementingSegmentRowCountTotal,
@@ -825,13 +917,56 @@ const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorB
             fieldValuesAssertion: assertion.info?.fieldAssertion?.fieldValuesAssertion,
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore TODO(@jjoyce0510): can we convert these fields on `AssertionMonitorBuilderState` to just use the generated types instead of manually defining every prop?
-            fieldMetricAssertion: assertion.info?.fieldAssertion?.fieldMetricAssertion,
+            fieldMetricAssertion:
+                assertion.info?.fieldAssertion?.fieldMetricAssertion && isInferred
+                    ? {
+                          ...assertion.info.fieldAssertion.fieldMetricAssertion,
+                          operator: FieldMetricAssertionBuilderOperatorOptions.AiInferred,
+                      }
+                    : assertion.info?.fieldAssertion?.fieldMetricAssertion,
             filter: assertion.info?.fieldAssertion?.filter,
         },
         schemaAssertion: {
             compatibility: assertion.info?.schemaAssertion?.compatibility,
             fields: assertion.info?.schemaAssertion?.fields,
         },
+    };
+};
+
+export const convertInferenceSettingsToBuilderState = (inferenceSettings?: Maybe<AssertionAdjustmentSettings>) => {
+    if (!inferenceSettings) {
+        return undefined;
+    }
+    return {
+        sensitivity: {
+            level: inferenceSettings.sensitivity?.level?.valueOf(),
+        },
+        trainingDataLookbackWindowDays: inferenceSettings.trainingDataLookbackWindowDays?.valueOf(),
+        exclusionWindows: inferenceSettings.exclusionWindows?.map((exclusionWindow) => ({
+            type: exclusionWindow.type,
+            displayName: exclusionWindow.displayName?.valueOf(),
+            fixedRange: exclusionWindow.fixedRange
+                ? {
+                      startTimeMillis: exclusionWindow.fixedRange.startTimeMillis?.valueOf(),
+                      endTimeMillis: exclusionWindow.fixedRange.endTimeMillis?.valueOf(),
+                  }
+                : undefined,
+            holiday: exclusionWindow.holiday
+                ? {
+                      name: exclusionWindow.holiday.name?.valueOf(),
+                      region: exclusionWindow.holiday.region?.valueOf(),
+                      timezone: exclusionWindow.holiday.timezone?.valueOf(),
+                  }
+                : undefined,
+            weekly: exclusionWindow.weekly
+                ? {
+                      daysOfWeek: exclusionWindow.weekly.daysOfWeek?.map((day) => day.valueOf()),
+                      startTime: exclusionWindow.weekly.startTime?.valueOf(),
+                      endTime: exclusionWindow.weekly.endTime?.valueOf(),
+                      timezone: exclusionWindow.weekly.timezone?.valueOf(),
+                  }
+                : undefined,
+        })),
     };
 };
 
@@ -845,6 +980,9 @@ export const createAssertionMonitorBuilderState = (
         platformUrn: entity.platform?.urn,
         assertion: convertAssertionToBuilderState(assertion),
         schedule: monitor?.info?.assertionMonitor?.assertions?.[0]?.schedule,
+        inferenceSettings: convertInferenceSettingsToBuilderState(
+            monitor?.info?.assertionMonitor?.settings?.inferenceSettings,
+        ),
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
