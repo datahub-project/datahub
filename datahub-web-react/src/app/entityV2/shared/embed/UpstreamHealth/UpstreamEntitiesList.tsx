@@ -1,13 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Dataset } from '@src/types.generated';
 import { Divider } from 'antd';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { ANTD_GRAY } from '../../constants';
 
 type Props = {
-    directEntities: Dataset[];
-    indirectEntities: Dataset[];
+    directEntities: GenericEntityProperties[];
+    indirectEntities: GenericEntityProperties[];
     loadMoreDirectEntities: () => void;
     loadMoreIndirectEntities: () => void;
     remainingDirectEntities: number;

@@ -4,8 +4,10 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ErrorRounded } from '@mui/icons-material';
 import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { Dataset, EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
+import { EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
@@ -50,10 +52,11 @@ const Container = styled.div`
 
 export default function UpstreamHealth() {
     const { entityData } = useEntityData();
+    const entityRegistry = useEntityRegistry();
 
     const [isOpen, setIsOpen] = useState(false);
-    const [directUpstreamEntities, setDirectUpstreamEntities] = useState<Dataset[]>([]);
-    const [indirectUpstreamEntities, setIndirectUpstreamEntities] = useState<Dataset[]>([]);
+    const [directUpstreamEntities, setDirectUpstreamEntities] = useState<GenericEntityProperties[]>([]);
+    const [indirectUpstreamEntities, setIndirectUpstreamEntities] = useState<GenericEntityProperties[]>([]);
 
     const [directUpstreamsDataStart, setDirectUpstreamsDataStart] = useState(0);
     const [indirectUpstreamsDataStart, setIndirectUpstreamsDataStart] = useState(0);
@@ -144,7 +147,9 @@ export default function UpstreamHealth() {
     useEffect(() => {
         if (directUpstreamData?.searchAcrossLineage?.searchResults?.length && !directUpstreamEntities.length) {
             setDirectUpstreamEntities(
-                directUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+                directUpstreamData.searchAcrossLineage.searchResults
+                    .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
+                    .filter((e) => e !== null),
             );
             setDirectUpstreamsDataTotal(directUpstreamData.searchAcrossLineage.total);
         }
@@ -157,7 +162,9 @@ export default function UpstreamHealth() {
     useEffect(() => {
         if (indirectUpstreamData?.searchAcrossLineage?.searchResults?.length && !indirectUpstreamEntities.length) {
             setIndirectUpstreamEntities(
-                indirectUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+                indirectUpstreamData.searchAcrossLineage.searchResults
+                    .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
+                    .filter((e) => e !== null),
             );
             setIndirectUpstreamsDataTotal(indirectUpstreamData.searchAcrossLineage.total);
         }
@@ -178,7 +185,9 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setDirectUpstreamEntities([
                     ...directUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                    ...result.data.searchAcrossLineage.searchResults
+                        .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
+                        .filter((e) => e !== null),
                 ]);
             }
         });
@@ -196,7 +205,9 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setIndirectUpstreamEntities([
                     ...indirectUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                    ...result.data.searchAcrossLineage.searchResults
+                        .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
+                        .filter((e) => e !== null),
                 ]);
             }
         });

@@ -11,7 +11,8 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { HealthStatus, HealthStatusType, Health, Dataset } from '../../../types.generated';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
@@ -42,7 +43,7 @@ export const isUnhealthy = (healths: Health[]) => {
     return isFailingAssertions || hasActiveIncidents;
 };
 
-export const isDeprecated = (entity: Dataset) => {
+export const isDeprecated = (entity: GenericEntityProperties) => {
     return entity.deprecation?.deprecated;
 };
 
