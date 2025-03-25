@@ -7,7 +7,7 @@ import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
+import { FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
@@ -157,7 +157,7 @@ export default function UpstreamHealth() {
         directUpstreamData?.searchAcrossLineage?.searchResults,
         directUpstreamEntities.length,
         directUpstreamData?.searchAcrossLineage?.total,
-        entityRegistry
+        entityRegistry,
     ]);
 
     useEffect(() => {
@@ -173,7 +173,7 @@ export default function UpstreamHealth() {
         indirectUpstreamData?.searchAcrossLineage?.searchResults,
         indirectUpstreamEntities.length,
         indirectUpstreamData?.searchAcrossLineage?.total,
-        entityRegistry
+        entityRegistry,
     ]);
 
     function loadMoreDirectUpstreamData() {
