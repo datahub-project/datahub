@@ -4,13 +4,14 @@ from typing import Callable, Dict, Iterable, Optional
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
+    datahub_guid,
     make_data_flow_urn,
     make_data_job_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatabaseKey, DatahubKey, SchemaKey
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -31,10 +32,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
-class ArgumentSignatureKey(DatahubKey):
-    argument_signature: Optional[str] = None
-
-
 @dataclass
 class BaseProcedure:
     name: str
@@ -51,9 +48,9 @@ class BaseProcedure:
         self,
     ) -> str:
         if self.argument_signature:
-            argument_signature_hash = ArgumentSignatureKey(
-                argument_signature=self.argument_signature
-            ).guid()
+            argument_signature_hash = datahub_guid(
+                dict(argument_signature=self.argument_signature)
+            )
             return f"{self.name}_{argument_signature_hash}"
 
         return self.name
