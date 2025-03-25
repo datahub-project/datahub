@@ -100,12 +100,15 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
     stream_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for streams to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for streams to filter in ingestion. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for procedures to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire procedure name in database.schema.procedure format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in database.schema.procedure format. "
+        "e.g. to match all procedures starting with customer in Customer database and public schema,"
+        " use the regex 'Customer.public.customer.*'",
     )
 
     match_fully_qualified_names: bool = Field(

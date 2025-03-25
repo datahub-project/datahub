@@ -1317,16 +1317,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             snowflake_schema.streams = [stream.name for stream in streams]
             return streams
         except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = f"Failed to get streams for schema {db_name}.{snowflake_schema.name}. Please check permissions."
-                raise SnowflakePermissionError(error_msg) from e.__cause__
-            else:
-                self.structured_reporter.warning(
-                    "Failed to get streams for schema",
-                    f"{db_name}.{snowflake_schema.name}",
-                    exc=e,
-                )
-                return []
+            self.structured_reporter.warning(
+                title="Failed to get streams for schema",
+                message="Please check permissions"
+                if isinstance(e, SnowflakePermissionError)
+                else "",
+                context=f"{db_name}.{snowflake_schema.name}",
+                exc=e,
+            )
+            return []
 
     def get_streams_for_schema(
         self, schema_name: str, db_name: str
@@ -1352,16 +1351,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.report.report_dropped(procedure_qualified_name)
             return procedures
         except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = f"Failed to get procedures for schema {db_name}.{snowflake_schema.name}. Please check permissions."
-                raise SnowflakePermissionError(error_msg) from e.__cause__
-            else:
-                self.structured_reporter.warning(
-                    message="Failed to get procedures for schema",
-                    context=f"{db_name}.{snowflake_schema.name}",
-                    exc=e,
-                )
-                return []
+            self.structured_reporter.warning(
+                title="Failed to get procedures for schema",
+                message="Please check permissions"
+                if isinstance(e, SnowflakePermissionError)
+                else "",
+                context=f"{db_name}.{snowflake_schema.name}",
+                exc=e,
+            )
+            return []
 
     def get_procedures_for_schema(
         self,
@@ -1416,8 +1414,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
         except Exception as e:
             self.structured_reporter.warning(
-                title="Failed to ingest stored procedure", 
-                context=procedure.name, 
+                title="Failed to ingest stored procedure",
+                message="",
+                context=procedure.name,
                 exc=e,
             )
 

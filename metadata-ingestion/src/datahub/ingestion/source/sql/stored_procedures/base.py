@@ -31,7 +31,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
-class ProcedureSignature(DatahubKey):
+class ArgumentSignatureKey(DatahubKey):
     argument_signature: Optional[str] = None
 
 
@@ -50,12 +50,13 @@ class BaseProcedure:
     def get_procedure_identifier(
         self,
     ) -> str:
-        argument_signature_suffix = (
-            ProcedureSignature(argument_signature=self.argument_signature).guid()
-            if self.argument_signature
-            else ""
-        )
-        return f"{self.name}_{argument_signature_suffix}"
+        if self.argument_signature:
+            argument_signature_hash = ArgumentSignatureKey(
+                argument_signature=self.argument_signature
+            ).guid()
+            return f"{self.name}_{argument_signature_hash}"
+
+        return self.name
 
     def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
         return make_data_job_urn(
@@ -132,7 +133,6 @@ def generate_job_workunits(
 ) -> Iterable[MetadataWorkUnit]:
     """Generate job workunits for database, schema and procedure"""
 
-    # TODO: escape special chars if present in stored procedure name
     job_urn = procedure.to_urn(database_key, schema_key)
 
     yield MetadataChangeProposalWrapper(
