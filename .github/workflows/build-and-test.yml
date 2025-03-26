@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   workflow_dispatch:
   release:
     types: [published]

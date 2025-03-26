@@ -109,7 +109,7 @@ const NewTag = styled.span`
  */
 const PATHS = [
     { path: 'tokens', content: <AccessTokens /> },
-    { path: 'identities', content: <ManageIdentities version="v1" /> },
+    { path: 'identities', content: <ManageIdentities version="v1" version="v1" /> },
     { path: 'policies', content: <ManagePolicies /> },
     { path: 'preferences', content: <Preferences /> },
     /* acryl-main only */

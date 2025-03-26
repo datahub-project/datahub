@@ -162,10 +162,9 @@
                         "type" : "enum",
                         "name" : "Condition",
                         "doc" : "The matching condition in a filter criterion",
-                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IEQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "BETWEEN", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
+                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IEQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
                         "symbolDocs" : {
                           "ANCESTORS_INCL" : "Represent the relation: URN field matches any nested parent in addition to the given URN",
-                          "BETWEEN" : "Represent the relation within an inclusive range, e.g. 3 <= ownerCount <= 5. Note that the values in Criterion must have two entries for a lower and upper bound.",
                           "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
                           "DESCENDANTS_INCL" : "Represent the relation: URN field any nested children in addition to the given URN",
                           "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
@@ -845,13 +844,12 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
-      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
@@ -859,7 +857,6 @@
       "SANDBOX" : "Designates sandbox fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
-      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -936,7 +933,7 @@
                   "type" : "map",
                   "values" : "string"
                 },
-                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.\nAlso can include flags like 'propagated'=true or 'inferred'=true.",
+                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.",
                 "default" : { }
               } ]
             },
@@ -975,7 +972,7 @@
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
-          "filterNameOverride" : "Tagged With",
+          "filterNameOverride" : "Tag",
           "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true
         }
@@ -1054,7 +1051,7 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term Applied",
+        "filterNameOverride" : "Glossary Term",
         "hasValuesFieldName" : "hasGlossaryTerms",
         "includeSystemModifiedAt" : true,
         "systemModifiedAtFieldName" : "termsModifiedAt"
@@ -1137,21 +1134,6 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
-          }, {
-            "name" : "settings",
-            "type" : {
-              "type" : "record",
-              "name" : "InstitutionalMemoryMetadataSettings",
-              "doc" : "Settings related to a record of InstitutionalMemoryMetadata",
-              "fields" : [ {
-                "name" : "showInAssetPreview",
-                "type" : "boolean",
-                "doc" : "Show record in asset preview like on entity header and search previews",
-                "default" : false
-              } ]
-            },
-            "doc" : "Settings for this record",
-            "optional" : true
           } ]
         }
       },
@@ -1160,7 +1142,7 @@
     "Aspect" : {
       "name" : "institutionalMemory"
     }
-  }, "com.linkedin.common.InstitutionalMemoryMetadata", "com.linkedin.common.InstitutionalMemoryMetadataSettings", {
+  }, "com.linkedin.common.InstitutionalMemoryMetadata", {
     "type" : "enum",
     "name" : "MLFeatureDataType",
     "namespace" : "com.linkedin.common",
@@ -1277,11 +1259,6 @@
       "Relationship" : {
         "entityTypes" : [ "ownershipType" ],
         "name" : "ownershipType"
-      },
-      "Searchable" : {
-        "fieldName" : "ownershipTypeUrn",
-        "fieldType" : "URN",
-        "queryByDefault" : false
       }
     }, {
       "name" : "source",
@@ -1342,7 +1319,7 @@
       "default" : { },
       "optional" : true,
       "Searchable" : {
-        "/$key" : {
+        "/*" : {
           "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
@@ -1532,13 +1509,7 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
-      "Searchable" : {
-        "/lastModified/time" : {
-          "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
-        }
-      }
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
@@ -1561,18 +1532,7 @@
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
       "doc" : "The time when this dashboard last refreshed",
-      "optional" : true,
-      "Searchable" : {
-        "queryByDefault" : false
-      }
-    }, {
-      "name" : "lastRefreshedBy",
-      "type" : "com.linkedin.common.Urn",
-      "doc" : "The actor who last refreshed this dashboard",
-      "optional" : true,
-      "Searchable" : {
-        "queryByDefault" : false
-      }
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "dashboardInfo"
@@ -3449,8 +3409,7 @@
                 },
                 "/tags/*/attribution/time" : {
                   "fieldName" : "editedFieldTagAttributionDates",
-                  "fieldType" : "DATETIME",
-                  "queryByDefault" : false
+                  "fieldType" : "DATETIME"
                 },
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -3482,8 +3441,7 @@
                 },
                 "/terms/*/attribution/time" : {
                   "fieldName" : "editedFieldTermAttributionDates",
-                  "fieldType" : "DATETIME",
-                  "queryByDefault" : false
+                  "fieldType" : "DATETIME"
                 },
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,

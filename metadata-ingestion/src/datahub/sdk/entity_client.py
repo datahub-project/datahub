@@ -95,7 +95,7 @@ class EntityClient:
                 changeType=models.ChangeTypeClass.CREATE_ENTITY,
             )
         )
-        mcps.extend(entity._as_mcps(models.ChangeTypeClass.CREATE))
+        mcps.extend(entity.as_mcps(models.ChangeTypeClass.CREATE))
 
         self._graph.emit_mcps(mcps)
 
@@ -108,7 +108,7 @@ class EntityClient:
             )
             # TODO: If there are no previous aspects but the entity exists, should we delete aspects that are not present here?
 
-        mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
+        mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
         self._graph.emit_mcps(mcps)
 
     def update(self, entity: Union[Entity, MetadataPatchProposal]) -> None:
@@ -123,7 +123,7 @@ class EntityClient:
         # TODO: respect If-Unmodified-Since?
         # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
 
-        mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
+        mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
         self._graph.emit_mcps(mcps)
 
     def _update_patch(

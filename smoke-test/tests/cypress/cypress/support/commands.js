@@ -132,6 +132,11 @@ Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
   cy.waitTestIdVisible("managePostsV1");
 });
 
+Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
+  cy.visit("/settings/posts");
+  cy.waitTestIdVisible("managePostsV1");
+});
+
 Cypress.Commands.add("goToHomePagePostSettingsV2", () => {
   cy.visit("/settings/posts");
   cy.waitTestIdVisible("managePostsV2");

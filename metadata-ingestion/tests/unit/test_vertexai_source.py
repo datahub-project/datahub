@@ -91,6 +91,7 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
                     time=datetime_to_ts_millis(mock_model.update_time),
                     actor="urn:li:corpuser:datahub",
                 ),
+                externalUrl=source._make_model_external_url(mock_model),
             ),
         )
 

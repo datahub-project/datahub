@@ -98,5 +98,4 @@ record CorpUserEditableInfo {
    * They can also refer to other semantic urns in the future.
    */
   informationSources: optional array[Urn]
-
 }
